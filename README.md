@@ -4,6 +4,8 @@ Alan → Yazılım → Ürün / ortam → Danışmanlık görevi → Kod bloğu 
 
 Türkçe, yerelde çalışan bir otomasyon kataloğu. Workers / Workless projesinin hiyerarşi yaklaşımından esinlenir; kaynak projeyi değiştirmez.
 
+Arayüzde sağ üstte açık, koyu ve sistem teması seçilebilir. İlk açılışta işletim sistemi tercihi izlenir; elle seçilen tema tarayıcıda hatırlanır. Tema tüm kart, filtre, paket ayrıntısı ve demo ekranlarını kapsar. Hareket azaltma tercihi desteklenir; mobil menü klavye ve Escape ile kullanılabilir.
+
 ## Başlat
 
 Node.js 18+ ve Python 3.10+ gerekir. Harici paket kurulumu gerekmez.
