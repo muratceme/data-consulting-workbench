@@ -60,6 +60,32 @@ ENGINES = {
  'sql':('SQL model envanteri','SQL dosyalarındaki tablo başvurularını kaba regex ile çıkarır; SQL parser değildir.')
 }
 
+ADVISORY = {
+ 'bi':('Semantik model ve ölçü sözleşmesi','Dashboard performans incelemesi','KPI tanımı, grain, boyutlar, ölçü formülü, filtre davranışı ve kullanıcı kabul kriterleri; veri kanıtı olmadan KPI değeri uydurma.'),
+ 'erp':('Cari ve ürün ana veri eşlemesi','Finansal veri dönüşüm kontrol planı','Şirket kodu, para birimi, muhasebe dönemi, ana veri anahtarı ve mutabakat toleransı; platforma yazmadan eşleme ve kontrol teslimi.'),
+ 'warehouse':('SCD ve artımlı yükleme stratejisi','Partition ve sorgu performans incelemesi','Fact grain, doğal ve surrogate anahtar, SCD tipi, geç gelen veri, partition ve maliyet ölçüm planı.'),
+ 'lakehouse':('Tablo biçimi ve katman seçimi','Veri saklama ve compaction planı','Şema evrimi, ACID ihtiyacı, tablo formatı, katman sözleşmesi, retention ve işletim maliyeti.'),
+ 'integration':('CDC ve artımlı aktarım tasarımı','Hata ve yeniden çalıştırma stratejisi','Watermark, CDC, idempotency, yeniden deneme, schema drift, kaynak yükü ve hedef kontrolü.'),
+ 'transform':('Model bağımlılığı ve test tasarımı','Semantik katman sözleşmesi','Model grain, unique/not-null/referential testler, lineage varsayımları ve metrik sahipliği.'),
+ 'orchestration':('SLA ve yeniden deneme planı','Pipeline bağımlılık tasarımı','DAG bağımlılıkları, timeout, retry, idempotency, backfill, çalışma penceresi ve uyarı sahibi.'),
+ 'stream':('Event-time ve geç veri stratejisi','Exactly-once ihtiyacı değerlendirmesi','Olay anahtarı, event-time, watermark, window, replay, schema compatibility ve teslim semantiği.'),
+ 'database':('Yedekleme ve geri dönüş tasarımı','Kapasite ve indeks stratejisi','Sorgu planı kanıtı, workload, indeks maliyeti, kilitlenme, RPO/RTO, restore testi; DDL yürütme yok.'),
+ 'quality':('Veri kalite kural seti tasarımı','Kalite SLA ve sahiplik planı','Ölçülebilir kalite boyutu, iş kuralı, eşik, örneklem sınırlaması, hata sahibi ve remediation adımı.'),
+ 'governance':('İş sözlüğü ve terim sözleşmesi','Lineage ve sorumluluk incelemesi','İş terimi, veri sahibi, steward, sınıflandırma, lineage kanıtı, erişim ilkesi ve onay süreci.'),
+ 'mdm':('Müşteri ve tedarikçi eşleşme incelemesi','Survivorship kural tasarımı','Eşleme anahtarları, normalize etme, confidence eşiği, false merge riski ve insan onaylı survivorship.'),
+ 'privacy':('Hassas alan sınıflandırma incelemesi','Maskeleme ve saklama stratejisi','Kullanım amacı, minimum erişim, hassas veri sınıfı, saklama süresi, maskeleme sınırlaması; hukuki uygunluk kararı verme.'),
+ 'observability':('Freshness ve hacim alarm tasarımı','Veri olayı müdahale runbook’u','Baseline, değişim penceresi, freshness SLA, false alarm maliyeti, root cause kanıtı ve incident runbook.'),
+ 'science':('Deney ve A/B test tasarımı','Veri sızıntısı ve örneklem incelemesi','Hedef değişken, hipotez, örneklem, confounder, etki büyüklüğü ve test varsayımları; nedensellik iddiasını kanıtla.'),
+ 'ml':('Feature ve veri sızıntısı incelemesi','Model izleme ve yeniden eğitim planı','Train/test ayrımı, leakage, veri/konsept drift, baseline, metrik seçimi ve yeniden eğitim kabul kriteri.'),
+ 'ai':('Chunking ve retrieval stratejisi','RAG değerlendirme veri seti tasarımı','Kaynak izinleri, chunk boyutu, embedding, retrieval metrikleri, grounding, prompt injection ve cevap değerlendirme rubric’i.'),
+ 'product':('Tracking plan ve event taksonomisi','Attribution ve A/B test incelemesi','Olay ve kullanıcı tanımı, consent bağlamı, session, funnel adımları, attribution varsayımları ve deney metrikleri.'),
+ 'spatial':('Koordinat ve zaman serisi incelemesi','Sensör anomali stratejisi','CRS, koordinat sınırı, zaman dilimi, sensör kalibrasyonu, resampling, missing interval ve anomali kanıtı.'),
+ 'planning':('Bütçe senaryosu ve varsayım incelemesi','Konsolidasyon eşleme tasarımı','Hesap, şirket, dönem, kur, senaryo, versiyon, varsayım, elimination ve kabul edilen tolerans.'),
+ 'migration':('Kaynak-hedef alan eşleme tasarımı','Rollback ve cutover runbook’u','Veri hacmi, dönüşüm eşlemesi, anahtar, geçiş dalgası, freeze, rollback, reconciliation ve iş kabul kriteri.'),
+ 'finops':('Sorgu maliyeti optimizasyon incelemesi','Kapasite ve kullanım tahmini','Faturalama export kanıtı, fiyat varsayımları, workload, partition, saklama, birim maliyet; tasarruf garantisi verme.'),
+ 'files':('Veri hazırlama adımları tasarımı','Spreadsheet hata ve kontrol incelemesi','Alan tipleri, ayırıcı, locale, tarih biçimi, formül bağımlılıkları ve tekrarlanabilir hazırlama adımları.')
+}
+
 def catalog():
  result=[]
  for did,name,desc,icon,tools,engine,title,agent_title in DOMAINS:
@@ -72,8 +98,8 @@ def catalog():
     for operation,task_title in [(engine,title),('profile','Veri keşfi ve profil raporu'),('quality','Dışa aktarım kalite kontrolü')]:
      if any(t['engine']==operation for t in tasks): continue
      tasks.append({'id':f'{base}-{operation}','title':task_title,'kind':'code','engine':operation,'description':ENGINES[operation][1],'reason':'Girdi ve kurallar açık; sonuç deterministik olarak hesaplanır.','input':'SQL klasörü' if operation=='sql' else 'CSV dışa aktarımı','execution':'Yerel dosya','status':'ready'})
-    for ai,atitle in enumerate([agent_title,'Danışmanlık keşfi ve gereksinim analizi','Bulgulardan aksiyon ve teslim planı']):
-     tasks.append({'id':f'{base}-agent-{ai}','title':atitle,'kind':'agent','engine':'agent','description':f'{product} bağlamında kanıta dayalı öneri, eksik bilgi ve danışmanlık teslimleri üretir.','reason':'Bağlam, belirsizlik, alternatifler ve uzman değerlendirmesi gerektirir.','input':'Profil raporu + proje bağlamı','execution':'LLM API / Ollama','status':'ready'})
+    for ai,atitle in enumerate([agent_title,*ADVISORY[did][:2]]):
+     tasks.append({'id':f'{base}-agent-{ai}','title':atitle,'kind':'agent','engine':'agent','brief':ADVISORY[did][2],'description':f'{product} bağlamında kanıta dayalı öneri, eksik bilgi ve danışmanlık teslimleri üretir.','reason':'Bağlam, belirsizlik, alternatifler ve uzman değerlendirmesi gerektirir.','input':'Profil raporu + proje bağlamı','execution':'LLM API / Ollama','status':'ready'})
     tool['products'].append({'id':base,'name':product,'tasks':tasks})
    domain['tools'].append(tool)
   result.append(domain)

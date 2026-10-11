@@ -16,6 +16,7 @@ def build():
     for task in product['tasks']:
      cfg={'engine':task['engine'],'task':task['title'],'domain':d['name'],'product':product['name'],'group_by':'region','keys':['id'],'mask_fields':['email'],'rules':{'id':{'required':True,'unique':True},'amount':{'type':'number','min':0}}}
      if task['engine']=='connector': cfg.update(connector=task['connector'],tenant='https://YOUR-TENANT.eu.qlikcloud.com',workspace_id='YOUR-WORKSPACE-ID',project_id='YOUR-PROJECT',dataset_id='YOUR-DATASET')
+     if task.get('brief'): cfg['brief']=task['brief']
      agent=task['kind']=='agent'; entry='agent.py' if agent else ('connector.py' if task['engine']=='connector' else 'runner.py')
      flags=' --dry-run' if agent else (' --input sql' if task['engine']=='sql' else (' --compare compare.csv' if task['engine'] in ('schema','reconcile') else ''))
      readme=f'''# {task['title']}
@@ -42,6 +43,7 @@ config.json alan adlarını kendi verinize göre düzenleyin. Sonuçlar output/ 
 Yerel motorlar örnek ve uç durum testlerinden geçer. API bağlayıcıları mock sayfalama testinden geçer; canlı hesap testi yapılmadı. Agent için ağsız dry-run doğrulanır; model yanıt kalitesi kullanıcı verisiyle değerlendirilmelidir.
 '''
      files={'config.json':json.dumps(cfg,ensure_ascii=False,indent=2),'README.md':readme,'sample.csv':'id,region,amount,email\n1,Marmara,1200,ayse@example.test\n2,Ege,850,ali@example.test\n3,Marmara,640,\n4,Ege,-20,test@example.test\n','compare.csv':'id,region,amount,email\n1,Marmara,1200,ayse@example.test\n2,Ege,900,ali@example.test\n5,Ege,100,veli@example.test\n','context.md':f'Ürün: {product["name"]}\nGörev: {task["title"]}\nİş amacı: Haftalık veri danışmanlığı teslimi.\nKısıt: Üretim sistemine yazma yapılmayacak.\nKendi proje bağlamınızı buraya ekleyin.','evidence.json':json.dumps({'source':'sample.csv','row_count':4,'issues':[{'field':'amount','row':5,'rule':'min:0'}]},ensure_ascii=False),'sql/example.sql':'select region, sum(amount) from analytics.sales group by region;','run.bat':f'@echo off\r\ncd /d "%~dp0"\r\npython {entry}{flags}\r\npause\r\n','.env.example':'PROVIDER=openai\nOPENAI_API_KEY=\nOPENAI_BASE_URL=https://api.openai.com/v1\nANTHROPIC_API_KEY=\nOLLAMA_URL=http://localhost:11434\n# MODEL değerini sağlayıcınıza uygun seçin\nMODEL=\n'}
+     files['LICENSE']=(ROOT/'LICENSE').read_text(encoding='utf-8')
      files[entry]=(ROOT/'library'/entry).read_text(encoding='utf-8')
      if entry=='connector.py': files['runner.py']=(ROOT/'library/runner.py').read_text(encoding='utf-8')
      path=packages/(task['id']+'.zip')
