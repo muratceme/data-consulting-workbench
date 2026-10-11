@@ -66,7 +66,7 @@ class Packages(unittest.TestCase):
       with tempfile.TemporaryDirectory() as tmp:
        with zipfile.ZipFile(ROOT/'dist'/task['download'].lstrip('/')) as z:z.extractall(tmp)
        flags=['--dry-run'] if engine=='agent' else ['--input','sql'] if engine=='sql' else ['--compare','compare.csv'] if engine in ('schema','reconcile') else []
-       done=subprocess.run([sys.executable,'agent.py' if engine=='agent' else 'runner.py',*flags],cwd=tmp,capture_output=True,text=True);self.assertEqual(done.returncode,0,done.stderr)
+       done=subprocess.run([sys.executable,'agent.py' if engine=='agent' else 'runner.py',*flags],cwd=tmp,capture_output=True,text=True,encoding='utf-8');self.assertEqual(done.returncode,0,done.stderr)
        self.assertTrue((Path(tmp)/'output'/('request.json' if engine=='agent' else 'result.json')).exists())
   self.assertEqual(tested,{'profile','quality','report','schema','reconcile','dictionary','dedupe','mask','sql','agent'})
 

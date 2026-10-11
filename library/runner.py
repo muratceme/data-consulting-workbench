@@ -1,7 +1,8 @@
 """Dependency-free, reusable deterministic data consulting engines."""
-import argparse, csv, html, json, math, re
+import argparse, csv, html, json, math, re, sys
 from collections import Counter, defaultdict
 from pathlib import Path
+if hasattr(sys.stdout,'reconfigure'): sys.stdout.reconfigure(encoding='utf-8'); sys.stderr.reconfigure(encoding='utf-8')
 
 def load(path):
  with open(path, encoding='utf-8-sig', newline='') as f:

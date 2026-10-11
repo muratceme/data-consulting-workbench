@@ -53,5 +53,5 @@ Yerel motorlar örnek ve uç durum testlerinden geçer. API bağlayıcıları mo
      task['download']='/packages/'+path.name; task['sha256']=hashlib.sha256(path.read_bytes()).hexdigest(); task['bytes']=path.stat().st_size; task['command']='python '+entry+flags
  (dist/'catalog.json').write_text(json.dumps(data,ensure_ascii=False),encoding='utf-8')
  (dist/'checksums.json').write_text(json.dumps({t['id']:t['sha256'] for d in data for tool in d['tools'] for p in tool['products'] for t in p['tasks']},indent=2),encoding='utf-8')
- print(f'Build: {len(data)} alan, {sum(len(t["products"]) for d in data for t in d["tools"])} ürün bağlamı, {sum(len(p["tasks"]) for d in data for t in d["tools"] for p in t["products"])} ZIP')
+ print(f'Build: {len(data)} domains, {sum(len(t["products"]) for d in data for t in d["tools"])} product contexts, {sum(len(p["tasks"]) for d in data for t in d["tools"] for p in t["products"])} ZIP packages')
 if __name__=='__main__': build()
