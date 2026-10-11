@@ -106,7 +106,13 @@ def save(result,engine,out):
   text='| Alan | Tür | Boş | Benzersiz |\n|---|---|---|---|\n'+'\n'.join('| '+' | '.join(str(c[k]).replace('|','\\|') for k in ('name','type','missing','distinct'))+' |' for c in result['columns'])
   (out/'dictionary.md').write_text(text,encoding='utf-8')
  body=html.escape(json.dumps(result,ensure_ascii=False,indent=2))
- (out/'report.html').write_text('<!doctype html><html lang="tr"><meta charset="utf-8"><title>Veri danışmanlığı raporu</title><style>body{font:16px system-ui;margin:48px;background:#f5f5f2;color:#192a25}pre{background:white;padding:24px;border-radius:12px;white-space:pre-wrap}</style><h1>Veri danışmanlığı raporu</h1><p>'+html.escape(engine)+'</p><pre>'+body+'</pre></html>',encoding='utf-8')
+ columns=result.get('columns',[])
+ summary=f'<section><article>Kayıt<strong>{result.get("row_count","—")}</strong></article><article>Alan<strong>{result.get("column_count","—")}</strong></article><article>Kural ihlali<strong>{len(result["issues"]) if "issues" in result else "—"}</strong></article></section>'
+ table='<h2>Alan profili</h2><table><tr><th>Alan</th><th>Tür</th><th>Boş</th><th>Benzersiz</th><th>Toplam</th><th>Ortalama</th></tr>'+''.join('<tr>'+''.join('<td>'+html.escape(str(c.get(k,'—')))+'</td>' for k in ('name','type','missing','distinct','sum','mean'))+'</tr>' for c in columns)+'</table>' if columns else ''
+ groups=''
+ for group in result.get('groups',[]):
+  groups+='<h3>'+html.escape(str(group['name']))+' · '+str(group['row_count'])+' kayıt</h3><ul>'+''.join('<li>'+html.escape(c['name'])+': '+str(c['sum'])+'</li>' for c in group['columns'] if c['type']=='number')+'</ul>'
+ (out/'report.html').write_text('<!doctype html><html lang="tr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Veri danışmanlığı raporu</title><style>body{font:14px system-ui;max-width:1100px;margin:40px auto;padding:24px;background:#f5f5f2;color:#192a25}h1{font-size:32px}pre{background:white;padding:24px;border-radius:12px;white-space:pre-wrap;overflow-wrap:anywhere}section{display:flex;gap:15px}article{flex:1;background:#e5ecd7;padding:24px;border-radius:10px}strong{display:block;font-size:30px;margin-top:8px}table{width:100%;background:white;border-collapse:collapse}td,th{text-align:left;padding:14px;border-bottom:1px solid #eee}@media print{details{display:none}}</style><small>DATAWORK / DANIŞMANLIK TESLİMİ</small><h1>Veri danışmanlığı raporu</h1><p>'+html.escape(engine)+'</p>'+summary+table+groups+'<details><summary>Hesaplanan sonucun tamamı</summary><pre>'+body+'</pre></details></html>',encoding='utf-8')
 
 def main():
  p=argparse.ArgumentParser(); p.add_argument('--input',default='sample.csv'); p.add_argument('--compare'); p.add_argument('--config',default='config.json'); p.add_argument('--output',default='output'); p.add_argument('--engine')
