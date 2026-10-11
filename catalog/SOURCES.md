@@ -10,5 +10,8 @@
 - Qlik apps: https://qlik.dev/apis/rest/apps/
 - Power BI reports GET: https://learn.microsoft.com/en-us/rest/api/power-bi/reports/get-reports-in-group
 - BigQuery tables.list: https://docs.cloud.google.com/bigquery/docs/reference/rest/v2/tables/list
+- OpenAI Chat Completions: https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create
+- Claude Messages: https://platform.claude.com/docs/en/api/messages/create
+- Ollama chat: https://docs.ollama.com/api/chat
 
 Kaynaklar ürün alanlarını ve read-only API yollarını destekler. Diğer platformlar için katalogdaki CSV iş akışları ortak yerel motorları kullanır; bu platformlarda native API uyumluluğu iddia edilmez.
