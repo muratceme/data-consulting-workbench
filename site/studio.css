@@ -63,3 +63,4 @@
 
 /* Corporate palette fixed; temporary chooser removed. */
 body{padding-right:0}
+.planned-label{font-size:10px;color:var(--muted);margin-left:auto}.task-type{flex-wrap:wrap}.task-type small{font-size:9px}.row-actions{flex-wrap:wrap}.dialog-actions a{max-width:100%}.task-row:has(.planned-label){border-style:dashed}

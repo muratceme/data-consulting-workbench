@@ -1,4 +1,4 @@
-"""Explicit taxonomy; product contexts reuse documented local engines, not native connectors."""
+"""Full taxonomy. Legacy CSV templates remain for historical engine tests only."""
 DOMAINS = [
  ('bi','Business Intelligence','Panolar, KPI’lar ve yönetim raporları','◫',[
  ('Qlik',['Qlik Cloud','Qlik Sense Enterprise','QlikView']),('Microsoft Power BI',['Power BI Service','Power BI Desktop']),('Tableau',['Tableau Cloud','Tableau Server']),('Looker',['Looker','Looker Studio']),('SAP',['SAP BusinessObjects','SAP Analytics Cloud']),('Oracle',['Oracle Analytics Cloud']),('MicroStrategy',['MicroStrategy ONE']),('Apache Superset',['Superset']),('Metabase',['Metabase'])], 'report','Otomatik rapor hazırlama','KPI ve dashboard tasarımı'),
@@ -86,7 +86,7 @@ ADVISORY = {
  'files':('Veri hazırlama adımları tasarımı','Spreadsheet hata ve kontrol incelemesi','Alan tipleri, ayırıcı, locale, tarih biçimi, formül bağımlılıkları ve tekrarlanabilir hazırlama adımları.')
 }
 
-def catalog():
+def legacy_catalog():
  result=[]
  for did,name,desc,icon,tools,engine,title,agent_title in DOMAINS:
   domain={'id':did,'name':name,'description':desc,'icon':icon,'tools':[]}
@@ -104,3 +104,8 @@ def catalog():
    domain['tools'].append(tool)
   result.append(domain)
  return result
+
+
+def catalog():
+ from native_catalog import catalog as native_catalog
+ return native_catalog(DOMAINS)

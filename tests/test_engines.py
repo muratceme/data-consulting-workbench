@@ -46,29 +46,39 @@ class Engines(unittest.TestCase):
 
 class Packages(unittest.TestCase):
  def test_catalog_packages_integrity_and_unique_ids(self):
-  data=json.loads((ROOT/'dist/catalog.json').read_text(encoding='utf-8'));ids=[]
+  data=json.loads((ROOT/'dist/catalog.json').read_text(encoding='utf-8'));ids=[];downloads=set();planned=0
   for d in data:
-   for t in d['tools']:
-    for p in t['products']:
-     for task in p['tasks']:
-      ids.append(task['id']);file=ROOT/'dist'/task['download'].lstrip('/');self.assertEqual(hashlib.sha256(file.read_bytes()).hexdigest(),task['sha256'])
-      with zipfile.ZipFile(file) as z:self.assertIsNone(z.testzip());self.assertIn('README.md',z.namelist())
-  self.assertEqual(len(ids),len(set(ids)))
- def test_one_of_every_engine_and_agent_zip_actually_runs(self):
+   for tool in d['tools']:
+    for product in tool['products']:
+     for task in product['tasks']:
+      ids.append(task['id'])
+      self.assertEqual(task['verification']['live'],'not-tested')
+      if task['status']=='planned':
+       planned+=1;self.assertNotIn('download',task);continue
+      file=ROOT/'dist'/task['download'].lstrip('/');downloads.add(file.name)
+      self.assertEqual(hashlib.sha256(file.read_bytes()).hexdigest(),task['sha256'])
+      with zipfile.ZipFile(file) as z:
+       self.assertIsNone(z.testzip());self.assertIn('native.py',z.namelist());self.assertIn('.env.example',z.namelist())
+       self.assertNotIn('sample.csv',z.namelist());self.assertFalse(any(x.endswith('.html') for x in z.namelist()))
+  self.assertEqual(len(ids),len(set(ids)));self.assertGreater(planned,0)
+  self.assertEqual({p.name for p in (ROOT/'dist/packages').glob('*.zip')},downloads)
+  self.assertEqual(len(json.loads((ROOT/'dist/integration-plan.json').read_text(encoding='utf-8'))),185)
+ def test_every_native_package_plan_runs_without_credentials_or_network(self):
   data=json.loads((ROOT/'dist/catalog.json').read_text(encoding='utf-8'));tested=set()
   for d in data:
-   for t in d['tools']:
-    for p in t['products']:
-     for task in p['tasks']:
-      engine=task['engine']
-      if engine in tested or engine=='connector':continue
-      tested.add(engine)
+   for tool in d['tools']:
+    for product in tool['products']:
+     for task in product['tasks']:
+      if not task.get('download'):continue
+      tested.add(task['operation'])
       with tempfile.TemporaryDirectory() as tmp:
        with zipfile.ZipFile(ROOT/'dist'/task['download'].lstrip('/')) as z:z.extractall(tmp)
-       flags=['--dry-run'] if engine=='agent' else ['--input','sql'] if engine=='sql' else ['--compare','compare.csv'] if engine in ('schema','reconcile') else []
-       done=subprocess.run([sys.executable,'agent.py' if engine=='agent' else 'runner.py',*flags],cwd=tmp,capture_output=True,text=True,encoding='utf-8');self.assertEqual(done.returncode,0,done.stderr)
-       self.assertTrue((Path(tmp)/'output'/('request.json' if engine=='agent' else 'result.json')).exists())
-  self.assertEqual(tested,{'profile','quality','report','schema','reconcile','dictionary','dedupe','mask','sql','agent'})
+       done=subprocess.run([sys.executable,'native.py','--plan'],cwd=tmp,capture_output=True,text=True,encoding='utf-8')
+       self.assertEqual(done.returncode,0,done.stderr);self.assertEqual(json.loads(done.stdout)['network_calls'],0)
+       self.assertFalse((Path(tmp)/'output').exists())
+  sys.path.insert(0,str(ROOT/'catalog'))
+  from native_catalog import OPERATIONS
+  self.assertEqual(tested,{x['operation'] for x in OPERATIONS})
 
 class AgentProviders(unittest.TestCase):
  def test_all_provider_payloads_and_response_formats(self):
