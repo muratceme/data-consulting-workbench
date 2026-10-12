@@ -4,7 +4,7 @@ Alan → Yazılım → Ürün / ortam → Danışmanlık görevi → Kod bloğu 
 
 Türkçe, yerelde çalışan bir otomasyon kataloğu. Workers / Workless projesinin hiyerarşi yaklaşımından esinlenir; kaynak projeyi değiştirmez.
 
-Arayüzde sağ üstte açık, koyu ve sistem teması seçilebilir. İlk açılışta işletim sistemi tercihi izlenir; elle seçilen tema tarayıcıda hatırlanır. Tema tüm kart, filtre, paket ayrıntısı ve demo ekranlarını kapsar. Hareket azaltma tercihi desteklenir; üst menü ve sade liste düzeni mobil ekranlara uyarlanır.
+Arayüzde sağ üstte açık, koyu ve sistem teması seçilebilir. İlk açılışta işletim sistemi tercihi izlenir; elle seçilen tema tarayıcıda hatırlanır. Tema tüm kart, filtre, paket ayrıntısı ve demo ekranlarını kapsar. Hareket azaltma tercihi desteklenir; yazılım kısayolları ve alan kartları mobil ekranlara uyarlanır. Ana sayfada altı popüler yazılımdan birini seçerek görevlere, ardından İndir düğmesiyle pakete ulaşılır. Tüm 23 alan genişletilebilir; ayrıntılı filtreler Seçimi daralt altında yer alır.
 
 ## Başlat
 

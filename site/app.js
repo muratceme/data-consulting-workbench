@@ -1,5 +1,5 @@
 const $=s=>document.querySelector(s), esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let data=[],tasks=[],domain='',kind='all',page=1,savedOnly=false,saved=new Set();const pageSize=12;
+let data=[],tasks=[],domain='',kind='all',page=1,savedOnly=false,saved=new Set();const pageSize=9;let view='home',allAreas=false;
 try{saved=new Set(JSON.parse(localStorage.getItem('datawork-saved')||'[]'))}catch{}
 const initial=new URLSearchParams(location.hash.slice(1)); domain=initial.get('domain')||'';kind=initial.get('kind')||'all';$('#search').value=initial.get('q')||'';
 function notify(message){$('#toast').textContent=message;$('#toast').style.display='block';setTimeout(()=>$('#toast').style.display='none',2200)}
@@ -12,16 +12,17 @@ function options(){
  productOptions();
 }
 function productOptions(){const tool=$('#toolFilter').value, selected=$('#productFilter').value,products=[...new Set(tasks.filter(t=>(!domain||t.domain.id===domain)&&(!tool||t.tool.name===tool)).map(t=>t.product.name))].sort((a,b)=>a.localeCompare(b));$('#productFilter').innerHTML='<option value="">Tüm ürünler</option>'+products.map(p=>`<option>${esc(p)}</option>`).join('');if(products.includes(selected))$('#productFilter').value=selected;}
-function selectDomain(id){domain=id;page=1;savedOnly=false;$('#toolFilter').value='';$('#productFilter').value='';options();render()}
-function filtered(){const q=$('#search').value.toLocaleLowerCase('tr').trim(),tool=$('#toolFilter').value,product=$('#productFilter').value,execution=$('#executionFilter').value;return tasks.filter(t=>(!domain||t.domain.id===domain)&&(kind==='all'||t.kind===kind)&&(!tool||t.tool.name===tool)&&(!product||t.product.name===product)&&(!execution||t.execution===execution)&&(!savedOnly||saved.has(t.id))&&(!q||[t.title,t.description,t.domain.name,t.tool.name,t.product.name].join(' ').toLocaleLowerCase('tr').includes(q)));}
+function selectDomain(id){view='results';domain=id;page=1;savedOnly=false;$('#toolFilter').value='';$('#productFilter').value='';options();render()}
+function filtered(){const q=$('#search').value.toLocaleLowerCase('tr').trim(),tool=$('#toolFilter').value,product=$('#productFilter').value,execution=$('#executionFilter').value;return tasks.filter(t=>(!domain||t.domain.id===domain)&&(kind==='all'||t.kind===kind)&&(!tool||t.tool.name===tool)&&(!product||t.product.name===product)&&(!execution||t.execution===execution)&&(!savedOnly||saved.has(t.id))&&(!q||q.split(/\s+/).every(word=>[t.title,t.description,t.domain.name,t.tool.name,t.product.name].join(' ').toLocaleLowerCase('tr').includes(word))));}
 function render(){
+ $('#discover').hidden=view!=='home';$('#softwareStep').hidden=view!=='software';$('#catalogSection').hidden=view!=='results';$('#clearSearch').hidden=!$('#search').value;
  const list=filtered(),pages=Math.max(1,Math.ceil(list.length/pageSize));page=Math.min(page,pages);
- const d=data.find(x=>x.id===domain);$('#sectionTitle').textContent=savedOnly?'Kaydedilen görevler':(d?d.name:'Otomasyon kütüphanesi');$('#sectionDescription').textContent=d?d.description:'Veri alanından başlayabilir veya doğrudan bir görev arayabilirsin.';
+ const d=data.find(x=>x.id===domain);$('#sectionTitle').textContent=savedOnly?'Kaydedilen görevler':($('#toolFilter').value|| (d?d.name:'Arama sonuçları'));$('#sectionDescription').textContent=d?d.description:'Veri alanından başlayabilir veya doğrudan bir görev arayabilirsin.';
  $('#resultCount').textContent=`${list.length.toLocaleString('tr')} görev`;$('#savedCount').textContent=saved.size;$('#libraryNav').classList.toggle('active',!savedOnly);$('#savedNav').classList.toggle('active',savedOnly);
  $('#domainFilter').value=domain;
  document.querySelectorAll('[data-kind]').forEach(b=>{b.classList.toggle('selected',b.dataset.kind===kind);b.setAttribute('aria-pressed',String(b.dataset.kind===kind))});
  $('#breadcrumbs').innerHTML=(d?esc(d.name):'Tüm veri alanları')+($('#toolFilter').value?' / '+esc($('#toolFilter').value):'')+($('#productFilter').value?' / <span>'+esc($('#productFilter').value)+'</span>':'');
- $('#cards').innerHTML=list.slice((page-1)*pageSize,page*pageSize).map(t=>`<article class="task-row"><div class="task-info"><h3><button data-open="${t.id}">${esc(t.title)}</button></h3><p>${esc(t.description)}</p></div><div class="task-product"><strong>${esc(t.tool.name)}</strong><span>${esc(t.product.name)}</span><small>${esc(t.domain.name)}</small></div><div class="task-type"><span class="pill ${t.kind==='agent'?'agent':t.engine==='connector'?'api':'code'}">${t.kind==='agent'?'AI agent':t.engine==='connector'?'API paketi':'Kod bloğu'}</span><small>${esc(t.execution)}</small></div><div class="row-actions"><button class="favorite ${saved.has(t.id)?'saved':''}" data-save="${t.id}" aria-label="${saved.has(t.id)?'Kaydı kaldır':'Görevi kaydet'}" aria-pressed="${saved.has(t.id)}">${saved.has(t.id)?'★':'☆'}</button><button class="row-open" data-open="${t.id}" aria-label="${esc(t.title)} paketini incele">↗</button></div></article>`).join('')||'<div class="empty"><strong>Bu filtrelerde görev bulunamadı.</strong>Aramayı değiştir veya filtreleri temizle.</div>';
+ $('#cards').innerHTML=list.slice((page-1)*pageSize,page*pageSize).map(t=>`<article class="task-row"><div class="task-info"><h3><button data-open="${t.id}">${esc(t.title)}</button></h3><p>${esc(t.description)}</p></div><div class="task-product"><strong>${esc(t.tool.name)}</strong><span>${esc(t.product.name)}</span><small>${esc(t.domain.name)}</small></div><div class="task-type"><span class="pill ${t.kind==='agent'?'agent':t.engine==='connector'?'api':'code'}">${t.kind==='agent'?'AI agent':t.engine==='connector'?'API paketi':'Kod bloğu'}</span><small>${esc(t.execution)}</small></div><div class="row-actions"><button class="favorite ${saved.has(t.id)?'saved':''}" data-save="${t.id}" aria-label="${saved.has(t.id)?'Kaydı kaldır':'Görevi kaydet'}" aria-pressed="${saved.has(t.id)}">${saved.has(t.id)?'★':'☆'}</button><button class="card-more" data-open="${t.id}">Ayrıntılar</button><a class="download" href="${t.download}" download aria-label="${esc(t.title)} paketini indir">İndir ↓</a></div></article>`).join('')||'<div class="empty"><strong>Bu filtrelerde görev bulunamadı.</strong>Aramayı değiştir veya filtreleri temizle.</div>';
  document.querySelectorAll('[data-save]').forEach(b=>b.onclick=()=>{saved.has(b.dataset.save)?saved.delete(b.dataset.save):saved.add(b.dataset.save);try{localStorage.setItem('datawork-saved',JSON.stringify([...saved]))}catch{}render()});
  document.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>detail(b.dataset.open));
  $('#pageInfo').textContent=`${page} / ${pages}`;$('#prev').disabled=page===1;$('#next').disabled=page===pages;
@@ -35,13 +36,13 @@ function detail(id){
  if($('#detailDemo'))$('#detailDemo').onclick=()=>{$('#detail').close();$('#demoEngine').value=t.engine;show('demo')};show('detail');
 }
 $('#domainFilter').onchange=()=>selectDomain($('#domainFilter').value);
-$('#search').oninput=()=>{page=1;render()};document.querySelectorAll('[data-kind]').forEach(b=>b.onclick=()=>{kind=b.dataset.kind;page=1;render()});
+$('#search').oninput=()=>{domain='';kind='all';savedOnly=false;$('#toolFilter').value='';$('#productFilter').value='';$('#executionFilter').value='';options();view=$('#search').value.trim()?'results':'home';page=1;render()};document.querySelectorAll('[data-kind]').forEach(b=>b.onclick=()=>{kind=b.dataset.kind;page=1;render()});
 $('#toolFilter').onchange=()=>{$('#productFilter').value='';productOptions();page=1;render()};$('#productFilter').onchange=$('#executionFilter').onchange=()=>{page=1;render()};
 $('#prev').onclick=()=>{page--;render();$('#catalogSection').scrollIntoView({behavior:'smooth'})};$('#next').onclick=()=>{page++;render();$('#catalogSection').scrollIntoView({behavior:'smooth'})};
-$('#reset').onclick=()=>{domain='';kind='all';savedOnly=false;page=1;$('#search').value='';$('#toolFilter').value='';$('#productFilter').value='';$('#executionFilter').value='';options();render()};
-$('#savedNav').onclick=()=>{savedOnly=true;domain='';page=1;$('#search').value='';$('#toolFilter').value='';$('#productFilter').value='';$('#executionFilter').value='';kind='all';options();render();$('#catalogSection').scrollIntoView({behavior:'smooth'})};
-$('#libraryNav').onclick=()=>{$('#reset').click()};['howNav','howBottom'].forEach(id=>$('#'+id).onclick=()=>show('how'));$('#demoHero').onclick=()=>show('demo');
-document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();$('#search').focus();$('#catalogSection').scrollIntoView({behavior:'smooth'})}});
+$('#reset').onclick=()=>{view='home';domain='';kind='all';savedOnly=false;page=1;$('#search').value='';$('#toolFilter').value='';$('#productFilter').value='';$('#executionFilter').value='';options();render()};
+$('#savedNav').onclick=()=>{view='results';savedOnly=true;domain='';page=1;$('#search').value='';$('#toolFilter').value='';$('#productFilter').value='';$('#executionFilter').value='';kind='all';options();render();$('#catalogSection').scrollIntoView({behavior:'smooth'})};
+$('#libraryNav').onclick=()=>{$('#reset').click()};['howNav'].forEach(id=>$('#'+id).onclick=()=>show('how'));$('#demoHero').onclick=()=>show('demo');
+document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();$('#search').focus();}});
 $('#csvInput').onchange=()=>{$('#runDemo').textContent=$('#csvInput').files.length?'Seçilen CSV’de çalıştır →':'Örnek veride çalıştır →'};
 $('#runDemo').onclick=async()=>{
  $('#runDemo').disabled=true;$('#demoStatus').textContent='Yerel motor çalışıyor…';$('#demoOutput').innerHTML='';
@@ -57,8 +58,30 @@ try{
  const response=await fetch('/catalog.json');if(!response.ok)throw Error('Katalog yüklenemedi');data=await response.json();
  tasks=data.flatMap(d=>d.tools.flatMap(tool=>tool.products.flatMap(product=>product.tasks.map(t=>({...t,domain:d,tool,product})))));
  if(!data.some(d=>d.id===domain))domain='';if(!['all','code','agent'].includes(kind))kind='all';
- const vendors=new Set(tasks.map(t=>t.tool.name));
  $('#domainFilter').innerHTML='<option value="">Tüm veri alanları</option>'+data.map(d=>`<option value="${d.id}">${esc(d.name)}</option>`).join('');
- $('#stats').innerHTML=`<span><strong>${data.length}</strong> veri alanı</span><span><strong>${vendors.size}</strong> yazılım</span><span><strong>${tasks.length.toLocaleString('tr')}</strong> indirilebilir paket</span><span class="stats-note">Alan → Yazılım → Ürün → Görev</span>`;
- options();if(initial.get('tool'))$('#toolFilter').value=initial.get('tool');productOptions();if(initial.get('product'))$('#productFilter').value=initial.get('product');if(initial.get('execution'))$('#executionFilter').value=initial.get('execution');render();
-}catch(e){$('#cards').innerHTML='<div class="empty">Katalog yüklenemedi. npm run build komutunu çalıştırıp sayfayı yenileyin.</div>';$('#resultCount').textContent='Yükleme hatası';}
+ buildDiscovery();
+ options();if(initial.get('tool'))$('#toolFilter').value=initial.get('tool');productOptions();if(initial.get('product'))$('#productFilter').value=initial.get('product');if(initial.get('execution'))$('#executionFilter').value=initial.get('execution');view=initial.size?'results':'home';render();
+}catch(e){$('#catalogSection').hidden=false;$('#cards').innerHTML='<div class="empty">Katalog yüklenemedi. npm run build komutunu çalıştırıp sayfayı yenileyin.</div>';$('#resultCount').textContent='Yükleme hatası';}
+
+function pickTool(name,area='',product=''){
+ domain=area;kind='all';savedOnly=false;page=1;$('#search').value='';$('#executionFilter').value='';$('#productFilter').value='';options();$('#toolFilter').value=name;productOptions();$('#productFilter').value=product;view='results';render();$('#sectionTitle').focus({preventScroll:true});$('#catalogSection').scrollIntoView({behavior:'smooth'});
+}
+function areaStep(id){
+ domain=id;const area=data.find(d=>d.id===id);view='software';$('#search').value='';render();$('#softwareTitle').textContent=area.name;
+ $('#softwareTiles').innerHTML=area.tools.map(t=>`<button class="software-tile" data-tool="${esc(t.name)}"><span class="software-monogram">${esc(t.name.slice(0,2))}</span><strong>${esc(t.name)}</strong><span>Görevleri gör ›</span></button>`).join('');
+ document.querySelectorAll('[data-tool]').forEach(b=>b.onclick=()=>pickTool(b.dataset.tool,id));$('#softwareTitle').focus({preventScroll:true});$('#softwareStep').scrollIntoView({behavior:'smooth'});
+}
+function buildDiscovery(){
+ const popular=[['Qlik','Qlik','Q',''],['Microsoft Power BI','Power BI','BI',''],['Tableau','Tableau','T',''],['SAP','SAP','S',''],['Logo','Logo','L',''],['Google','BigQuery','BQ','BigQuery']];
+ $('#popular').innerHTML=popular.map(([tool,label,mark,product],i)=>`<button class="popular-tool color-${i}" data-popular="${esc(tool)}" data-product="${product}"><span>${mark}</span><strong>${label}</strong></button>`).join('');
+ document.querySelectorAll('[data-popular]').forEach(b=>b.onclick=()=>pickTool(b.dataset.popular,'',b.dataset.product));renderAreas();
+}
+function renderAreas(){
+ const featured=['bi','erp','warehouse','integration','quality','ai'];const descriptions={bi:'Raporlar ve panolar',erp:'İş süreçleri ve kurumsal veri',warehouse:'Verini tek yerde topla',integration:'Sistemlerini birbirine bağla',quality:'Temiz, güvenilir veri',ai:'Verinle çalışan yapay zekâ'};
+ const areas=allAreas?data:featured.map(id=>data.find(d=>d.id===id));
+ $('#areaTiles').innerHTML=areas.map(d=>`<button class="area-tile" data-area="${d.id}"><span class="area-icon" aria-hidden="true">${d.icon}</span><strong>${esc(d.name)}</strong><span>${esc(descriptions[d.id]||d.description)}</span><b aria-hidden="true">↗</b></button>`).join('');document.querySelectorAll('[data-area]').forEach(b=>b.onclick=()=>areaStep(b.dataset.area));
+ $('#allAreas').textContent=allAreas?'Daha az göster ↑':'Tüm 23 veri alanını gör ↓';$('#allAreas').setAttribute('aria-expanded',String(allAreas));
+}
+$('#allAreas').onclick=()=>{allAreas=!allAreas;renderAreas()};
+$('#backHome').onclick=$('#backDiscover').onclick=()=>{$('#reset').click();$('#search').focus({preventScroll:true})};
+$('#clearSearch').onclick=()=>{$('#reset').click();$('#search').focus()};
