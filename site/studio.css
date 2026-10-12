@@ -60,3 +60,6 @@
 @media(max-width:1000px){.palette-preview details[open]{max-height:calc(100dvh - 36px)}}
 .palette-content{max-height:calc(100dvh - 178px)}
 @media(max-width:1000px){.palette-content{max-height:calc(100dvh - 98px)}}
+
+/* Corporate palette fixed; temporary chooser removed. */
+body{padding-right:0}
