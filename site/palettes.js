@@ -1,9 +1,9 @@
 /* Temporary color preview. Independent of the light/dark preference. */
 (() => {
   const key = 'datawork-palette';
-  const names = {graphite:'Grafit',ocean:'Okyanus',sage:'Adaçayı',sand:'Kum',plum:'Mürdüm'};
-  const normalize = value => Object.hasOwn(names, value) ? value : 'ocean';
-  let selected = 'ocean';
+  const names = {studio:'Stüdyo',citrus:'Narenciye',coast:'Riviera',pop:'Pop',terra:'Terra'};
+  const normalize = value => Object.hasOwn(names, value) ? value : 'studio';
+  let selected = 'studio';
   try { selected = normalize(localStorage.getItem(key)); } catch {}
   function apply() {
     document.documentElement.dataset.palette = selected;
