@@ -1,5 +1,7 @@
 """Actual HTTP requests to a local contract server, never labelled vendor E2E tests."""
 import io
+import ast
+import base64
 import json
 import os
 import sys
@@ -43,12 +45,13 @@ class Contracts(unittest.TestCase):
                 for k,v in expected.get('request_headers',{}).items():
                     if self.headers.get(k)!=v:owner.errors.append(('header',k,self.headers.get(k),v))
                 response=expected.get('body',{})
+                if callable(response):response=response()
                 data=response if isinstance(response,bytes) else json.dumps(response).encode()
                 self.send_response(expected.get('status',200))
                 headers={'Content-Type':'application/octet-stream' if isinstance(response,bytes) else 'application/json',**expected.get('headers',{})}
                 for k,v in headers.items():self.send_header(k,v)
                 self.end_headers();self.wfile.write(data)
-            do_GET=do_POST=handle_request
+            do_GET=do_POST=do_PUT=handle_request
         self.errors=[];self.server=ThreadingHTTPServer(('127.0.0.1',0),Handler)
         self.thread=threading.Thread(target=self.server.serve_forever,daemon=True);self.thread.start()
         self.env=patch.dict(os.environ,{k:'test-only-secret' for op in OPERATIONS for k in op['secrets']});self.env.start()
@@ -176,6 +179,124 @@ class Contracts(unittest.TestCase):
         self.output.mkdir();(self.output/'keep').write_text('keep')
         with self.assertRaises(native.NativeError):self.run_op('powerbi-export')
         self.assertEqual((self.output/'keep').read_text(),'keep')
+
+    def test_databricks_generates_imports_and_downloads_profile_notebook(self):
+        self.step('GET','/api/2.0/workspace/get-status?path=%2FShared',{'object_type':'DIRECTORY','path':'/Shared'})
+        self.step('POST','/api/2.0/workspace/import',{})
+        target='/Shared/datawork_profile_fixed'
+        self.step('GET','/api/2.0/workspace/get-status?path=%2FShared%2Fdatawork_profile_fixed',{'object_type':'NOTEBOOK','language':'PYTHON','path':target,'object_id':12})
+        self.step('GET','/api/2.0/workspace/export?path=%2FShared%2Fdatawork_profile_fixed&format=SOURCE',lambda:{'content':self.received[1][2]['content']})
+        with patch.object(native.uuid,'uuid4') as uid:
+            uid.return_value.hex='fixed'
+            result=self.run_op('databricks-profile',workspace_url='https://workspace.example',workspace_directory='/Shared',source_table='main.sales.orders')
+        payload=self.received[1][2];self.assertFalse(payload['overwrite']);self.assertEqual(payload['language'],'PYTHON')
+        source=(self.output/'profile_notebook.py').read_text();ast.parse(source)
+        self.assertIn("'main.sales.orders'",source);self.assertIn('isNull()',source)
+        self.assertEqual(source,base64.b64decode(payload['content']).decode());self.assertEqual(result['artifact']['file'],'profile_notebook.py')
+        self.assertEqual(len(self.received),4);self.assertFalse(self.queue)
+
+    def test_databricks_bad_table_is_rejected_without_request(self):
+        with self.assertRaises(native.NativeError):self.run_op('databricks-profile',source_table="a.b.c'; DROP TABLE t")
+        self.assertFalse(self.received)
+
+    def test_databricks_import_failure_does_not_export(self):
+        self.step('GET','/api/2.0/workspace/get-status?path=%2FShared',{'object_type':'DIRECTORY'})
+        self.step('POST','/api/2.0/workspace/import',status=403)
+        with self.assertRaises(native.NativeError):self.run_op('databricks-profile',workspace_url='https://workspace.example',workspace_directory='/Shared',source_table='main.sales.orders')
+        self.assertEqual(len(self.received),2);self.assertFalse((self.output/'profile_notebook.py').exists())
+        self.assertTrue((self.output/'run-state.json').exists())
+
+    def test_adf_deploy_new_pipeline_and_read_back(self):
+        path='/subscriptions/s/resourceGroups/g/providers/Microsoft.DataFactory/factories/f/pipelines/datawork_fixed'
+        definition={'properties':{'activities':[{'name':'Wait','type':'Wait','typeProperties':{'waitTimeInSeconds':1}}]}}
+        config_file=Path(self.temp.name)/'pipeline.json';config_file.write_text(json.dumps(definition))
+        response={'id':path,'name':'datawork_fixed',**definition}
+        self.step('PUT',path+'?api-version=2018-06-01',response,payload=definition,request_headers={'Authorization':'Bearer test-only-secret'})
+        self.step('GET',path+'?api-version=2018-06-01',response)
+        with patch.object(native.uuid,'uuid4') as uid:
+            uid.return_value.hex='fixed'
+            self.run_op('adf-deploy',subscription_id='s',resource_group='g',factory_name='f',pipeline_file=str(config_file))
+        self.assertFalse(self.queue);self.assertEqual(len(self.received),2)
+        self.assertEqual(json.loads((self.output/'pipeline.json').read_text())['id'],path)
+
+    def test_adf_empty_definition_never_publishes(self):
+        source=Path(self.temp.name)/'pipeline.json';source.write_text('{"properties":{"activities":[]}}')
+        with self.assertRaises(native.NativeError):self.run_op('adf-deploy',subscription_id='s',resource_group='g',factory_name='f',pipeline_file=str(source))
+        self.assertFalse(self.received)
+
+    def test_adf_pipeline_run_waits_for_succeeded(self):
+        source=Path(self.temp.name)/'parameters.json';source.write_text('{"period":"2026-10"}')
+        base='/subscriptions/s/resourceGroups/g/providers/Microsoft.DataFactory/factories/f'
+        self.step('POST',base+'/pipelines/p/createRun?api-version=2018-06-01',{'runId':'r'},payload={'period':'2026-10'})
+        self.step('GET',base+'/pipelineruns/r?api-version=2018-06-01',{'status':'InProgress'})
+        self.step('GET',base+'/pipelineruns/r?api-version=2018-06-01',{'status':'Succeeded','runId':'r','pipelineName':'p'})
+        with patch.object(native.time,'sleep'):self.run_op('adf-run',subscription_id='s',resource_group='g',factory_name='f',pipeline_name='p',parameters_file=str(source))
+        self.assertFalse(self.queue);self.assertTrue((self.output/'pipeline-run.json').exists())
+
+    def test_adf_failed_run_has_no_success_artifact(self):
+        source=Path(self.temp.name)/'params.json';source.write_text('{}')
+        base='/subscriptions/s/resourceGroups/g/providers/Microsoft.DataFactory/factories/f'
+        self.step('POST',base+'/pipelines/p/createRun?api-version=2018-06-01',{'runId':'r'})
+        self.step('GET',base+'/pipelineruns/r?api-version=2018-06-01',{'status':'Failed'})
+        with self.assertRaises(native.NativeError):self.run_op('adf-run',subscription_id='s',resource_group='g',factory_name='f',pipeline_name='p',parameters_file=str(source))
+        self.assertFalse((self.output/'pipeline-run.json').exists());self.assertTrue((self.output/'run-state.json').exists())
+
+    def test_adf_ambiguous_start_records_pending_and_does_not_retry(self):
+        source=Path(self.temp.name)/'params.json';source.write_text('{}')
+        base='/subscriptions/s/resourceGroups/g/providers/Microsoft.DataFactory/factories/f'
+        self.step('POST',base+'/pipelines/p/createRun?api-version=2018-06-01',status=503)
+        with self.assertRaises(native.NativeError):self.run_op('adf-run',subscription_id='s',resource_group='g',factory_name='f',pipeline_name='p',parameters_file=str(source))
+        state=json.loads((self.output/'run-state.json').read_text())
+        self.assertEqual(state['state'],'request_pending');self.assertEqual(state['pipeline_name'],'p')
+        self.assertEqual(len(self.received),1);self.assertFalse((self.output/'manifest.json').exists())
+
+    def test_airflow_v3_body_run_and_success(self):
+        source=Path(self.temp.name)/'conf.json';source.write_text('{"region":"EU"}')
+        self.step('POST','/api/v2/dags/sales/dagRuns',{'dag_id':'sales','dag_run_id':'datawork_fixed'},payload={'dag_run_id':'datawork_fixed','logical_date':None,'conf':{'region':'EU'}})
+        self.step('GET','/api/v2/dags/sales/dagRuns/datawork_fixed',{'state':'running'})
+        self.step('GET','/api/v2/dags/sales/dagRuns/datawork_fixed',{'state':'success','dag_id':'sales','dag_run_id':'datawork_fixed'})
+        with patch.object(native.uuid,'uuid4') as uid,patch.object(native.time,'sleep'):
+            uid.return_value.hex='fixed'
+            self.run_op('airflow-run',server='https://airflow.example',api_version='3.2',dag_id='sales',conf_file=str(source))
+        self.assertFalse(self.queue);self.assertTrue((self.output/'dag-run.json').exists())
+
+    def test_airflow_v2_rejected_before_network(self):
+        with self.assertRaises(native.NativeError):self.run_op('airflow-run',api_version='2.10')
+        self.assertFalse(self.received)
+
+    def test_airflow_failed_run_not_delivered_as_success(self):
+        source=Path(self.temp.name)/'conf.json';source.write_text('{}')
+        self.step('POST','/api/v2/dags/d/dagRuns',{'dag_id':'d','dag_run_id':'datawork_fixed'})
+        self.step('GET','/api/v2/dags/d/dagRuns/datawork_fixed',{'state':'failed'})
+        with patch.object(native.uuid,'uuid4') as uid:
+            uid.return_value.hex='fixed'
+            with self.assertRaises(native.NativeError):self.run_op('airflow-run',server='https://airflow.example',api_version='3.2',dag_id='d',conf_file=str(source))
+        self.assertFalse((self.output/'dag-run.json').exists())
+
+    def test_sap_quotation_draft_create_readback_logout(self):
+        document={'DocObjectCode':'23','CardCode':'C001','DocumentLines':[{'ItemCode':'I001','Quantity':2,'UnitPrice':30}]}
+        source=Path(self.temp.name)/'document.json';source.write_text(json.dumps(document))
+        self.step('POST','/b1s/v2/Login',{'SessionId':'s'})
+        self.step('POST','/b1s/v2/Drafts',{'DocEntry':12},payload=document,request_headers={'Cookie':'B1SESSION=s'})
+        self.step('GET','/b1s/v2/Drafts(12)',{'DocEntry':12,**document})
+        self.step('POST','/b1s/v2/Logout',b'',status=204)
+        self.run_op('sap-quotation-draft',service_url='https://sap.example/b1s/v2/',company_db='c',document_file=str(source))
+        self.assertEqual(json.loads((self.output/'sap-quotation-draft.json').read_text())['DocEntry'],12)
+        self.assertFalse(self.queue);self.assertEqual(len(self.received),4)
+
+    def test_sap_nonquotation_document_rejected_before_login(self):
+        source=Path(self.temp.name)/'document.json';source.write_text('{"DocObjectCode":"13"}')
+        with self.assertRaises(native.NativeError):self.run_op('sap-quotation-draft',document_file=str(source))
+        self.assertFalse(self.received)
+
+    def test_sap_failed_create_logs_out_without_retry(self):
+        document={'DocObjectCode':'23','CardCode':'C','DocumentLines':[{'ItemCode':'I','Quantity':1,'UnitPrice':0}]}
+        source=Path(self.temp.name)/'document.json';source.write_text(json.dumps(document))
+        self.step('POST','/b1s/v2/Login',{'SessionId':'s'})
+        self.step('POST','/b1s/v2/Drafts',status=400)
+        self.step('POST','/b1s/v2/Logout',b'',status=204)
+        with self.assertRaises(native.NativeError):self.run_op('sap-quotation-draft',service_url='https://sap.example/b1s/v2/',company_db='c',document_file=str(source))
+        self.assertFalse((self.output/'manifest.json').exists());self.assertEqual(len(self.received),3);self.assertFalse(self.queue)
 
 
 if __name__=='__main__':unittest.main()

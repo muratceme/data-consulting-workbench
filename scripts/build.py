@@ -56,6 +56,7 @@ Yerel test fixture’ları gerçek QVF/PBIX/workbook üretildiği anlamına gelm
      env='\n'.join(key+'=' for key in task['secrets'])+'\n'
      if task['kind']=='agent':env=env.replace('PROVIDER=\n','PROVIDER=openai\n');env+='OPENAI_BASE_URL=https://api.openai.com/v1\nOLLAMA_URL=http://localhost:11434\n'
      files={'config.json':json.dumps(cfg,ensure_ascii=False,indent=2),'README.md':readme,'.env.example':env,'.gitignore':'.env\noutput/\n','native.py':(ROOT/'library/native.py').read_text(encoding='utf-8'),'agent.py':(ROOT/'library/agent.py').read_text(encoding='utf-8'),'LICENSE':(ROOT/'LICENSE').read_text(encoding='utf-8'),'run.bat':'@echo off\r\ncd /d "%~dp0"\r\npython native.py --plan\r\npause\r\n'}
+     files.update(task.get('input_files',{}))
      files['contract.json']=json.dumps({key:task[key] for key in ('operation','kind','output','requirements','effects','secrets','sources','verification')},ensure_ascii=False,indent=2)
      if task['operation']=='bigquery-table':files['query.sql']='-- Replace with your reviewed source query. No example business data is fabricated.\nSELECT 1 AS connection_check;\n'
      if task['kind']=='agent':files['context.md']='İş isteğini, hesaplama kurallarını ve beklenen sonucu burada tanımla. Bu metin ve tablo şeması seçtiğin modele gönderilir.\n'

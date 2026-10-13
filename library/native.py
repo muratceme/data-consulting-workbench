@@ -4,9 +4,12 @@ The HTTP transport is injectable for contract tests. Production requires HTTPS.
 Run with --plan first; --execute makes the documented platform calls.
 """
 import argparse
+import ast
+import base64
 import hashlib
 import io
 import json
+import math
 import os
 import re
 import time
@@ -270,7 +273,157 @@ def bigquery(cfg, out, factory):
     return write_artifact(out,'bigquery-table.json',json.dumps({'tableReference':destination,'jobReference':done.get('jobReference'),'delivery':'BigQuery tablosu platformda oluşturuldu; bu dosya makbuzdur.'},indent=2).encode())
 
 
-HANDLERS = {'qlik-export':qlik,'qlik-template':qlik,'powerbi-export':powerbi,'tableau-export':tableau,'sap-b1-schema':sap,'sap-odata-schema':sap,'oracle-schema':oracle,'bigquery-table':bigquery,'bigquery-agent':bigquery}
+def input_json(cfg, key, fallback):
+    raw = Path(cfg.get(key, fallback)).read_bytes()
+    if len(raw) > 1024 * 1024:
+        raise NativeError('JSON girdisi en fazla 1 MB olabilir.')
+    try:
+        value = json.loads(raw)
+    except ValueError:
+        raise NativeError('Girdi geçerli JSON değil.') from None
+    if not isinstance(value, dict):
+        raise NativeError('Girdi bir JSON nesnesi olmalı.')
+    return value
+
+
+def receipt(out, filename, value):
+    return write_artifact(out, filename, json.dumps(value, ensure_ascii=False, indent=2).encode('utf-8'))
+
+
+def databricks_profile(cfg, out, factory):
+    table = required(cfg, 'source_table')
+    if not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*', table):
+        raise NativeError('source_table catalog.schema.table biçiminde, basit tanımlayıcılar içermeli.')
+    parent = required(cfg, 'workspace_directory')
+    if not parent.startswith('/') or '..' in parent.split('/'):
+        raise NativeError('Var olan mutlak workspace_directory yolu gereklidir.')
+    # The template only computes aggregate null counts; no raw business rows are exported.
+    source = '''# Databricks notebook source
+from pyspark.sql import functions as F
+
+SOURCE_TABLE = ''' + repr(table) + '''
+df = spark.table(SOURCE_TABLE)
+if not df.columns:
+    raise ValueError("Source table has no columns")
+def quoted(column):
+    return F.col("`" + column.replace("`", "``") + "`")
+summary = df.agg(
+    F.count(F.lit(1)).alias("row_count"),
+    *[F.coalesce(F.sum(F.when(quoted(name).isNull(), 1).otherwise(0)), F.lit(0)).alias("null_" + str(i))
+      for i, name in enumerate(df.columns)]
+).first()
+profile = [(field.name, field.dataType.simpleString(), int(summary["row_count"]), int(summary["null_" + str(i)]))
+           for i, field in enumerate(df.schema.fields)]
+display(spark.createDataFrame(profile, "column_name string, data_type string, row_count long, null_count long"))
+'''
+    ast.parse(source)
+    client = factory(required(cfg,'workspace_url'), {'Authorization':'Bearer '+secret('DATABRICKS_ACCESS_TOKEN')})
+    folder = client.json('GET', '/api/2.0/workspace/get-status?path='+ident(parent))
+    if folder.get('object_type') != 'DIRECTORY':
+        raise NativeError('Notebook hedefi var olan bir workspace dizini olmalı.')
+    notebook_path = parent.rstrip('/')+'/datawork_profile_'+uuid.uuid4().hex
+    journal(out, notebook_path=notebook_path, execution='not_run')
+    client.json('POST','/api/2.0/workspace/import',{'path':notebook_path,'format':'SOURCE','language':'PYTHON','overwrite':False,'content':base64.b64encode(source.encode()).decode()})
+    status = client.json('GET','/api/2.0/workspace/get-status?path='+ident(notebook_path))
+    if status.get('object_type') != 'NOTEBOOK' or status.get('language') != 'PYTHON' or status.get('path') != notebook_path:
+        raise NativeError('Databricks notebook oluşturma sonrası doğrulama başarısız; run-state.json yolunu inceleyin.')
+    journal(out, object_id=status.get('object_id'))
+    exported=client.json('GET','/api/2.0/workspace/export?path='+ident(notebook_path)+'&format=SOURCE')
+    try:
+        raw=base64.b64decode(required(exported,'content'),validate=True)
+        ast.parse(raw.decode('utf-8'))
+    except (ValueError,UnicodeError,SyntaxError):
+        raise NativeError('Notebook API export yanıtı geçerli Python kaynak kodu değil.') from None
+    return write_artifact(out,'profile_notebook.py',raw)
+
+
+def adf(cfg, out, factory):
+    # Each new definition gets a generated name; no existing pipeline name is accepted for PUT.
+    base='/subscriptions/'+ident(required(cfg,'subscription_id'))+'/resourceGroups/'+ident(required(cfg,'resource_group'))+'/providers/Microsoft.DataFactory/factories/'+ident(required(cfg,'factory_name'))
+    api='?api-version=2018-06-01'
+    if cfg['operation']=='adf-deploy':
+        definition=input_json(cfg,'pipeline_file','pipeline.json')
+        properties=definition.get('properties',{})
+        if not isinstance(properties,dict) or not isinstance(properties.get('activities'),list) or not properties['activities']:
+            raise NativeError('pipeline.json en az bir gerçek activity içeren properties.activities tanımı gerektirir.')
+        for activity in properties['activities']:
+            if not isinstance(activity,dict):raise NativeError('Activity bir JSON nesnesi olmalı.')
+            required(activity,'name');required(activity,'type')
+        payload={'properties':properties}
+    else:
+        payload=input_json(cfg,'parameters_file','parameters.json')
+        pipeline_name=required(cfg,'pipeline_name')
+    client=factory('https://management.azure.com',{'Authorization':'Bearer '+secret('AZURE_ACCESS_TOKEN')})
+    if cfg['operation']=='adf-deploy':
+        pipeline_name='datawork_'+uuid.uuid4().hex
+        path=base+'/pipelines/'+pipeline_name
+        journal(out, pipeline_name=pipeline_name, resource_path=path, execution='not_run')
+        client.json('PUT',path+api,payload)
+        result=client.json('GET',path+api)
+        if result.get('name')!=pipeline_name or result.get('id','').lower()!=path.lower() or not result.get('properties',{}).get('activities'):
+            raise NativeError('ADF tanımı yeniden okunamadı; oluşturulmuş kaynak run-state.json içinde.')
+        return receipt(out,'pipeline.json',result)
+    journal(out,pipeline_name=pipeline_name,resource_path=base,state='request_pending')
+    run_id=required(client.json('POST',base+'/pipelines/'+ident(pipeline_name)+'/createRun'+api,payload),'runId')
+    journal(out,run_id=run_id,state='started')
+    result=poll(client,base+'/pipelineruns/'+ident(run_id)+api,state=lambda r:r.get('status'),success='Succeeded',failures={'Failed','Cancelled'})
+    if result.get('runId')!=run_id or result.get('pipelineName')!=pipeline_name:
+        raise NativeError('ADF çalışma yanıtı istenen pipeline/run ile eşleşmedi.')
+    return receipt(out,'pipeline-run.json',result)
+
+
+def airflow(cfg, out, factory):
+    if cfg.get('api_version')!='3.2':
+        raise NativeError('Bu adaptör Airflow 3.2 public API v2 sözleşmesini destekler; Airflow 2 ile kullanılamaz.')
+    dag_id=required(cfg,'dag_id');conf=input_json(cfg,'conf_file','conf.json')
+    client=factory(required(cfg,'server'),{'Authorization':'Bearer '+secret('AIRFLOW_ACCESS_TOKEN')})
+    path='/api/v2/dags/'+ident(dag_id)+'/dagRuns'
+    run_id='datawork_'+uuid.uuid4().hex
+    journal(out,dag_id=dag_id,dag_run_id=run_id)
+    started=client.json('POST',path,{'dag_run_id':run_id,'logical_date':None,'conf':conf})
+    if started.get('dag_run_id')!=run_id or started.get('dag_id')!=dag_id:
+        raise NativeError('Airflow başlatma yanıtında DAG/run kimliği eşleşmedi.')
+    result=poll(client,path+'/'+ident(run_id),state=lambda r:r.get('state'),success='success',failures={'failed'})
+    if result.get('dag_run_id')!=run_id or result.get('dag_id')!=dag_id:
+        raise NativeError('Airflow sonuç yanıtında DAG/run kimliği eşleşmedi.')
+    return receipt(out,'dag-run.json',result)
+
+
+def sap_quotation_draft(cfg, out, factory):
+    document=input_json(cfg,'document_file','document.json')
+    if document.get('DocObjectCode')!='23':
+        raise NativeError('Yalnızca satış teklifi taslağı (DocObjectCode="23") desteklenir.')
+    required(document,'CardCode')
+    lines=document.get('DocumentLines')
+    if not isinstance(lines,list) or not lines:raise NativeError('En az bir teklif satırı gereklidir.')
+    for line in lines:
+        if not isinstance(line,dict):raise NativeError('Teklif satırı JSON nesnesi olmalı.')
+        required(line,'ItemCode')
+        for key,minimum in [('Quantity',0),('UnitPrice',0)]:
+            value=line.get(key)
+            if isinstance(value,bool) or not isinstance(value,(int,float)) or not math.isfinite(value) or value<minimum or (key=='Quantity' and value==0):
+                raise NativeError('Satır Quantity pozitif, UnitPrice sıfır veya pozitif sonlu sayı olmalı.')
+    if 'DocEntry' in document:raise NativeError('Var olan DocEntry üzerinde işlem yapılmaz; yeni taslak girdisi kullanın.')
+    client=factory(required(cfg,'service_url'))
+    session=client.json('POST','Login',{'CompanyDB':required(cfg,'company_db'),'UserName':secret('SAP_USERNAME'),'Password':secret('SAP_PASSWORD')})
+    client.headers['Cookie']='B1SESSION='+required(session,'SessionId')
+    try:
+        journal(out,operation='create_quotation_draft',state='request_pending')
+        created=client.json('POST','Drafts',document)
+        doc_entry=created.get('DocEntry')
+        if isinstance(doc_entry,bool) or not isinstance(doc_entry,int) or doc_entry<0:
+            raise NativeError('Taslak yanıtında DocEntry yok; SAP içinde oluşmuş olabilecek kaydı kontrol edin.')
+        journal(out,doc_entry=doc_entry,state='created')
+        result=client.json('GET','Drafts('+str(doc_entry)+')')
+        if result.get('DocEntry')!=doc_entry or str(result.get('DocObjectCode')) not in ('23','oQuotations') or result.get('CardCode')!=document['CardCode']:
+            raise NativeError('SAP taslağı yeniden okunduğunda sözleşme doğrulanamadı.')
+        return receipt(out,'sap-quotation-draft.json',result)
+    finally:
+        try:client.request('POST','Logout')
+        except NativeError:journal(out,logout='failed; session may remain valid until expiry')
+
+
+HANDLERS = {'qlik-export':qlik,'qlik-template':qlik,'powerbi-export':powerbi,'tableau-export':tableau,'sap-b1-schema':sap,'sap-odata-schema':sap,'oracle-schema':oracle,'bigquery-table':bigquery,'bigquery-agent':bigquery,'databricks-profile':databricks_profile,'adf-deploy':adf,'adf-run':adf,'airflow-run':airflow,'sap-quotation-draft':sap_quotation_draft}
 
 
 def execute(cfg, output, factory=HTTP):

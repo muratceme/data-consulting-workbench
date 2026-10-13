@@ -1,6 +1,6 @@
 # Tüm alan ve ürünlerin entegrasyon matrisi
 
-12 Ekim 2026. 185 ürün bağlamı. `Kısmi` yalnızca listelenen işlemlerin kodlandığını ve yerel sözleşme testlerinden geçtiğini gösterir. Hiçbirinde canlı hesap/uygulamada açılış doğrulaması yapılmadı. API/SDK yolu ve çıktı sütunları, uygulanmamış ürünlerde tasarım hedefidir; doğrulanmış vendor desteği iddiası değildir.
+185 ürün bağlamı. `Kısmi` yalnızca listelenen işlemlerin kodlandığını ve yerel sözleşme testlerinden geçtiğini gösterir. Hiçbirinde canlı hesap/uygulamada açılış doğrulaması yapılmadı. API/SDK yolu ve çıktı sütunları, uygulanmamış ürünlerde tasarım hedefidir; doğrulanmış vendor desteği iddiası değildir.
 
 | Alan | Yazılım | Ürün | Durum / uygulanmış işlemler | Planlanan bağlantı | Çıktı hedefi |
 |---|---|---|---|---|---|
@@ -21,7 +21,7 @@
 | Business Intelligence | Metabase | Metabase | Planlandı; paket yok | Rapor/uygulama API + görsel model SDK | Platformun rapor/proje dosyası veya yayınlanmış rapor |
 | ERP & İş Uygulamaları | SAP | S/4HANA | Kısmi: sap-odata-schema | Ürüne özgü OData/REST/SOAP veya on-prem SDK | ERP içindeki taslak belge, eşleme veya rapor tanımı |
 | ERP & İş Uygulamaları | SAP | ECC | Planlandı; paket yok | Ürüne özgü OData/REST/SOAP veya on-prem SDK | ERP içindeki taslak belge, eşleme veya rapor tanımı |
-| ERP & İş Uygulamaları | SAP | Business One | Kısmi: sap-b1-schema | Ürüne özgü OData/REST/SOAP veya on-prem SDK | ERP içindeki taslak belge, eşleme veya rapor tanımı |
+| ERP & İş Uygulamaları | SAP | Business One | Kısmi: sap-quotation-draft, sap-b1-schema | Ürüne özgü OData/REST/SOAP veya on-prem SDK | ERP içindeki taslak belge, eşleme veya rapor tanımı |
 | ERP & İş Uygulamaları | Logo | Tiger 3 | Planlandı; paket yok | Ürüne özgü OData/REST/SOAP veya on-prem SDK | ERP içindeki taslak belge, eşleme veya rapor tanımı |
 | ERP & İş Uygulamaları | Logo | GO 3 | Planlandı; paket yok | Ürüne özgü OData/REST/SOAP veya on-prem SDK | ERP içindeki taslak belge, eşleme veya rapor tanımı |
 | ERP & İş Uygulamaları | Logo | Netsis | Planlandı; paket yok | Ürüne özgü OData/REST/SOAP veya on-prem SDK | ERP içindeki taslak belge, eşleme veya rapor tanımı |
@@ -41,7 +41,7 @@
 | Veri Ambarı | Oracle | Autonomous Data Warehouse | Planlandı; paket yok | Sorgu işi API / SQL sürücüsü | Platform tablosu, view veya SQL modeli |
 | Veri Ambarı | Teradata | Vantage | Planlandı; paket yok | Sorgu işi API / SQL sürücüsü | Platform tablosu, view veya SQL modeli |
 | Veri Ambarı | ClickHouse | ClickHouse | Planlandı; paket yok | Sorgu işi API / SQL sürücüsü | Platform tablosu, view veya SQL modeli |
-| Data Lake & Lakehouse | Databricks | Databricks Lakehouse | Planlandı; paket yok | Workspace/catalog API + SQL/Spark SDK | Notebook, job veya native tablo |
+| Data Lake & Lakehouse | Databricks | Databricks Lakehouse | Kısmi: databricks-profile | Workspace/catalog API + SQL/Spark SDK | Notebook, job veya native tablo |
 | Data Lake & Lakehouse | Databricks | Unity Catalog | Planlandı; paket yok | Workspace/catalog API + SQL/Spark SDK | Notebook, job veya native tablo |
 | Data Lake & Lakehouse | Microsoft | Fabric Lakehouse | Planlandı; paket yok | Workspace/catalog API + SQL/Spark SDK | Notebook, job veya native tablo |
 | Data Lake & Lakehouse | Microsoft | OneLake | Planlandı; paket yok | Workspace/catalog API + SQL/Spark SDK | Notebook, job veya native tablo |
@@ -51,7 +51,7 @@
 | Data Lake & Lakehouse | Apache | Hudi | Planlandı; paket yok | Workspace/catalog API + SQL/Spark SDK | Notebook, job veya native tablo |
 | Data Lake & Lakehouse | Delta Lake | Delta Lake | Planlandı; paket yok | Workspace/catalog API + SQL/Spark SDK | Notebook, job veya native tablo |
 | Data Lake & Lakehouse | Dremio | Dremio | Planlandı; paket yok | Workspace/catalog API + SQL/Spark SDK | Notebook, job veya native tablo |
-| Veri Entegrasyonu | Microsoft | Azure Data Factory | Planlandı; paket yok | ETL yönetim API/SDK | Platformun pipeline tanımı ve çalışma kaydı |
+| Veri Entegrasyonu | Microsoft | Azure Data Factory | Kısmi: adf-deploy, adf-run | ETL yönetim API/SDK | Platformun pipeline tanımı ve çalışma kaydı |
 | Veri Entegrasyonu | Microsoft | SSIS | Planlandı; paket yok | ETL yönetim API/SDK | Platformun pipeline tanımı ve çalışma kaydı |
 | Veri Entegrasyonu | Microsoft | Fabric Data Factory | Planlandı; paket yok | ETL yönetim API/SDK | Platformun pipeline tanımı ve çalışma kaydı |
 | Veri Entegrasyonu | Informatica | IDMC | Planlandı; paket yok | ETL yönetim API/SDK | Platformun pipeline tanımı ve çalışma kaydı |
@@ -70,7 +70,7 @@
 | Analytics Engineering | SQLMesh | SQLMesh | Planlandı; paket yok | Ürünün proje/derleme/iş API’si | dbt/Dataform/SQLMesh proje dosyası |
 | Analytics Engineering | Coalesce | Coalesce | Planlandı; paket yok | Ürünün proje/derleme/iş API’si | dbt/Dataform/SQLMesh proje dosyası |
 | Analytics Engineering | Cube | Cube | Planlandı; paket yok | Ürünün proje/derleme/iş API’si | dbt/Dataform/SQLMesh proje dosyası |
-| Orkestrasyon & DataOps | Apache | Airflow | Planlandı; paket yok | Orkestratör REST/GraphQL/SDK | DAG, flow veya job tanımı |
+| Orkestrasyon & DataOps | Apache | Airflow | Kısmi: airflow-run | Orkestratör REST/GraphQL/SDK | DAG, flow veya job tanımı |
 | Orkestrasyon & DataOps | Dagster | Dagster | Planlandı; paket yok | Orkestratör REST/GraphQL/SDK | DAG, flow veya job tanımı |
 | Orkestrasyon & DataOps | Prefect | Prefect | Planlandı; paket yok | Orkestratör REST/GraphQL/SDK | DAG, flow veya job tanımı |
 | Orkestrasyon & DataOps | Astronomer | Astro | Planlandı; paket yok | Orkestratör REST/GraphQL/SDK | DAG, flow veya job tanımı |
