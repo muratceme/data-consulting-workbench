@@ -65,14 +65,14 @@
 | Veri Entegrasyonu | Oracle | GoldenGate | Planlandı; paket yok | ETL yönetim API/SDK | Platformun pipeline tanımı ve çalışma kaydı |
 | Veri Entegrasyonu | Meltano | Meltano | Planlandı; paket yok | ETL yönetim API/SDK | Platformun pipeline tanımı ve çalışma kaydı |
 | Analytics Engineering | dbt | dbt Core | Planlandı; paket yok | Ürünün proje/derleme/iş API’si | dbt/Dataform/SQLMesh proje dosyası |
-| Analytics Engineering | dbt | dbt Cloud | Planlandı; paket yok | Ürünün proje/derleme/iş API’si | dbt/Dataform/SQLMesh proje dosyası |
+| Analytics Engineering | dbt | dbt Cloud | Kısmi: dbt-run | Ürünün proje/derleme/iş API’si | dbt/Dataform/SQLMesh proje dosyası |
 | Analytics Engineering | Google | Dataform | Planlandı; paket yok | Ürünün proje/derleme/iş API’si | dbt/Dataform/SQLMesh proje dosyası |
 | Analytics Engineering | SQLMesh | SQLMesh | Planlandı; paket yok | Ürünün proje/derleme/iş API’si | dbt/Dataform/SQLMesh proje dosyası |
 | Analytics Engineering | Coalesce | Coalesce | Planlandı; paket yok | Ürünün proje/derleme/iş API’si | dbt/Dataform/SQLMesh proje dosyası |
 | Analytics Engineering | Cube | Cube | Planlandı; paket yok | Ürünün proje/derleme/iş API’si | dbt/Dataform/SQLMesh proje dosyası |
 | Orkestrasyon & DataOps | Apache | Airflow | Kısmi: airflow-run | Orkestratör REST/GraphQL/SDK | DAG, flow veya job tanımı |
 | Orkestrasyon & DataOps | Dagster | Dagster | Planlandı; paket yok | Orkestratör REST/GraphQL/SDK | DAG, flow veya job tanımı |
-| Orkestrasyon & DataOps | Prefect | Prefect | Planlandı; paket yok | Orkestratör REST/GraphQL/SDK | DAG, flow veya job tanımı |
+| Orkestrasyon & DataOps | Prefect | Prefect | Kısmi: prefect-run | Orkestratör REST/GraphQL/SDK | DAG, flow veya job tanımı |
 | Orkestrasyon & DataOps | Astronomer | Astro | Planlandı; paket yok | Orkestratör REST/GraphQL/SDK | DAG, flow veya job tanımı |
 | Orkestrasyon & DataOps | Kestra | Kestra | Planlandı; paket yok | Orkestratör REST/GraphQL/SDK | DAG, flow veya job tanımı |
 | Orkestrasyon & DataOps | GitHub | Actions | Planlandı; paket yok | Orkestratör REST/GraphQL/SDK | DAG, flow veya job tanımı |

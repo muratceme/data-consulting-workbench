@@ -423,7 +423,62 @@ def sap_quotation_draft(cfg, out, factory):
         except NativeError:journal(out,logout='failed; session may remain valid until expiry')
 
 
-HANDLERS = {'qlik-export':qlik,'qlik-template':qlik,'powerbi-export':powerbi,'tableau-export':tableau,'sap-b1-schema':sap,'sap-odata-schema':sap,'oracle-schema':oracle,'bigquery-table':bigquery,'bigquery-agent':bigquery,'databricks-profile':databricks_profile,'adf-deploy':adf,'adf-run':adf,'airflow-run':airflow,'sap-quotation-draft':sap_quotation_draft}
+def dbt_run(cfg, out, factory):
+    account=required(cfg,'account_id');job=required(cfg,'job_id')
+    if not account.isdecimal() or not job.isdecimal():
+        raise NativeError('dbt account_id ve job_id sayısal metin olmalı.')
+    client=factory(required(cfg,'server'),{'Authorization':'Token '+secret('DBT_ACCESS_TOKEN')})
+    base='/api/v2/accounts/'+account
+    cause='Datawork '+uuid.uuid4().hex
+    journal(out,account_id=account,job_id=job,cause=cause,state='request_pending')
+    started=client.json('POST',base+'/jobs/'+job+'/run/',{'cause':cause})
+    run=started.get('data',{}).get('id')
+    if isinstance(run,bool) or not isinstance(run,int) or run<=0:
+        raise NativeError('dbt run kimliği alınamadı; job geçmişini kontrol edin.')
+    journal(out,run_id=run,state='started')
+    path=base+'/runs/'+str(run)+'/'
+    def state(response):
+        data=response.get('data',{})
+        if data.get('id')!=run or str(data.get('job_id'))!=job or str(data.get('account_id'))!=account:
+            raise NativeError('dbt yanıtında account/job/run kimliği eşleşmedi.')
+        status=str(data.get('status'))
+        journal(out,state=status)
+        return status
+    poll(client,path,state=state,success='10',failures={'20','30'})
+    artifact=client.json('GET',path+'artifacts/run_results.json')
+    metadata=artifact.get('metadata',{})
+    schema=metadata.get('dbt_schema_version','')
+    if not isinstance(schema,str) or not schema.startswith('https://schemas.getdbt.com/dbt/run-results/') or not isinstance(artifact.get('results'),list):
+        raise NativeError('dbt yanıtı run_results artifact yapısıyla eşleşmedi.')
+    return receipt(out,'run_results.json',artifact)
+
+
+def prefect_run(cfg, out, factory):
+    deployment=required(cfg,'deployment_id')
+    try:deployment=str(uuid.UUID(deployment))
+    except ValueError:raise NativeError('Prefect deployment_id UUID olmalı.') from None
+    parameters=input_json(cfg,'parameters_file','parameters.json')
+    client=factory(required(cfg,'api_url'),{'Authorization':'Bearer '+secret('PREFECT_API_KEY')})
+    key='datawork_'+uuid.uuid4().hex
+    journal(out,deployment_id=deployment,idempotency_key=key,state='request_pending')
+    started=client.json('POST','deployments/'+deployment+'/create_flow_run',{
+        'parameters':parameters,'state':{'type':'SCHEDULED'},'idempotency_key':key})
+    run=required(started,'id')
+    journal(out,flow_run_id=run,state='started')
+    if started.get('deployment_id')!=deployment:
+        raise NativeError('Prefect başlatma yanıtı deployment ile eşleşmedi.')
+    def state(response):
+        if response.get('id')!=run or response.get('deployment_id')!=deployment:
+            raise NativeError('Prefect yanıtı deployment/run ile eşleşmedi.')
+        status=(response.get('state') or {}).get('type')
+        journal(out,state=status)
+        return status
+    result=poll(client,'flow_runs/'+ident(run),state=state,success='COMPLETED',failures={'FAILED','CRASHED','CANCELLED'})
+    # Flow parameters/results can contain secrets; the receipt only contains identifiers and state.
+    return receipt(out,'flow-run.json',{'id':run,'deployment_id':deployment,'state':result['state']['type']})
+
+
+HANDLERS = {'qlik-export':qlik,'qlik-template':qlik,'powerbi-export':powerbi,'tableau-export':tableau,'sap-b1-schema':sap,'sap-odata-schema':sap,'oracle-schema':oracle,'bigquery-table':bigquery,'bigquery-agent':bigquery,'databricks-profile':databricks_profile,'adf-deploy':adf,'adf-run':adf,'airflow-run':airflow,'sap-quotation-draft':sap_quotation_draft,'dbt-run':dbt_run,'prefect-run':prefect_run}
 
 
 def execute(cfg, output, factory=HTTP):

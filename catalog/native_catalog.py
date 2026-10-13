@@ -1,6 +1,19 @@
 """Executable operations are explicit; taxonomy coverage is not implementation coverage."""
 COMMON = 'Python 3.10+. Anahtarlar yalnızca yerel .env/ortam değişkenlerinden okunur. --plan ağ çağrısı yapmaz; --execute API işlemini başlatır. HTML raporu teslim edilmez.'
 OPERATIONS = [
+ dict(operation='dbt-run', product='dbt Cloud', domain='transform', title='dbt job çalıştır ve native sonuç artifact’ını al', output='dbt Cloud run + run_results.json', kind='code',
+      description='Mevcut dönüşüm/test job’ını kendi dbt hesabında başlatır. Başarılı tamamlanınca dbt’nin ürettiği run_results.json dosyasını indirir. Yeni model veya job oluşturmaz.',
+      config={'server':'https://YOUR_DBT_ACCESS_URL','account_id':'YOUR_ACCOUNT_ID','job_id':'YOUR_JOB_ID'}, secrets=['DBT_ACCESS_TOKEN'],
+      requirements='dbt Administrative API erişimi, job çalıştırma/run ve artifact okuma yetkisi olan token. Bölgesel Access URL kullanılmalı. Job son adımında run_results.json üreten run/build/test benzeri komut olmalı; freshness-only job desteklenmez.',
+      effects='Seçilen job’ın tüm komutları, modelleri ve testleri gerçek warehouse üzerinde çalışır; veri yazabilir ve maliyet oluşturabilir. POST otomatik tekrarlanmaz. Yanıt kaybında run-state.json içindeki cause ile job geçmişi kontrol edilmeli. Timeout çalışmayı iptal etmez. İndirilen artifact SQL/iş metadatası içerebilir.',
+      sources=['https://docs.getdbt.com/guides/databricks-workflows','https://www.postman.com/dbtlabs/dbt-cloud-api-documentation/request/28up9gb/retrieve-job-run-results','https://docs.getdbt.com/reference/artifacts/run-results-json']),
+ dict(operation='prefect-run', product='Prefect', domain='orchestration', title='Prefect deployment çalıştır ve sonucu takip et', output='Prefect flow run + çalışma kimliği', kind='code',
+      description='Prefect 3 Cloud API ile mevcut deployment’tan flow run oluşturur; parametreleri gönderir ve tamamlanmasını takip eder. FAILED/CRASHED/CANCELLED başarı sayılmaz.',
+      config={'api_url':'https://api.prefect.cloud/api/accounts/YOUR_ACCOUNT_ID/workspaces/YOUR_WORKSPACE_ID/','deployment_id':'YOUR_DEPLOYMENT_UUID','parameters_file':'parameters.json'}, secrets=['PREFECT_API_KEY'],
+      requirements='Prefect Cloud API key, doğru account/workspace API URL, deployment tetikleme ve flow run okuma yetkisi. Deployment’ın gerekli worker/compute altyapısı hazır olmalı. parameters.json mevcut deployment parametrelerini override eder.',
+      effects='Mevcut flow kodu gerçek ortamında çalışır; veri yazma/compute etkileri deployment’a bağlıdır. Benzersiz idempotency_key çağrı öncesinde kaydedilir. Timeout otomatik iptal etmez. Yeni --execute yeni run oluşturur; belirsiz durumda önce run-state.json kimlikleriyle platform kontrol edilmeli.',
+      input_files={'parameters.json':'{}\n'},
+      sources=['https://reference.prefect.io/prefect/client/orchestration/','https://reference.prefect.io/prefect/deployments/flow_runs/']),
  dict(operation='databricks-profile', product='Databricks Lakehouse', domain='lakehouse', title='Databricks veri profilleme notebook’u oluştur', output='Workspace notebook + Python notebook kaynağı', kind='code',
       description='Unity Catalog tablosunun satır ve boş değer sayılarını hesaplayan notebook üretir. Workspace API ile yeni notebook oluşturur, geri okuyup kaynak kodunu indirir. Notebook’u otomatik çalıştırmaz.',
       config={'workspace_url':'https://YOUR_WORKSPACE.cloud.databricks.com','workspace_directory':'/Users/YOUR_USER','source_table':'YOUR_CATALOG.YOUR_SCHEMA.YOUR_TABLE'}, secrets=['DATABRICKS_ACCESS_TOKEN'],

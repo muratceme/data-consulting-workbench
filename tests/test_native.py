@@ -299,4 +299,87 @@ class Contracts(unittest.TestCase):
         self.assertFalse((self.output/'manifest.json').exists());self.assertEqual(len(self.received),3);self.assertFalse(self.queue)
 
 
+    def dbt_start(self):
+        self.step('POST','/api/v2/accounts/1/jobs/2/run/',{'data':{'id':3}},request_headers={'Authorization':'Token test-only-secret'})
+    def dbt_status(self,status,**overrides):
+        self.step('GET','/api/v2/accounts/1/runs/3/',{'data':{'id':3,'job_id':2,'account_id':1,'status':status,**overrides}})
+    def dbt_execute(self):
+        return self.run_op('dbt-run',server='https://cloud.getdbt.com',account_id='1',job_id='2')
+    def test_dbt_waits_and_downloads_native_artifact(self):
+        self.dbt_start();self.dbt_status(3);self.dbt_status(10)
+        artifact={'metadata':{'dbt_schema_version':'https://schemas.getdbt.com/dbt/run-results/v6.json'},'results':[{'unique_id':'test.a','status':'pass'}]}
+        self.step('GET','/api/v2/accounts/1/runs/3/artifacts/run_results.json',artifact)
+        with patch.object(native.time,'sleep'):result=self.dbt_execute()
+        self.assertEqual(result['artifact']['file'],'run_results.json')
+        self.assertEqual(json.loads((self.output/'run_results.json').read_text()),artifact)
+        state=json.loads((self.output/'run-state.json').read_text())
+        self.assertEqual(self.received[0][2],{'cause':state['cause']});self.assertFalse(self.queue)
+    def test_dbt_failed_or_cancelled_has_no_artifact(self):
+        for status in (20,30):
+            with self.subTest(status=status):
+                self.output=Path(self.temp.name)/str(status)
+                self.dbt_start();self.dbt_status(status)
+                with self.assertRaises(native.NativeError):self.dbt_execute()
+                self.assertFalse((self.output/'manifest.json').exists());self.assertFalse(self.queue)
+    def test_dbt_wrong_job_identity_is_rejected(self):
+        self.dbt_start();self.dbt_status(10,job_id=4)
+        with self.assertRaises(native.NativeError):self.dbt_execute()
+        self.assertEqual(len(self.received),2)
+    def test_dbt_missing_artifact_is_not_success(self):
+        self.dbt_start();self.dbt_status(10)
+        self.step('GET','/api/v2/accounts/1/runs/3/artifacts/run_results.json',status=404)
+        with self.assertRaises(native.NativeError):self.dbt_execute()
+        self.assertFalse((self.output/'manifest.json').exists())
+    def test_dbt_error_body_is_not_native_artifact(self):
+        self.dbt_start();self.dbt_status(10)
+        self.step('GET','/api/v2/accounts/1/runs/3/artifacts/run_results.json',{'status':{'is_success':False}})
+        with self.assertRaises(native.NativeError):self.dbt_execute()
+        self.assertFalse((self.output/'run_results.json').exists())
+    def test_dbt_ambiguous_post_preserves_cause_and_does_not_retry(self):
+        self.step('POST','/api/v2/accounts/1/jobs/2/run/',status=503)
+        with self.assertRaises(native.NativeError):self.dbt_execute()
+        self.assertEqual(len(self.received),1)
+        self.assertEqual(json.loads((self.output/'run-state.json').read_text())['state'],'request_pending')
+
+    PREFECT_DEPLOYMENT='00000000-0000-0000-0000-000000000001'
+    PREFECT_BASE='/api/accounts/a/workspaces/w/'
+    def prefect_execute(self):
+        source=Path(self.temp.name)/'parameters.json';source.write_text('{"days":7}')
+        return self.run_op('prefect-run',api_url='https://api.prefect.cloud'+self.PREFECT_BASE,deployment_id=self.PREFECT_DEPLOYMENT,parameters_file=str(source))
+    def prefect_start(self,**extra):
+        self.step('POST',self.PREFECT_BASE+'deployments/'+self.PREFECT_DEPLOYMENT+'/create_flow_run',{'id':'run','deployment_id':self.PREFECT_DEPLOYMENT},request_headers={'Authorization':'Bearer test-only-secret'},**extra)
+    def prefect_status(self,state,**overrides):
+        self.step('GET',self.PREFECT_BASE+'flow_runs/run',{'id':'run','deployment_id':self.PREFECT_DEPLOYMENT,'state':{'type':state},'parameters':{'secret':'must-not-be-saved'},**overrides})
+    def test_prefect_cloud_path_payload_and_completed_receipt(self):
+        self.prefect_start();self.prefect_status('RUNNING');self.prefect_status('COMPLETED')
+        with patch.object(native.time,'sleep'):result=self.prefect_execute()
+        state=json.loads((self.output/'run-state.json').read_text())
+        self.assertEqual(self.received[0][2],{'parameters':{'days':7},'state':{'type':'SCHEDULED'},'idempotency_key':state['idempotency_key']})
+        self.assertEqual(result['artifact']['file'],'flow-run.json')
+        self.assertNotIn('must-not-be-saved',(self.output/'flow-run.json').read_text());self.assertFalse(self.queue)
+    def test_prefect_terminal_failures_are_not_success(self):
+        for status in ('FAILED','CRASHED','CANCELLED'):
+            with self.subTest(status=status):
+                self.output=Path(self.temp.name)/status
+                self.prefect_start();self.prefect_status(status)
+                with self.assertRaises(native.NativeError):self.prefect_execute()
+                self.assertFalse((self.output/'manifest.json').exists());self.assertFalse(self.queue)
+    def test_prefect_wrong_run_is_rejected(self):
+        self.prefect_start();self.prefect_status('COMPLETED',id='another-run')
+        with self.assertRaises(native.NativeError):self.prefect_execute()
+        self.assertFalse((self.output/'manifest.json').exists())
+    def test_prefect_post_unauthorized_is_not_retried(self):
+        self.prefect_start(status=401)
+        with self.assertRaises(native.NativeError):self.prefect_execute()
+        self.assertEqual(len(self.received),1)
+        self.assertEqual(json.loads((self.output/'run-state.json').read_text())['state'],'request_pending')
+    def test_prefect_timeout_leaves_run_trace(self):
+        self.prefect_start()
+        for _ in range(120):self.prefect_status('SCHEDULED')
+        with patch.object(native.time,'sleep'),self.assertRaisesRegex(native.NativeError,'zaman aşımına'):
+            self.prefect_execute()
+        self.assertEqual(json.loads((self.output/'run-state.json').read_text())['flow_run_id'],'run')
+        self.assertFalse((self.output/'manifest.json').exists());self.assertFalse(self.queue)
+
+
 if __name__=='__main__':unittest.main()

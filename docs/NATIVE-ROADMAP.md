@@ -26,6 +26,8 @@ Yalnızca son iki aşama tamamlanınca `live-tested` / `native-open-tested` işa
 - Databricks: tablo profil notebook’u kaynak kodu oluşturulur, SOURCE/PYTHON olarak yeni workspace nesnesi açılır, get-status ve export ile geri okunur. Notebook otomatik çalıştırılmaz.
 - ADF: onaylanmış JSON tanımı yeni UUID isimli pipeline olarak yayımlanır. Ayrı run işlemi mevcut pipeline’ı başlatır ve tamamlanana kadar izler.
 - Airflow 3.2: /api/v2 ile mevcut DAG için run açılır; logical_date=null ve conf gönderilir; yalnızca success teslim edilir. Airflow 2 API’si desteklenmez.
+- dbt Cloud: mevcut job tetiklenir; account/job/run kimlikleri ve terminal durum denetlenir; başarı sonrası native run_results.json indirilir. Dönüşüm/test komutları job’da önceden tanımlı olmalıdır. Eksik artifact teslim hatasıdır.
+- Prefect 3 Cloud: mevcut deployment için parametreli SCHEDULED flow run oluşturulur; idempotency_key çağrı öncesi kaydedilir. COMPLETED dışındaki terminal durumlar hata verir; timeout çalışmayı iptal etmez. Akış kodu veya yeni deployment üretilmez.
 
 ## Öncelikli kalan işler
 
