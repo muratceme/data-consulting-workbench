@@ -35,6 +35,8 @@ Yalnızca son iki aşama tamamlanınca `live-tested` / `native-open-tested` işa
 
 - Airbyte Cloud: Public API sync job, jobId/connectionId/jobType doğrulaması ve terminal durum takibi. Incomplete/failed/cancelled başarı sayılmaz. Token yenileme ve self-managed Config API kapsam dışı; timeout işi iptal etmez. Native teslim platform job kaydıdır, yeni bağlantı tanımı değildir.
 
+- Dataform: v1 API mevcut compilationResult kontrolü ve workflow invocation başlatma/takip. Derleme hatası çalışmayı engeller; invocation/compilation kaynak kimlikleri eşleşmelidir. Yeni SQLX/model üretimi ve canlı BigQuery kabulü henüz yok.
+
 ## Öncelikli kalan işler
 
 Snowflake ilk kesiti: OAuth SQL API, benzersiz isimli kalıcı profil view’ı ve view sorgusu. HTTP 202 polling, HTTP 422 hata, statement kimliği kontrolü ve tek satırlık aggregate sonuç doğrulaması uygulanır. Kaynak satırlar indirilmez; hesapta CREATE VIEW/SELECT yetkileri ve warehouse gerekir. Native SQL ve sorgu kimlikleri kaydedilir. Bu, iş kurallarına göre kalite onayı değildir. Canlı SQL derleme ve tenant kabulü bekliyor.

@@ -594,4 +594,47 @@ class Contracts(unittest.TestCase):
             self.assertFalse((self.output/'manifest.json').exists())
 
 
+    DF_PARENT='projects/p/locations/europe-west1/repositories/r'
+    def df_compilation(self,**overrides):
+        self.step('GET','/v1/'+self.DF_PARENT+'/compilationResults/c',{'name':self.DF_PARENT+'/compilationResults/c',**overrides},request_headers={'Authorization':'Bearer test-only-secret'})
+    def df_start(self,**extra):
+        self.step('POST','/v1/'+self.DF_PARENT+'/workflowInvocations',{'name':self.DF_PARENT+'/workflowInvocations/run'},payload={'compilationResult':self.DF_PARENT+'/compilationResults/c'},**extra)
+    def df_status(self,state='SUCCEEDED',**overrides):
+        self.step('GET','/v1/'+self.DF_PARENT+'/workflowInvocations/run',{'name':self.DF_PARENT+'/workflowInvocations/run','compilationResult':self.DF_PARENT+'/compilationResults/c','state':state,**overrides})
+    def df_execute(self,**overrides):
+        with patch.object(native.time,'sleep'):
+            return self.run_op('dataform-run',**{'compilation_result':self.DF_PARENT+'/compilationResults/c',**overrides})
+    def test_dataform_compilation_then_invocation_and_poll(self):
+        self.df_compilation();self.df_start();self.df_status('RUNNING');self.df_status(internalMetadata='must-not-persist')
+        self.assertEqual(self.df_execute()['artifact']['file'],'dataform-invocation.json')
+        self.assertNotIn('must-not-persist',(self.output/'dataform-invocation.json').read_text());self.assertFalse(self.queue)
+    def test_dataform_compilation_errors_block_execution(self):
+        self.df_compilation(compilationErrors=[{'message':'SQL error'}])
+        with self.assertRaises(native.NativeError):self.df_execute()
+        self.assertEqual(len(self.received),1)
+    def test_dataform_failure_and_cancellation_not_success(self):
+        for status in ('FAILED','CANCELLED'):
+            self.output=Path(self.temp.name)/status;self.df_compilation();self.df_start();self.df_status(status)
+            with self.assertRaises(native.NativeError):self.df_execute()
+            self.assertFalse((self.output/'manifest.json').exists())
+    def test_dataform_wrong_compilation_response_rejected(self):
+        self.df_compilation();self.df_start();self.df_status(compilationResult=self.DF_PARENT+'/compilationResults/other')
+        with self.assertRaises(native.NativeError):self.df_execute()
+        self.assertFalse((self.output/'manifest.json').exists())
+    def test_dataform_post503_not_retried(self):
+        self.df_compilation();self.df_start(status=503)
+        with self.assertRaises(native.NativeError):self.df_execute()
+        self.assertEqual(len(self.received),2)
+        self.assertEqual(json.loads((self.output/'run-state.json').read_text())['state'],'request_pending')
+    def test_dataform_invalid_resource_never_calls_api(self):
+        with self.assertRaises(native.NativeError):self.df_execute(compilation_result=self.DF_PARENT+'/compilationResults/../other')
+        self.assertFalse(self.received)
+    def test_dataform_timeout_keeps_invocation(self):
+        self.df_compilation();self.df_start()
+        for _ in range(120):self.df_status('RUNNING')
+        with self.assertRaisesRegex(native.NativeError,'zaman aşımına'):self.df_execute()
+        self.assertEqual(json.loads((self.output/'run-state.json').read_text())['workflow_invocation'],self.DF_PARENT+'/workflowInvocations/run')
+        self.assertFalse(self.queue);self.assertFalse((self.output/'manifest.json').exists())
+
+
 if __name__=='__main__':unittest.main()

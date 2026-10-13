@@ -658,7 +658,34 @@ def airbyte_sync(cfg, out, factory):
     return receipt(out,'airbyte-job.json',receipt_data)
 
 
-HANDLERS = {'qlik-export':qlik,'qlik-template':qlik,'powerbi-export':powerbi,'tableau-export':tableau,'sap-b1-schema':sap,'sap-odata-schema':sap,'oracle-schema':oracle,'bigquery-table':bigquery,'bigquery-agent':bigquery,'databricks-profile':databricks_profile,'adf-deploy':adf,'adf-run':adf,'airflow-run':airflow,'sap-quotation-draft':sap_quotation_draft,'dbt-run':dbt_run,'prefect-run':prefect_run,'snowflake-quality':snowflake_quality,'github-actions-run':github_actions,'fivetran-sync':fivetran_sync,'airbyte-sync':airbyte_sync}
+def dataform_run(cfg, out, factory):
+    compilation=required(cfg,'compilation_result')
+    if not re.fullmatch(r'projects/[A-Za-z0-9_-]+/locations/[A-Za-z0-9_-]+/repositories/[A-Za-z0-9_-]+/compilationResults/[A-Za-z0-9_-]+',compilation):
+        raise NativeError('Dataform compilation_result tam kaynak adı olmalı.')
+    parent=compilation.rsplit('/compilationResults/',1)[0]
+    client=factory('https://dataform.googleapis.com',{'Authorization':'Bearer '+secret('GOOGLE_ACCESS_TOKEN')})
+    compiled=client.json('GET','/v1/'+compilation)
+    if compiled.get('name')!=compilation or compiled.get('compilationErrors'):
+        raise NativeError('Dataform derleme sonucu doğrulanamadı veya derleme hataları var; workflow başlatılmadı.')
+    journal(out,compilation_result=compilation,state='request_pending')
+    started=client.json('POST','/v1/'+parent+'/workflowInvocations',{'compilationResult':compilation})
+    run=required(started,'name')
+    if not re.fullmatch(re.escape(parent)+r'/workflowInvocations/[A-Za-z0-9_-]+',run):
+        raise NativeError('Dataform çalışma adı beklenen repository ile eşleşmedi; platform geçmişini kontrol edin.')
+    journal(out,workflow_invocation=run,state='started')
+    def state(response):
+        if response.get('name')!=run or response.get('compilationResult')!=compilation:
+            raise NativeError('Dataform invocation/compilation kimliği eşleşmedi.')
+        status=response.get('state')
+        if status not in ('RUNNING','SUCCEEDED','FAILED','CANCELLED','CANCELING'):
+            raise NativeError('Dataform bilinmeyen çalışma durumu döndürdü.')
+        journal(out,state=status)
+        return status
+    result=poll(client,'/v1/'+run,state=state,success='SUCCEEDED',failures={'FAILED','CANCELLED'})
+    return receipt(out,'dataform-invocation.json',{'name':run,'compilationResult':compilation,'state':result['state']})
+
+
+HANDLERS = {'qlik-export':qlik,'qlik-template':qlik,'powerbi-export':powerbi,'tableau-export':tableau,'sap-b1-schema':sap,'sap-odata-schema':sap,'oracle-schema':oracle,'bigquery-table':bigquery,'bigquery-agent':bigquery,'databricks-profile':databricks_profile,'adf-deploy':adf,'adf-run':adf,'airflow-run':airflow,'sap-quotation-draft':sap_quotation_draft,'dbt-run':dbt_run,'prefect-run':prefect_run,'snowflake-quality':snowflake_quality,'github-actions-run':github_actions,'fivetran-sync':fivetran_sync,'airbyte-sync':airbyte_sync,'dataform-run':dataform_run}
 
 
 def execute(cfg, output, factory=HTTP):

@@ -1,6 +1,12 @@
 """Executable operations are explicit; taxonomy coverage is not implementation coverage."""
 COMMON = 'Python 3.10+. Anahtarlar yalnızca yerel .env/ortam değişkenlerinden okunur. --plan ağ çağrısı yapmaz; --execute API işlemini başlatır. HTML raporu teslim edilmez.'
 OPERATIONS = [
+ dict(operation='dataform-run', product='Dataform', domain='transform', title='Dataform derleme sonucunu çalıştır', output='Dataform workflow invocation + çalışma kaydı', kind='code',
+      description='Mevcut compilationResult kaynağını okuyup derleme hatası olmadığını kontrol eder; workflow invocation oluşturur ve SUCCEEDED durumuna kadar takip eder. Yeni SQLX/model oluşturmaz.',
+      config={'compilation_result':'projects/YOUR_PROJECT/locations/YOUR_LOCATION/repositories/YOUR_REPOSITORY/compilationResults/YOUR_COMPILATION_ID'}, secrets=['GOOGLE_ACCESS_TOKEN'],
+      requirements='Google OAuth cloud-platform/bigquery scope ve compilationResults.get, workflowInvocations.create/get IAM izinleri. Repository execution service account için gerekli BigQuery/veri erişimleri önceden ayarlanmış olmalı. Mevcut, geçerli derleme sonucu gerekir.',
+      effects='Derleme sonucundaki varsayılan tüm seçilebilir SQL aksiyonları/assertion’lar çalışır; model tanımına göre tablo oluşturma, değiştirme, veri yazma ve BigQuery maliyeti oluşabilir. Derleme hatası varsa çalıştırılmaz. POST otomatik tekrarlanmaz; yanıt kaybında repository geçmişi incelenmeli. Timeout işi iptal etmez. Kaynak SQL, ham veri veya token çıktı dosyasına yazılmaz.',
+      sources=['https://docs.cloud.google.com/dataform/reference/rest/v1/projects.locations.repositories.workflowInvocations/create','https://docs.cloud.google.com/dataform/reference/rest/v1/projects.locations.repositories.workflowInvocations','https://docs.cloud.google.com/dataform/reference/rest/v1/projects.locations.repositories.compilationResults']),
  dict(operation='airbyte-sync', product='Airbyte', domain='integration', title='Airbyte Cloud bağlantısını senkronize et', output='Airbyte sync job + iş kimliği ve aktarım sayaçları', kind='code',
       description='Mevcut bağlantı için Cloud Public API üzerinden sync job oluşturur. Dönen jobId ve connectionId ile sonucu doğrular; incomplete/failed/cancelled başarı sayılmaz.',
       config={'connection_id':'YOUR_CONNECTION_UUID'}, secrets=['AIRBYTE_ACCESS_TOKEN'],
