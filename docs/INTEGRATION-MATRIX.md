@@ -75,7 +75,7 @@
 | Orkestrasyon & DataOps | Prefect | Prefect | Kısmi: prefect-run | Orkestratör REST/GraphQL/SDK | DAG, flow veya job tanımı |
 | Orkestrasyon & DataOps | Astronomer | Astro | Planlandı; paket yok | Orkestratör REST/GraphQL/SDK | DAG, flow veya job tanımı |
 | Orkestrasyon & DataOps | Kestra | Kestra | Planlandı; paket yok | Orkestratör REST/GraphQL/SDK | DAG, flow veya job tanımı |
-| Orkestrasyon & DataOps | GitHub | Actions | Planlandı; paket yok | Orkestratör REST/GraphQL/SDK | DAG, flow veya job tanımı |
+| Orkestrasyon & DataOps | GitHub | Actions | Kısmi: github-actions-run | Orkestratör REST/GraphQL/SDK | DAG, flow veya job tanımı |
 | Orkestrasyon & DataOps | Jenkins | Jenkins | Planlandı; paket yok | Orkestratör REST/GraphQL/SDK | DAG, flow veya job tanımı |
 | Streaming & Gerçek Zaman | Apache | Kafka | Planlandı; paket yok | Broker yönetim API + istemci SDK | Topic, schema veya stream job tanımı |
 | Streaming & Gerçek Zaman | Apache | Flink | Planlandı; paket yok | Broker yönetim API + istemci SDK | Topic, schema veya stream job tanımı |

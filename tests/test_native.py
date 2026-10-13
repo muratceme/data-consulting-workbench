@@ -444,4 +444,55 @@ class Contracts(unittest.TestCase):
         self.assertFalse(self.queue);self.assertFalse((self.output/'manifest.json').exists())
 
 
+    GH_BASE='/repos/owner/repo/actions'
+    def gh_execute(self):
+        source=Path(self.temp.name)/'inputs.json';source.write_text('{"dataset":"sales"}')
+        with patch.object(native.time,'sleep'):
+            return self.run_op('github-actions-run',owner='owner',repo='repo',workflow_id='data.yml',ref='main',inputs_file=str(source))
+    def gh_workflow(self,state='active'):
+        self.step('GET',self.GH_BASE+'/workflows/data.yml',{'id':5,'state':state},request_headers={'Authorization':'Bearer test-only-secret','X-GitHub-Api-Version':'2026-03-10'})
+    def gh_start(self,**extra):
+        self.step('POST',self.GH_BASE+'/workflows/data.yml/dispatches',{'workflow_run_id':10,'run_url':'https://untrusted.example/ignored'},payload={'ref':'main','inputs':{'dataset':'sales'}},**extra)
+    def gh_status(self,status='completed',conclusion='success',**overrides):
+        self.step('GET',self.GH_BASE+'/runs/10',{'id':10,'workflow_id':5,'repository':{'full_name':'owner/repo'},'event':'workflow_dispatch','status':status,'conclusion':conclusion,'head_sha':'abc',**overrides})
+    def test_github_dispatch_tracks_exact_run_and_receipt(self):
+        self.gh_workflow();self.gh_start();self.gh_status('queued',None);self.gh_status()
+        self.assertEqual(self.gh_execute()['artifact']['file'],'workflow-run.json')
+        result=json.loads((self.output/'workflow-run.json').read_text())
+        self.assertEqual(result['run_id'],10);self.assertEqual(result['html_url'],'https://github.com/owner/repo/actions/runs/10')
+        self.assertNotIn('dataset',result);self.assertFalse(self.queue)
+    def test_github_disabled_workflow_never_dispatches(self):
+        self.gh_workflow('disabled_manually')
+        with self.assertRaises(native.NativeError):self.gh_execute()
+        self.assertEqual(len(self.received),1)
+    def test_github_legacy204_is_not_success_or_redispatched(self):
+        self.gh_workflow();self.gh_start(status=204)
+        with self.assertRaises(native.NativeError):self.gh_execute()
+        self.assertEqual(len(self.received),2);self.assertFalse((self.output/'manifest.json').exists())
+        self.assertEqual(json.loads((self.output/'run-state.json').read_text())['state'],'dispatch_pending')
+    def test_github_failed_conclusions_never_produce_success(self):
+        for conclusion in ('failure','cancelled','timed_out','skipped','neutral','action_required',None):
+            with self.subTest(conclusion=conclusion):
+                self.output=Path(self.temp.name)/str(conclusion)
+                self.gh_workflow();self.gh_start();self.gh_status(conclusion=conclusion)
+                with self.assertRaises(native.NativeError):self.gh_execute()
+                self.assertFalse((self.output/'manifest.json').exists());self.assertFalse(self.queue)
+    def test_github_wrong_repository_or_run_is_rejected(self):
+        for i,override in enumerate([{'id':11},{'workflow_id':6},{'repository':{'full_name':'other/repo'}},{'event':'push'}]):
+            self.output=Path(self.temp.name)/str(i)
+            self.gh_workflow();self.gh_start();self.gh_status(**override)
+            with self.assertRaises(native.NativeError):self.gh_execute()
+            self.assertFalse((self.output/'manifest.json').exists())
+    def test_github_dispatch_503_not_retried(self):
+        self.gh_workflow();self.gh_start(status=503)
+        with self.assertRaises(native.NativeError):self.gh_execute()
+        self.assertEqual(len(self.received),2);self.assertFalse(self.queue)
+    def test_github_timeout_retains_run_id(self):
+        self.gh_workflow();self.gh_start()
+        for _ in range(120):self.gh_status('waiting',None)
+        with self.assertRaisesRegex(native.NativeError,'zaman aşımına'):self.gh_execute()
+        self.assertEqual(json.loads((self.output/'run-state.json').read_text())['run_id'],10)
+        self.assertFalse((self.output/'manifest.json').exists());self.assertFalse(self.queue)
+
+
 if __name__=='__main__':unittest.main()

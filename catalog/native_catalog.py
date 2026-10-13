@@ -1,6 +1,13 @@
 """Executable operations are explicit; taxonomy coverage is not implementation coverage."""
 COMMON = 'Python 3.10+. Anahtarlar yalnızca yerel .env/ortam değişkenlerinden okunur. --plan ağ çağrısı yapmaz; --execute API işlemini başlatır. HTML raporu teslim edilmez.'
 OPERATIONS = [
+ dict(operation='github-actions-run', product='Actions', domain='orchestration', title='GitHub veri workflow’unu çalıştır ve sonucu takip et', output='GitHub Actions workflow run + çalışma kaydı', kind='code',
+      description='Mevcut workflow_dispatch işini kendi repository’sinde başlatır. API’nin döndürdüğü kesin run kimliğini izler; yalnızca completed/success sonucunu teslim eder. Workflow kodu veya pipeline oluşturmaz.',
+      config={'owner':'YOUR_OWNER','repo':'YOUR_REPO','workflow_id':'YOUR_WORKFLOW.yml','ref':'YOUR_BRANCH_OR_TAG','inputs_file':'inputs.json'}, secrets=['GITHUB_ACCESS_TOKEN'],
+      requirements='GitHub.com REST API 2026-03-10; Actions read/write yetkili fine-grained token veya uygun App token. Etkin workflow varsayılan branch üzerinde workflow_dispatch desteklemeli; ref branch/tag mevcut olmalı. inputs.json workflow tanımına uygun olmalı. GitHub Enterprise Server ve eski 204 dispatch yanıtları desteklenmez.',
+      effects='Seçilen ref üzerindeki workflow gerçek runner ve repository secrets ile çalışır; deployment/veri yazma/maliyet etkileri mevcut workflow’a bağlıdır. Input içine parola koymayın; GitHub secrets kullanın. POST tekrarlanmaz; yanıt kaybında Actions geçmişi kontrol edilmeli. Polling timeout çalışmayı iptal etmez. Workflow artifact’ları indirilmez; teslim platform run kimliği ve sonuç kaydıdır.',
+      input_files={'inputs.json':'{}\n'},
+      sources=['https://docs.github.com/en/rest/actions/workflows#create-a-workflow-dispatch-event','https://docs.github.com/en/rest/actions/workflow-runs#get-a-workflow-run']),
  dict(operation='snowflake-quality', product='Snowflake', domain='warehouse', title='Snowflake içinde veri profili view’ı oluştur', output='Snowflake view + quality-view.sql + sorgu kaydı', kind='code',
       description='Seçilen sütunların boş değer sayılarını ve toplam satır sayısını veren yeni view oluşturur. SQL API üzerinden view’ı sorgular ve aggregate sonucu doğrular. Kalite eşiği veya iş kuralı kararı vermez.',
       config={'server':'https://YOUR_ACCOUNT.snowflakecomputing.com','source_table':'YOUR_DATABASE.YOUR_SCHEMA.YOUR_TABLE','target_schema':'YOUR_DATABASE.YOUR_SCHEMA','columns':['YOUR_COLUMN'],'warehouse':'YOUR_WAREHOUSE','role':'YOUR_ROLE','timeout_seconds':60}, secrets=['SNOWFLAKE_ACCESS_TOKEN'],

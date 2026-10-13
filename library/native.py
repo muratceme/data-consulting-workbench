@@ -545,7 +545,44 @@ def snowflake_quality(cfg, out, factory):
         'null_counts':dict(zip(columns,counts[1:])),'quality_verdict':'not_evaluated; counts only'})
 
 
-HANDLERS = {'qlik-export':qlik,'qlik-template':qlik,'powerbi-export':powerbi,'tableau-export':tableau,'sap-b1-schema':sap,'sap-odata-schema':sap,'oracle-schema':oracle,'bigquery-table':bigquery,'bigquery-agent':bigquery,'databricks-profile':databricks_profile,'adf-deploy':adf,'adf-run':adf,'airflow-run':airflow,'sap-quotation-draft':sap_quotation_draft,'dbt-run':dbt_run,'prefect-run':prefect_run,'snowflake-quality':snowflake_quality}
+def github_actions(cfg, out, factory):
+    owner=required(cfg,'owner');repo=required(cfg,'repo');workflow=required(cfg,'workflow_id');ref=required(cfg,'ref')
+    inputs=input_json(cfg,'inputs_file','inputs.json')
+    if len(inputs)>25:raise NativeError('GitHub workflow en fazla 25 input kabul eder.')
+    client=factory('https://api.github.com',{'Authorization':'Bearer '+secret('GITHUB_ACCESS_TOKEN'),
+        'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2026-03-10','User-Agent':'Datawork/0.1'})
+    base='/repos/'+ident(owner)+'/'+ident(repo)
+    path=base+'/actions/workflows/'+ident(workflow)
+    definition=client.json('GET',path)
+    workflow_id=definition.get('id')
+    if type(workflow_id) is not int or workflow_id<=0 or definition.get('state')!='active':
+        raise NativeError('GitHub workflow etkin değil veya kimliği doğrulanamadı.')
+    journal(out,repository=owner+'/'+repo,workflow_id=workflow_id,ref=ref,state='dispatch_pending')
+    raw,_,status=client.request('POST',path+'/dispatches',{'ref':ref,'inputs':inputs},with_status=True)
+    # API 2026-03-10 returns the exact run ID. Older 204 responses cannot be correlated safely.
+    if status!=200:raise NativeError('GitHub run kimliği döndürmedi. Workflow çalışmış olabilir; Actions geçmişini kontrol edin. Tekrar gönderilmedi.')
+    try:started=json.loads(raw)
+    except (ValueError,UnicodeError):raise NativeError('GitHub dispatch yanıtı geçerli JSON değil; Actions geçmişini kontrol edin.') from None
+    run=started.get('workflow_run_id') if isinstance(started,dict) else None
+    if type(run) is not int or run<=0:raise NativeError('GitHub dispatch yanıtında run kimliği yok; Actions geçmişini kontrol edin.')
+    journal(out,run_id=run,state='dispatched')
+    def state(response):
+        if response.get('id')!=run or response.get('workflow_id')!=workflow_id or response.get('event')!='workflow_dispatch' or response.get('repository',{}).get('full_name','').lower()!=(owner+'/'+repo).lower():
+            raise NativeError('GitHub çalışma yanıtı repository/workflow/run kimlikleriyle eşleşmedi.')
+        status=response.get('status')
+        conclusion=response.get('conclusion')
+        journal(out,state=status,conclusion=conclusion)
+        if status=='completed':
+            if conclusion!='success':raise NativeError('GitHub workflow başarıyla tamamlanmadı; run kimliğiyle Actions sonucunu kontrol edin.')
+            return 'success'
+        return status
+    result=poll(client,base+'/actions/runs/'+str(run),state=state,success='success',failures=set())
+    return receipt(out,'workflow-run.json',{'repository':owner+'/'+repo,'workflow_id':workflow_id,'run_id':run,
+        'ref':ref,'head_sha':result.get('head_sha'),'conclusion':'success',
+        'html_url':'https://github.com/'+ident(owner)+'/'+ident(repo)+'/actions/runs/'+str(run)})
+
+
+HANDLERS = {'qlik-export':qlik,'qlik-template':qlik,'powerbi-export':powerbi,'tableau-export':tableau,'sap-b1-schema':sap,'sap-odata-schema':sap,'oracle-schema':oracle,'bigquery-table':bigquery,'bigquery-agent':bigquery,'databricks-profile':databricks_profile,'adf-deploy':adf,'adf-run':adf,'airflow-run':airflow,'sap-quotation-draft':sap_quotation_draft,'dbt-run':dbt_run,'prefect-run':prefect_run,'snowflake-quality':snowflake_quality,'github-actions-run':github_actions}
 
 
 def execute(cfg, output, factory=HTTP):

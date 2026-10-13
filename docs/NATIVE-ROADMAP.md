@@ -29,6 +29,8 @@ Yalnızca son iki aşama tamamlanınca `live-tested` / `native-open-tested` işa
 - dbt Cloud: mevcut job tetiklenir; account/job/run kimlikleri ve terminal durum denetlenir; başarı sonrası native run_results.json indirilir. Dönüşüm/test komutları job’da önceden tanımlı olmalıdır. Eksik artifact teslim hatasıdır.
 - Prefect 3 Cloud: mevcut deployment için parametreli SCHEDULED flow run oluşturulur; idempotency_key çağrı öncesi kaydedilir. COMPLETED dışındaki terminal durumlar hata verir; timeout çalışmayı iptal etmez. Akış kodu veya yeni deployment üretilmez.
 
+- GitHub Actions: REST API 2026-03-10 dispatch yanıtındaki kesin workflow_run_id ile takip; repo/workflow/run/event doğrulaması. Yalnızca completed/success teslim edilir. Eski 204 yanıtı başarı sayılmaz veya yeniden tetiklenmez. Workflow oluşturma ve artifact indirme bu paketin kapsamında değil.
+
 ## Öncelikli kalan işler
 
 Snowflake ilk kesiti: OAuth SQL API, benzersiz isimli kalıcı profil view’ı ve view sorgusu. HTTP 202 polling, HTTP 422 hata, statement kimliği kontrolü ve tek satırlık aggregate sonuç doğrulaması uygulanır. Kaynak satırlar indirilmez; hesapta CREATE VIEW/SELECT yetkileri ve warehouse gerekir. Native SQL ve sorgu kimlikleri kaydedilir. Bu, iş kurallarına göre kalite onayı değildir. Canlı SQL derleme ve tenant kabulü bekliyor.
