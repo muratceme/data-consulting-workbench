@@ -4,7 +4,7 @@ Kullanıcının kendi API/SDK erişimiyle çalışan kod blokları ve agentlar. 
 
 ## Güncel durum
 
-13 Ekim 2026: 23 alan / 185 ürün bağlamı korunuyor. 22 uygulanmış işlem, Tableau Cloud/Server ayrımıyla **23 indirilebilir paket** var. Diğer 370 görev **planlanan entegrasyon**; indirme bağlantıları yok. Bu sayıların hiçbiri tüm ürünlerin çalıştığı anlamına gelmez.
+13 Ekim 2026: 23 alan / 185 ürün bağlamı korunuyor. 23 uygulanmış işlem, Tableau Cloud/Server ayrımıyla **24 indirilebilir paket** var. Diğer 370 görev **planlanan entegrasyon**; indirme bağlantıları yok. Bu sayıların hiçbiri tüm ürünlerin çalıştığı anlamına gelmez.
 
 | Uygulama | Uygulanmış işlem | Teslim |
 |---|---|---|
@@ -18,6 +18,7 @@ Kullanıcının kendi API/SDK erişimiyle çalışan kod blokları ve agentlar. 
 | BigQuery | SELECT dry-run → bütçe kontrolü → hedef tablo işi → sonuç kontrolü | BigQuery'de tablo, yerelde iş makbuzu |
 | BigQuery agent | Canlı API şeması → model → BigQuery SELECT dry-run | `.sql`; sorgu çalıştırılmaz |
 | Databricks Lakehouse | Profil notebook’u üret → SOURCE import → get-status → export | Workspace notebook + Python kaynak dosyası; otomatik çalıştırılmaz |
+| Databricks Jobs | Mevcut job’ı parametrelerle çalıştır, job/run kimliklerini ve terminal sonucu doğrula | Platform run + sonuç kaydı; görev çıktıları indirilmez |
 | Azure Data Factory | Yeni isimle pipeline yayımlama; ayrıca mevcut pipeline çalıştırma/takip | Native pipeline veya pipeline run |
 | Airflow 3.2 | Public API v2 ile mevcut DAG tetikleme ve takip | DAG run; başarısızlıkta başarı çıktısı yok |
 | dbt Cloud | Mevcut dönüşüm/test job’ını başlat, takip et ve artifact indir | dbt run + platformun ürettiği `run_results.json` |
@@ -54,7 +55,7 @@ Sunucu varsayılan olarak `http://localhost:4322` üzerinde çalışır. Uygun d
 
 Yeni/boş çıktı klasörü gerekir. Yazma ve LLM maliyeti olabilen işlemler README'de belirtilir. Şema ve proje bağlamı seçilen modele gönderilir; agent satır verisi çekmez. Kısmi çalışma kimlikleri `run-state.json`, dosya özeti `manifest.json` içindedir. Otomatik rollback veya üretimde otomatik model-kodu yürütme yoktur.
 
-Toplam **116 test** geçti (110 Python + 6 görünüm testi). Test sayısı canlı tenant doğrulaması değildir.
+Toplam **124 test** geçti (118 Python + 6 görünüm testi). Test sayısı canlı tenant doğrulaması değildir.
 
 ## Test katmanları
 

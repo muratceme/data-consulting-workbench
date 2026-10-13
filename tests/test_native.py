@@ -53,7 +53,7 @@ class Contracts(unittest.TestCase):
                 self.end_headers();self.wfile.write(data)
             do_GET=do_POST=do_PUT=handle_request
         self.errors=[];self.server=ThreadingHTTPServer(('127.0.0.1',0),Handler)
-        self.thread=threading.Thread(target=self.server.serve_forever,daemon=True);self.thread.start()
+        self.thread=threading.Thread(target=self.server.serve_forever,kwargs={'poll_interval':0.01},daemon=True);self.thread.start()
         self.env=patch.dict(os.environ,{k:'test-only-secret' for op in OPERATIONS for k in op['secrets']});self.env.start()
         self.env2=patch.dict(os.environ,{'MODEL':'test','PROVIDER':'openai'});self.env2.start()
     def tearDown(self):
@@ -679,6 +679,57 @@ class Contracts(unittest.TestCase):
         self.step('POST',self.PBI_PATH,b'',status=202)
         with self.assertRaises(native.NativeError):self.pbi_execute()
         self.assertEqual(len(self.received),1);self.assertFalse((self.output/'manifest.json').exists())
+
+
+    def dbr_start(self,**extra):
+        self.step('POST','/api/2.2/jobs/run-now',{'run_id':9},request_headers={'Authorization':'Bearer test-only-secret'},**extra)
+    def dbr_status(self,lifecycle='TERMINATED',result='SUCCESS',**overrides):
+        self.step('GET','/api/2.2/jobs/runs/get?run_id=9',{'run_id':9,'job_id':8,'state':{'life_cycle_state':lifecycle,'result_state':result},**overrides})
+    def dbr_execute(self,parameters=None,**overrides):
+        source=Path(self.temp.name)/'parameters.json';source.write_text(json.dumps(parameters if parameters is not None else {'date':'2026-10-13'}))
+        with patch.object(native.time,'sleep'):
+            return self.run_op('databricks-run',**{'workspace_url':'https://test.cloud.databricks.com','job_id':8,'parameters_file':str(source),**overrides})
+    def test_databricks_job_parameters_idempotency_and_success(self):
+        self.dbr_start();self.dbr_status('QUEUED',None);self.dbr_status('RUNNING',None);self.dbr_status(job_parameters={'password':'do-not-save'})
+        self.assertEqual(self.dbr_execute()['artifact']['file'],'databricks-run.json')
+        state=json.loads((self.output/'run-state.json').read_text())
+        self.assertEqual(self.received[0][2],{'job_id':8,'job_parameters':{'date':'2026-10-13'},'idempotency_token':state['idempotency_token']})
+        self.assertNotIn('do-not-save',(self.output/'databricks-run.json').read_text());self.assertFalse(self.queue)
+    def test_databricks_terminated_failure_is_not_success(self):
+        for result in ('FAILED','TIMEDOUT','CANCELED','SUCCESS_WITH_FAILURES',None):
+            self.output=Path(self.temp.name)/str(result);self.dbr_start();self.dbr_status(result=result)
+            with self.assertRaises(native.NativeError):self.dbr_execute()
+            self.assertFalse((self.output/'manifest.json').exists())
+    def test_databricks_skipped_internal_error_not_success(self):
+        for lifecycle in ('SKIPPED','INTERNAL_ERROR'):
+            self.output=Path(self.temp.name)/lifecycle;self.dbr_start();self.dbr_status(lifecycle,None)
+            with self.assertRaises(native.NativeError):self.dbr_execute()
+            self.assertFalse((self.output/'manifest.json').exists())
+    def test_databricks_wrong_run_or_job_rejected(self):
+        for i,override in enumerate([{'job_id':10},{'run_id':10}]):
+            self.output=Path(self.temp.name)/str(i);self.dbr_start();self.dbr_status(**override)
+            with self.assertRaises(native.NativeError):self.dbr_execute()
+    def test_databricks_invalid_job_or_parameters_never_calls_api(self):
+        with self.assertRaises(native.NativeError):self.dbr_execute(job_id=True)
+        with self.assertRaises(native.NativeError):self.dbr_execute(parameters={'count':5})
+        self.assertFalse(self.received)
+    def test_databricks_job_post503_preserves_idempotency_no_retry(self):
+        self.dbr_start(status=503)
+        with self.assertRaises(native.NativeError):self.dbr_execute()
+        self.assertEqual(len(self.received),1)
+        state=json.loads((self.output/'run-state.json').read_text())
+        self.assertEqual(state['idempotency_token'],self.received[0][2]['idempotency_token'])
+    def test_databricks_job_timeout_keeps_run(self):
+        self.dbr_start()
+        for _ in range(120):self.dbr_status('RUNNING',None)
+        with self.assertRaisesRegex(native.NativeError,'zaman aşımına'):self.dbr_execute()
+        self.assertEqual(json.loads((self.output/'run-state.json').read_text())['run_id'],9)
+        self.assertFalse((self.output/'manifest.json').exists());self.assertFalse(self.queue)
+    def test_databricks_job_auth_failure_does_not_hide_started_run(self):
+        self.dbr_start();self.step('GET','/api/2.2/jobs/runs/get?run_id=9',status=401)
+        with self.assertRaises(native.NativeError):self.dbr_execute()
+        self.assertEqual(json.loads((self.output/'run-state.json').read_text())['run_id'],9)
+        self.assertFalse((self.output/'manifest.json').exists())
 
 
 if __name__=='__main__':unittest.main()

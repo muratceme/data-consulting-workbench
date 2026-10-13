@@ -718,7 +718,38 @@ def powerbi_refresh(cfg, out, factory):
     raise NativeError('Power BI zaman aşımı; yenileme devam ediyor olabilir. run-state.json kimliğini kontrol edin.')
 
 
-HANDLERS = {'qlik-export':qlik,'qlik-template':qlik,'powerbi-export':powerbi,'tableau-export':tableau,'sap-b1-schema':sap,'sap-odata-schema':sap,'oracle-schema':oracle,'bigquery-table':bigquery,'bigquery-agent':bigquery,'databricks-profile':databricks_profile,'adf-deploy':adf,'adf-run':adf,'airflow-run':airflow,'sap-quotation-draft':sap_quotation_draft,'dbt-run':dbt_run,'prefect-run':prefect_run,'snowflake-quality':snowflake_quality,'github-actions-run':github_actions,'fivetran-sync':fivetran_sync,'airbyte-sync':airbyte_sync,'dataform-run':dataform_run,'powerbi-refresh':powerbi_refresh}
+def databricks_run(cfg, out, factory):
+    job=cfg.get('job_id')
+    if type(job) is not int or not 0<job<2**63:raise NativeError('Databricks job_id pozitif int64 olmalı.')
+    parameters=input_json(cfg,'parameters_file','parameters.json')
+    if any(not isinstance(v,str) for v in parameters.values()):
+        raise NativeError('Databricks job parametre değerleri metin olmalı.')
+    client=factory(required(cfg,'workspace_url'),{'Authorization':'Bearer '+secret('DATABRICKS_ACCESS_TOKEN')})
+    token=str(uuid.uuid4())
+    journal(out,job_id=job,idempotency_token=token,state='request_pending')
+    started=client.json('POST','/api/2.2/jobs/run-now',{'job_id':job,'job_parameters':parameters,'idempotency_token':token})
+    run=started.get('run_id')
+    if type(run) is not int or not 0<run<2**63:
+        raise NativeError('Databricks run kimliği alınamadı; job geçmişini kontrol edin.')
+    journal(out,run_id=run,state='started')
+    def state(response):
+        if response.get('run_id')!=run or response.get('job_id')!=job:
+            raise NativeError('Databricks job/run kimlikleri eşleşmedi.')
+        status=response.get('state',{})
+        lifecycle=status.get('life_cycle_state');result=status.get('result_state')
+        journal(out,state=lifecycle,result_state=result)
+        if lifecycle=='TERMINATED':
+            if result!='SUCCESS':raise NativeError('Databricks işi başarıyla tamamlanmadı; run kimliğini kontrol edin.')
+            return 'success'
+        if lifecycle in ('SKIPPED','INTERNAL_ERROR'):raise NativeError('Databricks işi atlandı veya iç hata oluştu.')
+        if lifecycle not in ('PENDING','RUNNING','TERMINATING','WAITING_FOR_RETRY','QUEUED','BLOCKED'):
+            raise NativeError('Databricks bilinmeyen yaşam döngüsü durumu döndürdü.')
+        return 'waiting'
+    poll(client,'/api/2.2/jobs/runs/get?run_id='+str(run),state=state,success='success',failures=set())
+    return receipt(out,'databricks-run.json',{'job_id':job,'run_id':run,'life_cycle_state':'TERMINATED','result_state':'SUCCESS'})
+
+
+HANDLERS = {'qlik-export':qlik,'qlik-template':qlik,'powerbi-export':powerbi,'tableau-export':tableau,'sap-b1-schema':sap,'sap-odata-schema':sap,'oracle-schema':oracle,'bigquery-table':bigquery,'bigquery-agent':bigquery,'databricks-profile':databricks_profile,'adf-deploy':adf,'adf-run':adf,'airflow-run':airflow,'sap-quotation-draft':sap_quotation_draft,'dbt-run':dbt_run,'prefect-run':prefect_run,'snowflake-quality':snowflake_quality,'github-actions-run':github_actions,'fivetran-sync':fivetran_sync,'airbyte-sync':airbyte_sync,'dataform-run':dataform_run,'powerbi-refresh':powerbi_refresh,'databricks-run':databricks_run}
 
 
 def execute(cfg, output, factory=HTTP):

@@ -1,6 +1,13 @@
 """Executable operations are explicit; taxonomy coverage is not implementation coverage."""
 COMMON = 'Python 3.10+. Anahtarlar yalnızca yerel .env/ortam değişkenlerinden okunur. --plan ağ çağrısı yapmaz; --execute API işlemini başlatır. HTML raporu teslim edilmez.'
 OPERATIONS = [
+ dict(operation='databricks-run', product='Databricks Lakehouse', domain='lakehouse', title='Databricks job çalıştır ve sonucunu doğrula', output='Databricks job run + çalışma kaydı', kind='code',
+      description='Mevcut Lakeflow job’ını Jobs API 2.2 ile parametreli başlatır. Job/run kimliğini doğrular; yalnızca TERMINATED + SUCCESS sonucunu teslim eder. Notebook veya job tanımı oluşturmaz.',
+      config={'workspace_url':'https://YOUR_WORKSPACE.cloud.databricks.com','job_id':0,'parameters_file':'parameters.json'}, secrets=['DATABRICKS_ACCESS_TOKEN'],
+      requirements='Workspace OAuth/PAT, job CAN MANAGE RUN veya eşdeğer çalıştırma yetkisi ve run okuma erişimi. Job’ın run-as kimliğinde compute/veri yetkileri hazır olmalı. job_id pozitif tamsayı; parameters.json değerleri metin. Jobs API 2.2 gerekir.',
+      effects='Job’ın mevcut görevleri gerçek ortamda çalışır; veri yazma, compute maliyeti ve job’da tanımlı bildirimler tetiklenebilir. Job parametreleri varsayılanları override eder; sırları Databricks secret scope’larında tutun. Idempotency token POST öncesinde kaydedilir; otomatik POST retry yoktur. Yeni --execute yeni token/run üretir. Timeout işi iptal etmez; platform retry politikası devam edebilir. Görev logları ve parametreler indirilmez.',
+      input_files={'parameters.json':'{}\n'},
+      sources=['https://docs.databricks.com/api/workspace/jobs/runnow','https://docs.databricks.com/api/workspace/jobs/getrun']),
  dict(operation='powerbi-refresh', product='Power BI Service', domain='bi', title='Power BI semantic model’i yenile ve sonucu doğrula', output='Yenilenmiş semantic model + refresh çalışma kaydı', kind='code',
       description='Enhanced refresh API ile mevcut modelde full/transactional yenileme başlatır. HTTP 202 kabulünü tamamlanma saymaz; kesin refresh kimliğiyle HTTP 200 ve Completed sonucu bekler. Yeni rapor/PBIX oluşturmaz.',
       config={'workspace_id':'YOUR_WORKSPACE_UUID','dataset_id':'YOUR_DATASET_UUID'}, secrets=['POWERBI_ACCESS_TOKEN'],
