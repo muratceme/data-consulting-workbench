@@ -685,7 +685,40 @@ def dataform_run(cfg, out, factory):
     return receipt(out,'dataform-invocation.json',{'name':run,'compilationResult':compilation,'state':result['state']})
 
 
-HANDLERS = {'qlik-export':qlik,'qlik-template':qlik,'powerbi-export':powerbi,'tableau-export':tableau,'sap-b1-schema':sap,'sap-odata-schema':sap,'oracle-schema':oracle,'bigquery-table':bigquery,'bigquery-agent':bigquery,'databricks-profile':databricks_profile,'adf-deploy':adf,'adf-run':adf,'airflow-run':airflow,'sap-quotation-draft':sap_quotation_draft,'dbt-run':dbt_run,'prefect-run':prefect_run,'snowflake-quality':snowflake_quality,'github-actions-run':github_actions,'fivetran-sync':fivetran_sync,'airbyte-sync':airbyte_sync,'dataform-run':dataform_run}
+def powerbi_refresh(cfg, out, factory):
+    def guid(key):
+        try:return str(uuid.UUID(required(cfg,key)))
+        except ValueError:raise NativeError(key+' UUID olmalı.') from None
+    workspace=guid('workspace_id');dataset=guid('dataset_id')
+    client=factory('https://api.powerbi.com',{'Authorization':'Bearer '+secret('POWERBI_ACCESS_TOKEN')})
+    path='/v1.0/myorg/groups/'+workspace+'/datasets/'+dataset+'/refreshes'
+    journal(out,workspace_id=workspace,dataset_id=dataset,state='request_pending')
+    _,headers,status=client.request('POST',path,{'type':'full','commitMode':'transactional','retryCount':0},with_status=True)
+    if status!=202:raise NativeError('Power BI yenileme kabulünü doğrulamadı; platform geçmişini kontrol edin.')
+    request_id=header(headers,'x-ms-request-id')
+    try:request_id=str(uuid.UUID(request_id))
+    except ValueError:raise NativeError('Power BI refresh kimliği eksik/geçersiz; tekrar göndermeden geçmişi kontrol edin.') from None
+    journal(out,refresh_id=request_id,state='accepted')
+    location=urlsplit(header(headers,'Location'))
+    expected=path+'/'+request_id
+    if location.scheme!='https' or location.netloc!='api.powerbi.com' or location.path!=expected or location.query or location.fragment:
+        raise NativeError('Power BI refresh Location adresi beklenen işlemle eşleşmedi; yönlendirme izlenmedi.')
+    for _ in range(120):
+        raw,_,http_status=client.request('GET',expected,with_status=True)
+        try:result=json.loads(raw)
+        except (ValueError,UnicodeError):raise NativeError('Power BI geçerli JSON döndürmedi.') from None
+        state=result.get('status');extended=result.get('extendedStatus')
+        journal(out,state=state,extended_status=extended)
+        failures={'Failed','Disabled','Cancelled','TimedOut'}
+        if state in failures or extended in failures:raise NativeError('Power BI yenilemesi başarısız/iptal; refresh_id ile platformu kontrol edin.')
+        if http_status==200 and state=='Completed' and extended in (None,'Completed'):
+            return receipt(out,'powerbi-refresh.json',{'workspace_id':workspace,'dataset_id':dataset,'refresh_id':request_id,'status':'Completed'})
+        if http_status!=202 or state!='Unknown':raise NativeError('Power BI yenileme durumu HTTP yanıtıyla tutarsız.')
+        time.sleep(2)
+    raise NativeError('Power BI zaman aşımı; yenileme devam ediyor olabilir. run-state.json kimliğini kontrol edin.')
+
+
+HANDLERS = {'qlik-export':qlik,'qlik-template':qlik,'powerbi-export':powerbi,'tableau-export':tableau,'sap-b1-schema':sap,'sap-odata-schema':sap,'oracle-schema':oracle,'bigquery-table':bigquery,'bigquery-agent':bigquery,'databricks-profile':databricks_profile,'adf-deploy':adf,'adf-run':adf,'airflow-run':airflow,'sap-quotation-draft':sap_quotation_draft,'dbt-run':dbt_run,'prefect-run':prefect_run,'snowflake-quality':snowflake_quality,'github-actions-run':github_actions,'fivetran-sync':fivetran_sync,'airbyte-sync':airbyte_sync,'dataform-run':dataform_run,'powerbi-refresh':powerbi_refresh}
 
 
 def execute(cfg, output, factory=HTTP):

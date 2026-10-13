@@ -4,12 +4,13 @@ Kullanıcının kendi API/SDK erişimiyle çalışan kod blokları ve agentlar. 
 
 ## Güncel durum
 
-13 Ekim 2026: 23 alan / 185 ürün bağlamı korunuyor. 21 uygulanmış işlem, Tableau Cloud/Server ayrımıyla **22 indirilebilir paket** var. Diğer 370 görev **planlanan entegrasyon**; indirme bağlantıları yok. Bu sayıların hiçbiri tüm ürünlerin çalıştığı anlamına gelmez.
+13 Ekim 2026: 23 alan / 185 ürün bağlamı korunuyor. 22 uygulanmış işlem, Tableau Cloud/Server ayrımıyla **23 indirilebilir paket** var. Diğer 370 görev **planlanan entegrasyon**; indirme bağlantıları yok. Bu sayıların hiçbiri tüm ürünlerin çalıştığı anlamına gelmez.
 
 | Uygulama | Uygulanmış işlem | Teslim |
 |---|---|---|
 | Qlik Cloud | Mevcut uygulama export; şablonu kopyala → reload → export | `.qvf`, şablon akışında yeni tenant uygulaması |
 | Power BI Service | Mevcut indirilebilir raporu export | `.pbix` (yeni rapor tasarlamaz) |
+| Power BI enhanced refresh | Mevcut semantic model full/transactional yenileme ve kesin refresh ID takibi | Yenilenmiş model + refresh kaydı; shared capacity desteklenmez |
 | Tableau Cloud / Server | PAT oturumu → workbook download → signout | Yanıta göre `.twb` / `.twbx` |
 | SAP Business One | Service Layer metadata; yeni satış teklifi taslağı oluşturma ve geri okuma | `.edmx` veya ERP içinde Drafts kaydı/DocEntry |
 | SAP S/4HANA | Kullanıcının etkin Bearer OData servisinden metadata | `.edmx` servis sözleşmesi |
@@ -53,7 +54,7 @@ Sunucu varsayılan olarak `http://localhost:4322` üzerinde çalışır. Uygun d
 
 Yeni/boş çıktı klasörü gerekir. Yazma ve LLM maliyeti olabilen işlemler README'de belirtilir. Şema ve proje bağlamı seçilen modele gönderilir; agent satır verisi çekmez. Kısmi çalışma kimlikleri `run-state.json`, dosya özeti `manifest.json` içindedir. Otomatik rollback veya üretimde otomatik model-kodu yürütme yoktur.
 
-Toplam **109 test** geçti (103 Python + 6 görünüm testi). Test sayısı canlı tenant doğrulaması değildir.
+Toplam **116 test** geçti (110 Python + 6 görünüm testi). Test sayısı canlı tenant doğrulaması değildir.
 
 ## Test katmanları
 

@@ -7,7 +7,7 @@
 | Business Intelligence | Qlik | Qlik Cloud | Kısmi: qlik-export, qlik-template | Rapor/uygulama API + görsel model SDK | Platformun rapor/proje dosyası veya yayınlanmış rapor |
 | Business Intelligence | Qlik | Qlik Sense Enterprise | Planlandı; paket yok | Rapor/uygulama API + görsel model SDK | Platformun rapor/proje dosyası veya yayınlanmış rapor |
 | Business Intelligence | Qlik | QlikView | Planlandı; paket yok | Rapor/uygulama API + görsel model SDK | Platformun rapor/proje dosyası veya yayınlanmış rapor |
-| Business Intelligence | Microsoft Power BI | Power BI Service | Kısmi: powerbi-export | Rapor/uygulama API + görsel model SDK | Platformun rapor/proje dosyası veya yayınlanmış rapor |
+| Business Intelligence | Microsoft Power BI | Power BI Service | Kısmi: powerbi-refresh, powerbi-export | Rapor/uygulama API + görsel model SDK | Platformun rapor/proje dosyası veya yayınlanmış rapor |
 | Business Intelligence | Microsoft Power BI | Power BI Desktop | Planlandı; paket yok | Rapor/uygulama API + görsel model SDK | Platformun rapor/proje dosyası veya yayınlanmış rapor |
 | Business Intelligence | Tableau | Tableau Cloud | Kısmi: tableau-export | Rapor/uygulama API + görsel model SDK | Platformun rapor/proje dosyası veya yayınlanmış rapor |
 | Business Intelligence | Tableau | Tableau Server | Kısmi: tableau-export | Rapor/uygulama API + görsel model SDK | Platformun rapor/proje dosyası veya yayınlanmış rapor |

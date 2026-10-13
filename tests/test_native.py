@@ -637,4 +637,48 @@ class Contracts(unittest.TestCase):
         self.assertFalse(self.queue);self.assertFalse((self.output/'manifest.json').exists())
 
 
+    PBI_ID='00000000-0000-0000-0000-000000000001'
+    PBI_PATH='/v1.0/myorg/groups/'+PBI_ID+'/datasets/'+PBI_ID+'/refreshes'
+    def pbi_start(self,location=None,status=202):
+        self.step('POST',self.PBI_PATH,b'',status=status,headers={'x-ms-request-id':self.PBI_ID,'Location':location or 'https://api.powerbi.com'+self.PBI_PATH+'/'+self.PBI_ID},payload={'type':'full','commitMode':'transactional','retryCount':0},request_headers={'Authorization':'Bearer test-only-secret'})
+    def pbi_status(self,state='Completed',extended='Completed',status=200):
+        self.step('GET',self.PBI_PATH+'/'+self.PBI_ID,{'status':state,'extendedStatus':extended,'serviceExceptionJson':'do-not-save'},status=status)
+    def pbi_execute(self):
+        with patch.object(native.time,'sleep'):
+            return self.run_op('powerbi-refresh',workspace_id=self.PBI_ID,dataset_id=self.PBI_ID)
+    def test_powerbi_refresh_waits_for_completed_not_accepted(self):
+        self.pbi_start();self.pbi_status('Unknown','InProgress',202);self.pbi_status()
+        self.assertEqual(self.pbi_execute()['artifact']['file'],'powerbi-refresh.json')
+        self.assertNotIn('do-not-save',(self.output/'powerbi-refresh.json').read_text());self.assertFalse(self.queue)
+    def test_powerbi_refresh_terminal_failures_not_success(self):
+        for extended in ('Failed','Disabled','Cancelled','TimedOut'):
+            self.output=Path(self.temp.name)/extended;self.pbi_start();self.pbi_status('Unknown',extended)
+            with self.assertRaises(native.NativeError):self.pbi_execute()
+            self.assertFalse((self.output/'manifest.json').exists())
+    def test_powerbi_refresh_external_or_wrong_location_never_followed(self):
+        for i,location in enumerate(['https://external.example/steal','https://api.powerbi.com/other']):
+            self.output=Path(self.temp.name)/str(i);self.pbi_start(location)
+            with self.assertRaises(native.NativeError):self.pbi_execute()
+        self.assertEqual(len(self.received),2)
+    def test_powerbi_refresh_post503_not_retried(self):
+        self.pbi_start(status=503)
+        with self.assertRaises(native.NativeError):self.pbi_execute()
+        self.assertEqual(len(self.received),1)
+        self.assertEqual(json.loads((self.output/'run-state.json').read_text())['state'],'request_pending')
+    def test_powerbi_refresh_timeout_keeps_refresh_id(self):
+        self.pbi_start()
+        for _ in range(120):self.pbi_status('Unknown','NotStarted',202)
+        with self.assertRaisesRegex(native.NativeError,'zaman aşımı'):self.pbi_execute()
+        self.assertEqual(json.loads((self.output/'run-state.json').read_text())['refresh_id'],self.PBI_ID)
+        self.assertFalse((self.output/'manifest.json').exists());self.assertFalse(self.queue)
+    def test_powerbi_refresh_inconsistent_status_rejected(self):
+        self.pbi_start();self.pbi_status(status=202)
+        with self.assertRaises(native.NativeError):self.pbi_execute()
+        self.assertFalse((self.output/'manifest.json').exists())
+    def test_powerbi_refresh_missing_id_not_success(self):
+        self.step('POST',self.PBI_PATH,b'',status=202)
+        with self.assertRaises(native.NativeError):self.pbi_execute()
+        self.assertEqual(len(self.received),1);self.assertFalse((self.output/'manifest.json').exists())
+
+
 if __name__=='__main__':unittest.main()

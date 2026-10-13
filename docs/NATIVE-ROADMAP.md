@@ -37,6 +37,8 @@ Yalnızca son iki aşama tamamlanınca `live-tested` / `native-open-tested` işa
 
 - Dataform: v1 API mevcut compilationResult kontrolü ve workflow invocation başlatma/takip. Derleme hatası çalışmayı engeller; invocation/compilation kaynak kimlikleri eşleşmelidir. Yeni SQLX/model üretimi ve canlı BigQuery kabulü henüz yok.
 
+- Power BI enhanced refresh: full/transactional semantic model yenileme, refresh ID ve Location denetimi; HTTP 202 kabul, HTTP 200 + Completed başarı. İptal/başarısızlık ve timeout ayrılır; platform hata ayrıntıları saklanmaz. Shared capacity ve yeni rapor üretimi kapsam dışıdır.
+
 ## Öncelikli kalan işler
 
 Snowflake ilk kesiti: OAuth SQL API, benzersiz isimli kalıcı profil view’ı ve view sorgusu. HTTP 202 polling, HTTP 422 hata, statement kimliği kontrolü ve tek satırlık aggregate sonuç doğrulaması uygulanır. Kaynak satırlar indirilmez; hesapta CREATE VIEW/SELECT yetkileri ve warehouse gerekir. Native SQL ve sorgu kimlikleri kaydedilir. Bu, iş kurallarına göre kalite onayı değildir. Canlı SQL derleme ve tenant kabulü bekliyor.

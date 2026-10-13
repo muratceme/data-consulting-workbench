@@ -1,6 +1,12 @@
 """Executable operations are explicit; taxonomy coverage is not implementation coverage."""
 COMMON = 'Python 3.10+. Anahtarlar yalnızca yerel .env/ortam değişkenlerinden okunur. --plan ağ çağrısı yapmaz; --execute API işlemini başlatır. HTML raporu teslim edilmez.'
 OPERATIONS = [
+ dict(operation='powerbi-refresh', product='Power BI Service', domain='bi', title='Power BI semantic model’i yenile ve sonucu doğrula', output='Yenilenmiş semantic model + refresh çalışma kaydı', kind='code',
+      description='Enhanced refresh API ile mevcut modelde full/transactional yenileme başlatır. HTTP 202 kabulünü tamamlanma saymaz; kesin refresh kimliğiyle HTTP 200 ve Completed sonucu bekler. Yeni rapor/PBIX oluşturmaz.',
+      config={'workspace_id':'YOUR_WORKSPACE_UUID','dataset_id':'YOUR_DATASET_UUID'}, secrets=['POWERBI_ACCESS_TOKEN'],
+      requirements='Enhanced refresh destekleyen kapasite (shared capacity desteklenmez), Dataset.ReadWrite.All erişimi, workspace/model yetkisi ve çalışan veri kaynağı/gateway credentials. OAuth token edinme/yenileme kullanıcıya aittir.',
+      effects='Modelin verilerini mevcut kaynaklardan yeniler; sorgular, gateway ve kapasite tüketimi oluşur. commitMode=transactional, retryCount=0; Power BI geçici iç hatalarda yine retry yapabilir. POST otomatik tekrarlanmaz. Timeout yenilemeyi iptal etmez; refresh_id kaydedilir. Model tasarımı ve rapor görselleri oluşturulmaz; token/engine hata ayrıntıları çıktı dosyasına yazılmaz.',
+      sources=['https://learn.microsoft.com/en-us/rest/api/power-bi/datasets/refresh-dataset-in-group','https://learn.microsoft.com/en-us/rest/api/power-bi/datasets/get-refresh-execution-details-in-group']),
  dict(operation='dataform-run', product='Dataform', domain='transform', title='Dataform derleme sonucunu çalıştır', output='Dataform workflow invocation + çalışma kaydı', kind='code',
       description='Mevcut compilationResult kaynağını okuyup derleme hatası olmadığını kontrol eder; workflow invocation oluşturur ve SUCCEEDED durumuna kadar takip eder. Yeni SQLX/model oluşturmaz.',
       config={'compilation_result':'projects/YOUR_PROJECT/locations/YOUR_LOCATION/repositories/YOUR_REPOSITORY/compilationResults/YOUR_COMPILATION_ID'}, secrets=['GOOGLE_ACCESS_TOKEN'],
