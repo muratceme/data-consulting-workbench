@@ -64,7 +64,7 @@ class HTTP:
             raise NativeError('API farklı bir adrese yönlendirdi; kimlik bilgileri gönderilmedi.')
         return result
 
-    def request(self, method, path, payload=None, *, accept='application/json'):
+    def request(self, method, path, payload=None, *, accept='application/json', with_status=False):
         url = self.url(path)
         body = None if payload is None else json.dumps(payload).encode('utf-8')
         headers = {'Accept': accept, **self.headers}
@@ -79,7 +79,8 @@ class HTTP:
                     data = response.read(limit + 1)
                     if len(data) > limit:
                         raise NativeError('Yanıt boyut sınırını aştı; çıktı kaydedilmedi.')
-                    return data, dict(response.headers.items())
+                    result = (data, dict(response.headers.items()))
+                    return (*result, response.status) if with_status else result
             except urllib.error.HTTPError as exc:
                 if method == 'GET' and exc.code in (429, 502, 503, 504) and attempt < 2:
                     retry = exc.headers.get('Retry-After', '')
@@ -478,7 +479,73 @@ def prefect_run(cfg, out, factory):
     return receipt(out,'flow-run.json',{'id':run,'deployment_id':deployment,'state':result['state']['type']})
 
 
-HANDLERS = {'qlik-export':qlik,'qlik-template':qlik,'powerbi-export':powerbi,'tableau-export':tableau,'sap-b1-schema':sap,'sap-odata-schema':sap,'oracle-schema':oracle,'bigquery-table':bigquery,'bigquery-agent':bigquery,'databricks-profile':databricks_profile,'adf-deploy':adf,'adf-run':adf,'airflow-run':airflow,'sap-quotation-draft':sap_quotation_draft,'dbt-run':dbt_run,'prefect-run':prefect_run}
+def snowflake_quality(cfg, out, factory):
+    # Restricted, explicitly quoted identifiers; no user SQL expressions are interpolated.
+    def name(value):
+        if not isinstance(value,str) or not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_$]{0,254}',value) or 'YOUR_' in value:
+            raise NativeError('Snowflake adları harfle/alt çizgiyle başlayan basit tanımlayıcılar olmalı; büyük/küçük harf birebir korunur.')
+        return '"'+value+'"'
+    source=required(cfg,'source_table').split('.')
+    target=required(cfg,'target_schema').split('.')
+    if len(source)!=3 or len(target)!=2:
+        raise NativeError('source_table DATABASE.SCHEMA.TABLE, target_schema DATABASE.SCHEMA biçiminde olmalı.')
+    source_sql='.'.join(name(v) for v in source);target_sql='.'.join(name(v) for v in target)
+    columns=cfg.get('columns')
+    if not isinstance(columns,list) or not 1<=len(columns)<=50:
+        raise NativeError('Kontrol edilecek 1–50 sütun gereklidir.')
+    quoted=[name(c) for c in columns]
+    if len(set(columns))!=len(columns):raise NativeError('Sütun adları tekrarlanamaz.')
+    timeout=cfg.get('timeout_seconds',60)
+    if type(timeout) is not int or not 1<=timeout<=600:raise NativeError('timeout_seconds 1–600 arası tamsayı olmalı.')
+    warehouse=required(cfg,'warehouse');role=required(cfg,'role')
+    client=factory(required(cfg,'server'),{'Authorization':'Bearer '+secret('SNOWFLAKE_ACCESS_TOKEN'),
+        'X-Snowflake-Authorization-Token-Type':'OAUTH','User-Agent':'Datawork/0.1'})
+    view=target_sql+'."DATAWORK_QUALITY_'+uuid.uuid4().hex.upper()+'"'
+    metrics=['COUNT(*) AS "ROW_COUNT"']+[
+        'COUNT(*) - COUNT('+column+') AS "NULL_'+str(i)+'"' for i,column in enumerate(quoted)]
+    sql='CREATE VIEW '+view+' AS SELECT '+', '.join(metrics)+' FROM '+source_sql
+    source_artifact=write_artifact(out,'quality-view.sql',(sql+';\n').encode())
+    journal(out,view_name=view,source_table=required(cfg,'source_table'),state='prepared')
+    def statement(sql,stage):
+        request_id=str(uuid.uuid4())
+        journal(out,**{stage+'_request_id':request_id,'state':stage+'_pending'})
+        payload={'statement':sql,'timeout':timeout,'warehouse':warehouse,'role':role}
+        raw,_,status=client.request('POST','/api/v2/statements?async=true&requestId='+request_id,payload,with_status=True)
+        handle=None
+        for attempt in range(121):
+            try:response=json.loads(raw)
+            except (ValueError,UnicodeError):raise NativeError('Snowflake geçerli JSON döndürmedi.') from None
+            if not isinstance(response,dict):raise NativeError('Snowflake yanıt nesnesi geçersiz.')
+            current=required(response,'statementHandle')
+            if handle is not None and current!=handle:raise NativeError('Snowflake statement kimliği değişti.')
+            handle=current
+            journal(out,**{stage+'_statement_handle':handle})
+            if status==200:
+                if response.get('sqlState')!='00000' or response.get('code')!='090001':
+                    raise NativeError('Snowflake başarılı SQL sonucu döndürmedi.')
+                journal(out,state=stage+'_completed')
+                return response
+            if status!=202:raise NativeError('Snowflake beklenmeyen HTTP durumu döndürdü.')
+            if attempt==120:raise NativeError('Snowflake zaman aşımı; sorgu devam ediyor olabilir. run-state.json kimliklerini kontrol edin.')
+            time.sleep(2)
+            raw,_,status=client.request('GET','/api/v2/statements/'+ident(handle),with_status=True)
+    statement(sql,'create')
+    result=statement('SELECT * FROM '+view,'check')
+    metadata=result.get('resultSetMetaData',{})
+    expected=['ROW_COUNT']+['NULL_'+str(i) for i in range(len(columns))]
+    rows=result.get('data')
+    if metadata.get('numRows')!=1 or [c.get('name') for c in metadata.get('rowType',[])]!=expected or not isinstance(rows,list) or len(rows)!=1 or len(rows[0])!=len(expected):
+        raise NativeError('Kalite view sonucu beklenen tek satırlık aggregate şemasıyla eşleşmedi.')
+    if not all(isinstance(v,str) and re.fullmatch(r'[0-9]+',v) for v in rows[0]):
+        raise NativeError('Kalite sayımları geçerli tamsayı değil.')
+    counts=[int(v) for v in rows[0]]
+    if any(c>counts[0] for c in counts[1:]):raise NativeError('Boş değer sayısı satır sayısını aşamaz.')
+    return receipt(out,'snowflake-quality.json',{'view_name':view,'sql_artifact':source_artifact,
+        'statement_handle':result['statementHandle'],'row_count':counts[0],
+        'null_counts':dict(zip(columns,counts[1:])),'quality_verdict':'not_evaluated; counts only'})
+
+
+HANDLERS = {'qlik-export':qlik,'qlik-template':qlik,'powerbi-export':powerbi,'tableau-export':tableau,'sap-b1-schema':sap,'sap-odata-schema':sap,'oracle-schema':oracle,'bigquery-table':bigquery,'bigquery-agent':bigquery,'databricks-profile':databricks_profile,'adf-deploy':adf,'adf-run':adf,'airflow-run':airflow,'sap-quotation-draft':sap_quotation_draft,'dbt-run':dbt_run,'prefect-run':prefect_run,'snowflake-quality':snowflake_quality}
 
 
 def execute(cfg, output, factory=HTTP):

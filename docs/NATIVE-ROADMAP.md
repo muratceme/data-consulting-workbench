@@ -31,6 +31,8 @@ Yalnızca son iki aşama tamamlanınca `live-tested` / `native-open-tested` işa
 
 ## Öncelikli kalan işler
 
+Snowflake ilk kesiti: OAuth SQL API, benzersiz isimli kalıcı profil view’ı ve view sorgusu. HTTP 202 polling, HTTP 422 hata, statement kimliği kontrolü ve tek satırlık aggregate sonuç doğrulaması uygulanır. Kaynak satırlar indirilmez; hesapta CREATE VIEW/SELECT yetkileri ve warehouse gerekir. Native SQL ve sorgu kimlikleri kaydedilir. Bu, iş kurallarına göre kalite onayı değildir. Canlı SQL derleme ve tenant kabulü bekliyor.
+
 - **BI:** Qlik QIX ile şema keşfi ve onaylı sheet/chart tanımından sıfırdan uygulama üretimi; Qlik Windows QRS sertifika/virtual proxy adaptörü; Power BI/Fabric rapor tanımı ve semantic model oluşturma; Tableau template/data-source bağlama ve publish. Her ürün için ayrı gerçek açılış testi.
 - **ERP:** SAP teklif dışındaki belge türleri ve eşleme, S/4 communication scenario bazlı uygulama; Logo Tiger/GO Objects ve Netsis NetOpenX sürüm/lisans sözleşmeleri; Oracle ERP belge/reporting servisleri. Genel POST endpoint uydurulmayacak. Logo resmi doküman erişiminde bu çalışmada hata alındı; eski üçüncü taraf örnekler ürün kodu kaynağı yapılmadı.
 - **Veri platformları:** Databricks/Snowflake/Redshift vb. resmi job/query API ve notebook/model artifact'ları.

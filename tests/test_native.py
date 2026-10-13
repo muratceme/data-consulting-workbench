@@ -382,4 +382,66 @@ class Contracts(unittest.TestCase):
         self.assertFalse((self.output/'manifest.json').exists());self.assertFalse(self.queue)
 
 
+    SF_UUID='00000000-0000-0000-0000-000000000001'
+    SF_PATH='/api/v2/statements?async=true&requestId='+SF_UUID
+    def sf_execute(self,**overrides):
+        cfg=dict(server='https://a.snowflakecomputing.com',source_table='DB.PUBLIC.SOURCE',target_schema='DB.QUALITY',columns=['ID','VALUE'],warehouse='WH',role='ANALYST',timeout_seconds=60)
+        cfg.update(overrides)
+        with patch.object(native.uuid,'uuid4',return_value=native.uuid.UUID(self.SF_UUID)),patch.object(native.time,'sleep'):
+            return self.run_op('snowflake-quality',**cfg)
+    def sf_result(self,handle='create',**extra):
+        return {'statementHandle':handle,'code':'090001','sqlState':'00000',**extra}
+    def sf_counts(self,**extra):
+        return self.sf_result('check',resultSetMetaData={'numRows':1,'rowType':[{'name':n} for n in ['ROW_COUNT','NULL_0','NULL_1']]},data=[['10','0','2']],**extra)
+    def test_snowflake_creates_native_view_then_queries_with_oauth(self):
+        self.step('POST',self.SF_PATH,{'statementHandle':'create'},status=202,request_headers={'Authorization':'Bearer test-only-secret','X-Snowflake-Authorization-Token-Type':'OAUTH'})
+        self.step('GET','/api/v2/statements/create',self.sf_result())
+        self.step('POST',self.SF_PATH,self.sf_counts())
+        result=self.sf_execute()
+        receipt=json.loads((self.output/'snowflake-quality.json').read_text())
+        self.assertEqual(receipt['null_counts'],{'ID':0,'VALUE':2})
+        sql=(self.output/'quality-view.sql').read_text()
+        self.assertTrue(sql.startswith('CREATE VIEW "DB"."QUALITY"."DATAWORK_QUALITY_'))
+        self.assertIn('COUNT(*) - COUNT("VALUE") AS "NULL_1"',sql)
+        self.assertNotIn('OR REPLACE',sql)
+        self.assertEqual(self.received[0][2],{'statement':sql.strip().rstrip(';'),'timeout':60,'warehouse':'WH','role':'ANALYST'})
+        self.assertEqual(self.received[2][2]['statement'],'SELECT * FROM '+receipt['view_name'])
+        self.assertEqual(result['artifact']['file'],'snowflake-quality.json');self.assertFalse(self.queue)
+    def test_snowflake_rejects_injected_identifier_before_network(self):
+        with self.assertRaises(native.NativeError):self.sf_execute(columns=['ID); DROP TABLE X;--'])
+        self.assertFalse(self.received)
+    def test_snowflake_failed_ddl_does_not_query_or_retry(self):
+        self.step('POST',self.SF_PATH,status=422)
+        with self.assertRaises(native.NativeError):self.sf_execute()
+        self.assertEqual(len(self.received),1);self.assertFalse((self.output/'manifest.json').exists())
+        state=json.loads((self.output/'run-state.json').read_text());self.assertIn('create_request_id',state)
+    def test_snowflake_failed_check_preserves_created_view(self):
+        self.step('POST',self.SF_PATH,self.sf_result())
+        self.step('POST',self.SF_PATH,status=422)
+        with self.assertRaises(native.NativeError):self.sf_execute()
+        state=json.loads((self.output/'run-state.json').read_text())
+        self.assertEqual(state['create_statement_handle'],'create');self.assertIn('view_name',state)
+        self.assertFalse((self.output/'manifest.json').exists());self.assertFalse(self.queue)
+    def test_snowflake_different_poll_handle_fails(self):
+        self.step('POST',self.SF_PATH,{'statementHandle':'create'},status=202)
+        self.step('GET','/api/v2/statements/create',self.sf_result('wrong'))
+        with self.assertRaises(native.NativeError):self.sf_execute()
+        self.assertEqual(len(self.received),2)
+    def test_snowflake_error_in_http200_is_not_success(self):
+        self.step('POST',self.SF_PATH,self.sf_result(code='123456'))
+        with self.assertRaises(native.NativeError):self.sf_execute()
+        self.assertFalse((self.output/'manifest.json').exists())
+    def test_snowflake_incomplete_results_are_not_delivered(self):
+        self.step('POST',self.SF_PATH,self.sf_result())
+        result=self.sf_counts();result['data']=[]
+        self.step('POST',self.SF_PATH,result)
+        with self.assertRaises(native.NativeError):self.sf_execute()
+        self.assertFalse((self.output/'snowflake-quality.json').exists())
+    def test_snowflake_timeout_keeps_statement_for_recovery(self):
+        self.step('POST',self.SF_PATH,{'statementHandle':'create'},status=202)
+        for _ in range(120):self.step('GET','/api/v2/statements/create',{'statementHandle':'create'},status=202)
+        with self.assertRaisesRegex(native.NativeError,'zaman aşımı'):self.sf_execute()
+        self.assertFalse(self.queue);self.assertFalse((self.output/'manifest.json').exists())
+
+
 if __name__=='__main__':unittest.main()

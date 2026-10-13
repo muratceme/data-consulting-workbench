@@ -34,7 +34,7 @@
 | ERP & İş Uygulamaları | IFS | IFS Cloud | Planlandı; paket yok | Ürüne özgü OData/REST/SOAP veya on-prem SDK | ERP içindeki taslak belge, eşleme veya rapor tanımı |
 | ERP & İş Uygulamaları | Workday | Workday | Planlandı; paket yok | Ürüne özgü OData/REST/SOAP veya on-prem SDK | ERP içindeki taslak belge, eşleme veya rapor tanımı |
 | Veri Ambarı | Google | BigQuery | Kısmi: bigquery-table, bigquery-agent | Sorgu işi API / SQL sürücüsü | Platform tablosu, view veya SQL modeli |
-| Veri Ambarı | Snowflake | Snowflake | Planlandı; paket yok | Sorgu işi API / SQL sürücüsü | Platform tablosu, view veya SQL modeli |
+| Veri Ambarı | Snowflake | Snowflake | Kısmi: snowflake-quality | Sorgu işi API / SQL sürücüsü | Platform tablosu, view veya SQL modeli |
 | Veri Ambarı | Microsoft | Fabric Warehouse | Planlandı; paket yok | Sorgu işi API / SQL sürücüsü | Platform tablosu, view veya SQL modeli |
 | Veri Ambarı | Microsoft | Azure Synapse | Planlandı; paket yok | Sorgu işi API / SQL sürücüsü | Platform tablosu, view veya SQL modeli |
 | Veri Ambarı | Amazon | Redshift | Planlandı; paket yok | Sorgu işi API / SQL sürücüsü | Platform tablosu, view veya SQL modeli |

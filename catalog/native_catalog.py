@@ -1,6 +1,12 @@
 """Executable operations are explicit; taxonomy coverage is not implementation coverage."""
 COMMON = 'Python 3.10+. Anahtarlar yalnızca yerel .env/ortam değişkenlerinden okunur. --plan ağ çağrısı yapmaz; --execute API işlemini başlatır. HTML raporu teslim edilmez.'
 OPERATIONS = [
+ dict(operation='snowflake-quality', product='Snowflake', domain='warehouse', title='Snowflake içinde veri profili view’ı oluştur', output='Snowflake view + quality-view.sql + sorgu kaydı', kind='code',
+      description='Seçilen sütunların boş değer sayılarını ve toplam satır sayısını veren yeni view oluşturur. SQL API üzerinden view’ı sorgular ve aggregate sonucu doğrular. Kalite eşiği veya iş kuralı kararı vermez.',
+      config={'server':'https://YOUR_ACCOUNT.snowflakecomputing.com','source_table':'YOUR_DATABASE.YOUR_SCHEMA.YOUR_TABLE','target_schema':'YOUR_DATABASE.YOUR_SCHEMA','columns':['YOUR_COLUMN'],'warehouse':'YOUR_WAREHOUSE','role':'YOUR_ROLE','timeout_seconds':60}, secrets=['SNOWFLAKE_ACCESS_TOKEN'],
+      requirements='SQL API için OAuth token; warehouse/database/schema USAGE, kaynak SELECT, hedef schema CREATE VIEW yetkisi. Basit ASCII tanımlayıcılar; adlar case-sensitive olarak çift tırnaklanır. 1–50 sütun desteklenir. JWT/PAT bu pakette kullanılmaz.',
+      effects='Benzersiz DATAWORK_QUALITY_UUID adlı kalıcı view yaratır; OR REPLACE kullanılmaz. View sorgusu tam tablo taraması ve warehouse maliyeti oluşturabilir. Ham satırlar indirilmez. Her SQL için sunucu timeout değeri gönderilir; yerel polling biterse otomatik iptal/silme yoktur. Başarısız kontrolde oluşturulan view kalabilir; isim ve request/statement kimlikleri run-state.json içinde tutulur. POST tekrar edilmez.',
+      sources=['https://docs.snowflake.com/en/developer-guide/sql-api/submitting-requests','https://docs.snowflake.com/en/developer-guide/sql-api/handling-responses','https://docs.snowflake.com/en/developer-guide/sql-api/authenticating']),
  dict(operation='dbt-run', product='dbt Cloud', domain='transform', title='dbt job çalıştır ve native sonuç artifact’ını al', output='dbt Cloud run + run_results.json', kind='code',
       description='Mevcut dönüşüm/test job’ını kendi dbt hesabında başlatır. Başarılı tamamlanınca dbt’nin ürettiği run_results.json dosyasını indirir. Yeni model veya job oluşturmaz.',
       config={'server':'https://YOUR_DBT_ACCESS_URL','account_id':'YOUR_ACCOUNT_ID','job_id':'YOUR_JOB_ID'}, secrets=['DBT_ACCESS_TOKEN'],
