@@ -495,4 +495,52 @@ class Contracts(unittest.TestCase):
         self.assertFalse((self.output/'manifest.json').exists());self.assertFalse(self.queue)
 
 
+    def ft_details(self,success='2026-10-01T00:00:00Z',failed=None,**overrides):
+        data={'id':'c','schedule_type':'manual','paused':False,'status':{'setup_state':'connected','sync_state':'scheduled','is_historical_sync':False},'succeeded_at':success,'failed_at':failed,'config':{'password':'source-password-not-for-disk'},**overrides}
+        self.step('GET','/v1/connections/c',{'code':'Success','data':data})
+    def ft_start(self,result='STARTED',**extra):
+        self.step('POST','/v1/connections/c/sync',{'code':'Success','data':{'result':result}},payload={'force':False},request_headers={'Accept':'application/json;version=2','Authorization':'Basic '+base64.b64encode(b'test-only-secret:test-only-secret').decode()},**extra)
+    def ft_execute(self):
+        with patch.object(native.time,'sleep'):return self.run_op('fivetran-sync',connection_id='c')
+    def test_fivetran_waits_for_new_success_and_omits_credentials(self):
+        self.ft_details();self.ft_start();self.ft_details();self.ft_details('2026-10-02T00:00:00Z')
+        self.assertEqual(self.ft_execute()['artifact']['file'],'fivetran-sync.json')
+        self.assertEqual(len(self.received),4);self.assertFalse(self.queue)
+        for file in self.output.iterdir():
+            self.assertNotIn('source-password-not-for-disk',file.read_text())
+            self.assertNotIn('test-only-secret',file.read_text())
+    def test_fivetran_unsafe_preconditions_never_trigger(self):
+        for i,override in enumerate([{'schedule_type':'auto'},{'paused':True},{'status':{'setup_state':'connected','sync_state':'syncing','is_historical_sync':False}},{'status':{'setup_state':'connected','sync_state':'scheduled','is_historical_sync':True}}]):
+            self.output=Path(self.temp.name)/str(i);self.ft_details(**override)
+            with self.assertRaises(native.NativeError):self.ft_execute()
+        self.assertTrue(all(r[0]=='GET' for r in self.received));self.assertFalse(self.queue)
+    def test_fivetran_nonstarted_responses_are_not_success(self):
+        for result in ('PAUSED','INCOMPLETE','ALREADY_RUNNING','NOT_STARTED'):
+            self.output=Path(self.temp.name)/result;self.ft_details();self.ft_start(result)
+            with self.assertRaises(native.NativeError):self.ft_execute()
+            self.assertFalse((self.output/'manifest.json').exists());self.assertFalse(self.queue)
+    def test_fivetran_new_failure_is_not_success(self):
+        self.ft_details();self.ft_start();self.ft_details(failed='2026-10-02T00:00:00Z')
+        with self.assertRaises(native.NativeError):self.ft_execute()
+        self.assertFalse((self.output/'manifest.json').exists())
+    def test_fivetran_old_success_times_out(self):
+        self.ft_details();self.ft_start()
+        for _ in range(120):self.ft_details()
+        with self.assertRaisesRegex(native.NativeError,'zaman aşımına'):self.ft_execute()
+        self.assertFalse((self.output/'manifest.json').exists());self.assertFalse(self.queue)
+    def test_fivetran_wrong_connection_response_rejected(self):
+        self.ft_details();self.ft_start();self.ft_details('2026-10-02T00:00:00Z',id='wrong')
+        with self.assertRaises(native.NativeError):self.ft_execute()
+        self.assertFalse((self.output/'manifest.json').exists())
+    def test_fivetran_post503_not_retried(self):
+        self.ft_details();self.ft_start(status=503)
+        with self.assertRaises(native.NativeError):self.ft_execute()
+        self.assertEqual(len(self.received),2)
+        self.assertEqual(json.loads((self.output/'run-state.json').read_text())['state'],'request_pending')
+    def test_fivetran_timestamp_requires_timezone(self):
+        self.ft_details('2026-10-01T00:00:00')
+        with self.assertRaises(native.NativeError):self.ft_execute()
+        self.assertEqual(len(self.received),1)
+
+
 if __name__=='__main__':unittest.main()

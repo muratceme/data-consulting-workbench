@@ -31,6 +31,8 @@ Yalnızca son iki aşama tamamlanınca `live-tested` / `native-open-tested` işa
 
 - GitHub Actions: REST API 2026-03-10 dispatch yanıtındaki kesin workflow_run_id ile takip; repo/workflow/run/event doğrulaması. Yalnızca completed/success teslim edilir. Eski 204 yanıtı başarı sayılmaz veya yeniden tetiklenmez. Workflow oluşturma ve artifact indirme bu paketin kapsamında değil.
 
+- Fivetran: mevcut manual bağlantıda force=false sync; v2 STARTED sonucu ve succeeded_at ilerlemesi takip edilir. Otomatik schedule, aktif/historical sync ve paused bağlantılar tetiklenmez. Eşzamanlı harici tetikleme varsa run eşlemesi garanti edilmez; endpoint kesin run ID vermez. Config/credential yanıtı saklanmaz.
+
 ## Öncelikli kalan işler
 
 Snowflake ilk kesiti: OAuth SQL API, benzersiz isimli kalıcı profil view’ı ve view sorgusu. HTTP 202 polling, HTTP 422 hata, statement kimliği kontrolü ve tek satırlık aggregate sonuç doğrulaması uygulanır. Kaynak satırlar indirilmez; hesapta CREATE VIEW/SELECT yetkileri ve warehouse gerekir. Native SQL ve sorgu kimlikleri kaydedilir. Bu, iş kurallarına göre kalite onayı değildir. Canlı SQL derleme ve tenant kabulü bekliyor.

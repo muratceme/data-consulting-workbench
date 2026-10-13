@@ -1,6 +1,12 @@
 """Executable operations are explicit; taxonomy coverage is not implementation coverage."""
 COMMON = 'Python 3.10+. Anahtarlar yalnızca yerel .env/ortam değişkenlerinden okunur. --plan ağ çağrısı yapmaz; --execute API işlemini başlatır. HTML raporu teslim edilmez.'
 OPERATIONS = [
+ dict(operation='fivetran-sync', product='Fivetran', domain='integration', title='Fivetran bağlantısını senkronize et ve yeni başarıyı izle', output='Fivetran sync + bağlantı/zaman damgası kaydı', kind='code',
+      description='Mevcut manual bağlantıyı API v2 yanıt sözleşmesiyle tetikler. STARTED yanıtını ve önceki succeeded_at değerinden daha yeni tamamlanmayı doğrular. Kaynak/hedef bağlantısı oluşturmaz.',
+      config={'connection_id':'YOUR_CONNECTION_ID'}, secrets=['FIVETRAN_API_KEY','FIVETRAN_API_SECRET'],
+      requirements='Fivetran scoped/service API key ve secret; connection read/sync yetkisi. Bağlantı manual, paused=false, connected, scheduled ve historical sync kapalı olmalı. Kullanım boyunca başka kullanıcı/sistem aynı bağlantıyı tetiklememeli.',
+      effects='Gerçek kaynak-hedef veri aktarımı ve Fivetran/kaynak maliyeti oluşturabilir. force=false; mevcut sync iptal edilmez. Ayarlar değiştirilmez, historical resync çağrılmaz. API run ID vermez: zaman damgası ilerlemesi gözlemlenir, eşzamanlı harici tetiklemelerde kesin çağrı eşlemesi garanti edilemez. Timeout iptal etmez; rescheduled durumunda otomatik yeniden tetikleme yoktur. Kaynak credential içerebilen config yanıtı diske yazılmaz.',
+      sources=['https://fivetran.com/docs/developer-resources/rest-api/api-reference/connections/sync-connection','https://fivetran.com/docs/developer-resources/rest-api/api-reference/connections','https://fivetran.com/docs/developer-resources/rest-api/getting-started']),
  dict(operation='github-actions-run', product='Actions', domain='orchestration', title='GitHub veri workflow’unu çalıştır ve sonucu takip et', output='GitHub Actions workflow run + çalışma kaydı', kind='code',
       description='Mevcut workflow_dispatch işini kendi repository’sinde başlatır. API’nin döndürdüğü kesin run kimliğini izler; yalnızca completed/success sonucunu teslim eder. Workflow kodu veya pipeline oluşturmaz.',
       config={'owner':'YOUR_OWNER','repo':'YOUR_REPO','workflow_id':'YOUR_WORKFLOW.yml','ref':'YOUR_BRANCH_OR_TAG','inputs_file':'inputs.json'}, secrets=['GITHUB_ACCESS_TOKEN'],

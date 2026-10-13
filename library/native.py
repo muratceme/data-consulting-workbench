@@ -17,6 +17,7 @@ import urllib.error
 import urllib.request
 import uuid
 import zipfile
+from datetime import datetime
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from urllib.parse import quote, urljoin, urlsplit
@@ -582,7 +583,51 @@ def github_actions(cfg, out, factory):
         'html_url':'https://github.com/'+ident(owner)+'/'+ident(repo)+'/actions/runs/'+str(run)})
 
 
-HANDLERS = {'qlik-export':qlik,'qlik-template':qlik,'powerbi-export':powerbi,'tableau-export':tableau,'sap-b1-schema':sap,'sap-odata-schema':sap,'oracle-schema':oracle,'bigquery-table':bigquery,'bigquery-agent':bigquery,'databricks-profile':databricks_profile,'adf-deploy':adf,'adf-run':adf,'airflow-run':airflow,'sap-quotation-draft':sap_quotation_draft,'dbt-run':dbt_run,'prefect-run':prefect_run,'snowflake-quality':snowflake_quality,'github-actions-run':github_actions}
+def fivetran_sync(cfg, out, factory):
+    connection=required(cfg,'connection_id')
+    credentials=secret('FIVETRAN_API_KEY')+':'+secret('FIVETRAN_API_SECRET')
+    client=factory('https://api.fivetran.com',{'Authorization':'Basic '+base64.b64encode(credentials.encode()).decode(),
+        'Accept':'application/json;version=2'})
+    path='/v1/connections/'+ident(connection)
+    def details(response):
+        data=response.get('data',{})
+        if response.get('code')!='Success' or data.get('id')!=connection:
+            raise NativeError('Fivetran bağlantı yanıtı doğrulanamadı.')
+        return data
+    def timestamp(value):
+        if value is None:return None
+        try:
+            parsed=datetime.fromisoformat(value.replace('Z','+00:00'))
+            if parsed.utcoffset() is None:raise ValueError()
+            return parsed
+        except (ValueError,TypeError,AttributeError):raise NativeError('Fivetran zaman damgası geçersiz.') from None
+    initial=details(client.json('GET',path))
+    status=initial.get('status',{})
+    if initial.get('schedule_type')!='manual' or initial.get('paused') is not False or status.get('setup_state')!='connected' or status.get('sync_state')!='scheduled' or status.get('is_historical_sync') is not False:
+        raise NativeError('Bağlantı manual, aktif, connected ve scheduled durumda olmalı; devam eden/historical sync başlatılmaz. Ayarlar otomatik değiştirilmedi.')
+    previous_success=timestamp(initial.get('succeeded_at'));previous_failure=timestamp(initial.get('failed_at'))
+    journal(out,connection_id=connection,previous_succeeded_at=initial.get('succeeded_at'),previous_failed_at=initial.get('failed_at'),state='request_pending')
+    started=client.json('POST',path+'/sync',{'force':False})
+    if started.get('code')!='Success' or started.get('data',{}).get('result')!='STARTED':
+        raise NativeError('Fivetran sync başlangıcını doğrulamadı; otomatik tekrar yapılmadı.')
+    journal(out,state='started')
+    def state(response):
+        data=details(response);status=data.get('status',{})
+        succeeded=timestamp(data.get('succeeded_at'));failed=timestamp(data.get('failed_at'))
+        journal(out,state=status.get('sync_state'),succeeded_at=data.get('succeeded_at'),failed_at=data.get('failed_at'))
+        if failed is not None and (previous_failure is None or failed>previous_failure):
+            raise NativeError('Fivetran yeni başarısız sync bildirdi; bağlantı geçmişini kontrol edin.')
+        if data.get('paused') is not False or data.get('schedule_type')!='manual' or status.get('setup_state')!='connected':
+            raise NativeError('Fivetran bağlantı ayarı/durumu değişti; takip durduruldu.')
+        if succeeded is not None and (previous_success is None or succeeded>previous_success) and status.get('sync_state')=='scheduled':return 'success'
+        return 'waiting'
+    result=details(poll(client,path,state=state,success='success',failures=set()))
+    # Connection config may contain source credentials. Persist only an allowlisted receipt.
+    return receipt(out,'fivetran-sync.json',{'connection_id':connection,'previous_succeeded_at':initial.get('succeeded_at'),
+        'succeeded_at':result.get('succeeded_at'),'verification':'new successful sync observed after STARTED; endpoint supplies no run ID; concurrent external triggers cannot be attributed'})
+
+
+HANDLERS = {'qlik-export':qlik,'qlik-template':qlik,'powerbi-export':powerbi,'tableau-export':tableau,'sap-b1-schema':sap,'sap-odata-schema':sap,'oracle-schema':oracle,'bigquery-table':bigquery,'bigquery-agent':bigquery,'databricks-profile':databricks_profile,'adf-deploy':adf,'adf-run':adf,'airflow-run':airflow,'sap-quotation-draft':sap_quotation_draft,'dbt-run':dbt_run,'prefect-run':prefect_run,'snowflake-quality':snowflake_quality,'github-actions-run':github_actions,'fivetran-sync':fivetran_sync}
 
 
 def execute(cfg, output, factory=HTTP):
