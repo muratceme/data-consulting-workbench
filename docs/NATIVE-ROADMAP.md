@@ -33,6 +33,8 @@ Yalnızca son iki aşama tamamlanınca `live-tested` / `native-open-tested` işa
 
 - Fivetran: mevcut manual bağlantıda force=false sync; v2 STARTED sonucu ve succeeded_at ilerlemesi takip edilir. Otomatik schedule, aktif/historical sync ve paused bağlantılar tetiklenmez. Eşzamanlı harici tetikleme varsa run eşlemesi garanti edilmez; endpoint kesin run ID vermez. Config/credential yanıtı saklanmaz.
 
+- Airbyte Cloud: Public API sync job, jobId/connectionId/jobType doğrulaması ve terminal durum takibi. Incomplete/failed/cancelled başarı sayılmaz. Token yenileme ve self-managed Config API kapsam dışı; timeout işi iptal etmez. Native teslim platform job kaydıdır, yeni bağlantı tanımı değildir.
+
 ## Öncelikli kalan işler
 
 Snowflake ilk kesiti: OAuth SQL API, benzersiz isimli kalıcı profil view’ı ve view sorgusu. HTTP 202 polling, HTTP 422 hata, statement kimliği kontrolü ve tek satırlık aggregate sonuç doğrulaması uygulanır. Kaynak satırlar indirilmez; hesapta CREATE VIEW/SELECT yetkileri ve warehouse gerekir. Native SQL ve sorgu kimlikleri kaydedilir. Bu, iş kurallarına göre kalite onayı değildir. Canlı SQL derleme ve tenant kabulü bekliyor.

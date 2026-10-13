@@ -627,7 +627,38 @@ def fivetran_sync(cfg, out, factory):
         'succeeded_at':result.get('succeeded_at'),'verification':'new successful sync observed after STARTED; endpoint supplies no run ID; concurrent external triggers cannot be attributed'})
 
 
-HANDLERS = {'qlik-export':qlik,'qlik-template':qlik,'powerbi-export':powerbi,'tableau-export':tableau,'sap-b1-schema':sap,'sap-odata-schema':sap,'oracle-schema':oracle,'bigquery-table':bigquery,'bigquery-agent':bigquery,'databricks-profile':databricks_profile,'adf-deploy':adf,'adf-run':adf,'airflow-run':airflow,'sap-quotation-draft':sap_quotation_draft,'dbt-run':dbt_run,'prefect-run':prefect_run,'snowflake-quality':snowflake_quality,'github-actions-run':github_actions,'fivetran-sync':fivetran_sync}
+def airbyte_sync(cfg, out, factory):
+    connection=required(cfg,'connection_id')
+    try:connection=str(uuid.UUID(connection))
+    except ValueError:raise NativeError('Airbyte connection_id UUID olmalı.') from None
+    client=factory('https://api.airbyte.com',{'Authorization':'Bearer '+secret('AIRBYTE_ACCESS_TOKEN')})
+    journal(out,connection_id=connection,state='request_pending')
+    started=client.json('POST','/v1/jobs',{'connectionId':connection,'jobType':'sync'})
+    run=started.get('jobId')
+    if type(run) is not int or run<0:raise NativeError('Airbyte job kimliği alınamadı; bağlantı geçmişini kontrol edin.')
+    journal(out,job_id=run,state='started')
+    def state(response):
+        if response.get('jobId')!=run or response.get('connectionId')!=connection or response.get('jobType')!='sync':
+            raise NativeError('Airbyte job/connection/iş türü eşleşmedi.')
+        status=response.get('status')
+        if status not in ('pending','queued','running','incomplete','failed','succeeded','cancelled'):
+            raise NativeError('Airbyte bilinmeyen job durumu döndürdü.')
+        journal(out,state=status)
+        return status
+    initial=state(started)
+    if initial in ('incomplete','failed','cancelled'):raise NativeError('Airbyte job başarısız başladı.')
+    result=poll(client,'/v1/jobs/'+str(run),state=state,success='succeeded',failures={'incomplete','failed','cancelled'})
+    # Whitelist fields; never persist arbitrary API response/configuration.
+    receipt_data={'connection_id':connection,'job_id':run,'status':'succeeded'}
+    for key in ('rowsSynced','bytesSynced'):
+        value=result.get(key)
+        if value is not None:
+            if type(value) is not int or value<0:raise NativeError('Airbyte aktarım sayacı geçersiz.')
+            receipt_data[key]=value
+    return receipt(out,'airbyte-job.json',receipt_data)
+
+
+HANDLERS = {'qlik-export':qlik,'qlik-template':qlik,'powerbi-export':powerbi,'tableau-export':tableau,'sap-b1-schema':sap,'sap-odata-schema':sap,'oracle-schema':oracle,'bigquery-table':bigquery,'bigquery-agent':bigquery,'databricks-profile':databricks_profile,'adf-deploy':adf,'adf-run':adf,'airflow-run':airflow,'sap-quotation-draft':sap_quotation_draft,'dbt-run':dbt_run,'prefect-run':prefect_run,'snowflake-quality':snowflake_quality,'github-actions-run':github_actions,'fivetran-sync':fivetran_sync,'airbyte-sync':airbyte_sync}
 
 
 def execute(cfg, output, factory=HTTP):

@@ -543,4 +543,55 @@ class Contracts(unittest.TestCase):
         self.assertEqual(len(self.received),1)
 
 
+    AB_CONNECTION='00000000-0000-0000-0000-000000000001'
+    def ab_response(self,status='running',**overrides):
+        return {'jobId':7,'connectionId':self.AB_CONNECTION,'jobType':'sync','status':status,**overrides}
+    def ab_start(self,**extra):
+        self.step('POST','/v1/jobs',self.ab_response(),payload={'connectionId':self.AB_CONNECTION,'jobType':'sync'},request_headers={'Authorization':'Bearer test-only-secret'},**extra)
+    def ab_execute(self,**overrides):
+        with patch.object(native.time,'sleep'):
+            return self.run_op('airbyte-sync',**{'connection_id':self.AB_CONNECTION,**overrides})
+    def test_airbyte_sync_polls_exact_job_and_keeps_only_counters(self):
+        self.ab_start();self.step('GET','/v1/jobs/7',self.ab_response('queued'))
+        self.step('GET','/v1/jobs/7',self.ab_response('succeeded',rowsSynced=0,bytesSynced=0,config={'password':'must-not-persist'}))
+        self.assertEqual(self.ab_execute()['artifact']['file'],'airbyte-job.json')
+        result=json.loads((self.output/'airbyte-job.json').read_text())
+        self.assertEqual(result['rowsSynced'],0);self.assertNotIn('config',result);self.assertFalse(self.queue)
+    def test_airbyte_failures_never_report_success(self):
+        for status in ('incomplete','failed','cancelled'):
+            self.output=Path(self.temp.name)/status;self.ab_start()
+            self.step('GET','/v1/jobs/7',self.ab_response(status))
+            with self.assertRaises(native.NativeError):self.ab_execute()
+            self.assertFalse((self.output/'manifest.json').exists());self.assertFalse(self.queue)
+    def test_airbyte_wrong_job_connection_or_type_rejected(self):
+        for i,overrides in enumerate([{'jobId':8},{'connectionId':'other'},{'jobType':'reset'}]):
+            self.output=Path(self.temp.name)/str(i);self.ab_start()
+            self.step('GET','/v1/jobs/7',self.ab_response('succeeded',**overrides))
+            with self.assertRaises(native.NativeError):self.ab_execute()
+            self.assertFalse((self.output/'manifest.json').exists())
+    def test_airbyte_invalid_connection_never_calls_api(self):
+        with self.assertRaises(native.NativeError):self.ab_execute(connection_id='invalid')
+        self.assertFalse(self.received)
+    def test_airbyte_post_failure_is_not_retried(self):
+        self.ab_start(status=503)
+        with self.assertRaises(native.NativeError):self.ab_execute()
+        self.assertEqual(len(self.received),1)
+        self.assertEqual(json.loads((self.output/'run-state.json').read_text())['state'],'request_pending')
+    def test_airbyte_expired_token_keeps_job_id(self):
+        self.ab_start();self.step('GET','/v1/jobs/7',status=401)
+        with self.assertRaises(native.NativeError):self.ab_execute()
+        self.assertEqual(json.loads((self.output/'run-state.json').read_text())['job_id'],7)
+        self.assertFalse((self.output/'manifest.json').exists())
+    def test_airbyte_timeout_never_cancels_or_retriggers(self):
+        self.ab_start()
+        for _ in range(120):self.step('GET','/v1/jobs/7',self.ab_response())
+        with self.assertRaisesRegex(native.NativeError,'zaman aşımına'):self.ab_execute()
+        self.assertEqual(sum(r[0]=='POST' for r in self.received),1);self.assertFalse(self.queue)
+    def test_airbyte_unknown_state_and_invalid_counter_rejected(self):
+        for i,response in enumerate([self.ab_response('unexpected'),self.ab_response('succeeded',rowsSynced=-1)]):
+            self.output=Path(self.temp.name)/str(i);self.ab_start();self.step('GET','/v1/jobs/7',response)
+            with self.assertRaises(native.NativeError):self.ab_execute()
+            self.assertFalse((self.output/'manifest.json').exists())
+
+
 if __name__=='__main__':unittest.main()

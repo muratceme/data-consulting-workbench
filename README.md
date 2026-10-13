@@ -4,7 +4,7 @@ Kullanıcının kendi API/SDK erişimiyle çalışan kod blokları ve agentlar. 
 
 ## Güncel durum
 
-13 Ekim 2026: 23 alan / 185 ürün bağlamı korunuyor. 19 uygulanmış işlem, Tableau Cloud/Server ayrımıyla **20 indirilebilir paket** var. Diğer 370 görev **planlanan entegrasyon**; indirme bağlantıları yok. Bu sayıların hiçbiri tüm ürünlerin çalıştığı anlamına gelmez.
+13 Ekim 2026: 23 alan / 185 ürün bağlamı korunuyor. 20 uygulanmış işlem, Tableau Cloud/Server ayrımıyla **21 indirilebilir paket** var. Diğer 370 görev **planlanan entegrasyon**; indirme bağlantıları yok. Bu sayıların hiçbiri tüm ürünlerin çalıştığı anlamına gelmez.
 
 | Uygulama | Uygulanmış işlem | Teslim |
 |---|---|---|
@@ -24,6 +24,7 @@ Kullanıcının kendi API/SDK erişimiyle çalışan kod blokları ve agentlar. 
 | Snowflake | OAuth SQL API ile yeni profil view’ı oluştur, sorgula ve aggregate sayımları doğrula | Kalıcı view + `quality-view.sql` + sorgu kimliği/sayımlar; kalite kararı verilmez |
 | GitHub Actions | Mevcut workflow_dispatch işini başlat, kesin run kimliğiyle takip et | Platform workflow run + sonuç kaydı; artifact indirme içermez |
 | Fivetran | Manual bağlantıyı force=false ile sync et, yeni başarı zamanını izle | Platform sync + zaman damgası kaydı; kesin run ID yok, eşzamanlı tetikleme desteklenmez |
+| Airbyte Cloud | Mevcut bağlantı için sync job oluştur, job/connection kimliğiyle izle | Platform job + varsa satır/bayt sayaçları; reset çağrısı yapılmaz |
 
 **Canlı vendor/tenant testi: 0. Uygulamada dosya açılışı testi: 0.** Testler yerel HTTP sözleşme sunucusunu kullanır; gerçek QVF/PBIX üretildiğini kanıtlamaz. Agent model yanıtı testte taklit edilir. Bu paketler henüz üretim onaylı değildir.
 
@@ -51,7 +52,7 @@ Sunucu varsayılan olarak `http://localhost:4322` üzerinde çalışır. Uygun d
 
 Yeni/boş çıktı klasörü gerekir. Yazma ve LLM maliyeti olabilen işlemler README'de belirtilir. Şema ve proje bağlamı seçilen modele gönderilir; agent satır verisi çekmez. Kısmi çalışma kimlikleri `run-state.json`, dosya özeti `manifest.json` içindedir. Otomatik rollback veya üretimde otomatik model-kodu yürütme yoktur.
 
-Toplam **94 test** geçti (88 Python + 6 görünüm testi). Test sayısı canlı tenant doğrulaması değildir.
+Toplam **102 test** geçti (96 Python + 6 görünüm testi). Test sayısı canlı tenant doğrulaması değildir.
 
 ## Test katmanları
 

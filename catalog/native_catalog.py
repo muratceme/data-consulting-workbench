@@ -1,6 +1,12 @@
 """Executable operations are explicit; taxonomy coverage is not implementation coverage."""
 COMMON = 'Python 3.10+. Anahtarlar yalnızca yerel .env/ortam değişkenlerinden okunur. --plan ağ çağrısı yapmaz; --execute API işlemini başlatır. HTML raporu teslim edilmez.'
 OPERATIONS = [
+ dict(operation='airbyte-sync', product='Airbyte', domain='integration', title='Airbyte Cloud bağlantısını senkronize et', output='Airbyte sync job + iş kimliği ve aktarım sayaçları', kind='code',
+      description='Mevcut bağlantı için Cloud Public API üzerinden sync job oluşturur. Dönen jobId ve connectionId ile sonucu doğrular; incomplete/failed/cancelled başarı sayılmaz.',
+      config={'connection_id':'YOUR_CONNECTION_UUID'}, secrets=['AIRBYTE_ACCESS_TOKEN'],
+      requirements='Airbyte Cloud Public API erişimi, geçerli Bearer access token ve ilgili workspace/connection için job oluşturma/okuma yetkisi. Kaynak/hedef önceden yapılandırılmış olmalı. Token edinme/yenileme kullanıcıya aittir; self-managed Config API desteklenmez.',
+      effects='Bağlantının tanımlı sync moduna göre gerçek kaynak-hedef aktarımı yapar; full-refresh/overwrite yapılandırması varsa mevcut hedef veriyi yenileyebilir. Reset/clear çağrısı yapılmaz. POST otomatik tekrarlanmaz; yanıt kaybında bağlantı job geçmişi incelenmeli. Timeout veya token süresi dolması job’ı iptal etmez. Çıktı ham veri içermez; yalnızca job kimliği/durum ve API’nin sağladığı sayaçlar saklanır.',
+      sources=['https://reference.airbyte.com/reference/createjob','https://reference.airbyte.com/reference/getjob','https://raw.githubusercontent.com/airbytehq/airbyte-api-python-sdk/main/src/airbyte_api/models/jobresponse.py','https://raw.githubusercontent.com/airbytehq/airbyte-api-python-sdk/main/src/airbyte_api/models/jobstatusenum.py']),
  dict(operation='fivetran-sync', product='Fivetran', domain='integration', title='Fivetran bağlantısını senkronize et ve yeni başarıyı izle', output='Fivetran sync + bağlantı/zaman damgası kaydı', kind='code',
       description='Mevcut manual bağlantıyı API v2 yanıt sözleşmesiyle tetikler. STARTED yanıtını ve önceki succeeded_at değerinden daha yeni tamamlanmayı doğrular. Kaynak/hedef bağlantısı oluşturmaz.',
       config={'connection_id':'YOUR_CONNECTION_ID'}, secrets=['FIVETRAN_API_KEY','FIVETRAN_API_SECRET'],

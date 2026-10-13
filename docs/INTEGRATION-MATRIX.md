@@ -59,7 +59,7 @@
 | Veri Entegrasyonu | Qlik | Talend Cloud | Planlandı; paket yok | ETL yönetim API/SDK | Platformun pipeline tanımı ve çalışma kaydı |
 | Veri Entegrasyonu | Qlik | Qlik Replicate | Planlandı; paket yok | ETL yönetim API/SDK | Platformun pipeline tanımı ve çalışma kaydı |
 | Veri Entegrasyonu | Fivetran | Fivetran | Kısmi: fivetran-sync | ETL yönetim API/SDK | Platformun pipeline tanımı ve çalışma kaydı |
-| Veri Entegrasyonu | Airbyte | Airbyte | Planlandı; paket yok | ETL yönetim API/SDK | Platformun pipeline tanımı ve çalışma kaydı |
+| Veri Entegrasyonu | Airbyte | Airbyte | Kısmi: airbyte-sync | ETL yönetim API/SDK | Platformun pipeline tanımı ve çalışma kaydı |
 | Veri Entegrasyonu | SAP | Data Services | Planlandı; paket yok | ETL yönetim API/SDK | Platformun pipeline tanımı ve çalışma kaydı |
 | Veri Entegrasyonu | Oracle | Data Integrator | Planlandı; paket yok | ETL yönetim API/SDK | Platformun pipeline tanımı ve çalışma kaydı |
 | Veri Entegrasyonu | Oracle | GoldenGate | Planlandı; paket yok | ETL yönetim API/SDK | Platformun pipeline tanımı ve çalışma kaydı |
