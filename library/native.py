@@ -686,6 +686,35 @@ def airbyte_sync(cfg, out, factory):
     return receipt(out,'airbyte-job.json',receipt_data)
 
 
+def dataform_compile(cfg, out, factory):
+    parent=required(cfg,'repository')
+    commit=required(cfg,'git_commit_sha').lower()
+    if not re.fullmatch(r'projects/[A-Za-z0-9_-]+/locations/[A-Za-z0-9_-]+/repositories/[A-Za-z0-9_-]+',parent):
+        raise NativeError('Dataform repository tam kaynak adı olmalı.')
+    if not re.fullmatch(r'[0-9a-f]{40}',commit):
+        raise NativeError('Derlenecek Git sürümü tam 40 haneli SHA olmalı.')
+    client=factory('https://dataform.googleapis.com',{'Authorization':'Bearer '+secret('GOOGLE_ACCESS_TOKEN')})
+    journal(out,repository=parent,git_commit_sha=commit,state='compilation_pending')
+    created=client.json('POST','/v1/'+parent+'/compilationResults',{'gitCommitish':commit})
+    name=required(created,'name')
+    if not re.fullmatch(re.escape(parent)+r'/compilationResults/[A-Za-z0-9_-]+',name):
+        raise NativeError('Dataform derleme kaynağı beklenen repository ile eşleşmedi.')
+    journal(out,compilation_result=name,state='created')
+    def validate(result):
+        if result.get('name')!=name or result.get('resolvedGitCommitSha')!=commit:
+            raise NativeError('Dataform derleme kimliği veya Git sürümü eşleşmedi.')
+        errors=result.get('compilationErrors',[])
+        if not isinstance(errors,list):raise NativeError('Dataform derleme hata listesi geçersiz.')
+        if errors:
+            journal(out,state='compilation_failed',error_count=len(errors))
+            raise NativeError('Dataform derleme hataları var; ayrıntıları platformda inceleyin. Workflow başlatılmadı.')
+    validate(created)
+    verified=client.json('GET','/v1/'+name)
+    validate(verified)
+    journal(out,state='compiled')
+    return receipt(out,'dataform-compilation.json',{'name':name,'resolvedGitCommitSha':commit,'state':'compiled'})
+
+
 def dataform_run(cfg, out, factory):
     compilation=required(cfg,'compilation_result')
     if not re.fullmatch(r'projects/[A-Za-z0-9_-]+/locations/[A-Za-z0-9_-]+/repositories/[A-Za-z0-9_-]+/compilationResults/[A-Za-z0-9_-]+',compilation):
@@ -791,7 +820,7 @@ def databricks_run(cfg, out, factory):
     return receipt(out,'databricks-run.json',{'job_id':job,'run_id':run,'life_cycle_state':'TERMINATED','result_state':'SUCCESS'})
 
 
-HANDLERS = {'qlik-export':qlik,'qlik-template':qlik,'powerbi-export':powerbi,'tableau-export':tableau,'sap-b1-schema':sap,'sap-odata-schema':sap,'oracle-schema':oracle,'bigquery-table':bigquery,'bigquery-agent':bigquery,'databricks-profile':databricks_profile,'adf-deploy':adf,'adf-run':adf,'airflow-run':airflow,'sap-quotation-draft':sap_quotation_draft,'dbt-run':dbt_run,'prefect-run':prefect_run,'snowflake-quality':snowflake_quality,'github-actions-run':github_actions,'fivetran-sync':fivetran_sync,'airbyte-sync':airbyte_sync,'dataform-run':dataform_run,'powerbi-refresh':powerbi_refresh,'databricks-run':databricks_run,'databricks-monitor':databricks_run,'airbyte-monitor':airbyte_sync,'adf-monitor':adf,'airflow-monitor':airflow,'dbt-monitor':dbt_run,'prefect-monitor':prefect_run,'dataform-monitor':dataform_run,'powerbi-monitor':powerbi_refresh}
+HANDLERS = {'dataform-compile':dataform_compile,'qlik-export':qlik,'qlik-template':qlik,'powerbi-export':powerbi,'tableau-export':tableau,'sap-b1-schema':sap,'sap-odata-schema':sap,'oracle-schema':oracle,'bigquery-table':bigquery,'bigquery-agent':bigquery,'databricks-profile':databricks_profile,'adf-deploy':adf,'adf-run':adf,'airflow-run':airflow,'sap-quotation-draft':sap_quotation_draft,'dbt-run':dbt_run,'prefect-run':prefect_run,'snowflake-quality':snowflake_quality,'github-actions-run':github_actions,'fivetran-sync':fivetran_sync,'airbyte-sync':airbyte_sync,'dataform-run':dataform_run,'powerbi-refresh':powerbi_refresh,'databricks-run':databricks_run,'databricks-monitor':databricks_run,'airbyte-monitor':airbyte_sync,'adf-monitor':adf,'airflow-monitor':airflow,'dbt-monitor':dbt_run,'prefect-monitor':prefect_run,'dataform-monitor':dataform_run,'powerbi-monitor':powerbi_refresh}
 
 
 def execute(cfg, output, factory=HTTP):

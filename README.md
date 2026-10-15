@@ -4,7 +4,7 @@ Kullanıcının kendi API/SDK erişimiyle çalışan kod blokları ve agentlar. 
 
 ## Güncel durum
 
-15 Ekim 2026: 23 alan / 185 ürün bağlamı korunuyor. 31 uygulanmış işlem, Tableau Cloud/Server ayrımıyla **32 indirilebilir paket** var. Diğer 370 görev **planlanan entegrasyon**; indirme bağlantıları yok. Bu sayıların hiçbiri tüm ürünlerin çalıştığı anlamına gelmez.
+15 Ekim 2026: 23 alan / 185 ürün bağlamı korunuyor. 32 uygulanmış işlem, Tableau Cloud/Server ayrımıyla **33 indirilebilir paket** var. Diğer 370 görev **planlanan entegrasyon**; indirme bağlantıları yok. Bu sayıların hiçbiri tüm ürünlerin çalıştığı anlamına gelmez.
 
 | Uygulama | Uygulanmış işlem | Teslim |
 |---|---|---|
@@ -29,7 +29,7 @@ Kullanıcının kendi API/SDK erişimiyle çalışan kod blokları ve agentlar. 
 | Fivetran | Manual bağlantıyı force=false ile sync et, yeni başarı zamanını izle | Platform sync + zaman damgası kaydı; kesin run ID yok, eşzamanlı tetikleme desteklenmez |
 | Airbyte Cloud | Mevcut bağlantı için sync job oluştur, job/connection kimliğiyle izle | Platform job + varsa satır/bayt sayaçları; reset çağrısı yapılmaz |
 | Airbyte mevcut job takibi | Kesinti sonrası connection_id/job_id ile yalnızca GET üzerinden takip | Yeni aktarım başlatmadan iş sonucu ve sayaçlar |
-| Google Cloud Dataform | Mevcut compilationResult kontrolü, invocation oluşturma ve takip | Platform workflow invocation + çalışma kaydı; yeni model üretmez |
+| Google Cloud Dataform | Sabit Git SHA’dan compilationResult oluştur/geri oku; ayrıca mevcut derlemeyi çalıştır ve takip et | Platform compilationResult veya workflow invocation; yeni SQLX/model tasarlamaz |
 
 **Canlı vendor/tenant testi: 0. Uygulamada dosya açılışı testi: 0.** Testler yerel HTTP sözleşme sunucusunu kullanır; gerçek QVF/PBIX üretildiğini kanıtlamaz. Agent model yanıtı testte taklit edilir. Bu paketler henüz üretim onaylı değildir.
 
@@ -57,7 +57,7 @@ Sunucu varsayılan olarak `http://localhost:4322` üzerinde çalışır. Uygun d
 
 Yeni/boş çıktı klasörü gerekir. Yazma ve LLM maliyeti olabilen işlemler README'de belirtilir. Şema ve proje bağlamı seçilen modele gönderilir; agent satır verisi çekmez. Kısmi çalışma kimlikleri `run-state.json`, dosya özeti `manifest.json` içindedir. Otomatik rollback veya üretimde otomatik model-kodu yürütme yoktur.
 
-Toplam **140 test** geçti (134 Python + 6 görünüm testi). Test sayısı canlı tenant doğrulaması değildir.
+Toplam **145 test** geçti (139 Python + 6 görünüm testi). Test sayısı canlı tenant doğrulaması değildir.
 
 ## Test katmanları
 

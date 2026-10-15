@@ -63,6 +63,51 @@ class Contracts(unittest.TestCase):
         return native.HTTP(f'http://127.0.0.1:{self.server.server_port}'+urlsplit(base).path,headers,allow_test_http=True)
     def step(self,method,path,body=None,**extra):self.queue.append(dict(method=method,path=path,body={} if body is None else body,**extra))
     def run_op(self,op,**cfg):return native.execute({'operation':op,**cfg},self.output,self.factory)
+    def test_dataform_create_compilation_pins_commit_and_reads_back(self):
+        parent='projects/p/locations/l/repositories/r';name=parent+'/compilationResults/c';sha='a'*40
+        result={'name':name,'resolvedGitCommitSha':sha,'internalMetadata':'PRIVATE_SENTINEL'}
+        self.step('POST','/v1/'+parent+'/compilationResults',result,payload={'gitCommitish':sha},request_headers={'Authorization':'Bearer test-only-secret'})
+        self.step('GET','/v1/'+name,result)
+        self.run_op('dataform-compile',repository=parent,git_commit_sha=sha.upper())
+        self.assertFalse(self.queue)
+        receipt=json.loads((self.output/'dataform-compilation.json').read_text())
+        self.assertEqual(receipt,{'name':name,'resolvedGitCommitSha':sha,'state':'compiled'})
+        self.assertNotIn('PRIVATE_SENTINEL',''.join(p.read_text() for p in self.output.iterdir()))
+
+    def test_dataform_compile_invalid_source_never_calls_api(self):
+        for parent,sha in [('projects/p/locations/l/repositories/r','main'),('projects/p/locations/l/repositories/r','a'*8),('https://other.example','a'*40)]:
+            with self.subTest(parent=parent,sha=sha):
+                self.output=Path(self.temp.name)/('invalid-'+str(len(list(Path(self.temp.name).iterdir()))))
+                with self.assertRaises(native.NativeError):self.run_op('dataform-compile',repository=parent,git_commit_sha=sha)
+        self.assertFalse(self.received)
+
+    def test_dataform_compile_errors_or_wrong_commit_fail_closed(self):
+        parent='projects/p/locations/l/repositories/r';name=parent+'/compilationResults/c';sha='a'*40
+        bad=[{'resolvedGitCommitSha':'b'*40},{'compilationErrors':[{'message':'PRIVATE_SENTINEL'}]},{'compilationErrors':{}},{'name':'projects/other/locations/l/repositories/r/compilationResults/c'}]
+        for index,change in enumerate(bad):
+            with self.subTest(change=change):
+                self.output=Path(self.temp.name)/str(index)
+                self.step('POST','/v1/'+parent+'/compilationResults',{'name':name,'resolvedGitCommitSha':sha,**change})
+                with self.assertRaises(native.NativeError):self.run_op('dataform-compile',repository=parent,git_commit_sha=sha)
+                self.assertFalse((self.output/'manifest.json').exists())
+                self.assertNotIn('PRIVATE_SENTINEL',(self.output/'run-state.json').read_text())
+        self.assertEqual(len(self.received),4)
+
+    def test_dataform_compile_readback_mismatch_keeps_created_id(self):
+        parent='projects/p/locations/l/repositories/r';name=parent+'/compilationResults/c';sha='a'*40
+        self.step('POST','/v1/'+parent+'/compilationResults',{'name':name,'resolvedGitCommitSha':sha})
+        self.step('GET','/v1/'+name,{'name':name,'resolvedGitCommitSha':'b'*40})
+        with self.assertRaises(native.NativeError):self.run_op('dataform-compile',repository=parent,git_commit_sha=sha)
+        self.assertEqual(json.loads((self.output/'run-state.json').read_text())['compilation_result'],name)
+        self.assertFalse((self.output/'dataform-compilation.json').exists())
+
+    def test_dataform_compile_ambiguous_write_never_retries(self):
+        parent='projects/p/locations/l/repositories/r'
+        self.step('POST','/v1/'+parent+'/compilationResults',status=503)
+        with self.assertRaises(native.NativeError):self.run_op('dataform-compile',repository=parent,git_commit_sha='a'*40)
+        self.assertEqual(len(self.received),1)
+        self.assertEqual(json.loads((self.output/'run-state.json').read_text())['state'],'compilation_pending')
+
     def qlik_export(self,app='app'):
         self.step('POST',f'/api/v1/apps/{app}/export',status=201,headers={'Location':'/api/v1/temp-contents/file'})
         self.step('GET','/api/v1/temp-contents/file',b'QVF test bytes; NOT engine-generated')

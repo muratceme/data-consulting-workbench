@@ -66,7 +66,7 @@
 | Veri Entegrasyonu | Meltano | Meltano | Planlandı; paket yok | ETL yönetim API/SDK | Platformun pipeline tanımı ve çalışma kaydı |
 | Analytics Engineering | dbt | dbt Core | Planlandı; paket yok | Ürünün proje/derleme/iş API’si | dbt/Dataform/SQLMesh proje dosyası |
 | Analytics Engineering | dbt | dbt Cloud | Kısmi: dbt-run, dbt-monitor | Ürünün proje/derleme/iş API’si | dbt/Dataform/SQLMesh proje dosyası |
-| Analytics Engineering | Google | Dataform | Kısmi: dataform-run, dataform-monitor | Ürünün proje/derleme/iş API’si | dbt/Dataform/SQLMesh proje dosyası |
+| Analytics Engineering | Google | Dataform | Kısmi: dataform-compile, dataform-run, dataform-monitor | Ürünün proje/derleme/iş API’si | dbt/Dataform/SQLMesh proje dosyası |
 | Analytics Engineering | SQLMesh | SQLMesh | Planlandı; paket yok | Ürünün proje/derleme/iş API’si | dbt/Dataform/SQLMesh proje dosyası |
 | Analytics Engineering | Coalesce | Coalesce | Planlandı; paket yok | Ürünün proje/derleme/iş API’si | dbt/Dataform/SQLMesh proje dosyası |
 | Analytics Engineering | Cube | Cube | Planlandı; paket yok | Ürünün proje/derleme/iş API’si | dbt/Dataform/SQLMesh proje dosyası |

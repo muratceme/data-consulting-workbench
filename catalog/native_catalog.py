@@ -1,6 +1,12 @@
 """Executable operations are explicit; taxonomy coverage is not implementation coverage."""
 COMMON = 'Python 3.10+. Anahtarlar yalnızca yerel .env/ortam değişkenlerinden okunur. --plan ağ çağrısı yapmaz; --execute API işlemini başlatır. HTML raporu teslim edilmez.'
 OPERATIONS = [
+ dict(operation='dataform-compile', product='Dataform', domain='transform', title='Git sürümünden Dataform derlemesi oluştur', output='Dataform compilationResult + doğrulanmış Git sürümü kaydı', kind='code',
+      description='Mevcut repository’nin tam Git SHA ile sabitlenmiş sürümünü platformda derler. Derleme nesnesini geri okuyup sürüm ve hata listesini doğrular. Workflow başlatmaz, SQLX dosyası tasarlamaz.',
+      config={'repository':'projects/YOUR_PROJECT/locations/YOUR_LOCATION/repositories/YOUR_REPOSITORY','git_commit_sha':'YOUR_40_CHARACTER_GIT_SHA'}, secrets=['GOOGLE_ACCESS_TOKEN'],
+      requirements='Google OAuth cloud-platform veya bigquery scope; dataform.compilationResults.create/get izinleri. Dataform repository ve bağlı uzak Git deposunda erişilebilir tam 40 haneli commit SHA gerekir. Proje bağımlılıkları derlenebilir olmalı.',
+      effects='Platformda yeni compilationResult oluşturur. BigQuery workflow çalıştırılmaz; derleme projenin kendi kodunu/bağımlılıklarını işler. Derleme hataları başarı sayılmaz; hata içeriği veya kaynak kod yerelde kaydedilmez. POST otomatik tekrarlanmaz; yanıt kaybında platform geçmişini kontrol edin. Başarılı kaynak adı ayrı Dataform çalıştırma paketinin compilation_result alanına aktarılabilir. Bu nesne platform saklama süresine tabidir.',
+      sources=['https://docs.cloud.google.com/dataform/reference/rest/v1/projects.locations.repositories.compilationResults/create','https://docs.cloud.google.com/dataform/reference/rest/v1/projects.locations.repositories.compilationResults']),
  dict(operation='airbyte-monitor', product='Airbyte', domain='integration', title='Mevcut Airbyte aktarımını yeniden başlatmadan takip et', output='Mevcut Airbyte job sonucu ve aktarım sayaçları', kind='code',
       description='Kesinti veya yerel timeout sonrasında connection_id/job_id ile mevcut sync işini takip eder. Yalnızca GET yapar; yeni aktarım/reset başlatmaz. Bağlantı ve iş türü doğrulanır.',
       config={'connection_id':'YOUR_CONNECTION_UUID','job_id':-1}, secrets=['AIRBYTE_ACCESS_TOKEN'],
