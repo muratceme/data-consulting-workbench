@@ -1,10 +1,29 @@
 # Datawork — uygulamaya özgü veri otomasyonları
 
-Kullanıcının kendi API/SDK erişimiyle çalışan kod blokları ve agentlar. Site sadece keşif ve paket indirme arayüzüdür; API anahtarlarını toplamaz. Teslim, ilgili uygulamanın dosyası veya platform nesnesidir.
+Veri işleri için iki tür paket: **kod blokları** (aynı girdiden hep aynı sonuç; platform API çalıştırıcıları ve internete çıkmayan yerel araçlar) ve **AI agent’lar** (muhakeme adımı modelde, ayrıştırma ve denetim kodda). Kullanıcı sitede türü seçer. Site yalnızca keşif ve indirme arayüzüdür; anahtar veya veri toplamaz.
 
 ## Güncel durum
 
-15 Ekim 2026: 23 alan / 185 ürün bağlamı korunuyor. 36 uygulanmış işlem, Tableau Cloud/Server ayrımıyla **37 indirilebilir paket** var. Diğer 370 görev **planlanan entegrasyon**; indirme bağlantıları yok. Bu sayıların hiçbiri tüm ürünlerin çalıştığı anlamına gelmez.
+15 Ekim 2026: 23 alan / 189 ürün bağlamı. **51 indirilebilir paket**: 37 platform API paketi (36 kod bloğu + BigQuery agent) ve 14 yerel paket (8 kod bloğu + 6 agent). Toplam 44 kod bloğu, 7 agent. Diğer 372 görev **planlanan entegrasyon**; indirme bağlantıları yok.
+
+### Yerel kod blokları (internet yok, Python standart kütüphanesi)
+
+| Paket | Girdi | Çıktı |
+|---|---|---|
+| Veri profili | CSV/XLSX | Tip, boşluk, aralık, mükerrer, kişisel veri izi |
+| Kalite kontrolü | CSV/XLSX + rules.json | İhlal listesi (Excel satır no), `--strict` çıkış kodu |
+| Tablo mutabakatı | İki CSV/XLSX + anahtar | Yalnız kaynakta/hedefte, alan farkları, toplamlar |
+| SQL soy ağacı | .sql klasörü | Kaynak/ara/son tablolar, riskli ifadeler, Mermaid |
+| Power BI model dokümanı | .pbit / model.bim | Tablo, ölçü, ilişki, model riskleri |
+| Tableau envanteri | .twb/.twbx | Kaynaklar, hesaplanan alanlar, kullanılmayan alanlar |
+| Qlik soy ağacı | .qvs | Tablolar, kaynaklar, STORE/DROP, uyarılar, Mermaid |
+| dbt denetimi | manifest.json | Test/doküman kapsamı, katman kuralları, freshness |
+
+### Yerel AI agent’lar (Ollama, OpenAI veya Anthropic)
+
+SQL yazarı, DAX ölçü yazarı, veri sözlüğü, kalite kuralı önerici, Qlik → Power BI geçişi, KPI tanımlayıcı. Ortak kurallar (`library/agents/llm.py`): kişisel veri maskelenir, giden metin `output/gonderilecek-istek.json` dosyasına yazılır ve onay istenir (`--yes`), `--dry-run` modeli çağırmaz, model yanıtı JSON olarak yerelde denetlenir ve kurala uymazsa bir kez düzeltme istenir. Model üretimi hiçbir sistemde otomatik çalıştırılmaz.
+
+### Platform API paketleri
 
 | Uygulama | Uygulanmış işlem | Teslim |
 |---|---|---|
@@ -47,9 +66,13 @@ npm test
 npm start
 ```
 
-Sunucu varsayılan olarak `http://localhost:4322` üzerinde çalışır. Uygun değilse boş bir porta ilerler. Arayüz `site/` altında: `index.html`, `style.css`, `app.js` ve `theme.js` (açık/koyu/sistem). Hazır paketler listede, planlı ürünler kapsam haritasında gösterilir; planlı ürünler için indirme bağlantısı yoktur.
+Sunucu varsayılan olarak `http://localhost:4322` üzerinde çalışır. Uygun değilse boş bir porta ilerler. Arayüz `site/` altında: `index.html`, `style.css` (Aurora, yalnız koyu) ve `app.js`. Listede “Tümü / Kod blokları / AI agent’lar” seçimi vardır (`#k=code`, `#k=agent`). Planlı ürünler kapsam haritasında gösterilir; indirme bağlantısı yoktur.
 
 ## Paketi kullanma
+
+Yerel kod bloğu: ZIP’i aç, `python main.py` örnek veriyle çalışır; kendi dosyan için `python main.py --help`. Yerel agent: `.env.example` → `.env` (PROVIDER, MODEL), önce `python main.py --dry-run`, sonra `python main.py`.
+
+Platform paketi:
 
 1. ZIP'i çıkarın; README'deki desteklenen ürün, izin ve platform etkilerini okuyun.
 2. `.env.example` → `.env`; ilgili platformun kendi token/erişim bilgilerini girin. OAuth token edinme ve yenileme sizin kimlik sağlayıcınızda yapılır.
@@ -59,7 +82,7 @@ Sunucu varsayılan olarak `http://localhost:4322` üzerinde çalışır. Uygun d
 
 Yeni/boş çıktı klasörü gerekir. Yazma ve LLM maliyeti olabilen işlemler README'de belirtilir. Şema ve proje bağlamı seçilen modele gönderilir; agent satır verisi çekmez. Kısmi çalışma kimlikleri `run-state.json`, dosya özeti `manifest.json` içindedir. Otomatik rollback veya üretimde otomatik model-kodu yürütme yoktur.
 
-Toplam **171 test** geçti (165 Python + 6 görünüm testi). Test sayısı canlı tenant doğrulaması değildir.
+Toplam **189 test** geçiyor. Yerel paket testleri (`tests/test_local.py`) paketlenmiş kopyayı örnek veriyle çalıştırır; agent’lar OpenAI/Anthropic/Ollama biçiminde konuşan sahte model sunucusuyla test edilir (maskeleme, onay, dry-run, düzeltme denemesi, HTTP hatası). Agent’lar ayrıca yerel bir Ollama modeliyle (qwen3 14B) elle denendi. Test sayısı canlı tenant doğrulaması değildir.
 
 ## Test katmanları
 
@@ -67,7 +90,7 @@ Toplam **171 test** geçti (165 Python + 6 görünüm testi). Test sayısı canl
 - Platformlara özgü gerçek localhost HTTP çağrıları: path, payload, auth headers, polling, hata ve çıktı türü.
 - Eksik erişim bilgisi, redirect/origin, GET retry/POST tekrar etmeme, bütçe sınırı, başarısız reload, mevcut çıktıyı koruma.
 - Her ZIP'te bütünlük/SHA-256; tüm paketlerin ağsız `--plan` çalışması; planlanan görevlerde indirme olmaması.
-- Açık/koyu görünüm testleri.
+- Yerel kod blokları ve agent’ların paketlenmiş kopyayla uçtan uca testleri.
 
 Canlı uçtan uca test ayrı bir aşamadır: lisanslı sandbox, ilgili sürüm, geçerli erişim ve artifact'ı hedef uygulamada açıp inceleme gerekir. Bunlar yerel sözleşme testinin yerine konmaz.
 
@@ -77,8 +100,10 @@ Canlı uçtan uca test ayrı bir aşamadır: lisanslı sandbox, ilgili sürüm, 
 - `catalog/native_catalog.py`: uygulanmış işlemler, erişim, etkiler, resmi kaynaklar; diğer ürünlerin açık plan durumu.
 - `library/native.py`: API transport, platform akışları ve çıktı denetimi.
 - `library/agent.py`: model sağlayıcısı; yeni akışta yalnızca model çağrısı için kullanılır.
-- `scripts/build.py`: sadece uygulanmış native paketleri üretir; eski üretilmiş ZIP'leri kaldırır.
-- `dist/integration-plan.json`: 185 ürünün makine tarafından okunabilir entegrasyon planı.
+- `catalog/local_catalog.py`: yerel kod blokları ve agent’ların tanımı.
+- `library/blocks/`, `library/agents/`, `library/samples/`: yerel paket kodu ve kurgusal örnek veriler (`scripts/make_samples.py` ikili örnekleri üretir).
+- `scripts/build.py` + `scripts/local_package.py`: native ve yerel paketleri üretir; eski üretilmiş ZIP'leri kaldırır.
+- `dist/integration-plan.json`: 189 ürünün makine tarafından okunabilir entegrasyon planı.
 - `docs/INTEGRATION-MATRIX.md`: tüm ürünler ve kalan kapsam.
 - `docs/NATIVE-ROADMAP.md`: tamamlanma ölçütleri ve sonraki geliştirme işleri.
 

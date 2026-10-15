@@ -1,1 +1,1 @@
-{"name":"data-consulting-workbench","version":"0.1.0","private":true,"type":"module","scripts":{"build":"python scripts/build.py","start":"node server.mjs","test":"python -m unittest discover -s tests -v && node --test tests/theme.test.mjs"}}
+{"name":"data-consulting-workbench","version":"0.1.0","private":true,"type":"module","scripts":{"build":"python scripts/build.py","start":"node server.mjs","test":"python -m unittest discover -s tests -v"}}

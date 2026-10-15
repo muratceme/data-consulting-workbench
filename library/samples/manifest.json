@@ -1,0 +1,393 @@
+{
+ "metadata": {
+  "dbt_version": "1.8.7",
+  "project_name": "perakende"
+ },
+ "nodes": {
+  "model.perakende.stg_siparisler": {
+   "resource_type": "model",
+   "name": "stg_siparisler",
+   "unique_id": "model.perakende.stg_siparisler",
+   "description": "ERP siparişleri; tipler ve adlar standartlaştırılmış.",
+   "columns": {
+    "siparis_id": {
+     "name": "siparis_id",
+     "description": "Sipariş anahtarı"
+    },
+    "musteri_id": {
+     "name": "musteri_id",
+     "description": "Müşteri anahtarı"
+    },
+    "tutar": {
+     "name": "tutar",
+     "description": ""
+    }
+   },
+   "config": {
+    "materialized": "view"
+   },
+   "depends_on": {
+    "nodes": [
+     "source.perakende.erp.siparisler"
+    ]
+   },
+   "raw_code": "select id as siparis_id, musteri_id, tutar from {{ source('erp', 'siparisler') }}"
+  },
+  "model.perakende.stg_musteriler": {
+   "resource_type": "model",
+   "name": "stg_musteriler",
+   "unique_id": "model.perakende.stg_musteriler",
+   "description": "",
+   "columns": {
+    "musteri_id": {
+     "name": "musteri_id",
+     "description": "Müşteri anahtarı"
+    }
+   },
+   "config": {
+    "materialized": "view"
+   },
+   "depends_on": {
+    "nodes": [
+     "source.perakende.erp.musteriler"
+    ]
+   },
+   "raw_code": "select * from {{ source('erp', 'musteriler') }}"
+  },
+  "model.perakende.stg_urunler": {
+   "resource_type": "model",
+   "name": "stg_urunler",
+   "unique_id": "model.perakende.stg_urunler",
+   "description": "Ürün ve kategori.",
+   "columns": {},
+   "config": {
+    "materialized": "view"
+   },
+   "depends_on": {
+    "nodes": [
+     "source.perakende.erp.urunler",
+     "source.perakende.erp.kategoriler"
+    ]
+   },
+   "raw_code": "select * from {{ source('erp','urunler') }} u join {{ source('erp','kategoriler') }} k on u.kategori_id = k.id"
+  },
+  "model.perakende.int_siparis_kalemleri": {
+   "resource_type": "model",
+   "name": "int_siparis_kalemleri",
+   "unique_id": "model.perakende.int_siparis_kalemleri",
+   "description": "Sipariş kalemleri ürünle zenginleştirilmiş.",
+   "columns": {},
+   "config": {
+    "materialized": "ephemeral"
+   },
+   "depends_on": {
+    "nodes": [
+     "model.perakende.stg_siparisler",
+     "model.perakende.stg_urunler"
+    ]
+   },
+   "raw_code": "select * from {{ ref('stg_siparisler') }} s join analytics.kur_tablosu k on s.para_birimi = k.para_birimi"
+  },
+  "model.perakende.fct_satislar": {
+   "resource_type": "model",
+   "name": "fct_satislar",
+   "unique_id": "model.perakende.fct_satislar",
+   "description": "Günlük satış olgu tablosu.",
+   "columns": {
+    "siparis_id": {
+     "name": "siparis_id",
+     "description": "Sipariş"
+    },
+    "tutar": {
+     "name": "tutar",
+     "description": "TL tutar"
+    }
+   },
+   "config": {
+    "materialized": "incremental"
+   },
+   "depends_on": {
+    "nodes": [
+     "model.perakende.int_siparis_kalemleri",
+     "source.perakende.erp.iadeler"
+    ]
+   },
+   "raw_code": "select * from {{ ref('int_siparis_kalemleri') }} union all select * from {{ source('erp','iadeler') }}"
+  },
+  "model.perakende.dim_musteri": {
+   "resource_type": "model",
+   "name": "dim_musteri",
+   "unique_id": "model.perakende.dim_musteri",
+   "description": "Müşteri boyutu.",
+   "columns": {
+    "musteri_id": {
+     "name": "musteri_id",
+     "description": "Anahtar"
+    },
+    "segment": {
+     "name": "segment",
+     "description": ""
+    }
+   },
+   "config": {
+    "materialized": "table"
+   },
+   "depends_on": {
+    "nodes": [
+     "model.perakende.stg_musteriler"
+    ]
+   },
+   "raw_code": "select * from {{ ref(\"dim_musteri\") }}"
+  },
+  "model.perakende.stg_kampanyalar": {
+   "resource_type": "model",
+   "name": "stg_kampanyalar",
+   "unique_id": "model.perakende.stg_kampanyalar",
+   "description": "",
+   "columns": {},
+   "config": {
+    "materialized": "view"
+   },
+   "depends_on": {
+    "nodes": [
+     "source.perakende.erp.kampanyalar"
+    ]
+   },
+   "raw_code": "select * from {{ source('erp','kampanyalar') }}"
+  },
+  "test.perakende.unique_stg_siparisler_siparis_id": {
+   "resource_type": "test",
+   "name": "unique_stg_siparisler_siparis_id",
+   "attached_node": "model.perakende.stg_siparisler",
+   "column_name": "siparis_id",
+   "test_metadata": {
+    "name": "unique",
+    "kwargs": {
+     "column_name": "siparis_id"
+    }
+   },
+   "depends_on": {
+    "nodes": [
+     "model.perakende.stg_siparisler"
+    ]
+   }
+  },
+  "test.perakende.not_null_stg_siparisler_siparis_id": {
+   "resource_type": "test",
+   "name": "not_null_stg_siparisler_siparis_id",
+   "attached_node": "model.perakende.stg_siparisler",
+   "column_name": "siparis_id",
+   "test_metadata": {
+    "name": "not_null",
+    "kwargs": {
+     "column_name": "siparis_id"
+    }
+   },
+   "depends_on": {
+    "nodes": [
+     "model.perakende.stg_siparisler"
+    ]
+   }
+  },
+  "test.perakende.not_null_fct_satislar_siparis_id": {
+   "resource_type": "test",
+   "name": "not_null_fct_satislar_siparis_id",
+   "attached_node": "model.perakende.fct_satislar",
+   "column_name": "siparis_id",
+   "test_metadata": {
+    "name": "not_null",
+    "kwargs": {
+     "column_name": "siparis_id"
+    }
+   },
+   "depends_on": {
+    "nodes": [
+     "model.perakende.fct_satislar"
+    ]
+   }
+  },
+  "test.perakende.unique_dim_musteri_musteri_id": {
+   "resource_type": "test",
+   "name": "unique_dim_musteri_musteri_id",
+   "attached_node": "model.perakende.dim_musteri",
+   "column_name": "musteri_id",
+   "test_metadata": {
+    "name": "unique",
+    "kwargs": {
+     "column_name": "musteri_id"
+    }
+   },
+   "depends_on": {
+    "nodes": [
+     "model.perakende.dim_musteri"
+    ]
+   }
+  },
+  "test.perakende.not_null_dim_musteri_musteri_id": {
+   "resource_type": "test",
+   "name": "not_null_dim_musteri_musteri_id",
+   "attached_node": "model.perakende.dim_musteri",
+   "column_name": "musteri_id",
+   "test_metadata": {
+    "name": "not_null",
+    "kwargs": {
+     "column_name": "musteri_id"
+    }
+   },
+   "depends_on": {
+    "nodes": [
+     "model.perakende.dim_musteri"
+    ]
+   }
+  },
+  "test.perakende.relationships_fct_satislar_musteri_id": {
+   "resource_type": "test",
+   "name": "relationships_fct_satislar_musteri_id",
+   "attached_node": "model.perakende.fct_satislar",
+   "column_name": "musteri_id",
+   "test_metadata": {
+    "name": "relationships",
+    "kwargs": {
+     "column_name": "musteri_id"
+    }
+   },
+   "depends_on": {
+    "nodes": [
+     "model.perakende.fct_satislar"
+    ]
+   }
+  }
+ },
+ "sources": {
+  "source.perakende.erp.siparisler": {
+   "resource_type": "source",
+   "source_name": "erp",
+   "name": "siparisler",
+   "description": "ERP tablosu",
+   "loaded_at_field": "_yuklenme_zamani",
+   "freshness": {
+    "warn_after": {
+     "count": 12,
+     "period": "hour"
+    },
+    "error_after": {
+     "count": 24,
+     "period": "hour"
+    }
+   }
+  },
+  "source.perakende.erp.musteriler": {
+   "resource_type": "source",
+   "source_name": "erp",
+   "name": "musteriler",
+   "description": "",
+   "loaded_at_field": null,
+   "freshness": {
+    "warn_after": {
+     "count": null,
+     "period": "hour"
+    },
+    "error_after": {
+     "count": null,
+     "period": "hour"
+    }
+   }
+  },
+  "source.perakende.erp.urunler": {
+   "resource_type": "source",
+   "source_name": "erp",
+   "name": "urunler",
+   "description": "",
+   "loaded_at_field": null,
+   "freshness": {
+    "warn_after": {
+     "count": null,
+     "period": "hour"
+    },
+    "error_after": {
+     "count": null,
+     "period": "hour"
+    }
+   }
+  },
+  "source.perakende.erp.kategoriler": {
+   "resource_type": "source",
+   "source_name": "erp",
+   "name": "kategoriler",
+   "description": "",
+   "loaded_at_field": null,
+   "freshness": {
+    "warn_after": {
+     "count": null,
+     "period": "hour"
+    },
+    "error_after": {
+     "count": null,
+     "period": "hour"
+    }
+   }
+  },
+  "source.perakende.erp.iadeler": {
+   "resource_type": "source",
+   "source_name": "erp",
+   "name": "iadeler",
+   "description": "",
+   "loaded_at_field": null,
+   "freshness": {
+    "warn_after": {
+     "count": null,
+     "period": "hour"
+    },
+    "error_after": {
+     "count": null,
+     "period": "hour"
+    }
+   }
+  },
+  "source.perakende.erp.kampanyalar": {
+   "resource_type": "source",
+   "source_name": "erp",
+   "name": "kampanyalar",
+   "description": "",
+   "loaded_at_field": null,
+   "freshness": {
+    "warn_after": {
+     "count": null,
+     "period": "hour"
+    },
+    "error_after": {
+     "count": null,
+     "period": "hour"
+    }
+   }
+  },
+  "source.perakende.erp.eski_faturalar": {
+   "resource_type": "source",
+   "source_name": "erp",
+   "name": "eski_faturalar",
+   "description": "",
+   "loaded_at_field": null,
+   "freshness": {
+    "warn_after": {
+     "count": null,
+     "period": "hour"
+    },
+    "error_after": {
+     "count": null,
+     "period": "hour"
+    }
+   }
+  }
+ },
+ "exposures": {
+  "exposure.perakende.yonetim_panosu": {
+   "name": "yonetim_panosu",
+   "depends_on": {
+    "nodes": [
+     "model.perakende.fct_satislar",
+     "model.perakende.dim_musteri"
+    ]
+   }
+  }
+ }
+}

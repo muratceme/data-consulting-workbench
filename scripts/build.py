@@ -9,6 +9,9 @@ ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'catalog'))
 from catalog import DOMAINS
 from native_catalog import catalog, COMMON
+from local_catalog import LOCAL
+sys.path.insert(0,str(ROOT/'scripts'))
+import local_package
 
 def build():
  dist=ROOT/'dist';dist.mkdir(exist_ok=True)
@@ -22,8 +25,16 @@ def build():
  for domain in data:
   for tool in domain['tools']:
    for product in tool['products']:
-    matrix.append({'domain':domain['name'],'tool':tool['name'],'product':product['name'],**product['integration'],'implemented_operations':[t['operation'] for t in product['tasks'] if t['engine']=='native']})
+    matrix.append({'domain':domain['name'],'tool':tool['name'],'product':product['name'],**product['integration'],'implemented_operations':[t['operation'] for t in product['tasks'] if t['engine'] in ('native','local')]})
     for task in product['tasks']:
+     if task['engine']=='local':
+      item=next(i for i in LOCAL if i['id']==task['local_id'])
+      filename=task['id']+'.zip';expected.add(filename);path=packages/filename
+      with zipfile.ZipFile(path,'w',zipfile.ZIP_DEFLATED) as z:
+       for name,content in sorted(local_package.files(item).items()):
+        info=zipfile.ZipInfo(name,date_time=(2026,10,12,0,0,0));info.compress_type=zipfile.ZIP_DEFLATED;z.writestr(info,content)
+      task.update(download='/packages/'+filename,sha256=hashlib.sha256(path.read_bytes()).hexdigest(),bytes=path.stat().st_size,command=item['command'])
+      checksums[task['id']]=task['sha256'];continue
      if task['engine']!='native':continue
      cfg={'operation':task['operation'],**task['config']}
      readme=f'''# {task['title']}
@@ -83,5 +94,6 @@ Yerel test fixture’ları gerçek QVF/PBIX/workbook üretildiği anlamına gelm
   if old.name not in expected and old.resolve().parent==packages.resolve():old.unlink()
  for name,value in [('catalog.json',data),('checksums.json',checksums),('integration-plan.json',matrix)]:
   (dist/name).write_text(json.dumps(value,ensure_ascii=False,indent=2),encoding='utf-8')
- print(f'Native build: {len(data)} domains, {len(matrix)} product contexts, {len(checksums)} contract-tested packages; all other tasks explicitly planned. Live tests: 0.')
+ local=sum(1 for d in data for t in d['tools'] for p in t['products'] for x in p['tasks'] if x['engine']=='local')
+ print(f'Build: {len(data)} domains, {len(matrix)} product contexts, {len(checksums)-local} platform packages + {local} local packages (code blocks / agents). Live platform tests: 0.')
 if __name__=='__main__':build()

@@ -1,0 +1,15 @@
+{
+  "rules": [
+    {"column": "siparis_no", "check": "not_null"},
+    {"column": "siparis_no", "check": "unique", "note": "Sipariş numarası tekil olmalı"},
+    {"column": "siparis_tarihi", "check": "regex", "value": "\\d{4}-\\d{2}-\\d{2}", "note": "ISO tarih biçimi"},
+    {"column": "siparis_tarihi", "check": "not_future"},
+    {"column": "musteri_eposta", "check": "not_null", "severity": "uyarı"},
+    {"column": "bolge", "check": "allowed", "value": ["Marmara", "Ege", "İç Anadolu", "Akdeniz", "Karadeniz", "Doğu Anadolu", "Güneydoğu Anadolu"]},
+    {"column": "adet", "check": "between", "value": [1, 1000]},
+    {"column": "tutar", "check": "min", "value": 0},
+    {"column": "durum", "check": "allowed", "value": ["Teslim edildi", "Kargoda", "İptal"]},
+    {"column": "durum", "check": "no_whitespace", "severity": "uyarı"},
+    {"check": "row_count_min", "value": 1}
+  ]
+}

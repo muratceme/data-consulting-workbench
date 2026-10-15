@@ -1,4 +1,4 @@
-// datawork — catalog. Ready packages are the list; planned work lives on the coverage map.
+// datawork — catalog of code blocks and AI agents. Ready packages are the list; planned work lives on the coverage map.
 document.documentElement.classList.add('js');
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
@@ -9,17 +9,21 @@ const plus = '<span class="plus" aria-hidden="true"></span>';
 
 const ALL = 'Tümü', SAVED = 'Kaydedilenler';
 let domains = [], tasks = [], ready = [];
-let platform = ALL, query = '', openId = '', openDomain = '';
+let platform = ALL, query = '', openId = '', openDomain = '', kind = 'all';
+const KINDS = [['all', 'Tümü'], ['code', 'Kod blokları'], ['agent', 'AI agent’lar']];
 let saved = new Set();
 try { saved = new Set(JSON.parse(localStorage.getItem('datawork-saved') || '[]')); } catch {}
 
 // One short platform name per vendor product, used for the tabs.
-const BY_TOOL = {'Qlik':'Qlik Cloud','Microsoft Power BI':'Power BI','Tableau':'Tableau','SAP':'SAP','Oracle':'Oracle Fusion','Snowflake':'Snowflake','Databricks':'Databricks','Fivetran':'Fivetran','Airbyte':'Airbyte','dbt':'dbt Cloud','Prefect':'Prefect','Apache':'Airflow','GitHub':'GitHub Actions'};
-const BY_PRODUCT = {'Fabric Lakehouse':'Fabric','Azure Data Factory':'Data Factory','BigQuery':'BigQuery','Dataform':'Dataform'};
+const BY_TOOL = {'Qlik':'Qlik','Microsoft Power BI':'Power BI','Tableau':'Tableau','SAP':'SAP','Oracle':'Oracle Fusion','Snowflake':'Snowflake','Databricks':'Databricks','Fivetran':'Fivetran','Airbyte':'Airbyte','dbt':'dbt Cloud','Prefect':'Prefect','Apache':'Airflow','GitHub':'GitHub Actions'};
+const BY_PRODUCT = {'Fabric Lakehouse':'Fabric','Azure Data Factory':'Data Factory','BigQuery':'BigQuery','Dataform':'Dataform','dbt Core':'dbt','dbt Cloud':'dbt','SQL dosyaları':'SQL','CSV / Excel':'CSV / Excel','Rapor gereksinimleri':'Rapor gereksinimleri'};
+// Local packages say what they hand over in one or two words.
+const LOCAL_TAG = {'veri-profili':'profil','kalite-kontrol':'kalite','tablo-mutabakati':'mutabakat','sql-soyagaci':'soy ağacı','pbit-model':'model dokümanı','tableau-envanter':'envanter','qlik-soyagaci':'soy ağacı','dbt-denetim':'denetim','sql-yazari':'.sql','dax-yazari':'.dax','veri-sozlugu':'sözlük','kalite-kurali':'rules.json','qlik-powerbi':'.m','kpi-tanimlayici':'KPI'};
 const platformOf = t => BY_PRODUCT[t.product.name] || BY_TOOL[t.tool.name] || t.product.name;
 
 // The delivered thing, as short as a file extension.
 function formatOf(t) {
+  if (t.engine === 'local') return LOCAL_TAG[t.local_id] || 'rapor';
   const title = norm(t.title), all = norm(t.output + ' ' + t.title);
   if (title.includes('takip')) return 'takip';
   const rules = [[/qvf/, '.qvf'], [/pbix/, '.pbix'], [/twb/, '.twbx'], [/edmx/, '.edmx'], [/ipynb/, '.ipynb'], [/run_results|describe json/, '.json'], [/taslağ|taslak/, 'taslak'], [/view/, 'view'], [/\.sql|standard sql/, '.sql'], [/yenile/, 'yenile'], [/çaliştir/, 'çalışma'], [/tablo/, 'tablo'], [/notebook/, 'notebook'], [/senkron/, 'sync'], [/derleme/, 'derleme'], [/yayimla/, 'yayın']];
@@ -34,6 +38,7 @@ function toast(message) {
 function persist() { try { localStorage.setItem('datawork-saved', JSON.stringify([...saved])); } catch {} }
 function syncHash() {
   const p = new URLSearchParams();
+  if (kind !== 'all') p.set('k', kind);
   if (platform !== ALL) p.set('p', platform);
   if (query) p.set('q', query);
   if (openId) p.set('open', openId);
@@ -41,25 +46,72 @@ function syncHash() {
 }
 const matches = (t, q) => q.split(/\s+/).every(w => norm([t.title, t.description, t.output, t.domain.name, t.tool.name, t.product.name, t.platform, t.format].join(' ')).includes(w));
 
+const ofKind = t => kind === 'all' || t.kind === kind;
 function visible() {
   const q = norm(query.trim());
-  return ready.filter(t => (platform === ALL || (platform === SAVED ? saved.has(t.id) : t.platform === platform)) && (!q || matches(t, q)));
+  return ready.filter(t => ofKind(t) && (platform === ALL || (platform === SAVED ? saved.has(t.id) : t.platform === platform)) && (!q || matches(t, q)));
+}
+
+/* ---------- Kind switch: code blocks or agents ---------- */
+function renderKinds() {
+  const count = k => ready.filter(t => k === 'all' || t.kind === k).length;
+  $('#kindSwitch').innerHTML = KINDS.map(([k, label]) => `<button type="button" data-kind="${k}" aria-pressed="${kind === k}">${label}<span>${count(k)}</span></button>`).join('');
+  $$('[data-kind]').forEach(b => b.onclick = () => setKind(b.dataset.kind));
+}
+function setKind(k) {
+  kind = k; openId = '';
+  if (platform !== ALL && platform !== SAVED && !ready.some(t => ofKind(t) && t.platform === platform)) platform = ALL;
+  renderKinds(); renderPlatforms(); renderBands(true);
 }
 
 /* ---------- Platform tabs ---------- */
 function renderPlatforms() {
   const counts = new Map();
-  ready.forEach(t => counts.set(t.platform, (counts.get(t.platform) || 0) + 1));
+  const pool = ready.filter(ofKind);
+  pool.forEach(t => counts.set(t.platform, (counts.get(t.platform) || 0) + 1));
   const names = [...counts.keys()].sort((a, b) => counts.get(b) - counts.get(a) || a.localeCompare(b, 'tr'));
   const tab = (name, count, cls = '') => `<button type="button" class="${cls}" data-platform="${esc(name)}" aria-pressed="${platform === name}">${esc(name)}<span>${count}</span></button>`;
-  $('#platforms').innerHTML = tab(ALL, ready.length) + names.map(n => tab(n, counts.get(n))).join('') + tab(SAVED, saved.size, 'saved-tab');
+  $('#platforms').innerHTML = tab(ALL, pool.length) + names.map(n => tab(n, counts.get(n))).join('') + tab(SAVED, saved.size, 'saved-tab');
   $$('[data-platform]').forEach(b => b.onclick = () => { platform = b.dataset.platform; openId = ''; renderPlatforms(); renderBands(true); });
 }
 
 /* ---------- Package bands ---------- */
-function detail(t) {
+const win = (title, body, ui = false) => `<figure class="window"${ui ? ' data-ui' : ''}><div class="window-bar"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span>${esc(title)}</span></div><pre><code>${esc(body)}</code></pre></figure>`;
+const commandsOf = t => t.engine !== 'local' ? 'python native.py --plan\npython native.py --execute --output output/run-001'
+  : t.kind === 'agent' ? `copy .env.example .env\npython main.py --dry-run\npython main.py\n${t.command}` : `python main.py\n${t.command}`;
+function actions(t) {
   const kb = (t.bytes / 1024).toLocaleString('tr', {maximumFractionDigits: 1});
   const isSaved = saved.has(t.id);
+  return `<div class="actions">
+        <a class="btn btn-primary" href="${esc(t.download)}" download>Paketi indir · ${kb} KB<span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 5v12m-5-5 5 5 5-5M6 20h12"/></svg></span></a>
+        <button type="button" class="btn btn-soft" data-copy="${t.id}">Komutları kopyala</button>
+        <button type="button" class="btn btn-soft" data-save="${t.id}" aria-pressed="${isSaved}">${isSaved ? 'Kaydedildi' : 'Kaydet'}</button>
+      </div>
+      <p class="hash">SHA-256 · ${esc(t.sha256)}</p>`;
+}
+function localDetail(t) {
+  const agent = t.kind === 'agent';
+  const tree = ['main.py', 'README.md', ...(agent ? ['.env.example'] : []), ...t.files.map(f => 'ornek/' + f), 'output/   ← sonuçlar buraya'].join('\n');
+  const tested = agent
+    ? 'Paketlenmiş kopya örnek veriyle uçtan uca test edildi: OpenAI, Anthropic ve Ollama biçimlerinde sahte model sunucusu, ayrıca bilgisayarda çalışan bir Ollama modeli. Çıktılar taslaktır; sonuçları kendi verinle kontrol et.'
+    : 'Paketlenmiş kopya örnek veriyle uçtan uca test edildi; hatalı girdide okunur hata verir. Sonuçları kendi verinle bilinen bir rakama karşı kontrol et.';
+  return `<div class="row-detail" id="d-${t.id}">
+    <dl>
+      <div><dt>Ne yapar</dt><dd>${esc(t.description)}</dd></div>
+      <div><dt>Girdi</dt><dd>${esc(t.input)}</dd></div>
+      <div><dt>Çıktı</dt><dd>${esc(t.output)}</dd></div>
+      <div><dt>${agent ? 'Model ve gizlilik' : 'Gizlilik'}</dt><dd>${esc(t.requirements)}</dd></div>
+      <div><dt>Test durumu</dt><dd>${tested}</dd></div>
+    </dl>
+    <div class="run">
+      ${win('Paket klasörü', tree, true)}
+      ${win('Terminal', commandsOf(t).split('\n').map(c => '$ ' + c).join('\n'))}
+      ${actions(t)}
+    </div>
+  </div>`;
+}
+function detail(t) {
+  if (t.engine === 'local') return localDetail(t);
   return `<div class="row-detail" id="d-${t.id}">
     <dl>
       <div><dt>Ne yapar</dt><dd>${esc(t.description)}</dd></div>
@@ -72,12 +124,7 @@ function detail(t) {
       <figure class="window" data-ui><div class="window-bar"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span>config.json · doldurulacak alanlar</span></div><pre><code>${esc(JSON.stringify({operation: t.operation, ...t.config}, null, 2))}</code></pre></figure>
       <figure class="window"><div class="window-bar"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span>Terminal</span></div><pre><code>$ python native.py --plan
 $ python native.py --execute --output output/run-001</code></pre></figure>
-      <div class="actions">
-        <a class="btn btn-primary" href="${esc(t.download)}" download>Paketi indir · ${kb} KB<span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 5v12m-5-5 5 5 5-5M6 20h12"/></svg></span></a>
-        <button type="button" class="btn btn-soft" data-copy="${t.id}">Komutu kopyala</button>
-        <button type="button" class="btn btn-soft" data-save="${t.id}" aria-pressed="${isSaved}">${isSaved ? 'Kaydedildi' : 'Kaydet'}</button>
-      </div>
-      <p class="hash">SHA-256 · ${esc(t.sha256)}</p>
+      ${actions(t)}
       <div class="sources">${(t.sources || []).map(u => `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(new URL(u).hostname)} belgeleri</a>`).join('')}</div>
     </div>
   </div>`;
@@ -85,7 +132,7 @@ $ python native.py --execute --output output/run-001</code></pre></figure>
 
 function renderBands(animate = false) {
   const list = visible();
-  const label = platform === SAVED ? 'kaydedilmiş paket' : 'hazır paket';
+  const label = platform === SAVED ? 'kaydedilmiş paket' : kind === 'code' ? 'kod bloğu' : kind === 'agent' ? 'AI agent' : 'hazır paket';
   $('#listStatus').textContent = `${list.length.toLocaleString('tr')} ${label}${query ? ` · “${query.trim()}” araması` : ''}${platform !== ALL && platform !== SAVED ? ` · ${platform}` : ''}`;
   $('#bands').innerHTML = list.map((t, i) => {
     const open = t.id === openId;
@@ -93,7 +140,7 @@ function renderBands(animate = false) {
       <button type="button" class="row-head" data-open="${t.id}" aria-expanded="${open}" aria-controls="d-${t.id}">
         <span class="row-title"><strong>${esc(t.title)}</strong><small>${esc(t.description)}</small></span>
         <span class="row-foot">
-          <span class="row-meta">${esc(t.product.name)}<span>${esc(t.domain.name)}${saved.has(t.id) ? ' · kayıtlı' : ''}</span></span>
+          <span class="row-meta">${esc(t.product.name)}<span>${t.engine === 'local' ? 'Yerel dosya' : 'Platform API'} · ${esc(t.domain.name)}${saved.has(t.id) ? ' · kayıtlı' : ''}</span></span>
           <span class="tag${t.kind === 'agent' ? ' agent' : ''}">${t.kind === 'agent' ? 'agent · ' : ''}${esc(t.format)}</span>
         </span>
         ${plus}
@@ -112,7 +159,7 @@ function renderBands(animate = false) {
     renderPlatforms(); renderBands(); $(`[data-save="${id}"]`)?.focus();
   });
   $$('[data-copy]').forEach(b => b.onclick = async () => {
-    try { await navigator.clipboard.writeText('python native.py --plan\npython native.py --execute --output output/run-001'); toast('Komutlar kopyalandı'); }
+    try { await navigator.clipboard.writeText(commandsOf(ready.find(t => t.id === b.dataset.copy))); toast('Komutlar kopyalandı'); }
     catch { toast('Kopyalanamadı. Komutu seçip kopyalayabilirsin.'); }
   });
   renderPlannedHint(list);
@@ -168,8 +215,8 @@ function renderCoverage() {
   });
   $$('[data-show-domain]').forEach(b => b.onclick = () => {
     const d = domains.find(x => x.id === b.dataset.showDomain);
-    platform = ALL; openId = ''; query = d.name; $('#search').value = d.name;
-    renderPlatforms(); renderBands(true); $('#paketler').scrollIntoView({behavior: 'smooth'});
+    platform = ALL; kind = 'all'; openId = ''; query = d.name; $('#search').value = d.name;
+    renderKinds(); renderPlatforms(); renderBands(true); $('#paketler').scrollIntoView({behavior: 'smooth'});
   });
 }
 
@@ -181,13 +228,20 @@ const FAQ = [
   ['--plan ile --execute arasındaki fark ne?', '--plan ağ çağrısı yapmaz: config’i okur, yapılacak işlemi, gereken izinleri ve platform etkisini yazar. --execute gerçek API çağrılarını yapar ve sonuçları boş bir çıktı klasörüne yazar.',
     'PowerShell', `> python native.py --plan
 { "operation": "qlik-export", "network_calls": 0, … }`],
-  ['Paketler canlı ortamda test edildi mi?', 'Henüz hayır. Her paket yerel HTTP sözleşme testlerinden geçiyor: yol, gövde, kimlik başlıkları, polling ve hata durumları. Gerçek tenant’ta ve dosyanın uygulamada açılmasıyla yapılan test şu an sıfır.',
+  ['Kod bloğu mu seçmeliyim, agent mı?', 'İşin kuralı belliyse (dışa aktar, çalıştır, profille, mutabık et, belgele) kod bloğu: model yok, sonuç her seferinde aynı. İş yorum ya da yazım istiyorsa (SQL, DAX, veri sözlüğü, KPI tanımı, geçiş planı) agent. Agent’lar da ayrıştırma ve denetimi kodla yapar; model yalnızca muhakeme adımına girer.',
+    'Terminal', `> python main.py              # kod bloğu: örnek veriyle
+> python main.py --dry-run    # agent: modeli çağırmadan isteği gör`],
+  ['Agent’lar verimi nereye gönderiyor?', 'Yalnızca .env dosyasında seçtiğin sağlayıcıya. PROVIDER=ollama ise model bilgisayarında çalışır ve hiçbir veri dışarı çıkmaz. Göndermeden önce e-posta, telefon, TCKN, IBAN ve kart numaraları maskelenir; tablo satırları gönderilmez, yalnızca sütun istatistikleri gider. Giden metnin tamamı output/gonderilecek-istek.json dosyasındadır ve onayın istenir.',
+    '.env', `PROVIDER=ollama
+MODEL=qwen3:14b
+# ya da PROVIDER=anthropic / openai ve API anahtarı`],
+  ['Paketler canlı ortamda test edildi mi?', 'Platform paketleri yerel HTTP sözleşme testlerinden geçiyor; gerçek tenant’ta yapılan test şu an sıfır. Yerel kod blokları ve agent’lar paketlenmiş hâlleriyle örnek veride uçtan uca test ediliyor; agent’lar ayrıca sahte model sunucusuyla ve bilgisayarda çalışan bir Ollama modeliyle denendi.',
     'contract.json', `"verification": {
   "contract": "tested",
   "live": "not-tested",
   "native_open": "not-tested"
 }`],
-  ['Yeni rapor ya da dashboard tasarlıyor mu?', 'Hayır. Kod blokları mevcut nesneleri dışa aktarır, çalıştırır ya da takip eder. Qlik şablon akışı mevcut grafikleri kullanır. Tek agent paketi BigQuery için SQL tasarlar ve dry-run ile doğrular; sorguyu çalıştırmaz.',
+  ['Yeni rapor ya da dashboard tasarlıyor mu?', 'Hayır. Kod blokları mevcut nesneleri dışa aktarır, çalıştırır, takip eder ya da belgeler. Agent’lar SQL, DAX, Power Query ve KPI tanımı gibi taslaklar yazar; hiçbirini senin sisteminde otomatik çalıştırmaz.',
     'contract.json · Qlik export', `"output": "QVF",
 "effects": "Export isteği geçici sunucu içeriği üretir;
             kaynak uygulama değiştirilmez."`],
@@ -197,7 +251,7 @@ const FAQ = [
   ['Haritadaki planlı ürünler ne zaman gelir?', 'API yolu, ürün sürümü, yetkiler ve çıktı biçimi doğrulandığında. Doğrulanmamış bir uç nokta için paket üretilmez; bu yüzden planlı ürünlerde indirme bağlantısı yok.',
     'integration-plan.json', `"status": "partial",
 "note": "API/SDK yolu ve format sürüme göre doğrulanacak."`],
-  ['Neye ihtiyacım var?', 'Python 3.10 veya üzeri; ek kütüphane kurulmaz. Platform tarafında gereken lisans, yetki ve erişim her paketin README dosyasında yazılı.',
+  ['Neye ihtiyacım var?', 'Python 3.10 veya üzeri; ek kütüphane kurulmaz. Platform paketleri için platform erişimi, agent’lar için bir model (bilgisayarında Ollama ya da OpenAI/Anthropic anahtarı) gerekir. Ayrıntılar her paketin README dosyasında.',
     'run.bat', `@echo off
 cd /d "%~dp0"
 python native.py --plan
@@ -228,6 +282,12 @@ document.addEventListener('keydown', e => {
 const header = $('.site-header');
 const onScroll = () => header.classList.toggle('scrolled', scrollY > 8);
 addEventListener('scroll', onScroll, {passive: true}); onScroll();
+$$('[data-kind-jump]').forEach(b => b.addEventListener('click', () => {
+  if (!ready.length) return;
+  platform = ALL; query = ''; $('#search').value = '';
+  setKind(b.dataset.kindJump);
+  $('#paketler').scrollIntoView({behavior: 'smooth'});
+}));
 $$('[data-jump]').forEach(a => a.addEventListener('click', () => {
   if (!ready.length) return;
   platform = a.dataset.jump; query = ''; openId = ''; $('#search').value = '';
@@ -245,6 +305,8 @@ try {
 
   const counts = {
     packages: ready.length,
+    code: ready.filter(t => t.kind === 'code').length,
+    agents: ready.filter(t => t.kind === 'agent').length,
     platforms: new Set(ready.map(t => t.platform)).size,
     domains: domains.length,
     products: domains.reduce((n, d) => n + d.tools.reduce((m, t) => m + t.products.length, 0), 0),
@@ -253,6 +315,8 @@ try {
   $$('[data-count]').forEach(el => { if (el.dataset.count in counts) el.textContent = counts[el.dataset.count].toLocaleString('tr'); });
 
   const initial = new URLSearchParams(location.hash.slice(1));
+  const k = initial.get('k');
+  if (KINDS.some(([id]) => id === k)) kind = k;
   const p = initial.get('p');
   if (p && (p === SAVED || ready.some(t => t.platform === p))) platform = p;
   query = initial.get('q') || ''; $('#search').value = query;
@@ -260,7 +324,7 @@ try {
   if (o && ready.some(t => t.id === o)) openId = o;
 
   $('#bands').removeAttribute('aria-busy');
-  renderPlatforms(); renderBands(true); renderCoverage();
+  renderKinds(); renderPlatforms(); renderBands(true); renderCoverage();
   if (openId) $(`[data-open="${openId}"]`)?.scrollIntoView({block: 'center'});
 } catch (error) {
   $('#listStatus').textContent = 'Katalog yüklenemedi.';

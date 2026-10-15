@@ -58,18 +58,21 @@ class Packages(unittest.TestCase):
       file=ROOT/'dist'/task['download'].lstrip('/');downloads.add(file.name)
       self.assertEqual(hashlib.sha256(file.read_bytes()).hexdigest(),task['sha256'])
       with zipfile.ZipFile(file) as z:
-       self.assertIsNone(z.testzip());self.assertIn('native.py',z.namelist());self.assertIn('.env.example',z.namelist())
-       self.assertNotIn('sample.csv',z.namelist());self.assertFalse(any(x.endswith('.html') for x in z.namelist()))
+       self.assertIsNone(z.testzip());self.assertFalse(any(x.endswith('.html') for x in z.namelist()))
+       if task['engine']=='local':
+        self.assertIn('main.py',z.namelist());self.assertEqual(task['kind']=='agent','.env.example' in z.namelist());continue
+       self.assertIn('native.py',z.namelist());self.assertIn('.env.example',z.namelist())
+       self.assertNotIn('sample.csv',z.namelist())
   self.assertEqual(len(ids),len(set(ids)));self.assertGreater(planned,0)
   self.assertEqual({p.name for p in (ROOT/'dist/packages').glob('*.zip')},downloads)
-  self.assertEqual(len(json.loads((ROOT/'dist/integration-plan.json').read_text(encoding='utf-8'))),185)
+  self.assertEqual(len(json.loads((ROOT/'dist/integration-plan.json').read_text(encoding='utf-8'))),189)
  def test_every_native_package_plan_runs_without_credentials_or_network(self):
   data=json.loads((ROOT/'dist/catalog.json').read_text(encoding='utf-8'));tested=set()
   for d in data:
    for tool in d['tools']:
     for product in tool['products']:
      for task in product['tasks']:
-      if not task.get('download'):continue
+      if not task.get('download') or task['engine']=='local':continue
       tested.add(task['operation'])
       with tempfile.TemporaryDirectory() as tmp:
        with zipfile.ZipFile(ROOT/'dist'/task['download'].lstrip('/')) as z:z.extractall(tmp)

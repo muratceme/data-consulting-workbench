@@ -1,0 +1,57 @@
+///$tab Main
+SET ThousandSep='.';
+SET DecimalSep=',';
+SET DateFormat='DD.MM.YYYY';
+LET vBugun = Today();
+SET vQvdKlasor = 'lib://Veri/QVD/';
+
+/* Kaynak sistem: satış veritabanı */
+LIB CONNECT TO 'SatisDB (sqlserver)';
+
+// Ürün eşlemesi
+UrunKategori:
+MAPPING LOAD
+    UrunKodu,
+    Kategori
+FROM [lib://Veri/Ana/urunler.xlsx]
+(ooxml, embedded labels, table is Urunler);
+
+Satislar:
+LOAD
+    SiparisNo,
+    Date(Tarih) as Tarih,
+    MusteriNo,
+    UrunKodu,
+    ApplyMap('UrunKategori', UrunKodu, 'Bilinmiyor') as Kategori,
+    Adet,
+    Tutar;
+SQL SELECT SiparisNo, Tarih, MusteriNo, UrunKodu, Adet, Tutar
+FROM SatisDB.dbo.Satislar s
+WHERE s.Tarih >= '2024-01-01';
+
+Musteriler:
+LOAD * FROM [lib://Veri/QVD/musteriler.qvd] (qvd);
+
+MusteriGecici:
+NOCONCATENATE LOAD MusteriNo, Segment RESIDENT Musteriler;
+
+LEFT JOIN (Satislar)
+LOAD MusteriNo,
+     Segment
+RESIDENT MusteriGecici;
+
+Hedefler:
+LOAD * INLINE [
+Yil, Hedef
+2025, 12000000
+2026, 15000000
+];
+
+Iadeler:
+CONCATENATE (Satislar)
+LOAD SiparisNo, Tarih, MusteriNo, UrunKodu, -Adet as Adet, -Tutar as Tutar
+FROM C:\Exports\iadeler.csv
+(txt, utf8, embedded labels, delimiter is ';');
+
+STORE Satislar INTO [lib://Veri/QVD/satislar.qvd] (qvd);
+DROP TABLE MusteriGecici;

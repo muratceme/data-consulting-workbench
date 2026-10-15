@@ -1,4 +1,5 @@
 """Executable operations are explicit; taxonomy coverage is not implementation coverage."""
+from local_catalog import LOCAL
 COMMON = 'Python 3.10+. Anahtarlar yalnızca yerel .env/ortam değişkenlerinden okunur. --plan ağ çağrısı yapmaz; --execute API işlemini başlatır. HTML raporu teslim edilmez.'
 OPERATIONS = [
  dict(operation='fabric-notebook-run', product='Fabric Lakehouse', domain='lakehouse', title='Fabric notebook çalıştır ve sonucunu takip et', output='Fabric RunNotebook job instance + sonuç kaydı', kind='code',
@@ -250,11 +251,20 @@ def catalog(domains):
                 tasks=[]
                 for op in available:
                     tasks.append({**op,'id':pid+'-'+op['operation'],'engine':'native','execution':'Platform API + LLM' if op['kind']=='agent' else 'Platform API','status':'contract-tested','input':op['requirements'],'reason':'Şema ve iş amacı yorumlanır; sonuç platform API’sinde doğrulanır.' if op['kind']=='agent' else 'İşlem sırası ve girdi/çıktı sözleşmesi sabittir; LLM gerekmez.','verification':{'contract':'tested','live':'not-tested','native_open':'not-tested'}})
+                for item in LOCAL:
+                    if item['domain']==did and item['product']==product:
+                        tasks.append({**{k:v for k,v in item.items() if k not in ('domain','product','main','modules','samples')},'id':pid+'-'+item['id'],'local_id':item['id'],'operation':item['id'],
+                                      'engine':'local','execution':'Yerel Python + LLM' if item['kind']=='agent' else 'Yerel Python','status':'tested','files':sorted(item['samples']),
+                                      'reason':'Muhakeme gereken adım modele, ayrıştırma ve denetim koda bırakılır.' if item['kind']=='agent' else 'Girdi ve kurallar açık; sonuç deterministik hesaplanır.',
+                                      'verification':{'contract':'not-applicable','local':'tested','live':'not-tested'}})
                 interface,output=TARGETS[did]
+                if vendor=='Genel':
+                    tool['products'].append({'id':pid,'name':product,'tasks':tasks,'integration':{'status':'partial','interface_target':'Yerel dosya','output_target':'Rapor / kod taslağı','note':'Platform bağımsız yerel paketler.'}})
+                    continue
                 # Preserve the full product/task intent, but never ship a placeholder as a runnable package.
                 for kind,task_title in [('code','Uygulamaya özgü veri hazırlama otomasyonu' if did=='files' else title),('agent',agent_title)]:
                     tasks.append({'id':pid+'-planned-'+kind,'title':task_title,'kind':kind,'engine':'planned','description':f'{product} üzerinde uygulamaya özgü {"otomasyon" if kind=="code" else "karar ve tasarım"} akışı. Entegrasyon henüz uygulanmadı.','reason':'Sabit sözleşme ile çalışacak.' if kind=='code' else 'İş amacı, şema ve kısıtları değerlendirecek.','input':'Ürün sürümü, API/SDK erişimi ve kaynak/çıktı sözleşmesi belirlenecek.','execution':'Planlanan entegrasyon','output':output+' (tasarım hedefi)','status':'planned','interface_target':interface,'verification':{'contract':'not-tested','live':'not-tested','native_open':'not-tested'}})
-                tool['products'].append({'id':pid,'name':product,'tasks':tasks,'integration':{'status':'partial' if available else 'planned','interface_target':interface,'output_target':output,'note':'API/SDK yolu ve format sürüme göre doğrulanacak. Python/SQL gibi yerel araçlarda web API yerine resmi SDK/sürücü gerekir.'}})
+                tool['products'].append({'id':pid,'name':product,'tasks':tasks,'integration':{'status':'partial' if available or any(t.get('engine')=='local' for t in tasks) else 'planned','interface_target':interface,'output_target':output,'note':'API/SDK yolu ve format sürüme göre doğrulanacak. Python/SQL gibi yerel araçlarda web API yerine resmi SDK/sürücü gerekir.'}})
             domain['tools'].append(tool)
         result.append(domain)
     return result

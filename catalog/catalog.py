@@ -1,7 +1,7 @@
 """Full taxonomy. Legacy CSV templates remain for historical engine tests only."""
 DOMAINS = [
  ('bi','Business Intelligence','Panolar, KPI’lar ve yönetim raporları','◫',[
- ('Qlik',['Qlik Cloud','Qlik Sense Enterprise','QlikView']),('Microsoft Power BI',['Power BI Service','Power BI Desktop']),('Tableau',['Tableau Cloud','Tableau Server']),('Looker',['Looker','Looker Studio']),('SAP',['SAP BusinessObjects','SAP Analytics Cloud']),('Oracle',['Oracle Analytics Cloud']),('MicroStrategy',['MicroStrategy ONE']),('Apache Superset',['Superset']),('Metabase',['Metabase'])], 'report','Otomatik rapor hazırlama','KPI ve dashboard tasarımı'),
+ ('Qlik',['Qlik Cloud','Qlik Sense Enterprise','QlikView']),('Microsoft Power BI',['Power BI Service','Power BI Desktop']),('Tableau',['Tableau Cloud','Tableau Server','Tableau Desktop']),('Looker',['Looker','Looker Studio']),('SAP',['SAP BusinessObjects','SAP Analytics Cloud']),('Oracle',['Oracle Analytics Cloud']),('MicroStrategy',['MicroStrategy ONE']),('Apache Superset',['Superset']),('Metabase',['Metabase']),('Genel',['Rapor gereksinimleri'])], 'report','Otomatik rapor hazırlama','KPI ve dashboard tasarımı'),
  ('erp','ERP & İş Uygulamaları','Finans, operasyon ve ana veri uzlaştırma','▦',[
  ('SAP',['S/4HANA','ECC','Business One']),('Logo',['Tiger 3','GO 3','Netsis','j-Platform']),('Oracle',['Fusion Cloud ERP','E-Business Suite']),('Microsoft',['Dynamics 365 Finance','Business Central']),('Odoo',['Odoo']),('IFS',['IFS Cloud']),('Workday',['Workday'])], 'reconcile','Kaynak ve hedef veri mutabakatı','ERP veri dönüşümü ve eşleme planı'),
  ('warehouse','Veri Ambarı','Analitik depolama, modeller ve sorgular','▤',[
@@ -45,7 +45,7 @@ DOMAINS = [
  ('finops','Data FinOps & Performans','Kullanım, maliyet ve kapasite','↘',[
  ('Google',['BigQuery Billing Export']),('Snowflake',['Account Usage']),('Databricks',['System Tables']),('Microsoft',['Fabric Capacity Metrics']),('Amazon',['Cost and Usage Report'])], 'report','Kullanım ve maliyet özet raporu','Maliyet azaltma ve kapasite planı'),
  ('files','Dosya & Self-Service Veri','Elektronik tablolar ve açık veri','▧',[
- ('Microsoft',['Excel','Power Query']),('Google',['Sheets']),('DuckDB',['DuckDB']),('OpenRefine',['OpenRefine']),('Apache',['Arrow / Parquet'])], 'report','CSV verisinden otomatik HTML rapor','Self-service veri hazırlama planı')
+ ('Microsoft',['Excel','Power Query']),('Google',['Sheets']),('DuckDB',['DuckDB']),('OpenRefine',['OpenRefine']),('Apache',['Arrow / Parquet']),('Genel',['CSV / Excel','SQL dosyaları'])], 'report','CSV verisinden otomatik HTML rapor','Self-service veri hazırlama planı')
 ]
 
 ENGINES = {
