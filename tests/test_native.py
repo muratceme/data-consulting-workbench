@@ -228,7 +228,7 @@ class Contracts(unittest.TestCase):
         source=Path(self.temp.name)/'parameters.json';source.write_text('{"period":"2026-10"}')
         base='/subscriptions/s/resourceGroups/g/providers/Microsoft.DataFactory/factories/f'
         self.step('POST',base+'/pipelines/p/createRun?api-version=2018-06-01',{'runId':'r'},payload={'period':'2026-10'})
-        self.step('GET',base+'/pipelineruns/r?api-version=2018-06-01',{'status':'InProgress'})
+        self.step('GET',base+'/pipelineruns/r?api-version=2018-06-01',{'status':'InProgress','runId':'r','pipelineName':'p'})
         self.step('GET',base+'/pipelineruns/r?api-version=2018-06-01',{'status':'Succeeded','runId':'r','pipelineName':'p'})
         with patch.object(native.time,'sleep'):self.run_op('adf-run',subscription_id='s',resource_group='g',factory_name='f',pipeline_name='p',parameters_file=str(source))
         self.assertFalse(self.queue);self.assertTrue((self.output/'pipeline-run.json').exists())
@@ -237,7 +237,7 @@ class Contracts(unittest.TestCase):
         source=Path(self.temp.name)/'params.json';source.write_text('{}')
         base='/subscriptions/s/resourceGroups/g/providers/Microsoft.DataFactory/factories/f'
         self.step('POST',base+'/pipelines/p/createRun?api-version=2018-06-01',{'runId':'r'})
-        self.step('GET',base+'/pipelineruns/r?api-version=2018-06-01',{'status':'Failed'})
+        self.step('GET',base+'/pipelineruns/r?api-version=2018-06-01',{'status':'Failed','runId':'r','pipelineName':'p'})
         with self.assertRaises(native.NativeError):self.run_op('adf-run',subscription_id='s',resource_group='g',factory_name='f',pipeline_name='p',parameters_file=str(source))
         self.assertFalse((self.output/'pipeline-run.json').exists());self.assertTrue((self.output/'run-state.json').exists())
 
@@ -253,7 +253,7 @@ class Contracts(unittest.TestCase):
     def test_airflow_v3_body_run_and_success(self):
         source=Path(self.temp.name)/'conf.json';source.write_text('{"region":"EU"}')
         self.step('POST','/api/v2/dags/sales/dagRuns',{'dag_id':'sales','dag_run_id':'datawork_fixed'},payload={'dag_run_id':'datawork_fixed','logical_date':None,'conf':{'region':'EU'}})
-        self.step('GET','/api/v2/dags/sales/dagRuns/datawork_fixed',{'state':'running'})
+        self.step('GET','/api/v2/dags/sales/dagRuns/datawork_fixed',{'state':'running','dag_id':'sales','dag_run_id':'datawork_fixed'})
         self.step('GET','/api/v2/dags/sales/dagRuns/datawork_fixed',{'state':'success','dag_id':'sales','dag_run_id':'datawork_fixed'})
         with patch.object(native.uuid,'uuid4') as uid,patch.object(native.time,'sleep'):
             uid.return_value.hex='fixed'
@@ -799,6 +799,51 @@ class Contracts(unittest.TestCase):
         state=json.loads((self.output/'run-state.json').read_text())
         self.assertEqual(state['connection_id'],self.AB_CONNECTION);self.assertEqual(state['job_id'],7)
         self.assertFalse((self.output/'manifest.json').exists())
+
+
+    def monitor_cases(self):
+        adf='/subscriptions/s/resourceGroups/g/providers/Microsoft.DataFactory/factories/f/pipelineruns/r?api-version=2018-06-01'
+        return [
+            ('adf-monitor',dict(subscription_id='s',resource_group='g',factory_name='f',pipeline_name='p',run_id='r'),adf,{'runId':'r','pipelineName':'p','status':'Succeeded','parameters':{'secret':'must-not-save'}},{'runId':'r','pipelineName':'p','status':'Failed'},'run_id'),
+            ('airflow-monitor',dict(server='https://airflow.example',api_version='3.2',dag_id='d',dag_run_id='r'),'/api/v2/dags/d/dagRuns/r',{'dag_id':'d','dag_run_id':'r','state':'success','conf':{'secret':'must-not-save'}},{'dag_id':'d','dag_run_id':'r','state':'failed'},'dag_run_id'),
+            ('dbt-monitor',dict(server='https://cloud.getdbt.com',account_id='1',job_id='2',run_id=3),'/api/v2/accounts/1/runs/3/',{'data':{'id':3,'account_id':1,'job_id':2,'status':10}},{'data':{'id':3,'account_id':1,'job_id':2,'status':20}},'run_id'),
+            ('prefect-monitor',dict(api_url='https://api.prefect.cloud'+self.PREFECT_BASE,deployment_id=self.PREFECT_DEPLOYMENT,flow_run_id='run'),self.PREFECT_BASE+'flow_runs/run',{'id':'run','deployment_id':self.PREFECT_DEPLOYMENT,'state':{'type':'COMPLETED'}},{'id':'run','deployment_id':self.PREFECT_DEPLOYMENT,'state':{'type':'FAILED'}},'flow_run_id'),
+            ('dataform-monitor',dict(compilation_result=self.DF_PARENT+'/compilationResults/c',workflow_invocation=self.DF_PARENT+'/workflowInvocations/run'),'/v1/'+self.DF_PARENT+'/workflowInvocations/run',{'name':self.DF_PARENT+'/workflowInvocations/run','compilationResult':self.DF_PARENT+'/compilationResults/c','state':'SUCCEEDED'},{'name':self.DF_PARENT+'/workflowInvocations/run','compilationResult':self.DF_PARENT+'/compilationResults/c','state':'FAILED'},'workflow_invocation'),
+            ('powerbi-monitor',dict(workspace_id=self.PBI_ID,dataset_id=self.PBI_ID,refresh_id=self.PBI_ID),self.PBI_PATH+'/'+self.PBI_ID,{'status':'Completed','extendedStatus':'Completed'},{'status':'Failed','extendedStatus':'Failed'},'refresh_id'),
+        ]
+    def test_six_monitor_packages_only_get_and_preserve_identity(self):
+        for op,cfg,path,success,_,_ in self.monitor_cases():
+            with self.subTest(operation=op):
+                self.output=Path(self.temp.name)/op;self.step('GET',path,success)
+                if op=='dbt-monitor':self.step('GET',path+'artifacts/run_results.json',{'metadata':{'dbt_schema_version':'https://schemas.getdbt.com/dbt/run-results/v6.json'},'results':[]})
+                self.run_op(op,**cfg)
+                for file in self.output.iterdir():self.assertNotIn('must-not-save',file.read_text())
+                self.assertTrue((self.output/'manifest.json').exists());self.assertFalse(self.queue)
+        self.assertTrue(all(r[0]=='GET' for r in self.received))
+    def test_six_monitor_failures_never_restart(self):
+        for op,cfg,path,_,failed,_ in self.monitor_cases():
+            self.output=Path(self.temp.name)/op;self.step('GET',path,failed)
+            with self.assertRaises(native.NativeError):self.run_op(op,**cfg)
+            self.assertFalse((self.output/'manifest.json').exists());self.assertFalse(self.queue)
+        self.assertTrue(all(r[0]=='GET' for r in self.received))
+    def test_six_monitors_reject_missing_identity_without_network(self):
+        for op,cfg,_,_,_,key in self.monitor_cases():
+            self.output=Path(self.temp.name)/op;del cfg[key]
+            with self.assertRaises(native.NativeError):self.run_op(op,**cfg)
+        self.assertFalse(self.received)
+    def test_six_monitor_authorization_failure_preserves_trace(self):
+        for op,cfg,path,_,_,_ in self.monitor_cases():
+            self.output=Path(self.temp.name)/op;self.step('GET',path,status=401)
+            with self.assertRaises(native.NativeError):self.run_op(op,**cfg)
+            self.assertTrue((self.output/'run-state.json').exists());self.assertFalse((self.output/'manifest.json').exists())
+        self.assertTrue(all(r[0]=='GET' for r in self.received));self.assertFalse(self.queue)
+    def test_six_monitors_reject_mismatched_identity_or_state(self):
+        for op,cfg,path,_,_,_ in self.monitor_cases():
+            self.output=Path(self.temp.name)/op
+            self.step('GET',path,{'status':'Unknown'} if op=='powerbi-monitor' else {})
+            with self.assertRaises(native.NativeError):self.run_op(op,**cfg)
+            self.assertFalse((self.output/'manifest.json').exists())
+        self.assertTrue(all(r[0]=='GET' for r in self.received));self.assertFalse(self.queue)
 
 
 if __name__=='__main__':unittest.main()

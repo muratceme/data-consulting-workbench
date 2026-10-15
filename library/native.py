@@ -353,7 +353,7 @@ def adf(cfg, out, factory):
             required(activity,'name');required(activity,'type')
         payload={'properties':properties}
     else:
-        payload=input_json(cfg,'parameters_file','parameters.json')
+        if cfg['operation']!='adf-monitor':payload=input_json(cfg,'parameters_file','parameters.json')
         pipeline_name=required(cfg,'pipeline_name')
     client=factory('https://management.azure.com',{'Authorization':'Bearer '+secret('AZURE_ACCESS_TOKEN')})
     if cfg['operation']=='adf-deploy':
@@ -365,30 +365,44 @@ def adf(cfg, out, factory):
         if result.get('name')!=pipeline_name or result.get('id','').lower()!=path.lower() or not result.get('properties',{}).get('activities'):
             raise NativeError('ADF tanımı yeniden okunamadı; oluşturulmuş kaynak run-state.json içinde.')
         return receipt(out,'pipeline.json',result)
-    journal(out,pipeline_name=pipeline_name,resource_path=base,state='request_pending')
-    run_id=required(client.json('POST',base+'/pipelines/'+ident(pipeline_name)+'/createRun'+api,payload),'runId')
-    journal(out,run_id=run_id,state='started')
-    result=poll(client,base+'/pipelineruns/'+ident(run_id)+api,state=lambda r:r.get('status'),success='Succeeded',failures={'Failed','Cancelled'})
-    if result.get('runId')!=run_id or result.get('pipelineName')!=pipeline_name:
-        raise NativeError('ADF çalışma yanıtı istenen pipeline/run ile eşleşmedi.')
-    return receipt(out,'pipeline-run.json',result)
+    if cfg['operation']=='adf-monitor':
+        run_id=required(cfg,'run_id')
+    else:
+        journal(out,pipeline_name=pipeline_name,resource_path=base,state='request_pending')
+        run_id=required(client.json('POST',base+'/pipelines/'+ident(pipeline_name)+'/createRun'+api,payload),'runId')
+    journal(out,pipeline_name=pipeline_name,resource_path=base,run_id=run_id,state='monitoring')
+    def state(result):
+        if result.get('runId')!=run_id or result.get('pipelineName')!=pipeline_name:
+            raise NativeError('ADF çalışma yanıtı istenen pipeline/run ile eşleşmedi.')
+        journal(out,state=result.get('status'))
+        return result.get('status')
+    result=poll(client,base+'/pipelineruns/'+ident(run_id)+api,state=state,success='Succeeded',failures={'Failed','Cancelled'})
+    return receipt(out,'pipeline-run.json',{'runId':run_id,'pipelineName':pipeline_name,'status':result['status']})
 
 
 def airflow(cfg, out, factory):
     if cfg.get('api_version')!='3.2':
         raise NativeError('Bu adaptör Airflow 3.2 public API v2 sözleşmesini destekler; Airflow 2 ile kullanılamaz.')
-    dag_id=required(cfg,'dag_id');conf=input_json(cfg,'conf_file','conf.json')
+    dag_id=required(cfg,'dag_id')
     client=factory(required(cfg,'server'),{'Authorization':'Bearer '+secret('AIRFLOW_ACCESS_TOKEN')})
     path='/api/v2/dags/'+ident(dag_id)+'/dagRuns'
-    run_id='datawork_'+uuid.uuid4().hex
-    journal(out,dag_id=dag_id,dag_run_id=run_id)
-    started=client.json('POST',path,{'dag_run_id':run_id,'logical_date':None,'conf':conf})
-    if started.get('dag_run_id')!=run_id or started.get('dag_id')!=dag_id:
-        raise NativeError('Airflow başlatma yanıtında DAG/run kimliği eşleşmedi.')
-    result=poll(client,path+'/'+ident(run_id),state=lambda r:r.get('state'),success='success',failures={'failed'})
-    if result.get('dag_run_id')!=run_id or result.get('dag_id')!=dag_id:
-        raise NativeError('Airflow sonuç yanıtında DAG/run kimliği eşleşmedi.')
-    return receipt(out,'dag-run.json',result)
+    if cfg['operation']=='airflow-monitor':
+        run_id=required(cfg,'dag_run_id')
+    else:
+        conf=input_json(cfg,'conf_file','conf.json')
+        run_id='datawork_'+uuid.uuid4().hex
+        journal(out,dag_id=dag_id,dag_run_id=run_id,state='request_pending')
+        started=client.json('POST',path,{'dag_run_id':run_id,'logical_date':None,'conf':conf})
+        if started.get('dag_run_id')!=run_id or started.get('dag_id')!=dag_id:
+            raise NativeError('Airflow başlatma yanıtında DAG/run kimliği eşleşmedi.')
+    journal(out,dag_id=dag_id,dag_run_id=run_id,state='monitoring')
+    def state(result):
+        if result.get('dag_run_id')!=run_id or result.get('dag_id')!=dag_id:
+            raise NativeError('Airflow sonuç yanıtında DAG/run kimliği eşleşmedi.')
+        journal(out,state=result.get('state'))
+        return result.get('state')
+    result=poll(client,path+'/'+ident(run_id),state=state,success='success',failures={'failed'})
+    return receipt(out,'dag-run.json',{'dag_id':dag_id,'dag_run_id':run_id,'state':result['state']})
 
 
 def sap_quotation_draft(cfg, out, factory):
@@ -431,13 +445,16 @@ def dbt_run(cfg, out, factory):
         raise NativeError('dbt account_id ve job_id sayısal metin olmalı.')
     client=factory(required(cfg,'server'),{'Authorization':'Token '+secret('DBT_ACCESS_TOKEN')})
     base='/api/v2/accounts/'+account
-    cause='Datawork '+uuid.uuid4().hex
-    journal(out,account_id=account,job_id=job,cause=cause,state='request_pending')
-    started=client.json('POST',base+'/jobs/'+job+'/run/',{'cause':cause})
-    run=started.get('data',{}).get('id')
+    if cfg['operation']=='dbt-monitor':
+        run=cfg.get('run_id')
+    else:
+        cause='Datawork '+uuid.uuid4().hex
+        journal(out,account_id=account,job_id=job,cause=cause,state='request_pending')
+        started=client.json('POST',base+'/jobs/'+job+'/run/',{'cause':cause})
+        run=started.get('data',{}).get('id')
     if isinstance(run,bool) or not isinstance(run,int) or run<=0:
         raise NativeError('dbt run kimliği alınamadı; job geçmişini kontrol edin.')
-    journal(out,run_id=run,state='started')
+    journal(out,account_id=account,job_id=job,run_id=run,state='monitoring')
     path=base+'/runs/'+str(run)+'/'
     def state(response):
         data=response.get('data',{})
@@ -459,16 +476,20 @@ def prefect_run(cfg, out, factory):
     deployment=required(cfg,'deployment_id')
     try:deployment=str(uuid.UUID(deployment))
     except ValueError:raise NativeError('Prefect deployment_id UUID olmalı.') from None
-    parameters=input_json(cfg,'parameters_file','parameters.json')
     client=factory(required(cfg,'api_url'),{'Authorization':'Bearer '+secret('PREFECT_API_KEY')})
-    key='datawork_'+uuid.uuid4().hex
-    journal(out,deployment_id=deployment,idempotency_key=key,state='request_pending')
-    started=client.json('POST','deployments/'+deployment+'/create_flow_run',{
-        'parameters':parameters,'state':{'type':'SCHEDULED'},'idempotency_key':key})
-    run=required(started,'id')
-    journal(out,flow_run_id=run,state='started')
-    if started.get('deployment_id')!=deployment:
-        raise NativeError('Prefect başlatma yanıtı deployment ile eşleşmedi.')
+    if cfg['operation']=='prefect-monitor':
+        run=required(cfg,'flow_run_id')
+    else:
+        parameters=input_json(cfg,'parameters_file','parameters.json')
+        key='datawork_'+uuid.uuid4().hex
+        journal(out,deployment_id=deployment,idempotency_key=key,state='request_pending')
+        started=client.json('POST','deployments/'+deployment+'/create_flow_run',{
+            'parameters':parameters,'state':{'type':'SCHEDULED'},'idempotency_key':key})
+        run=required(started,'id')
+        journal(out,flow_run_id=run,state='started')
+        if started.get('deployment_id')!=deployment:
+            raise NativeError('Prefect başlatma yanıtı deployment ile eşleşmedi.')
+    journal(out,deployment_id=deployment,flow_run_id=run,state='monitoring')
     def state(response):
         if response.get('id')!=run or response.get('deployment_id')!=deployment:
             raise NativeError('Prefect yanıtı deployment/run ile eşleşmedi.')
@@ -671,15 +692,18 @@ def dataform_run(cfg, out, factory):
         raise NativeError('Dataform compilation_result tam kaynak adı olmalı.')
     parent=compilation.rsplit('/compilationResults/',1)[0]
     client=factory('https://dataform.googleapis.com',{'Authorization':'Bearer '+secret('GOOGLE_ACCESS_TOKEN')})
-    compiled=client.json('GET','/v1/'+compilation)
-    if compiled.get('name')!=compilation or compiled.get('compilationErrors'):
-        raise NativeError('Dataform derleme sonucu doğrulanamadı veya derleme hataları var; workflow başlatılmadı.')
-    journal(out,compilation_result=compilation,state='request_pending')
-    started=client.json('POST','/v1/'+parent+'/workflowInvocations',{'compilationResult':compilation})
-    run=required(started,'name')
+    if cfg['operation']=='dataform-monitor':
+        run=required(cfg,'workflow_invocation')
+    else:
+        compiled=client.json('GET','/v1/'+compilation)
+        if compiled.get('name')!=compilation or compiled.get('compilationErrors'):
+            raise NativeError('Dataform derleme sonucu doğrulanamadı veya derleme hataları var; workflow başlatılmadı.')
+        journal(out,compilation_result=compilation,state='request_pending')
+        started=client.json('POST','/v1/'+parent+'/workflowInvocations',{'compilationResult':compilation})
+        run=required(started,'name')
     if not re.fullmatch(re.escape(parent)+r'/workflowInvocations/[A-Za-z0-9_-]+',run):
         raise NativeError('Dataform çalışma adı beklenen repository ile eşleşmedi; platform geçmişini kontrol edin.')
-    journal(out,workflow_invocation=run,state='started')
+    journal(out,compilation_result=compilation,workflow_invocation=run,state='monitoring')
     def state(response):
         if response.get('name')!=run or response.get('compilationResult')!=compilation:
             raise NativeError('Dataform invocation/compilation kimliği eşleşmedi.')
@@ -699,17 +723,21 @@ def powerbi_refresh(cfg, out, factory):
     workspace=guid('workspace_id');dataset=guid('dataset_id')
     client=factory('https://api.powerbi.com',{'Authorization':'Bearer '+secret('POWERBI_ACCESS_TOKEN')})
     path='/v1.0/myorg/groups/'+workspace+'/datasets/'+dataset+'/refreshes'
-    journal(out,workspace_id=workspace,dataset_id=dataset,state='request_pending')
-    _,headers,status=client.request('POST',path,{'type':'full','commitMode':'transactional','retryCount':0},with_status=True)
-    if status!=202:raise NativeError('Power BI yenileme kabulünü doğrulamadı; platform geçmişini kontrol edin.')
-    request_id=header(headers,'x-ms-request-id')
-    try:request_id=str(uuid.UUID(request_id))
-    except ValueError:raise NativeError('Power BI refresh kimliği eksik/geçersiz; tekrar göndermeden geçmişi kontrol edin.') from None
-    journal(out,refresh_id=request_id,state='accepted')
-    location=urlsplit(header(headers,'Location'))
+    if cfg['operation']=='powerbi-monitor':
+        request_id=guid('refresh_id')
+    else:
+        journal(out,workspace_id=workspace,dataset_id=dataset,state='request_pending')
+        _,headers,status=client.request('POST',path,{'type':'full','commitMode':'transactional','retryCount':0},with_status=True)
+        if status!=202:raise NativeError('Power BI yenileme kabulünü doğrulamadı; platform geçmişini kontrol edin.')
+        request_id=header(headers,'x-ms-request-id')
+        try:request_id=str(uuid.UUID(request_id))
+        except ValueError:raise NativeError('Power BI refresh kimliği eksik/geçersiz; tekrar göndermeden geçmişi kontrol edin.') from None
+        journal(out,refresh_id=request_id,state='accepted')
+        location=urlsplit(header(headers,'Location'))
+        if location.scheme!='https' or location.netloc!='api.powerbi.com' or location.path!=path+'/'+request_id or location.query or location.fragment:
+            raise NativeError('Power BI refresh Location adresi beklenen işlemle eşleşmedi; yönlendirme izlenmedi.')
     expected=path+'/'+request_id
-    if location.scheme!='https' or location.netloc!='api.powerbi.com' or location.path!=expected or location.query or location.fragment:
-        raise NativeError('Power BI refresh Location adresi beklenen işlemle eşleşmedi; yönlendirme izlenmedi.')
+    journal(out,workspace_id=workspace,dataset_id=dataset,refresh_id=request_id,state='monitoring')
     for _ in range(120):
         raw,_,http_status=client.request('GET',expected,with_status=True)
         try:result=json.loads(raw)
@@ -763,7 +791,7 @@ def databricks_run(cfg, out, factory):
     return receipt(out,'databricks-run.json',{'job_id':job,'run_id':run,'life_cycle_state':'TERMINATED','result_state':'SUCCESS'})
 
 
-HANDLERS = {'qlik-export':qlik,'qlik-template':qlik,'powerbi-export':powerbi,'tableau-export':tableau,'sap-b1-schema':sap,'sap-odata-schema':sap,'oracle-schema':oracle,'bigquery-table':bigquery,'bigquery-agent':bigquery,'databricks-profile':databricks_profile,'adf-deploy':adf,'adf-run':adf,'airflow-run':airflow,'sap-quotation-draft':sap_quotation_draft,'dbt-run':dbt_run,'prefect-run':prefect_run,'snowflake-quality':snowflake_quality,'github-actions-run':github_actions,'fivetran-sync':fivetran_sync,'airbyte-sync':airbyte_sync,'dataform-run':dataform_run,'powerbi-refresh':powerbi_refresh,'databricks-run':databricks_run,'databricks-monitor':databricks_run,'airbyte-monitor':airbyte_sync}
+HANDLERS = {'qlik-export':qlik,'qlik-template':qlik,'powerbi-export':powerbi,'tableau-export':tableau,'sap-b1-schema':sap,'sap-odata-schema':sap,'oracle-schema':oracle,'bigquery-table':bigquery,'bigquery-agent':bigquery,'databricks-profile':databricks_profile,'adf-deploy':adf,'adf-run':adf,'airflow-run':airflow,'sap-quotation-draft':sap_quotation_draft,'dbt-run':dbt_run,'prefect-run':prefect_run,'snowflake-quality':snowflake_quality,'github-actions-run':github_actions,'fivetran-sync':fivetran_sync,'airbyte-sync':airbyte_sync,'dataform-run':dataform_run,'powerbi-refresh':powerbi_refresh,'databricks-run':databricks_run,'databricks-monitor':databricks_run,'airbyte-monitor':airbyte_sync,'adf-monitor':adf,'airflow-monitor':airflow,'dbt-monitor':dbt_run,'prefect-monitor':prefect_run,'dataform-monitor':dataform_run,'powerbi-monitor':powerbi_refresh}
 
 
 def execute(cfg, output, factory=HTTP):

@@ -7,7 +7,7 @@
 | Business Intelligence | Qlik | Qlik Cloud | Kısmi: qlik-export, qlik-template | Rapor/uygulama API + görsel model SDK | Platformun rapor/proje dosyası veya yayınlanmış rapor |
 | Business Intelligence | Qlik | Qlik Sense Enterprise | Planlandı; paket yok | Rapor/uygulama API + görsel model SDK | Platformun rapor/proje dosyası veya yayınlanmış rapor |
 | Business Intelligence | Qlik | QlikView | Planlandı; paket yok | Rapor/uygulama API + görsel model SDK | Platformun rapor/proje dosyası veya yayınlanmış rapor |
-| Business Intelligence | Microsoft Power BI | Power BI Service | Kısmi: powerbi-refresh, powerbi-export | Rapor/uygulama API + görsel model SDK | Platformun rapor/proje dosyası veya yayınlanmış rapor |
+| Business Intelligence | Microsoft Power BI | Power BI Service | Kısmi: powerbi-refresh, powerbi-export, powerbi-monitor | Rapor/uygulama API + görsel model SDK | Platformun rapor/proje dosyası veya yayınlanmış rapor |
 | Business Intelligence | Microsoft Power BI | Power BI Desktop | Planlandı; paket yok | Rapor/uygulama API + görsel model SDK | Platformun rapor/proje dosyası veya yayınlanmış rapor |
 | Business Intelligence | Tableau | Tableau Cloud | Kısmi: tableau-export | Rapor/uygulama API + görsel model SDK | Platformun rapor/proje dosyası veya yayınlanmış rapor |
 | Business Intelligence | Tableau | Tableau Server | Kısmi: tableau-export | Rapor/uygulama API + görsel model SDK | Platformun rapor/proje dosyası veya yayınlanmış rapor |
@@ -51,7 +51,7 @@
 | Data Lake & Lakehouse | Apache | Hudi | Planlandı; paket yok | Workspace/catalog API + SQL/Spark SDK | Notebook, job veya native tablo |
 | Data Lake & Lakehouse | Delta Lake | Delta Lake | Planlandı; paket yok | Workspace/catalog API + SQL/Spark SDK | Notebook, job veya native tablo |
 | Data Lake & Lakehouse | Dremio | Dremio | Planlandı; paket yok | Workspace/catalog API + SQL/Spark SDK | Notebook, job veya native tablo |
-| Veri Entegrasyonu | Microsoft | Azure Data Factory | Kısmi: adf-deploy, adf-run | ETL yönetim API/SDK | Platformun pipeline tanımı ve çalışma kaydı |
+| Veri Entegrasyonu | Microsoft | Azure Data Factory | Kısmi: adf-deploy, adf-run, adf-monitor | ETL yönetim API/SDK | Platformun pipeline tanımı ve çalışma kaydı |
 | Veri Entegrasyonu | Microsoft | SSIS | Planlandı; paket yok | ETL yönetim API/SDK | Platformun pipeline tanımı ve çalışma kaydı |
 | Veri Entegrasyonu | Microsoft | Fabric Data Factory | Planlandı; paket yok | ETL yönetim API/SDK | Platformun pipeline tanımı ve çalışma kaydı |
 | Veri Entegrasyonu | Informatica | IDMC | Planlandı; paket yok | ETL yönetim API/SDK | Platformun pipeline tanımı ve çalışma kaydı |
@@ -65,14 +65,14 @@
 | Veri Entegrasyonu | Oracle | GoldenGate | Planlandı; paket yok | ETL yönetim API/SDK | Platformun pipeline tanımı ve çalışma kaydı |
 | Veri Entegrasyonu | Meltano | Meltano | Planlandı; paket yok | ETL yönetim API/SDK | Platformun pipeline tanımı ve çalışma kaydı |
 | Analytics Engineering | dbt | dbt Core | Planlandı; paket yok | Ürünün proje/derleme/iş API’si | dbt/Dataform/SQLMesh proje dosyası |
-| Analytics Engineering | dbt | dbt Cloud | Kısmi: dbt-run | Ürünün proje/derleme/iş API’si | dbt/Dataform/SQLMesh proje dosyası |
-| Analytics Engineering | Google | Dataform | Kısmi: dataform-run | Ürünün proje/derleme/iş API’si | dbt/Dataform/SQLMesh proje dosyası |
+| Analytics Engineering | dbt | dbt Cloud | Kısmi: dbt-run, dbt-monitor | Ürünün proje/derleme/iş API’si | dbt/Dataform/SQLMesh proje dosyası |
+| Analytics Engineering | Google | Dataform | Kısmi: dataform-run, dataform-monitor | Ürünün proje/derleme/iş API’si | dbt/Dataform/SQLMesh proje dosyası |
 | Analytics Engineering | SQLMesh | SQLMesh | Planlandı; paket yok | Ürünün proje/derleme/iş API’si | dbt/Dataform/SQLMesh proje dosyası |
 | Analytics Engineering | Coalesce | Coalesce | Planlandı; paket yok | Ürünün proje/derleme/iş API’si | dbt/Dataform/SQLMesh proje dosyası |
 | Analytics Engineering | Cube | Cube | Planlandı; paket yok | Ürünün proje/derleme/iş API’si | dbt/Dataform/SQLMesh proje dosyası |
-| Orkestrasyon & DataOps | Apache | Airflow | Kısmi: airflow-run | Orkestratör REST/GraphQL/SDK | DAG, flow veya job tanımı |
+| Orkestrasyon & DataOps | Apache | Airflow | Kısmi: airflow-run, airflow-monitor | Orkestratör REST/GraphQL/SDK | DAG, flow veya job tanımı |
 | Orkestrasyon & DataOps | Dagster | Dagster | Planlandı; paket yok | Orkestratör REST/GraphQL/SDK | DAG, flow veya job tanımı |
-| Orkestrasyon & DataOps | Prefect | Prefect | Kısmi: prefect-run | Orkestratör REST/GraphQL/SDK | DAG, flow veya job tanımı |
+| Orkestrasyon & DataOps | Prefect | Prefect | Kısmi: prefect-run, prefect-monitor | Orkestratör REST/GraphQL/SDK | DAG, flow veya job tanımı |
 | Orkestrasyon & DataOps | Astronomer | Astro | Planlandı; paket yok | Orkestratör REST/GraphQL/SDK | DAG, flow veya job tanımı |
 | Orkestrasyon & DataOps | Kestra | Kestra | Planlandı; paket yok | Orkestratör REST/GraphQL/SDK | DAG, flow veya job tanımı |
 | Orkestrasyon & DataOps | GitHub | Actions | Kısmi: github-actions-run | Orkestratör REST/GraphQL/SDK | DAG, flow veya job tanımı |

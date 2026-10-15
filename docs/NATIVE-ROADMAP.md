@@ -60,7 +60,7 @@ Snowflake ilk kesiti: OAuth SQL API, benzersiz isimli kalıcı profil view’ı 
 
 ## Mevcut sınırlar
 
-- Otomatik OAuth consent/token yenileme, streaming büyük indirme, genel checkpoint resume henüz yok; Databricks ve Airbyte için mevcut iş kimliğiyle ayrı takip paketleri var.
+- Otomatik OAuth consent/token yenileme, streaming büyük indirme, genel checkpoint resume henüz yok; Databricks, Airbyte, ADF, Airflow, dbt Cloud, Prefect, Dataform ve Power BI için mevcut iş kimliğiyle ayrı takip paketleri var.
 - Download redirect'leri güvenlik için reddedilir; bu bazı gerçek tenant akışlarını ayrıca geliştirmeyi gerektirebilir.
 - Qlik Cloud dışında QVF uyumluluğu kanıtlanmadı. PBIX ve Tableau test dosyaları yerel fixture, gerçek uygulama dosyası değil.
 - Başarısız yazma isteği otomatik tekrar edilmez; kullanıcı kaydedilen job/app ID'yi incelemelidir.

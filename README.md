@@ -4,7 +4,7 @@ Kullanıcının kendi API/SDK erişimiyle çalışan kod blokları ve agentlar. 
 
 ## Güncel durum
 
-15 Ekim 2026: 23 alan / 185 ürün bağlamı korunuyor. 25 uygulanmış işlem, Tableau Cloud/Server ayrımıyla **26 indirilebilir paket** var. Diğer 370 görev **planlanan entegrasyon**; indirme bağlantıları yok. Bu sayıların hiçbiri tüm ürünlerin çalıştığı anlamına gelmez.
+15 Ekim 2026: 23 alan / 185 ürün bağlamı korunuyor. 31 uygulanmış işlem, Tableau Cloud/Server ayrımıyla **32 indirilebilir paket** var. Diğer 370 görev **planlanan entegrasyon**; indirme bağlantıları yok. Bu sayıların hiçbiri tüm ürünlerin çalıştığı anlamına gelmez.
 
 | Uygulama | Uygulanmış işlem | Teslim |
 |---|---|---|
@@ -57,7 +57,7 @@ Sunucu varsayılan olarak `http://localhost:4322` üzerinde çalışır. Uygun d
 
 Yeni/boş çıktı klasörü gerekir. Yazma ve LLM maliyeti olabilen işlemler README'de belirtilir. Şema ve proje bağlamı seçilen modele gönderilir; agent satır verisi çekmez. Kısmi çalışma kimlikleri `run-state.json`, dosya özeti `manifest.json` içindedir. Otomatik rollback veya üretimde otomatik model-kodu yürütme yoktur.
 
-Toplam **135 test** geçti (129 Python + 6 görünüm testi). Test sayısı canlı tenant doğrulaması değildir.
+Toplam **140 test** geçti (134 Python + 6 görünüm testi). Test sayısı canlı tenant doğrulaması değildir.
 
 ## Test katmanları
 
@@ -89,3 +89,7 @@ Katalogdaki **Mevcut Databricks çalışmasını yeniden başlatmadan takip et**
 ## Airbyte takibine kesinti sonrası devam
 
 **Mevcut Airbyte aktarımını yeniden başlatmadan takip et** paketinde, önceki `run-state.json` içindeki `connection_id` ve `job_id` değerlerini `config.json` içine girin. Geçerli token yerel `.env` içinde kalır. `python native.py --execute --output output/continued-001` yalnızca mevcut işi okur; yeni/boş çıktı klasörü kullanın. Başlatma paketi tekrar çalıştırılırsa yeni sync oluşabilir; takip için ayrı monitor paketini kullanın.
+
+## Diğer platformlarda kesinti sonrası takip
+
+ADF, Airflow, dbt Cloud, Prefect, Dataform ve Power BI için de ayrı takip paketleri bulunur. Bu paketler yeni çalışma başlatmadan mevcut kimliği sorgular; dbt başarılı çalışma artifact’ını indirir. Platform ve yapılandırma eşlemeleri [kurtarma rehberinde](docs/RECOVERY.md).

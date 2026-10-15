@@ -159,6 +159,31 @@ OPERATIONS = [
 ]
 
 # These are design targets, not claims of a verified vendor capability.
+# Monitor packages retain vendor-specific identities and output contracts; no writes are made.
+MONITORS = [
+ ('adf-run','adf-monitor','ADF pipeline',{'run_id':'YOUR_RUN_ID'},['parameters_file'],
+  'ARM OAuth token ve pipelineRuns/read yetkisi; subscription/resource group/factory/pipeline ve run_id aynı çalışmayı göstermeli.'),
+ ('airflow-run','airflow-monitor','Airflow DAG',{'dag_run_id':'YOUR_DAG_RUN_ID'},['conf_file'],
+  'Airflow 3.2 API v2 Bearer token ve DAG run okuma yetkisi; server/dag_id/dag_run_id önceki çalışmaya ait olmalı.'),
+ ('dbt-run','dbt-monitor','dbt Cloud job',{'run_id':0},[],
+  'dbt run ve artifact okuma yetkili token; server/account_id/job_id/run_id önceki çalışmaya ait olmalı. Başarılı run run_results.json içermeli.'),
+ ('prefect-run','prefect-monitor','Prefect flow',{'flow_run_id':'YOUR_FLOW_RUN_ID'},['parameters_file'],
+  'Prefect Cloud API key ve flow run okuma yetkisi; api_url/deployment_id/flow_run_id aynı workspace ve çalışmaya ait olmalı.'),
+ ('dataform-run','dataform-monitor','Dataform workflow',{'workflow_invocation':'projects/YOUR_PROJECT/locations/YOUR_LOCATION/repositories/YOUR_REPOSITORY/workflowInvocations/YOUR_RUN_ID'},[],
+  'Google OAuth token ve workflowInvocations.get yetkisi; compilation_result ve workflow_invocation aynı repository ve derlemeye ait olmalı.'),
+ ('powerbi-refresh','powerbi-monitor','Power BI yenilemesi',{'refresh_id':'YOUR_REFRESH_UUID'},[],
+  'Power BI Dataset.Read.All veya Dataset.ReadWrite.All; workspace/model erişimi. workspace_id/dataset_id/refresh_id önceki enhanced refresh çalışmasına ait olmalı.'),
+]
+for base_id,operation,label,extra,remove,requirements in MONITORS:
+    base=next(op for op in OPERATIONS if op['operation']==base_id)
+    OPERATIONS.append(dict(operation=operation,product=base['product'],domain=base['domain'],
+        title='Mevcut '+label+' çalışmasını yeniden başlatmadan takip et',output=base['output'] if base_id=='dbt-run' else 'Mevcut platform çalışması için sonuç kaydı',kind='code',
+        description='Önceki çalışma kimlikleriyle yalnızca GET çağrıları yapar. Yeni iş başlatmaz; platformun başarılı terminal sonucunu doğrular.'+(' Başarı sonrası native run_results.json indirilir.' if base_id=='dbt-run' else ''),
+        config={**{k:v for k,v in base['config'].items() if k not in remove},**extra},secrets=base['secrets'],
+        requirements=requirements+' Kimlikleri önceki run-state.json veya platform arayüzünden alın. Yeni/boş output klasörü kullanın.',
+        effects='Yalnızca durum okuma'+(' ve artifact indirme' if base_id=='dbt-run' else '')+' yapar. POST/PUT/PATCH/DELETE yoktur. Timeout işi iptal etmez; aynı kimlikle tekrar takip edilebilir. Süresi dolmuş token yerelde yenilenmelidir. İş kimliği kaydedilmeden bağlantı koptuysa platform geçmişinden bulun; başlatma paketini yeniden çalıştırmayın.',
+        sources=base['sources']))
+
 TARGETS = {
  'bi':('Rapor/uygulama API + görsel model SDK','Platformun rapor/proje dosyası veya yayınlanmış rapor'),
  'erp':('Ürüne özgü OData/REST/SOAP veya on-prem SDK','ERP içindeki taslak belge, eşleme veya rapor tanımı'),
