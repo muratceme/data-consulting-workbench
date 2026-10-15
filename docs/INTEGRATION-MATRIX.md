@@ -41,7 +41,7 @@
 | Veri Ambarı | Oracle | Autonomous Data Warehouse | Planlandı; paket yok | Sorgu işi API / SQL sürücüsü | Platform tablosu, view veya SQL modeli |
 | Veri Ambarı | Teradata | Vantage | Planlandı; paket yok | Sorgu işi API / SQL sürücüsü | Platform tablosu, view veya SQL modeli |
 | Veri Ambarı | ClickHouse | ClickHouse | Planlandı; paket yok | Sorgu işi API / SQL sürücüsü | Platform tablosu, view veya SQL modeli |
-| Data Lake & Lakehouse | Databricks | Databricks Lakehouse | Kısmi: databricks-run, databricks-profile | Workspace/catalog API + SQL/Spark SDK | Notebook, job veya native tablo |
+| Data Lake & Lakehouse | Databricks | Databricks Lakehouse | Kısmi: databricks-monitor, databricks-run, databricks-profile | Workspace/catalog API + SQL/Spark SDK | Notebook, job veya native tablo |
 | Data Lake & Lakehouse | Databricks | Unity Catalog | Planlandı; paket yok | Workspace/catalog API + SQL/Spark SDK | Notebook, job veya native tablo |
 | Data Lake & Lakehouse | Microsoft | Fabric Lakehouse | Planlandı; paket yok | Workspace/catalog API + SQL/Spark SDK | Notebook, job veya native tablo |
 | Data Lake & Lakehouse | Microsoft | OneLake | Planlandı; paket yok | Workspace/catalog API + SQL/Spark SDK | Notebook, job veya native tablo |

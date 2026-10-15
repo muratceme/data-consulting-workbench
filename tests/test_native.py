@@ -732,4 +732,33 @@ class Contracts(unittest.TestCase):
         self.assertFalse((self.output/'manifest.json').exists())
 
 
+    def dbr_monitor(self,**overrides):
+        with patch.object(native.time,'sleep'):
+            return self.run_op('databricks-monitor',**{'workspace_url':'https://test.cloud.databricks.com','job_id':8,'run_id':9,**overrides})
+    def test_databricks_monitor_only_gets_existing_run(self):
+        self.dbr_status('RUNNING',None);self.dbr_status()
+        self.assertEqual(self.dbr_monitor()['artifact']['file'],'databricks-run.json')
+        self.assertTrue(all(r[0]=='GET' for r in self.received));self.assertFalse(self.queue)
+    def test_databricks_monitor_missing_run_id_never_starts_job(self):
+        with self.assertRaises(native.NativeError):self.dbr_monitor(run_id=0)
+        self.assertFalse(self.received)
+    def test_databricks_monitor_wrong_job_is_rejected(self):
+        self.dbr_status(job_id=99)
+        with self.assertRaises(native.NativeError):self.dbr_monitor()
+        self.assertEqual(len(self.received),1);self.assertFalse((self.output/'manifest.json').exists())
+    def test_databricks_monitor_failed_run_is_not_restarted(self):
+        self.dbr_status(result='FAILED')
+        with self.assertRaises(native.NativeError):self.dbr_monitor()
+        self.assertTrue(all(r[0]=='GET' for r in self.received));self.assertFalse((self.output/'manifest.json').exists())
+    def test_databricks_monitor_timeout_then_continue_in_new_output(self):
+        for _ in range(120):self.dbr_status('RUNNING',None)
+        with self.assertRaises(native.NativeError):self.dbr_monitor()
+        previous=self.output
+        state=json.loads((previous/'run-state.json').read_text())
+        self.output=Path(self.temp.name)/'continued';self.dbr_status()
+        self.dbr_monitor(job_id=state['job_id'],run_id=state['run_id'])
+        self.assertFalse((previous/'manifest.json').exists());self.assertTrue((self.output/'manifest.json').exists())
+        self.assertTrue(all(r[0]=='GET' for r in self.received));self.assertFalse(self.queue)
+
+
 if __name__=='__main__':unittest.main()

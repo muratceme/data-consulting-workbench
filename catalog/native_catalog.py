@@ -1,6 +1,12 @@
 """Executable operations are explicit; taxonomy coverage is not implementation coverage."""
 COMMON = 'Python 3.10+. Anahtarlar yalnızca yerel .env/ortam değişkenlerinden okunur. --plan ağ çağrısı yapmaz; --execute API işlemini başlatır. HTML raporu teslim edilmez.'
 OPERATIONS = [
+ dict(operation='databricks-monitor', product='Databricks Lakehouse', domain='lakehouse', title='Mevcut Databricks çalışmasını yeniden başlatmadan takip et', output='Mevcut run için doğrulanmış sonuç kaydı', kind='code',
+      description='Bilgisayar kapandıktan veya yerel takip zaman aşımından sonra mevcut job/run kimlikleriyle takibe devam eder. Yalnızca GET çağrıları yapar; yeni run oluşturmaz. TERMINATED + SUCCESS sonucu bekler.',
+      config={'workspace_url':'https://YOUR_WORKSPACE.cloud.databricks.com','job_id':0,'run_id':0}, secrets=['DATABRICKS_ACCESS_TOKEN'],
+      requirements='Önceki run-state.json veya Databricks arayüzünden alınan job_id ve run_id; aynı workspace için geçerli OAuth/PAT ve run okuma yetkisi. Token süresi dolduysa yerelde yenileyin. Ayrı, boş output klasörü kullanın. Run ID kaydedilemeden bağlantı koptuysa önce platform geçmişinden kimliği bulun.',
+      effects='Yalnızca Jobs API 2.2 runs/get çağrıları yapar; run-now/repair/cancel çağırmaz. Yaklaşık dört dakikalık takip sonunda tamamlanmadıysa zaman aşımı verir; aynı kimliklerle yeni boş output klasöründe tekrar takip edilebilir. Platformdaki işin kendisi mevcut etkileriyle devam eder. Bu paket Databricks içindir; diğer platformlar için genel resume desteği değildir.',
+      sources=['https://docs.databricks.com/api/workspace/jobs/getrun']),
  dict(operation='databricks-run', product='Databricks Lakehouse', domain='lakehouse', title='Databricks job çalıştır ve sonucunu doğrula', output='Databricks job run + çalışma kaydı', kind='code',
       description='Mevcut Lakeflow job’ını Jobs API 2.2 ile parametreli başlatır. Job/run kimliğini doğrular; yalnızca TERMINATED + SUCCESS sonucunu teslim eder. Notebook veya job tanımı oluşturmaz.',
       config={'workspace_url':'https://YOUR_WORKSPACE.cloud.databricks.com','job_id':0,'parameters_file':'parameters.json'}, secrets=['DATABRICKS_ACCESS_TOKEN'],

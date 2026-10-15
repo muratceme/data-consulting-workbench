@@ -41,6 +41,8 @@ Yalnızca son iki aşama tamamlanınca `live-tested` / `native-open-tested` işa
 
 - Databricks Jobs API 2.2: mevcut job run-now, job parametreleri, çağrı öncesi idempotency token ve run ID takibi. Yalnızca TERMINATED/SUCCESS kabul edilir. Job tanımı, notebook sonucu indirme ve token yenileme yok; canlı compute kabulü bekliyor.
 
+- Databricks mevcut run takibi: ayrı read-only paket, önceki job_id/run_id ile GET üzerinden devam eder. Yeni run başlatmaz; eski output korunur. Diğer platformlarda genel checkpoint/resume henüz yok.
+
 ## Öncelikli kalan işler
 
 Snowflake ilk kesiti: OAuth SQL API, benzersiz isimli kalıcı profil view’ı ve view sorgusu. HTTP 202 polling, HTTP 422 hata, statement kimliği kontrolü ve tek satırlık aggregate sonuç doğrulaması uygulanır. Kaynak satırlar indirilmez; hesapta CREATE VIEW/SELECT yetkileri ve warehouse gerekir. Native SQL ve sorgu kimlikleri kaydedilir. Bu, iş kurallarına göre kalite onayı değildir. Canlı SQL derleme ve tenant kabulü bekliyor.
@@ -56,7 +58,7 @@ Snowflake ilk kesiti: OAuth SQL API, benzersiz isimli kalıcı profil view’ı 
 
 ## Mevcut sınırlar
 
-- Otomatik OAuth consent/token yenileme, streaming büyük indirme, checkpoint'ten resume henüz yok.
+- Otomatik OAuth consent/token yenileme, streaming büyük indirme, genel checkpoint resume henüz yok; Databricks için mevcut run kimliğiyle ayrı takip paketi var.
 - Download redirect'leri güvenlik için reddedilir; bu bazı gerçek tenant akışlarını ayrıca geliştirmeyi gerektirebilir.
 - Qlik Cloud dışında QVF uyumluluğu kanıtlanmadı. PBIX ve Tableau test dosyaları yerel fixture, gerçek uygulama dosyası değil.
 - Başarısız yazma isteği otomatik tekrar edilmez; kullanıcı kaydedilen job/app ID'yi incelemelidir.

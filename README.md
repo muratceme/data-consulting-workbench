@@ -4,7 +4,7 @@ Kullanıcının kendi API/SDK erişimiyle çalışan kod blokları ve agentlar. 
 
 ## Güncel durum
 
-13 Ekim 2026: 23 alan / 185 ürün bağlamı korunuyor. 23 uygulanmış işlem, Tableau Cloud/Server ayrımıyla **24 indirilebilir paket** var. Diğer 370 görev **planlanan entegrasyon**; indirme bağlantıları yok. Bu sayıların hiçbiri tüm ürünlerin çalıştığı anlamına gelmez.
+15 Ekim 2026: 23 alan / 185 ürün bağlamı korunuyor. 24 uygulanmış işlem, Tableau Cloud/Server ayrımıyla **25 indirilebilir paket** var. Diğer 370 görev **planlanan entegrasyon**; indirme bağlantıları yok. Bu sayıların hiçbiri tüm ürünlerin çalıştığı anlamına gelmez.
 
 | Uygulama | Uygulanmış işlem | Teslim |
 |---|---|---|
@@ -19,6 +19,7 @@ Kullanıcının kendi API/SDK erişimiyle çalışan kod blokları ve agentlar. 
 | BigQuery agent | Canlı API şeması → model → BigQuery SELECT dry-run | `.sql`; sorgu çalıştırılmaz |
 | Databricks Lakehouse | Profil notebook’u üret → SOURCE import → get-status → export | Workspace notebook + Python kaynak dosyası; otomatik çalıştırılmaz |
 | Databricks Jobs | Mevcut job’ı parametrelerle çalıştır, job/run kimliklerini ve terminal sonucu doğrula | Platform run + sonuç kaydı; görev çıktıları indirilmez |
+| Databricks mevcut run takibi | Kesinti sonrası job_id/run_id ile yalnızca GET üzerinden takip | Yeni iş başlatmadan sonuç kaydı |
 | Azure Data Factory | Yeni isimle pipeline yayımlama; ayrıca mevcut pipeline çalıştırma/takip | Native pipeline veya pipeline run |
 | Airflow 3.2 | Public API v2 ile mevcut DAG tetikleme ve takip | DAG run; başarısızlıkta başarı çıktısı yok |
 | dbt Cloud | Mevcut dönüşüm/test job’ını başlat, takip et ve artifact indir | dbt run + platformun ürettiği `run_results.json` |
@@ -55,7 +56,7 @@ Sunucu varsayılan olarak `http://localhost:4322` üzerinde çalışır. Uygun d
 
 Yeni/boş çıktı klasörü gerekir. Yazma ve LLM maliyeti olabilen işlemler README'de belirtilir. Şema ve proje bağlamı seçilen modele gönderilir; agent satır verisi çekmez. Kısmi çalışma kimlikleri `run-state.json`, dosya özeti `manifest.json` içindedir. Otomatik rollback veya üretimde otomatik model-kodu yürütme yoktur.
 
-Toplam **124 test** geçti (118 Python + 6 görünüm testi). Test sayısı canlı tenant doğrulaması değildir.
+Toplam **129 test** geçti (123 Python + 6 görünüm testi). Test sayısı canlı tenant doğrulaması değildir.
 
 ## Test katmanları
 
@@ -79,3 +80,7 @@ Canlı uçtan uca test ayrı bir aşamadır: lisanslı sandbox, ilgili sürüm, 
 - `docs/NATIVE-ROADMAP.md`: tamamlanma ölçütleri ve sonraki geliştirme işleri.
 
 [GitHub](https://github.com/muratceme/data-consulting-workbench) · MIT.
+
+## Databricks takibine kesinti sonrası devam
+
+Katalogdaki **Mevcut Databricks çalışmasını yeniden başlatmadan takip et** paketini indirin. Önceki `run-state.json` içindeki `job_id` ve `run_id` değerlerini yeni paketin `config.json` dosyasına, aynı workspace adresiyle girin. Geçerli token yalnızca yerel `.env` içinde kalır. `python native.py --execute --output output/continued-001` yalnızca mevcut run durumunu okur. Yeni boş çıktı klasörü kullanın; önceki kayıt korunur. Run ID hiç alınamadıysa önce Databricks geçmişinden bulun; eski başlatma paketini tekrar çalıştırmak yeni job run oluşturabilir.
