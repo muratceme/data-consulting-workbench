@@ -4,7 +4,7 @@ Kullanıcının kendi API/SDK erişimiyle çalışan kod blokları ve agentlar. 
 
 ## Güncel durum
 
-15 Ekim 2026: 23 alan / 185 ürün bağlamı korunuyor. 24 uygulanmış işlem, Tableau Cloud/Server ayrımıyla **25 indirilebilir paket** var. Diğer 370 görev **planlanan entegrasyon**; indirme bağlantıları yok. Bu sayıların hiçbiri tüm ürünlerin çalıştığı anlamına gelmez.
+15 Ekim 2026: 23 alan / 185 ürün bağlamı korunuyor. 25 uygulanmış işlem, Tableau Cloud/Server ayrımıyla **26 indirilebilir paket** var. Diğer 370 görev **planlanan entegrasyon**; indirme bağlantıları yok. Bu sayıların hiçbiri tüm ürünlerin çalıştığı anlamına gelmez.
 
 | Uygulama | Uygulanmış işlem | Teslim |
 |---|---|---|
@@ -28,6 +28,7 @@ Kullanıcının kendi API/SDK erişimiyle çalışan kod blokları ve agentlar. 
 | GitHub Actions | Mevcut workflow_dispatch işini başlat, kesin run kimliğiyle takip et | Platform workflow run + sonuç kaydı; artifact indirme içermez |
 | Fivetran | Manual bağlantıyı force=false ile sync et, yeni başarı zamanını izle | Platform sync + zaman damgası kaydı; kesin run ID yok, eşzamanlı tetikleme desteklenmez |
 | Airbyte Cloud | Mevcut bağlantı için sync job oluştur, job/connection kimliğiyle izle | Platform job + varsa satır/bayt sayaçları; reset çağrısı yapılmaz |
+| Airbyte mevcut job takibi | Kesinti sonrası connection_id/job_id ile yalnızca GET üzerinden takip | Yeni aktarım başlatmadan iş sonucu ve sayaçlar |
 | Google Cloud Dataform | Mevcut compilationResult kontrolü, invocation oluşturma ve takip | Platform workflow invocation + çalışma kaydı; yeni model üretmez |
 
 **Canlı vendor/tenant testi: 0. Uygulamada dosya açılışı testi: 0.** Testler yerel HTTP sözleşme sunucusunu kullanır; gerçek QVF/PBIX üretildiğini kanıtlamaz. Agent model yanıtı testte taklit edilir. Bu paketler henüz üretim onaylı değildir.
@@ -56,7 +57,7 @@ Sunucu varsayılan olarak `http://localhost:4322` üzerinde çalışır. Uygun d
 
 Yeni/boş çıktı klasörü gerekir. Yazma ve LLM maliyeti olabilen işlemler README'de belirtilir. Şema ve proje bağlamı seçilen modele gönderilir; agent satır verisi çekmez. Kısmi çalışma kimlikleri `run-state.json`, dosya özeti `manifest.json` içindedir. Otomatik rollback veya üretimde otomatik model-kodu yürütme yoktur.
 
-Toplam **129 test** geçti (123 Python + 6 görünüm testi). Test sayısı canlı tenant doğrulaması değildir.
+Toplam **135 test** geçti (129 Python + 6 görünüm testi). Test sayısı canlı tenant doğrulaması değildir.
 
 ## Test katmanları
 
@@ -84,3 +85,7 @@ Canlı uçtan uca test ayrı bir aşamadır: lisanslı sandbox, ilgili sürüm, 
 ## Databricks takibine kesinti sonrası devam
 
 Katalogdaki **Mevcut Databricks çalışmasını yeniden başlatmadan takip et** paketini indirin. Önceki `run-state.json` içindeki `job_id` ve `run_id` değerlerini yeni paketin `config.json` dosyasına, aynı workspace adresiyle girin. Geçerli token yalnızca yerel `.env` içinde kalır. `python native.py --execute --output output/continued-001` yalnızca mevcut run durumunu okur. Yeni boş çıktı klasörü kullanın; önceki kayıt korunur. Run ID hiç alınamadıysa önce Databricks geçmişinden bulun; eski başlatma paketini tekrar çalıştırmak yeni job run oluşturabilir.
+
+## Airbyte takibine kesinti sonrası devam
+
+**Mevcut Airbyte aktarımını yeniden başlatmadan takip et** paketinde, önceki `run-state.json` içindeki `connection_id` ve `job_id` değerlerini `config.json` içine girin. Geçerli token yerel `.env` içinde kalır. `python native.py --execute --output output/continued-001` yalnızca mevcut işi okur; yeni/boş çıktı klasörü kullanın. Başlatma paketi tekrar çalıştırılırsa yeni sync oluşabilir; takip için ayrı monitor paketini kullanın.

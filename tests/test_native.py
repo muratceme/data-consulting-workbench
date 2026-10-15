@@ -761,4 +761,44 @@ class Contracts(unittest.TestCase):
         self.assertTrue(all(r[0]=='GET' for r in self.received));self.assertFalse(self.queue)
 
 
+    def ab_monitor(self,**overrides):
+        with patch.object(native.time,'sleep'):
+            return self.run_op('airbyte-monitor',**{'connection_id':self.AB_CONNECTION,'job_id':7,**overrides})
+    def test_airbyte_monitor_get_only_success(self):
+        self.step('GET','/v1/jobs/7',self.ab_response())
+        self.step('GET','/v1/jobs/7',self.ab_response('succeeded',rowsSynced=4))
+        self.assertEqual(self.ab_monitor()['artifact']['file'],'airbyte-job.json')
+        self.assertTrue(all(r[0]=='GET' for r in self.received));self.assertFalse(self.queue)
+    def test_airbyte_monitor_invalid_job_no_requests(self):
+        for job in (-1,True,'7',2**63,None):
+            with self.assertRaises(native.NativeError):self.ab_monitor(job_id=job)
+        self.assertFalse(self.received)
+    def test_airbyte_monitor_failure_never_restarts(self):
+        for status in ('incomplete','failed','cancelled'):
+            self.output=Path(self.temp.name)/status
+            self.step('GET','/v1/jobs/7',self.ab_response(status))
+            with self.assertRaises(native.NativeError):self.ab_monitor()
+            self.assertFalse((self.output/'manifest.json').exists())
+        self.assertTrue(all(r[0]=='GET' for r in self.received))
+    def test_airbyte_monitor_wrong_connection_rejected(self):
+        self.step('GET','/v1/jobs/7',self.ab_response('succeeded',connectionId='other'))
+        with self.assertRaises(native.NativeError):self.ab_monitor()
+        self.assertFalse((self.output/'manifest.json').exists())
+    def test_airbyte_monitor_timeout_then_continue_preserves_previous(self):
+        for _ in range(120):self.step('GET','/v1/jobs/7',self.ab_response())
+        with self.assertRaisesRegex(native.NativeError,'zaman aşımına'):self.ab_monitor()
+        previous=self.output;state=json.loads((previous/'run-state.json').read_text())
+        self.output=Path(self.temp.name)/'continued'
+        self.step('GET','/v1/jobs/7',self.ab_response('succeeded'))
+        self.ab_monitor(connection_id=state['connection_id'],job_id=state['job_id'])
+        self.assertFalse((previous/'manifest.json').exists());self.assertTrue((self.output/'manifest.json').exists())
+        self.assertTrue(all(r[0]=='GET' for r in self.received));self.assertFalse(self.queue)
+    def test_airbyte_monitor_expired_token_retains_identity(self):
+        self.step('GET','/v1/jobs/7',status=401)
+        with self.assertRaises(native.NativeError):self.ab_monitor()
+        state=json.loads((self.output/'run-state.json').read_text())
+        self.assertEqual(state['connection_id'],self.AB_CONNECTION);self.assertEqual(state['job_id'],7)
+        self.assertFalse((self.output/'manifest.json').exists())
+
+
 if __name__=='__main__':unittest.main()

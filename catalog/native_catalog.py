@@ -1,6 +1,12 @@
 """Executable operations are explicit; taxonomy coverage is not implementation coverage."""
 COMMON = 'Python 3.10+. Anahtarlar yalnızca yerel .env/ortam değişkenlerinden okunur. --plan ağ çağrısı yapmaz; --execute API işlemini başlatır. HTML raporu teslim edilmez.'
 OPERATIONS = [
+ dict(operation='airbyte-monitor', product='Airbyte', domain='integration', title='Mevcut Airbyte aktarımını yeniden başlatmadan takip et', output='Mevcut Airbyte job sonucu ve aktarım sayaçları', kind='code',
+      description='Kesinti veya yerel timeout sonrasında connection_id/job_id ile mevcut sync işini takip eder. Yalnızca GET yapar; yeni aktarım/reset başlatmaz. Bağlantı ve iş türü doğrulanır.',
+      config={'connection_id':'YOUR_CONNECTION_UUID','job_id':-1}, secrets=['AIRBYTE_ACCESS_TOKEN'],
+      requirements='Önceki run-state.json veya Airbyte Cloud arayüzünden connection_id/job_id; geçerli Bearer token ve job okuma erişimi. Yeni boş output klasörü kullanılmalı. İş kimliği hiç alınamadıysa önce platform geçmişinden bulunmalıdır.',
+      effects='Yalnızca Public API GET /v1/jobs/{jobId}; POST/DELETE çağırmaz. Mevcut işin kaynak/hedef etkileri devam edebilir. Yerel takip yaklaşık dört dakika sonra timeout olabilir; aynı kimlikle tekrar takip edilebilir. Failed/incomplete/cancelled başarı sayılmaz. Model çıktısı/ham veri indirilmez; yalnızca kimlikler ve varsa aktarım sayaçları kaydedilir.',
+      sources=['https://reference.airbyte.com/reference/getjob','https://raw.githubusercontent.com/airbytehq/airbyte-api-python-sdk/main/src/airbyte_api/models/jobresponse.py']),
  dict(operation='databricks-monitor', product='Databricks Lakehouse', domain='lakehouse', title='Mevcut Databricks çalışmasını yeniden başlatmadan takip et', output='Mevcut run için doğrulanmış sonuç kaydı', kind='code',
       description='Bilgisayar kapandıktan veya yerel takip zaman aşımından sonra mevcut job/run kimlikleriyle takibe devam eder. Yalnızca GET çağrıları yapar; yeni run oluşturmaz. TERMINATED + SUCCESS sonucu bekler.',
       config={'workspace_url':'https://YOUR_WORKSPACE.cloud.databricks.com','job_id':0,'run_id':0}, secrets=['DATABRICKS_ACCESS_TOKEN'],
