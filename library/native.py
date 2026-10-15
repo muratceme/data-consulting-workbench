@@ -707,6 +707,88 @@ def airbyte_sync(cfg, out, factory):
     return receipt(out,'airbyte-job.json',receipt_data)
 
 
+def notebook_sources(document):
+    if document.get('nbformat')!=4 or not isinstance(document.get('cells'),list) or not document['cells']:
+        raise NativeError('Notebook nbformat=4 ve boş olmayan cells içermeli.')
+    sources=[]
+    for cell in document['cells']:
+        if not isinstance(cell,dict) or cell.get('cell_type') not in ('code','markdown','raw'):
+            raise NativeError('Notebook hücre yapısı geçersiz.')
+        source=cell.get('source')
+        if isinstance(source,list) and all(isinstance(line,str) for line in source):source=''.join(source)
+        if not isinstance(source,str):raise NativeError('Notebook hücre kaynağı geçersiz.')
+        if cell.get('outputs') or cell.get('execution_count') is not None or cell.get('attachments'):
+            raise NativeError('Notebook çıktıları, çalıştırma sayıları ve eklerini temizleyin; yalnızca kaynak yayımlanır.')
+        sources.append((cell['cell_type'],source))
+    return sources
+
+
+def fabric_result(client, out, path, payload, stage, expected_status):
+    journal(out,state=stage+'_pending')
+    raw,headers,status=client.request('POST',path,payload,with_status=True)
+    if status==expected_status:return json_object(raw)
+    if status!=202:raise NativeError('Fabric beklenen HTTP kabul durumunu döndürmedi; platform geçmişini kontrol edin.')
+    operation=header(headers,'x-ms-operation-id')
+    try:operation=str(uuid.UUID(operation))
+    except ValueError:raise NativeError('Fabric operation kimliği eksik/geçersiz.') from None
+    journal(out,**{stage+'_operation_id':operation,'state':stage+'_accepted'})
+    route='/v1/operations/'+operation
+    if header(headers,'Location')!='https://api.fabric.microsoft.com'+route:
+        raise NativeError('Fabric operation adresi kimlikle eşleşmedi; yönlendirme izlenmedi.')
+    for _ in range(120):
+        retry=header(headers,'Retry-After')
+        time.sleep(min(60,max(1,int(retry))) if retry.isdecimal() else 2)
+        raw,headers,status=client.request('GET',route,with_status=True)
+        if status!=200:raise NativeError('Fabric operation sorgusu beklenen HTTP durumunu döndürmedi.')
+        reported=header(headers,'x-ms-operation-id')
+        if reported and reported!=operation:raise NativeError('Fabric operation kimliği değişti.')
+        state=json_object(raw).get('status')
+        if state not in ('NotStarted','Running','Succeeded','Failed'):
+            raise NativeError('Fabric işlem durumu bilinmiyor.')
+        journal(out,state=stage+'_'+str(state))
+        if state=='Succeeded':return client.json('GET',route+'/result')
+        if state not in ('NotStarted','Running'):raise NativeError('Fabric işlemi başarısız veya durumu bilinmiyor.')
+    raise NativeError('Fabric zaman aşımı; işlem devam ediyor olabilir. run-state.json kimliğini platformda kontrol edin.')
+
+
+def fabric_notebook(cfg, out, factory):
+    try:workspace=str(uuid.UUID(required(cfg,'workspace_id')))
+    except ValueError:raise NativeError('Fabric workspace_id UUID olmalı.') from None
+    document=input_json(cfg,'notebook_file','notebook.ipynb')
+    sources=notebook_sources(document)
+    name=required(cfg,'display_name')
+    if len(name)>200:raise NativeError('Fabric notebook adı en fazla 200 karakter olmalı.')
+    client=factory('https://api.fabric.microsoft.com',{'Authorization':'Bearer '+secret('FABRIC_ACCESS_TOKEN')})
+    path='/v1/workspaces/'+workspace+'/notebooks'
+    content=json.dumps(document,ensure_ascii=False).encode('utf-8')
+    payload={'displayName':name,'definition':{'format':'ipynb','parts':[{
+        'path':'notebook-content.ipynb','payloadType':'InlineBase64','payload':base64.b64encode(content).decode()}]}}
+    journal(out,workspace_id=workspace,display_name=name,execution='not_run')
+    created=fabric_result(client,out,path,payload,'create',201)
+    item=required(created,'id')
+    try:item=str(uuid.UUID(item))
+    except ValueError:raise NativeError('Fabric notebook kimliği geçersiz; platform geçmişini kontrol edin.') from None
+    journal(out,notebook_id=item,state='created')
+    def identity(response):
+        if response.get('id')!=item or response.get('workspaceId')!=workspace or response.get('type')!='Notebook' or response.get('displayName')!=name:
+            raise NativeError('Fabric notebook/workspace kimliği veya adı eşleşmedi.')
+    identity(created)
+    identity(client.json('GET',path+'/'+item))
+    exported=fabric_result(client,out,path+'/'+item+'/getDefinition?format=ipynb',None,'export',200)
+    parts=exported.get('definition',{}).get('parts')
+    if not isinstance(parts,list) or any(not isinstance(part,dict) for part in parts):
+        raise NativeError('Fabric notebook tanım parçaları geçersiz.')
+    candidates=[part for part in parts if isinstance(part.get('path'),str) and part['path'].endswith('.ipynb')]
+    if len(candidates)!=1 or candidates[0].get('payloadType')!='InlineBase64':
+        raise NativeError('Fabric tam bir ipynb tanımı döndürmedi.')
+    try:raw=base64.b64decode(required(candidates[0],'payload'),validate=True)
+    except ValueError:raise NativeError('Fabric notebook Base64 içeriği geçersiz.') from None
+    if notebook_sources(json_object(raw))!=sources:
+        raise NativeError('Fabric geri okunan hücreler yayımlanan notebook ile eşleşmedi.')
+    journal(out,state='verified',execution='not_run')
+    return write_artifact(out,'notebook.ipynb',raw)
+
+
 def dataform_compile(cfg, out, factory):
     parent=required(cfg,'repository')
     commit=required(cfg,'git_commit_sha').lower()
@@ -840,7 +922,7 @@ def databricks_run(cfg, out, factory):
     return receipt(out,'databricks-run.json',{'job_id':job,'run_id':run,'life_cycle_state':'TERMINATED','result_state':'SUCCESS'})
 
 
-HANDLERS = {'dataform-compile':dataform_compile,'qlik-export':qlik,'qlik-template':qlik,'powerbi-export':powerbi,'tableau-export':tableau,'sap-b1-schema':sap,'sap-odata-schema':sap,'oracle-schema':oracle,'bigquery-table':bigquery,'bigquery-agent':bigquery,'databricks-profile':databricks_profile,'adf-deploy':adf,'adf-run':adf,'airflow-run':airflow,'sap-quotation-draft':sap_quotation_draft,'dbt-run':dbt_run,'prefect-run':prefect_run,'snowflake-quality':snowflake_quality,'github-actions-run':github_actions,'fivetran-sync':fivetran_sync,'airbyte-sync':airbyte_sync,'dataform-run':dataform_run,'powerbi-refresh':powerbi_refresh,'databricks-run':databricks_run,'databricks-monitor':databricks_run,'airbyte-monitor':airbyte_sync,'adf-monitor':adf,'airflow-monitor':airflow,'dbt-monitor':dbt_run,'prefect-monitor':prefect_run,'dataform-monitor':dataform_run,'powerbi-monitor':powerbi_refresh}
+HANDLERS = {'fabric-notebook':fabric_notebook,'dataform-compile':dataform_compile,'qlik-export':qlik,'qlik-template':qlik,'powerbi-export':powerbi,'tableau-export':tableau,'sap-b1-schema':sap,'sap-odata-schema':sap,'oracle-schema':oracle,'bigquery-table':bigquery,'bigquery-agent':bigquery,'databricks-profile':databricks_profile,'adf-deploy':adf,'adf-run':adf,'airflow-run':airflow,'sap-quotation-draft':sap_quotation_draft,'dbt-run':dbt_run,'prefect-run':prefect_run,'snowflake-quality':snowflake_quality,'github-actions-run':github_actions,'fivetran-sync':fivetran_sync,'airbyte-sync':airbyte_sync,'dataform-run':dataform_run,'powerbi-refresh':powerbi_refresh,'databricks-run':databricks_run,'databricks-monitor':databricks_run,'airbyte-monitor':airbyte_sync,'adf-monitor':adf,'airflow-monitor':airflow,'dbt-monitor':dbt_run,'prefect-monitor':prefect_run,'dataform-monitor':dataform_run,'powerbi-monitor':powerbi_refresh}
 
 
 def execute(cfg, output, factory=HTTP):

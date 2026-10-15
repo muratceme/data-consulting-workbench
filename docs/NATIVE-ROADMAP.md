@@ -45,6 +45,8 @@ Yalnızca son iki aşama tamamlanınca `live-tested` / `native-open-tested` işa
 
 - Airbyte mevcut job takibi: connection_id/job_id ile yalnızca GET; kesinti sonrasında aynı sync takip edilir. Yeni aktarım/reset/cancel başlatılmaz; eski çıktı dosyaları korunur.
 
+- Fabric Notebook: kullanıcı ipynb kaynağından yeni öğe oluşturma, 201/202 LRO takibi, workspace/öğe kontrolü ve getDefinition ile geri indirme. Hücre kaynakları karşılaştırılır; çıktı içeren girdi reddedilir. Notebook execution, Lakehouse bağlama ve canlı Fabric kabulü henüz yok.
+
 ## Öncelikli kalan işler
 
 Snowflake ilk kesiti: OAuth SQL API, benzersiz isimli kalıcı profil view’ı ve view sorgusu. HTTP 202 polling, HTTP 422 hata, statement kimliği kontrolü ve tek satırlık aggregate sonuç doğrulaması uygulanır. Kaynak satırlar indirilmez; hesapta CREATE VIEW/SELECT yetkileri ve warehouse gerekir. Native SQL ve sorgu kimlikleri kaydedilir. Bu, iş kurallarına göre kalite onayı değildir. Canlı SQL derleme ve tenant kabulü bekliyor.

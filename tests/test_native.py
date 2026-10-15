@@ -142,6 +142,114 @@ class Contracts(unittest.TestCase):
             self.assertEqual(stopped.exception.code,1)
             self.assertNotIn('PRIVATE_SENTINEL',stderr.getvalue());self.assertNotIn('Traceback',stderr.getvalue())
 
+    FABRIC_WORKSPACE='11111111-1111-4111-8111-111111111111'
+    FABRIC_ITEM='22222222-2222-4222-8222-222222222222'
+    FABRIC_OPERATION='33333333-3333-4333-8333-333333333333'
+    def fabric_setup(self):
+        template=next(op for op in OPERATIONS if op['operation']=='fabric-notebook')['input_files']['notebook.ipynb']
+        self.fabric_document=json.loads(template)
+        ast.parse(''.join(self.fabric_document['cells'][0]['source']))
+        self.fabric_file=Path(self.temp.name)/'input.ipynb';self.fabric_file.write_text(template,encoding='utf-8')
+        self.fabric_path='/v1/workspaces/'+self.FABRIC_WORKSPACE+'/notebooks'
+        self.fabric_item={'id':self.FABRIC_ITEM,'workspaceId':self.FABRIC_WORKSPACE,'type':'Notebook','displayName':'My notebook'}
+        self.fabric_payload={'displayName':'My notebook','definition':{'format':'ipynb','parts':[{'path':'notebook-content.ipynb','payloadType':'InlineBase64','payload':base64.b64encode(json.dumps(self.fabric_document,ensure_ascii=False).encode()).decode()}]}}
+    def fabric_execute(self):
+        return self.run_op('fabric-notebook',workspace_id=self.FABRIC_WORKSPACE,display_name='My notebook',notebook_file=str(self.fabric_file))
+    def fabric_export(self,document=None):
+        return {'definition':{'parts':[{'path':'notebook-content.ipynb','payloadType':'InlineBase64','payload':base64.b64encode(json.dumps(document or self.fabric_document).encode()).decode()},{'path':'.platform','payloadType':'InlineBase64','payload':'ignored metadata'}]}}
+    def fabric_accept(self,path,payload=None,operation=None):
+        operation=operation or self.FABRIC_OPERATION
+        self.step('POST',path,status=202,payload=payload,headers={'Location':'https://api.fabric.microsoft.com/v1/operations/'+operation,'x-ms-operation-id':operation,'Retry-After':'1'})
+
+    def test_fabric_creates_reads_back_and_exports_native_notebook(self):
+        self.fabric_setup()
+        self.step('POST',self.fabric_path,self.fabric_item,status=201,payload=self.fabric_payload,request_headers={'Authorization':'Bearer test-only-secret'})
+        self.step('GET',self.fabric_path+'/'+self.FABRIC_ITEM,self.fabric_item)
+        self.step('POST',self.fabric_path+'/'+self.FABRIC_ITEM+'/getDefinition?format=ipynb',self.fabric_export(),payload=None)
+        result=self.fabric_execute()
+        self.assertFalse(self.queue);self.assertEqual(result['artifact']['file'],'notebook.ipynb')
+        self.assertEqual(json.loads((self.output/'notebook.ipynb').read_text()),self.fabric_document)
+        self.assertEqual(json.loads((self.output/'run-state.json').read_text())['execution'],'not_run')
+
+    def test_fabric_async_creation_and_export_wait_for_success(self):
+        self.fabric_setup();self.fabric_accept(self.fabric_path,self.fabric_payload)
+        route='/v1/operations/'+self.FABRIC_OPERATION
+        self.step('GET',route,{'status':'Running'},headers={'Retry-After':'3'})
+        self.step('GET',route,{'status':'Succeeded'})
+        self.step('GET',route+'/result',self.fabric_item)
+        self.step('GET',self.fabric_path+'/'+self.FABRIC_ITEM,self.fabric_item)
+        operation='44444444-4444-4444-8444-444444444444';export_route='/v1/operations/'+operation
+        self.fabric_accept(self.fabric_path+'/'+self.FABRIC_ITEM+'/getDefinition?format=ipynb',operation=operation)
+        self.step('GET',export_route,{'status':'Succeeded'})
+        self.step('GET',export_route+'/result',self.fabric_export())
+        with patch.object(native.time,'sleep') as sleep:self.fabric_execute()
+        self.assertEqual([call.args[0] for call in sleep.call_args_list],[1,3,1]);self.assertFalse(self.queue)
+        state=json.loads((self.output/'run-state.json').read_text());self.assertEqual(state['create_operation_id'],self.FABRIC_OPERATION);self.assertEqual(state['export_operation_id'],operation)
+
+    def test_fabric_failed_operation_does_not_fetch_result_or_expose_error(self):
+        self.fabric_setup();self.fabric_accept(self.fabric_path,self.fabric_payload)
+        self.step('GET','/v1/operations/'+self.FABRIC_OPERATION,{'status':'Failed','error':{'message':'PRIVATE_SENTINEL'}})
+        with patch.object(native.time,'sleep'),self.assertRaises(native.NativeError) as error:self.fabric_execute()
+        self.assertNotIn('PRIVATE_SENTINEL',str(error.exception));self.assertFalse((self.output/'manifest.json').exists())
+        self.assertEqual(len(self.received),2)
+
+    def test_fabric_wrong_location_rejected_without_following(self):
+        self.fabric_setup()
+        self.step('POST',self.fabric_path,status=202,headers={'Location':'https://other.example/','x-ms-operation-id':self.FABRIC_OPERATION})
+        with self.assertRaises(native.NativeError):self.fabric_execute()
+        self.assertEqual(len(self.received),1)
+        self.assertEqual(json.loads((self.output/'run-state.json').read_text())['create_operation_id'],self.FABRIC_OPERATION)
+
+    def test_fabric_wrong_workspace_or_content_never_delivered(self):
+        self.fabric_setup()
+        self.step('POST',self.fabric_path,{**self.fabric_item,'workspaceId':'wrong'},status=201)
+        with self.assertRaises(native.NativeError):self.fabric_execute()
+        self.assertEqual(len(self.received),1)
+        self.output=Path(self.temp.name)/'changed'
+        self.step('POST',self.fabric_path,self.fabric_item,status=201)
+        self.step('GET',self.fabric_path+'/'+self.FABRIC_ITEM,self.fabric_item)
+        changed=json.loads(json.dumps(self.fabric_document));changed['cells'][0]['source']=['print("changed")']
+        self.step('POST',self.fabric_path+'/'+self.FABRIC_ITEM+'/getDefinition?format=ipynb',self.fabric_export(changed))
+        with self.assertRaises(native.NativeError):self.fabric_execute()
+        self.assertFalse((self.output/'notebook.ipynb').exists())
+
+    def test_fabric_execution_outputs_rejected_before_upload(self):
+        self.fabric_setup();self.fabric_document['cells'][0]['outputs']=[{'data':{'text/plain':'PRIVATE_SENTINEL'}}]
+        self.fabric_file.write_text(json.dumps(self.fabric_document))
+        with self.assertRaises(native.NativeError):self.fabric_execute()
+        self.assertFalse(self.received)
+
+    def test_fabric_post503_not_retried_and_timeout_keeps_operation(self):
+        self.fabric_setup();self.step('POST',self.fabric_path,status=503)
+        with self.assertRaises(native.NativeError):self.fabric_execute()
+        self.assertEqual(len(self.received),1)
+        self.output=Path(self.temp.name)/'timeout';self.fabric_accept(self.fabric_path,self.fabric_payload)
+        for _ in range(120):self.step('GET','/v1/operations/'+self.FABRIC_OPERATION,{'status':'Running'})
+        with patch.object(native.time,'sleep'),self.assertRaisesRegex(native.NativeError,'zaman aşımı'):self.fabric_execute()
+        self.assertFalse(self.queue);self.assertFalse((self.output/'manifest.json').exists())
+        self.assertEqual(json.loads((self.output/'run-state.json').read_text())['create_operation_id'],self.FABRIC_OPERATION)
+
+    def test_fabric_unknown_state_or_changed_operation_rejected(self):
+        self.fabric_setup()
+        for index,(body,headers) in enumerate([({'status':'PRIVATE_SENTINEL'},{}),({'status':'Succeeded'},{'x-ms-operation-id':self.FABRIC_ITEM})]):
+            self.output=Path(self.temp.name)/('bad-state-'+str(index));self.fabric_accept(self.fabric_path,self.fabric_payload)
+            self.step('GET','/v1/operations/'+self.FABRIC_OPERATION,body,headers=headers)
+            with patch.object(native.time,'sleep'),self.assertRaises(native.NativeError):self.fabric_execute()
+            self.assertNotIn('PRIVATE_SENTINEL',(self.output/'run-state.json').read_text())
+            self.assertFalse((self.output/'manifest.json').exists())
+
+    def test_fabric_malformed_export_not_saved_as_notebook(self):
+        self.fabric_setup()
+        parts_cases=[[],[{'path':'notebook.ipynb','payloadType':'InlineBase64','payload':'%%%'}],[{'path':'notebook.ipynb','payloadType':'InlineBase64','payload':base64.b64encode(b'{"error":"PRIVATE_SENTINEL"}').decode()}],['invalid']]
+        for index,parts in enumerate(parts_cases):
+            self.output=Path(self.temp.name)/('bad-export-'+str(index))
+            self.step('POST',self.fabric_path,self.fabric_item,status=201)
+            self.step('GET',self.fabric_path+'/'+self.FABRIC_ITEM,self.fabric_item)
+            self.step('POST',self.fabric_path+'/'+self.FABRIC_ITEM+'/getDefinition?format=ipynb',{'definition':{'parts':parts}})
+            with self.assertRaises(native.NativeError):self.fabric_execute()
+            self.assertFalse((self.output/'notebook.ipynb').exists())
+            self.assertEqual(json.loads((self.output/'run-state.json').read_text())['notebook_id'],self.FABRIC_ITEM)
+
     def qlik_export(self,app='app'):
         self.step('POST',f'/api/v1/apps/{app}/export',status=201,headers={'Location':'/api/v1/temp-contents/file'})
         self.step('GET','/api/v1/temp-contents/file',b'QVF test bytes; NOT engine-generated')
