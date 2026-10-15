@@ -1,77 +1,271 @@
-const $=s=>document.querySelector(s), esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let data=[],tasks=[],domain='',kind='all',page=1,savedOnly=false,saved=new Set();const pageSize=9;let view='home',allAreas=false;
-try{saved=new Set(JSON.parse(localStorage.getItem('datawork-saved')||'[]'))}catch{}
-const initial=new URLSearchParams(location.hash.slice(1)); domain=initial.get('domain')||'';kind=initial.get('kind')||'all';$('#search').value=initial.get('q')||'';
-function notify(message){$('#toast').textContent=message;$('#toast').style.display='block';setTimeout(()=>$('#toast').style.display='none',2200)}
-function show(id){$('#'+id).showModal()}
-document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>$('#'+b.dataset.close).close());
-document.querySelectorAll('dialog').forEach(d=>d.addEventListener('click',e=>{if(e.target===d){const r=d.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)d.close()}}));
-function options(){
- const subset=tasks.filter(t=>!domain||t.domain.id===domain), tools=[...new Set(subset.map(t=>t.tool.name))].sort((a,b)=>a.localeCompare(b));
- const selected=$('#toolFilter').value;$('#toolFilter').innerHTML='<option value="">Tüm yazılımlar</option>'+tools.map(t=>`<option>${esc(t)}</option>`).join('');if(tools.includes(selected))$('#toolFilter').value=selected;
- productOptions();
-}
-function productOptions(){const tool=$('#toolFilter').value, selected=$('#productFilter').value,products=[...new Set(tasks.filter(t=>(!domain||t.domain.id===domain)&&(!tool||t.tool.name===tool)).map(t=>t.product.name))].sort((a,b)=>a.localeCompare(b));$('#productFilter').innerHTML='<option value="">Tüm ürünler</option>'+products.map(p=>`<option>${esc(p)}</option>`).join('');if(products.includes(selected))$('#productFilter').value=selected;}
-function selectDomain(id){view='results';domain=id;page=1;savedOnly=false;$('#toolFilter').value='';$('#productFilter').value='';options();render()}
-function filtered(){const q=$('#search').value.toLocaleLowerCase('tr').trim(),tool=$('#toolFilter').value,product=$('#productFilter').value,execution=$('#executionFilter').value;return tasks.filter(t=>(!domain||t.domain.id===domain)&&(kind==='all'||t.kind===kind)&&(!tool||t.tool.name===tool)&&(!product||t.product.name===product)&&(!execution||t.execution===execution)&&(!savedOnly||saved.has(t.id))&&(!q||q.split(/\s+/).every(word=>[t.title,t.description,t.domain.name,t.tool.name,t.product.name].join(' ').toLocaleLowerCase('tr').includes(word))));}
-function render(){
- $('#discover').hidden=view!=='home';$('#softwareStep').hidden=view!=='software';$('#catalogSection').hidden=view!=='results';$('#clearSearch').hidden=!$('#search').value;
- const list=filtered().sort((a,b)=>(a.status==='planned')-(b.status==='planned')),pages=Math.max(1,Math.ceil(list.length/pageSize));page=Math.min(page,pages);
- const d=data.find(x=>x.id===domain);$('#sectionTitle').textContent=savedOnly?'Kaydedilen görevler':($('#toolFilter').value|| (d?d.name:'Arama sonuçları'));$('#sectionDescription').textContent=d?d.description:'Veri alanından başlayabilir veya doğrudan bir görev arayabilirsin.';
- $('#resultCount').textContent=`${list.length.toLocaleString('tr')} görev`;$('#savedCount').textContent=saved.size;$('#libraryNav').classList.toggle('active',!savedOnly);$('#savedNav').classList.toggle('active',savedOnly);
- $('#domainFilter').value=domain;
- document.querySelectorAll('[data-kind]').forEach(b=>{b.classList.toggle('selected',b.dataset.kind===kind);b.setAttribute('aria-pressed',String(b.dataset.kind===kind))});
- $('#breadcrumbs').innerHTML=(d?esc(d.name):'Tüm veri alanları')+($('#toolFilter').value?' / '+esc($('#toolFilter').value):'')+($('#productFilter').value?' / <span>'+esc($('#productFilter').value)+'</span>':'');
- $('#cards').innerHTML=list.slice((page-1)*pageSize,page*pageSize).map(t=>`<article class="task-row"><div class="task-info"><h3><button data-open="${t.id}">${esc(t.title)}</button></h3><p>${esc(t.description)}</p></div><div class="task-product"><strong>${esc(t.tool.name)}</strong><span>${esc(t.product.name)}</span><small>${esc(t.domain.name)}</small></div><div class="task-type"><span class="pill ${t.kind==='agent'?'agent':t.engine==='connector'?'api':'code'}">${t.kind==='agent'?'AI agent':t.engine==='connector'?'API paketi':'Kod bloğu'}</span><small>${t.status==='planned'?'Geliştirme planında':'Sözleşme testli · canlı test yok'}</small></div><div class="row-actions"><button class="favorite ${saved.has(t.id)?'saved':''}" data-save="${t.id}" aria-label="${saved.has(t.id)?'Kaydı kaldır':'Görevi kaydet'}" aria-pressed="${saved.has(t.id)}">${saved.has(t.id)?'★':'☆'}</button><button class="card-more" data-open="${t.id}">Ayrıntılar</button>${t.download?`<a class="download" href="${t.download}" download aria-label="${esc(t.title)} paketini indir">Paketi indir ↓</a>`:`<span class="planned-label">Henüz hazır değil</span>`}</div></article>`).join('')||'<div class="empty"><strong>Bu filtrelerde görev bulunamadı.</strong>Aramayı değiştir veya filtreleri temizle.</div>';
- document.querySelectorAll('[data-save]').forEach(b=>b.onclick=()=>{saved.has(b.dataset.save)?saved.delete(b.dataset.save):saved.add(b.dataset.save);try{localStorage.setItem('datawork-saved',JSON.stringify([...saved]))}catch{}render()});
- document.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>detail(b.dataset.open));
- $('#pageInfo').textContent=`${page} / ${pages}`;$('#prev').disabled=page===1;$('#next').disabled=page===pages;
- history.replaceState(null,'','#'+new URLSearchParams({...(domain?{domain}:{}),...(kind!=='all'?{kind}:{}),...($('#toolFilter').value?{tool:$('#toolFilter').value}:{}),...($('#productFilter').value?{product:$('#productFilter').value}:{}),...($('#executionFilter').value?{execution:$('#executionFilter').value}:{}),...($('#search').value?{q:$('#search').value}:{})}));
-}
-function detail(id){
- const t=tasks.find(t=>t.id===id);if(!t)return;const implemented=Boolean(t.download);
- $('#detailEyebrow').textContent=implemented?(t.kind==='agent'?'PLATFORM API + AGENT':'PLATFORM API · KOD BLOĞU'):'GELİŞTİRME PLANINDA';
- $('#detailContent').innerHTML=`<div class="dialog-path">${esc(t.domain.name)} → ${esc(t.tool.name)} → ${esc(t.product.name)}</div><h2>${esc(t.title)}</h2><p>${esc(t.description)}</p><div class="detail-grid"><div><small>TESLİM</small>${esc(t.output)}</div><div><small>ÇALIŞMA BİÇİMİ</small>${esc(t.execution)}</div></div><h3>Bağlantı ve gereksinimler</h3><p>${esc(t.requirements||t.input)}</p><h3>Neden ${t.kind==='agent'?'agent':'kod bloğu'}?</h3><p>${esc(t.reason)}</p>${implemented?`<p class="note">API çağrı zinciri yerel HTTP sözleşme testlerinden geçti. Gerçek müşteri hesabında ve dosyanın hedef uygulamada açılmasıyla test edilmedi.</p><h3>Platformda ne yapar?</h3><p>${esc(t.effects)}</p><p>Erişim bilgilerini paketteki .env dosyasına gir. Anahtarlar bu siteye yüklenmez. ZIP, uygulamana bağlanan çalıştırıcıdır; kişisel rapor dosyan çalıştırdıktan sonra üretilir.</p><pre>python native.py --plan
-python native.py --execute --output output/run-001</pre><div class="dialog-actions"><a class="primary" href="${t.download}" download>Çalıştırıcı paketini indir ↓</a><button class="outline" id="copyCommand">Komutu kopyala</button></div><p class="hash">SHA-256 · ${t.sha256}<br>${(t.bytes/1024).toFixed(1)} KB · README, config ve kaynak kod dahil</p><details><summary>API kaynakları</summary>${t.sources.map(url=>`<p><a href="${esc(url)}" target="_blank" rel="noopener">${esc(new URL(url).hostname)} ↗</a></p>`).join('')}</details>`:`<p class="note">Bu görev için çalışır entegrasyon henüz yok. API/SDK yolu, ürün sürümü, yetkiler ve yerel çıktı biçimi doğrulanmadan indirilebilir paket yayımlanmayacak.</p><p>Planlanan bağlantı: ${esc(t.interface_target)}. Üstteki teslim biçimi bir tasarım hedefidir.</p>`}`;
- if($('#copyCommand'))$('#copyCommand').onclick=async()=>{try{await navigator.clipboard.writeText(t.command);notify('Komut kopyalandı')}catch{notify('Komutu seçip kopyalayabilirsin')}};
- show('detail');
-}
-$('#domainFilter').onchange=()=>selectDomain($('#domainFilter').value);
-$('#search').oninput=()=>{domain='';kind='all';savedOnly=false;$('#toolFilter').value='';$('#productFilter').value='';$('#executionFilter').value='';options();view=$('#search').value.trim()?'results':'home';page=1;render()};document.querySelectorAll('[data-kind]').forEach(b=>b.onclick=()=>{kind=b.dataset.kind;page=1;render()});
-$('#toolFilter').onchange=()=>{$('#productFilter').value='';productOptions();page=1;render()};$('#productFilter').onchange=$('#executionFilter').onchange=()=>{page=1;render()};
-$('#prev').onclick=()=>{page--;render();$('#catalogSection').scrollIntoView({behavior:'smooth'})};$('#next').onclick=()=>{page++;render();$('#catalogSection').scrollIntoView({behavior:'smooth'})};
-$('#reset').onclick=()=>{view='home';domain='';kind='all';savedOnly=false;page=1;$('#search').value='';$('#toolFilter').value='';$('#productFilter').value='';$('#executionFilter').value='';options();render()};
-$('#savedNav').onclick=()=>{view='results';savedOnly=true;domain='';page=1;$('#search').value='';$('#toolFilter').value='';$('#productFilter').value='';$('#executionFilter').value='';kind='all';options();render();$('#catalogSection').scrollIntoView({behavior:'smooth'})};
-$('#libraryNav').onclick=()=>{$('#reset').click()};['howNav'].forEach(id=>$('#'+id).onclick=()=>show('how'));
-document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();$('#search').focus();}});
-try{
- const response=await fetch('/catalog.json');if(!response.ok)throw Error('Katalog yüklenemedi');data=await response.json();
- tasks=data.flatMap(d=>d.tools.flatMap(tool=>tool.products.flatMap(product=>product.tasks.map(t=>({...t,domain:d,tool,product})))));
- if(!data.some(d=>d.id===domain))domain='';if(!['all','code','agent'].includes(kind))kind='all';
- $('#domainFilter').innerHTML='<option value="">Tüm veri alanları</option>'+data.map(d=>`<option value="${d.id}">${esc(d.name)}</option>`).join('');
- buildDiscovery();
- options();if(initial.get('tool'))$('#toolFilter').value=initial.get('tool');productOptions();if(initial.get('product'))$('#productFilter').value=initial.get('product');if(initial.get('execution'))$('#executionFilter').value=initial.get('execution');view=initial.size?'results':'home';render();
-}catch(e){$('#catalogSection').hidden=false;$('#cards').innerHTML='<div class="empty">Katalog yüklenemedi. npm run build komutunu çalıştırıp sayfayı yenileyin.</div>';$('#resultCount').textContent='Yükleme hatası';}
+// datawork — catalog. Ready packages are the list; planned work lives on the coverage map.
+document.documentElement.classList.add('js');
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+// Turkish lowercasing turns I into ı (PBIX → pbıx); fold ı into i so searches and format tags match either way.
+const norm = s => String(s ?? '').toLocaleLowerCase('tr').replace(/ı/g, 'i');
+const plus = '<span class="plus" aria-hidden="true"></span>';
 
-function pickTool(name,area='',product=''){
- domain=area;kind='all';savedOnly=false;page=1;$('#search').value='';$('#executionFilter').value='';$('#productFilter').value='';options();$('#toolFilter').value=name;productOptions();$('#productFilter').value=product;view='results';render();$('#sectionTitle').focus({preventScroll:true});$('#catalogSection').scrollIntoView({behavior:'smooth'});
+const ALL = 'Tümü', SAVED = 'Kaydedilenler';
+let domains = [], tasks = [], ready = [];
+let platform = ALL, query = '', openId = '', openDomain = '';
+let saved = new Set();
+try { saved = new Set(JSON.parse(localStorage.getItem('datawork-saved') || '[]')); } catch {}
+
+// One short platform name per vendor product, used for the tabs.
+const BY_TOOL = {'Qlik':'Qlik Cloud','Microsoft Power BI':'Power BI','Tableau':'Tableau','SAP':'SAP','Oracle':'Oracle Fusion','Snowflake':'Snowflake','Databricks':'Databricks','Fivetran':'Fivetran','Airbyte':'Airbyte','dbt':'dbt Cloud','Prefect':'Prefect','Apache':'Airflow','GitHub':'GitHub Actions'};
+const BY_PRODUCT = {'Fabric Lakehouse':'Fabric','Azure Data Factory':'Data Factory','BigQuery':'BigQuery','Dataform':'Dataform'};
+const platformOf = t => BY_PRODUCT[t.product.name] || BY_TOOL[t.tool.name] || t.product.name;
+
+// The delivered thing, as short as a file extension.
+function formatOf(t) {
+  const title = norm(t.title), all = norm(t.output + ' ' + t.title);
+  if (title.includes('takip')) return 'takip';
+  const rules = [[/qvf/, '.qvf'], [/pbix/, '.pbix'], [/twb/, '.twbx'], [/edmx/, '.edmx'], [/ipynb/, '.ipynb'], [/run_results|describe json/, '.json'], [/taslağ|taslak/, 'taslak'], [/view/, 'view'], [/\.sql|standard sql/, '.sql'], [/yenile/, 'yenile'], [/çaliştir/, 'çalışma'], [/tablo/, 'tablo'], [/notebook/, 'notebook'], [/senkron/, 'sync'], [/derleme/, 'derleme'], [/yayimla/, 'yayın']];
+  for (const [re, tag] of rules) if (re.test(all)) return tag;
+  return 'çalışma';
 }
-function areaStep(id){
- domain=id;const area=data.find(d=>d.id===id);view='software';$('#search').value='';render();$('#softwareTitle').textContent=area.name;
- $('#softwareTiles').innerHTML=area.tools.map(t=>`<button class="software-tile" data-tool="${esc(t.name)}"><span class="software-monogram">${esc(t.name.slice(0,2))}</span><strong>${esc(t.name)}</strong><span>Görevleri gör ›</span></button>`).join('');
- document.querySelectorAll('[data-tool]').forEach(b=>b.onclick=()=>pickTool(b.dataset.tool,id));$('#softwareTitle').focus({preventScroll:true});$('#softwareStep').scrollIntoView({behavior:'smooth'});
+
+function toast(message) {
+  const el = $('#toast'); el.textContent = message; el.classList.add('show');
+  clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('show'), 2200);
 }
-function buildDiscovery(){
- const popular=[['Qlik','Qlik','Q',''],['Microsoft Power BI','Power BI','BI',''],['Tableau','Tableau','T',''],['SAP','SAP','S',''],['Logo','Logo','L',''],['Google','BigQuery','BQ','BigQuery']];
- $('#popular').innerHTML=popular.map(([tool,label,mark,product],i)=>`<button class="popular-tool color-${i}" data-popular="${esc(tool)}" data-product="${product}"><span>${mark}</span><strong>${label}</strong></button>`).join('');
- document.querySelectorAll('[data-popular]').forEach(b=>b.onclick=()=>pickTool(b.dataset.popular,'',b.dataset.product));renderAreas();
+function persist() { try { localStorage.setItem('datawork-saved', JSON.stringify([...saved])); } catch {} }
+function syncHash() {
+  const p = new URLSearchParams();
+  if (platform !== ALL) p.set('p', platform);
+  if (query) p.set('q', query);
+  if (openId) p.set('open', openId);
+  history.replaceState(null, '', p.size ? '#' + p : location.pathname);
 }
-function renderAreas(){
- const featured=['bi','erp','warehouse','integration','quality','ai'];const descriptions={bi:'Raporlar ve panolar',erp:'İş süreçleri ve kurumsal veri',warehouse:'Verini tek yerde topla',integration:'Sistemlerini birbirine bağla',quality:'Temiz, güvenilir veri',ai:'Verinle çalışan yapay zekâ'};
- const areas=allAreas?data:featured.map(id=>data.find(d=>d.id===id));
- $('#areaTiles').innerHTML=areas.map(d=>`<button class="area-tile" data-area="${d.id}"><span class="area-icon" aria-hidden="true">${d.icon}</span><strong>${esc(d.name)}</strong><span>${esc(descriptions[d.id]||d.description)}</span><b aria-hidden="true">↗</b></button>`).join('');document.querySelectorAll('[data-area]').forEach(b=>b.onclick=()=>areaStep(b.dataset.area));
- $('#allAreas').textContent=allAreas?'Daha az göster ↑':'Tüm 23 veri alanını gör ↓';$('#allAreas').setAttribute('aria-expanded',String(allAreas));
+const matches = (t, q) => q.split(/\s+/).every(w => norm([t.title, t.description, t.output, t.domain.name, t.tool.name, t.product.name, t.platform, t.format].join(' ')).includes(w));
+
+function visible() {
+  const q = norm(query.trim());
+  return ready.filter(t => (platform === ALL || (platform === SAVED ? saved.has(t.id) : t.platform === platform)) && (!q || matches(t, q)));
 }
-$('#allAreas').onclick=()=>{allAreas=!allAreas;renderAreas()};
-$('#backHome').onclick=$('#backDiscover').onclick=()=>{$('#reset').click();$('#search').focus({preventScroll:true})};
-$('#clearSearch').onclick=()=>{$('#reset').click();$('#search').focus()};
+
+/* ---------- Platform tabs ---------- */
+function renderPlatforms() {
+  const counts = new Map();
+  ready.forEach(t => counts.set(t.platform, (counts.get(t.platform) || 0) + 1));
+  const names = [...counts.keys()].sort((a, b) => counts.get(b) - counts.get(a) || a.localeCompare(b, 'tr'));
+  const tab = (name, count, cls = '') => `<button type="button" class="${cls}" data-platform="${esc(name)}" aria-pressed="${platform === name}">${esc(name)}<span>${count}</span></button>`;
+  $('#platforms').innerHTML = tab(ALL, ready.length) + names.map(n => tab(n, counts.get(n))).join('') + tab(SAVED, saved.size, 'saved-tab');
+  $$('[data-platform]').forEach(b => b.onclick = () => { platform = b.dataset.platform; openId = ''; renderPlatforms(); renderBands(true); });
+}
+
+/* ---------- Package bands ---------- */
+function detail(t) {
+  const kb = (t.bytes / 1024).toLocaleString('tr', {maximumFractionDigits: 1});
+  const isSaved = saved.has(t.id);
+  return `<div class="row-detail" id="d-${t.id}">
+    <dl>
+      <div><dt>Ne yapar</dt><dd>${esc(t.description)}</dd></div>
+      <div><dt>Teslim</dt><dd>${esc(t.output)}</dd></div>
+      <div><dt>Bağlantı ve izinler</dt><dd>${esc(t.requirements)}</dd></div>
+      <div><dt>Platformda ne değişir</dt><dd>${esc(t.effects)}</dd></div>
+      <div><dt>Test durumu</dt><dd>Yerel HTTP sözleşme testi geçti. Canlı tenant testi ve dosyanın uygulamada açılış testi henüz yapılmadı.</dd></div>
+    </dl>
+    <div class="run">
+      <figure class="window" data-ui><div class="window-bar"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span>config.json · doldurulacak alanlar</span></div><pre><code>${esc(JSON.stringify({operation: t.operation, ...t.config}, null, 2))}</code></pre></figure>
+      <figure class="window"><div class="window-bar"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span>Terminal</span></div><pre><code>$ python native.py --plan
+$ python native.py --execute --output output/run-001</code></pre></figure>
+      <div class="actions">
+        <a class="btn btn-primary" href="${esc(t.download)}" download>Paketi indir · ${kb} KB<span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 5v12m-5-5 5 5 5-5M6 20h12"/></svg></span></a>
+        <button type="button" class="btn btn-soft" data-copy="${t.id}">Komutu kopyala</button>
+        <button type="button" class="btn btn-soft" data-save="${t.id}" aria-pressed="${isSaved}">${isSaved ? 'Kaydedildi' : 'Kaydet'}</button>
+      </div>
+      <p class="hash">SHA-256 · ${esc(t.sha256)}</p>
+      <div class="sources">${(t.sources || []).map(u => `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(new URL(u).hostname)} belgeleri</a>`).join('')}</div>
+    </div>
+  </div>`;
+}
+
+function renderBands(animate = false) {
+  const list = visible();
+  const label = platform === SAVED ? 'kaydedilmiş paket' : 'hazır paket';
+  $('#listStatus').textContent = `${list.length.toLocaleString('tr')} ${label}${query ? ` · “${query.trim()}” araması` : ''}${platform !== ALL && platform !== SAVED ? ` · ${platform}` : ''}`;
+  $('#bands').innerHTML = list.map((t, i) => {
+    const open = t.id === openId;
+    return `<article class="row${open ? ' open' : ''}${animate ? ' row-in' : ''}" style="--i:${i}">
+      <button type="button" class="row-head" data-open="${t.id}" aria-expanded="${open}" aria-controls="d-${t.id}">
+        <span class="row-title"><strong>${esc(t.title)}</strong><small>${esc(t.description)}</small></span>
+        <span class="row-foot">
+          <span class="row-meta">${esc(t.product.name)}<span>${esc(t.domain.name)}${saved.has(t.id) ? ' · kayıtlı' : ''}</span></span>
+          <span class="tag${t.kind === 'agent' ? ' agent' : ''}">${t.kind === 'agent' ? 'agent · ' : ''}${esc(t.format)}</span>
+        </span>
+        ${plus}
+      </button>
+      ${open ? detail(t) : ''}
+    </article>`;
+  }).join('');
+  $$('[data-open]').forEach(b => b.onclick = () => {
+    openId = openId === b.dataset.open ? '' : b.dataset.open;
+    renderBands(); syncHash();
+    const row = $(`[data-open="${openId}"]`); if (row) { row.focus({preventScroll: true}); row.scrollIntoView({block: 'nearest', behavior: 'smooth'}); }
+  });
+  $$('[data-save]').forEach(b => b.onclick = () => {
+    const id = b.dataset.save; saved.has(id) ? saved.delete(id) : saved.add(id); persist();
+    toast(saved.has(id) ? 'Paket kaydedildi' : 'Kayıt kaldırıldı');
+    renderPlatforms(); renderBands(); $(`[data-save="${id}"]`)?.focus();
+  });
+  $$('[data-copy]').forEach(b => b.onclick = async () => {
+    try { await navigator.clipboard.writeText('python native.py --plan\npython native.py --execute --output output/run-001'); toast('Komutlar kopyalandı'); }
+    catch { toast('Kopyalanamadı. Komutu seçip kopyalayabilirsin.'); }
+  });
+  renderPlannedHint(list);
+  syncHash();
+}
+
+// When the search finds nothing ready, say honestly where it sits on the roadmap.
+function renderPlannedHint(list) {
+  const q = norm(query.trim()), hint = $('#plannedHint');
+  if (!q && platform !== SAVED) { hint.hidden = true; return; }
+  if (platform === SAVED && !list.length) {
+    hint.hidden = false;
+    hint.innerHTML = '<h3>Henüz kaydettiğin paket yok.</h3><p>Bir paketi açıp “Kaydet”e bastığında burada listelenir. Kayıtlar yalnızca bu tarayıcıda tutulur.</p>';
+    return;
+  }
+  if (list.length) { hint.hidden = true; return; }
+  const products = [];
+  domains.forEach(d => d.tools.forEach(tool => tool.products.forEach(p => {
+    if (q.split(/\s+/).every(w => norm([d.name, tool.name, p.name].join(' ')).includes(w))) products.push({d, tool, p});
+  })));
+  hint.hidden = false;
+  hint.innerHTML = `<h3>“${esc(query.trim())}” için hazır paket yok.</h3>` + (products.length
+    ? `<p>Kapsam haritasında ${products.length} planlı ürünle eşleşiyor. Bunlar için API yolu ve çıktı biçimi doğrulanmadan paket yayımlanmaz.</p><ul>${products.slice(0, 8).map(({d, tool, p}) => `<li><strong>${esc(p.name)}</strong><span>${esc(tool.name)} · ${esc(d.name)} · planlı</span></li>`).join('')}</ul>`
+    : '<p>Ne hazır paketlerde ne de kapsam haritasında eşleşen bir şey var. Platform adıyla ya da teslim biçimiyle (QVF, PBIX, refresh) aramayı dene.</p>')
+    + '<button type="button" class="text-btn" id="clearSearch">Aramayı temizle</button>';
+  $('#clearSearch').onclick = () => { query = ''; $('#search').value = ''; renderBands(true); $('#search').focus(); };
+}
+
+/* ---------- Coverage map ---------- */
+function renderCoverage() {
+  $('#coverage').innerHTML = domains.map(d => {
+    const products = d.tools.reduce((n, t) => n + t.products.length, 0);
+    const count = ready.filter(t => t.domain.id === d.id).length;
+    const open = d.id === openDomain;
+    const toolList = d.tools.map(t => {
+      const readyNames = new Set(ready.filter(r => r.tool.name === t.name && r.domain.id === d.id).map(r => r.product.name));
+      return `<li><strong>${esc(t.name)}</strong><span>${t.products.map(p => esc(p.name) + (readyNames.has(p.name) ? ' <em>· hazır</em>' : '')).join(', ')}</span></li>`;
+    }).join('');
+    return `<div class="cov${open ? ' open' : ''}">
+      <button type="button" class="cov-row" data-domain="${d.id}" aria-expanded="${open}" aria-controls="c-${d.id}">
+        <span class="cov-name">${esc(d.name)}</span>
+        <span class="cov-fact">${d.tools.length}</span>
+        <span class="cov-fact">${products}</span>
+        <span class="status ${count ? 'ready' : 'planned'}">${count ? `${count} hazır paket` : 'Planlı'}</span>
+        ${plus}
+      </button>
+      ${open ? `<div class="cov-detail" id="c-${d.id}"><p>${esc(d.description)}. ${count ? `Bu alanda ${count} hazır paket var; diğer ürünler geliştirme planında.` : 'Bu alanda henüz hazır paket yok. Ürünler geliştirme planında; doğrulanmadan indirme verilmez.'}</p><ul class="cov-tools">${toolList}</ul>${count ? `<div><button type="button" class="btn btn-primary btn-small" data-show-domain="${d.id}">${count} hazır paketi göster</button></div>` : ''}</div>` : ''}
+    </div>`;
+  }).join('');
+  $$('[data-domain]').forEach(b => b.onclick = () => {
+    openDomain = openDomain === b.dataset.domain ? '' : b.dataset.domain;
+    renderCoverage(); $(`[data-domain="${b.dataset.domain}"]`)?.focus({preventScroll: true});
+  });
+  $$('[data-show-domain]').forEach(b => b.onclick = () => {
+    const d = domains.find(x => x.id === b.dataset.showDomain);
+    platform = ALL; openId = ''; query = d.name; $('#search').value = d.name;
+    renderPlatforms(); renderBands(true); $('#paketler').scrollIntoView({behavior: 'smooth'});
+  });
+}
+
+/* ---------- FAQ ---------- */
+const FAQ = [
+  ['Erişim anahtarlarım bu siteye gider mi?', 'Hayır. Site yalnızca paket indirir; form, hesap ya da sunucu çağrısı yok. Token’lar bilgisayarındaki .env dosyasında kalır ve yalnızca ilgili platformun kendi adresine gönderilir.',
+    '.env.example', `QLIK_ACCESS_TOKEN=
+# .env olarak kopyala, değeri yalnızca bu dosyaya yaz`],
+  ['--plan ile --execute arasındaki fark ne?', '--plan ağ çağrısı yapmaz: config’i okur, yapılacak işlemi, gereken izinleri ve platform etkisini yazar. --execute gerçek API çağrılarını yapar ve sonuçları boş bir çıktı klasörüne yazar.',
+    'PowerShell', `> python native.py --plan
+{ "operation": "qlik-export", "network_calls": 0, … }`],
+  ['Paketler canlı ortamda test edildi mi?', 'Henüz hayır. Her paket yerel HTTP sözleşme testlerinden geçiyor: yol, gövde, kimlik başlıkları, polling ve hata durumları. Gerçek tenant’ta ve dosyanın uygulamada açılmasıyla yapılan test şu an sıfır.',
+    'contract.json', `"verification": {
+  "contract": "tested",
+  "live": "not-tested",
+  "native_open": "not-tested"
+}`],
+  ['Yeni rapor ya da dashboard tasarlıyor mu?', 'Hayır. Kod blokları mevcut nesneleri dışa aktarır, çalıştırır ya da takip eder. Qlik şablon akışı mevcut grafikleri kullanır. Tek agent paketi BigQuery için SQL tasarlar ve dry-run ile doğrular; sorguyu çalıştırmaz.',
+    'contract.json · Qlik export', `"output": "QVF",
+"effects": "Export isteği geçici sunucu içeriği üretir;
+            kaynak uygulama değiştirilmez."`],
+  ['İş yarıda kesilirse ne olur?', 'Çalışma kimlikleri run-state.json dosyasına yazılır. Job ve refresh paketleri --resume-from ile aynı işi yeni iş başlatmadan takip eder. Yazma çağrıları otomatik tekrarlanmaz.',
+    'PowerShell · Databricks job', `> python native.py --execute --resume-from output/run-001/run-state.json --output output/continued-001
+# config ile eşleşen job_id ve run_id okunur; yeni iş başlatılmaz`],
+  ['Haritadaki planlı ürünler ne zaman gelir?', 'API yolu, ürün sürümü, yetkiler ve çıktı biçimi doğrulandığında. Doğrulanmamış bir uç nokta için paket üretilmez; bu yüzden planlı ürünlerde indirme bağlantısı yok.',
+    'integration-plan.json', `"status": "partial",
+"note": "API/SDK yolu ve format sürüme göre doğrulanacak."`],
+  ['Neye ihtiyacım var?', 'Python 3.10 veya üzeri; ek kütüphane kurulmaz. Platform tarafında gereken lisans, yetki ve erişim her paketin README dosyasında yazılı.',
+    'run.bat', `@echo off
+cd /d "%~dp0"
+python native.py --plan
+pause`]
+];
+const fragment = i => `<figure class="window" data-ui><div class="window-bar"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span>${esc(FAQ[i][2])}</span></div><pre><code>${esc(FAQ[i][3])}</code></pre></figure>`;
+let faqIndex = -1;
+function renderFaq() {
+  $('#faqList').innerHTML = FAQ.map(([q, a], i) => `<li class="faq-item"><button type="button" class="faq-q" data-faq="${i}" aria-expanded="${i === faqIndex}" aria-controls="faq-${i}">${esc(q)}${plus}</button>${i === faqIndex ? `<div class="faq-a" id="faq-${i}"><p>${esc(a)}</p>${fragment(i)}</div>` : ''}</li>`).join('');
+  $$('[data-faq]').forEach(b => b.onclick = () => {
+    const i = Number(b.dataset.faq); faqIndex = faqIndex === i ? -1 : i;
+    renderFaq(); $(`[data-faq="${i}"]`).focus({preventScroll: true});
+  });
+}
+
+/* ---------- Motion helpers ---------- */
+$$('.hero .t-line').forEach((l, i) => l.style.setProperty('--i', i));
+const io = 'IntersectionObserver' in window ? new IntersectionObserver(entries => entries.forEach(e => {
+  if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+}), {rootMargin: '0px 0px -10% 0px'}) : null;
+$$('.reveal').forEach((el, i) => { el.style.setProperty('--d', (i % 3) * 80 + 'ms'); io ? io.observe(el) : el.classList.add('in'); });
+
+/* ---------- Wiring ---------- */
+$('#search').addEventListener('input', e => { query = e.target.value; openId = ''; renderBands(); });
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); $('#paketler').scrollIntoView({behavior: 'smooth'}); $('#search').focus({preventScroll: true}); }
+});
+const header = $('.site-header');
+const onScroll = () => header.classList.toggle('scrolled', scrollY > 8);
+addEventListener('scroll', onScroll, {passive: true}); onScroll();
+$$('[data-jump]').forEach(a => a.addEventListener('click', () => {
+  if (!ready.length) return;
+  platform = a.dataset.jump; query = ''; openId = ''; $('#search').value = '';
+  renderPlatforms(); renderBands(true);
+}));
+renderFaq();
+
+try {
+  const response = await fetch('/catalog.json');
+  if (!response.ok) throw new Error(String(response.status));
+  domains = await response.json();
+  tasks = domains.flatMap(d => d.tools.flatMap(tool => tool.products.flatMap(product => product.tasks.map(t => ({...t, domain: d, tool, product})))));
+  tasks.forEach(t => { t.platform = platformOf(t); t.format = formatOf(t); });
+  ready = tasks.filter(t => t.download);
+
+  const counts = {
+    packages: ready.length,
+    platforms: new Set(ready.map(t => t.platform)).size,
+    domains: domains.length,
+    products: domains.reduce((n, d) => n + d.tools.reduce((m, t) => m + t.products.length, 0), 0),
+    readyDomains: new Set(ready.map(t => t.domain.id)).size
+  };
+  $$('[data-count]').forEach(el => { if (el.dataset.count in counts) el.textContent = counts[el.dataset.count].toLocaleString('tr'); });
+
+  const initial = new URLSearchParams(location.hash.slice(1));
+  const p = initial.get('p');
+  if (p && (p === SAVED || ready.some(t => t.platform === p))) platform = p;
+  query = initial.get('q') || ''; $('#search').value = query;
+  const o = initial.get('open');
+  if (o && ready.some(t => t.id === o)) openId = o;
+
+  $('#bands').removeAttribute('aria-busy');
+  renderPlatforms(); renderBands(true); renderCoverage();
+  if (openId) $(`[data-open="${openId}"]`)?.scrollIntoView({block: 'center'});
+} catch (error) {
+  $('#listStatus').textContent = 'Katalog yüklenemedi.';
+  $('#bands').innerHTML = '';
+  $('#plannedHint').hidden = false;
+  $('#plannedHint').innerHTML = '<div><h3>Paket listesi açılmadı.</h3><p>catalog.json okunamadı. Yerelde çalıştırıyorsan önce <code>npm run build</code>, sonra <code>npm start</code> komutunu çalıştırıp sayfayı yenile.</p></div>';
+  $('#coverage').innerHTML = '';
+}

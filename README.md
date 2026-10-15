@@ -47,7 +47,7 @@ npm test
 npm start
 ```
 
-Sunucu varsayılan olarak `http://localhost:4322` üzerinde çalışır. Uygun değilse boş bir porta ilerler. Kurumsal palet sabitlendi; geçici palet seçicisi kaldırıldı.
+Sunucu varsayılan olarak `http://localhost:4322` üzerinde çalışır. Uygun değilse boş bir porta ilerler. Arayüz `site/` altında: `index.html`, `style.css`, `app.js` ve `theme.js` (açık/koyu/sistem). Hazır paketler listede, planlı ürünler kapsam haritasında gösterilir; planlı ürünler için indirme bağlantısı yoktur.
 
 ## Paketi kullanma
 

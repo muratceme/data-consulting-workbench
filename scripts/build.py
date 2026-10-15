@@ -12,6 +12,10 @@ from native_catalog import catalog, COMMON
 
 def build():
  dist=ROOT/'dist';dist.mkdir(exist_ok=True)
+ # Remove site files left over from earlier builds (renamed or deleted pages, styles, scripts).
+ generated={'catalog.json','checksums.json','integration-plan.json'}
+ for old in dist.iterdir():
+  if old.is_file() and old.name not in generated and not (ROOT/'site'/old.name).exists() and old.resolve().parent==dist.resolve():old.unlink()
  shutil.copytree(ROOT/'site',dist,dirs_exist_ok=True)
  packages=dist/'packages';packages.mkdir(exist_ok=True)
  data=catalog(DOMAINS); checksums={};expected=set();matrix=[]

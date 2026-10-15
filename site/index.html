@@ -1,25 +1,189 @@
 <!doctype html>
-<html lang="tr" data-palette="corporate"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="Veri danışmanlığı için indirilebilir kod blokları ve AI agent paketleri."><title>Datawork — Veri otomasyon kütüphanesi</title><script src="/theme.js"></script><link rel="stylesheet" href="/studio.css"><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231c302b'/%3E%3Cpath d='M8 10h9l7 6-7 6H8z' fill='%23d9ed8d'/%3E%3C/svg%3E"></head>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>datawork — veri platformları için çalıştırıcı paketler</title>
+<meta name="description" content="Qlik, Power BI, SAP, BigQuery, Fabric, Databricks ve diğer veri platformları için kendi API erişiminle çalışan açık kaynak paketler. Teslim, uygulamanın kendi dosyası.">
+<meta property="og:title" content="datawork">
+<meta property="og:description" content="Veri platformları için kendi API erişiminle çalışan açık kaynak paketler.">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#f6f5f1" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#121211" media="(prefers-color-scheme: dark)">
+<script>document.documentElement.classList.add("js")</script>
+<script src="/theme.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2316161a'/%3E%3Ctext x='16' y='23' text-anchor='middle' font-family='Georgia,serif' font-size='20' fill='%23f6f5f1'%3Ed%3C/text%3E%3C/svg%3E">
+</head>
 <body>
+<a class="skip-link" href="#paketler">Paketlere geç</a>
 
-<a class="skip-link" href="#catalogSection">Kütüphaneye geç</a>
-<header class="site-header"><div class="header-inner">
-<a class="brand" href="/" aria-label="Datawork ana sayfa">datawork</a>
-<nav class="main-nav" aria-label="Ana menü"><button id="libraryNav" class="active">Keşfet</button><button id="savedNav">Kaydedilenler <span id="savedCount">0</span></button><button id="howNav">Nasıl çalışır?</button></nav>
-<div class="header-actions"><div class="theme-switch" role="group" aria-label="Görünüm"><button data-theme-choice="light" aria-label="Açık tema" title="Açık tema" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></svg></button><button data-theme-choice="dark" aria-label="Koyu tema" title="Koyu tema" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 14A8.5 8.5 0 0 1 10 3.5 8.5 8.5 0 1 0 20.5 14Z"/></svg></button><button data-theme-choice="system" aria-label="Sistem teması" title="Sistem teması" aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8m-4-4v4"/></svg></button></div><a class="github-link" href="https://github.com/muratceme/data-consulting-workbench" target="_blank" rel="noopener">GitHub ↗</a></div>
-</div></header>
+<header class="site-header">
+  <div class="wrap header-inner">
+    <a class="brand" href="/" aria-label="datawork ana sayfa">datawork</a>
+    <nav class="nav" aria-label="Ana menü">
+      <a href="#paketler">Paketler</a>
+      <a href="#akis">Nasıl çalışır</a>
+      <a href="#kapsam">Kapsam</a>
+      <a href="#sorular">Sorular</a>
+    </nav>
+    <div class="header-actions">
+      <div class="theme-switch" role="group" aria-label="Görünüm">
+        <button type="button" data-theme-choice="light" aria-pressed="false">Açık</button>
+        <button type="button" data-theme-choice="dark" aria-pressed="false">Koyu</button>
+        <button type="button" data-theme-choice="system" aria-pressed="true">Oto</button>
+      </div>
+      <a class="gh" href="https://github.com/muratceme/data-consulting-workbench" rel="noopener">GitHub</a>
+    </div>
+  </div>
+</header>
+
 <main>
-<section class="hero"><h1>Veri işlerin.<br><span>Biraz daha kolay.</span></h1><p>Yazılımını seç. API erişiminle kendi ortamında çalıştır.</p><label class="search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="6"/><path d="m15 15 5 5"/></svg><input id="search" placeholder="Örneğin: Qlik raporlama" aria-label="Görev, yazılım veya ürün ara"><button id="clearSearch" aria-label="Aramayı temizle" hidden>×</button></label></section>
-<section id="discover"><div class="popular" id="popular" aria-label="Popüler yazılımlar"></div><div class="browse-heading"><h2>Ne üzerinde çalışıyorsun?</h2><p>Bir alan seçerek de başlayabilirsin.</p></div><div id="areaTiles" class="area-tiles"></div><button id="allAreas" class="more-link" aria-expanded="false">Tüm veri alanlarını gör ↓</button><div class="try-note"><span>API erişimi ve ürün sürümüne göre çalışır. Paketlerin canlı test durumu ayrıntılarda belirtilir.</span></div></section>
-<section id="softwareStep" hidden><button id="backHome" class="back-link">‹ Tüm alanlar</button><h2 id="softwareTitle" tabindex="-1"></h2><p>Hangi yazılımla çalışıyorsun?</p><div id="softwareTiles" class="software-tiles"></div></section>
-<section id="catalogSection" hidden><button id="backDiscover" class="back-link">‹ Keşfet</button>
-<div class="section-heading"><div><h2 id="sectionTitle" tabindex="-1">Otomasyon kütüphanesi</h2><p id="sectionDescription"></p></div><button id="reset" class="text-btn">Baştan başla</button></div>
-<div class="toolbar"><div class="tabs" role="group" aria-label="Paket türü"><button data-kind="all" class="selected">Tüm paketler</button><button data-kind="code">Kod blokları</button><button data-kind="agent">AI agent’lar</button></div></div>
-<details class="advanced"><summary>Seçimi daralt</summary><div class="filters"><label>Veri alanı<select id="domainFilter"><option value="">Tüm veri alanları</option></select></label><label>Yazılım<select id="toolFilter"><option value="">Tüm yazılımlar</option></select></label><label>Ürün / ortam<select id="productFilter"><option value="">Tüm ürünler</option></select></label><label>Çalışma biçimi<select id="executionFilter"><option value="">Tüm çalışma biçimleri</option><option>Platform API</option><option>Platform API + LLM</option><option>Planlanan entegrasyon</option></select></label></div>
-</details><div class="list-caption"><div id="breadcrumbs"></div><span id="resultCount" role="status">Yükleniyor…</span></div>
-<div id="cards" aria-live="polite"></div>
-<div class="pagination"><button class="outline" id="prev">← Önceki</button><span id="pageInfo"></span><button class="outline" id="next">Sonraki →</button></div>
+
+<section class="hero wrap">
+  <div class="hero-copy reveal">
+    <p class="kicker">Açık kaynak · veri danışmanlığı için</p>
+    <h1>Veri platformların için<br><em>hazır çalıştırıcılar.</em></h1>
+    <p class="lede">Qlik, Power BI, SAP, BigQuery, Fabric ve Databricks dahil <span data-count="platforms">17</span> platformda tekrar eden işleri kendi API erişiminle, kendi bilgisayarında çalıştır. Teslim, uygulamanın kendi dosyası.</p>
+    <div class="hero-actions">
+      <a class="btn btn-primary" href="#paketler">Paketleri incele<span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 5v14m-6-6 6 6 6-6"/></svg></span></a>
+      <a class="btn btn-ghost" href="#akis">Nasıl çalışır</a>
+    </div>
+  </div>
+
+  <div class="hero-visual reveal">
+    <div class="bezel">
+      <figure class="window" data-ui aria-label="Qlik paketinin --plan çıktısı">
+        <div class="window-bar"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span>bi-0-0-qlik-export</span></div>
+<pre><code><span class="t-line t-cmd">$ python native.py --plan</span>
+<span class="t-line">{</span>
+<span class="t-line">  "operation": "qlik-export",</span>
+<span class="t-line">  <b>"network_calls": 0</b>,</span>
+<span class="t-line">  "contract": {</span>
+<span class="t-line">    "output": "QVF",</span>
+<span class="t-line">    "secrets": ["QLIK_ACCESS_TOKEN"],</span>
+<span class="t-line">    "effects": "Kaynak uygulama değiştirilmez.",</span>
+<span class="t-line">    "verification": { "contract": "tested" }</span>
+<span class="t-line">  }</span>
+<span class="t-line">}</span>
+<span class="t-line t-cmd">$ python native.py --execute --output output/run-001<i class="caret" aria-hidden="true"></i></span></code></pre>
+      </figure>
+    </div>
+  </div>
+
+  <dl class="stats reveal">
+    <div><dt>Hazır paket</dt><dd data-count="packages">37</dd></div>
+    <div><dt>Platform</dt><dd data-count="platforms">17</dd></div>
+    <div><dt>Haritadaki veri alanı</dt><dd data-count="domains">23</dd></div>
+    <div><dt>Lisans</dt><dd>MIT</dd></div>
+  </dl>
 </section>
-<footer><span>datawork · Açık kaynak veri danışmanlığı</span><span>API sözleşmeleri yerelde test edilir. Canlı hesap ve uygulamada açılış testleri bekliyor.</span></footer>
-</main><dialog id="detail"><div class="dialog-header"><span id="detailEyebrow" class="eyebrow"></span><button class="close" data-close="detail" aria-label="Kapat">×</button></div><div id="detailContent"></div></dialog>
-<dialog id="how"><div class="dialog-header"><span class="eyebrow">NASIL ÇALIŞIR?</span><button class="close" data-close="how" aria-label="Kapat">×</button></div><h2>Uygulamana bağlan. Yerel çıktını al.</h2><div class="how-step"><b>01</b><div><h3>Ürününü ve görevini seç</h3><p>23 alan ve 185 ürün bağlamı korunur. Sadece uygulanmış entegrasyonlarda indirme düğmesi bulunur; diğerleri geliştirme planıdır.</p></div></div><div class="how-step"><b>02</b><div><h3>Kendi API erişimini kullan</h3><p>Paketin README dosyası desteklenen sürümü, izinleri ve platform etkilerini açıklar. Erişim bilgilerini kendi bilgisayarındaki .env dosyasına gir.</p></div></div><div class="how-step"><b>03</b><div><h3>Planı incele, sonra çalıştır</h3><p>--plan ağ çağrısı yapmaz. --execute gerçek API çağrılarını yapar. Kod blokları sabit işlemleri yürütür; agentlar yorum gerektiren tasarımları üretir ve uygun platform doğrulamasından geçirir.</p></div></div><div class="how-step"><b>04</b><div><h3>Uygulamanın biçiminde teslim al</h3><p>QVF, PBIX, TWB/TWBX, SQL veya platform üzerinde oluşturulan nesne. Her görev kendi gerçek teslimini belirtir. Metadata keşfi, yeni rapor üretimi olarak sunulmaz. Sözleşme testleri gerçek hesap ve uygulamada açılış testlerinin yerine geçmez.</p></div></div></dialog><div id="toast" role="status"></div><script type="module" src="/app.js"></script></body></html>
+
+<section class="section catalog wrap" id="paketler" aria-labelledby="catalogTitle">
+  <div class="section-head reveal">
+    <div>
+      <h2 id="catalogTitle">Hazır paketler</h2>
+      <p>Her paket tek bir işi yapar ve ne teslim ettiğini açıkça söyler. Bir satırı aç: izinler, platform etkisi, doldurulacak alanlar ve indirme.</p>
+    </div>
+    <label class="search">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></svg>
+      <input id="search" type="search" placeholder="QVF, refresh, SAP…" aria-label="Paket, platform veya alan ara" autocomplete="off">
+      <kbd>Ctrl K</kbd>
+    </label>
+  </div>
+  <div class="cat-body">
+    <nav class="platforms" id="platforms" aria-label="Platform"></nav>
+    <div class="list-wrap">
+      <div class="list" id="bands" aria-busy="true">
+        <div class="row skeleton"></div><div class="row skeleton"></div><div class="row skeleton"></div><div class="row skeleton"></div>
+      </div>
+      <div class="planned-hint" id="plannedHint" hidden></div>
+      <p class="list-status" id="listStatus" role="status">Paketler yükleniyor…</p>
+    </div>
+  </div>
+</section>
+
+<section class="section flow" id="akis" aria-labelledby="flowTitle">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <div>
+        <h2 id="flowTitle">Dört adımda, <em>kendi ortamında.</em></h2>
+        <p>Site anahtar toplamaz, sunucu çağrısı yapmaz. Her şey indirdiğin klasörün içinde olur.</p>
+      </div>
+    </div>
+    <ol class="steps">
+      <li class="reveal"><span class="step-no">01</span><h3>İndir</h3><p>ZIP’i aç. İçinde README, config.json, .env.example ve tek dosyalık çalıştırıcı var.</p><span class="step-time">Bir dakika</span></li>
+      <li class="reveal"><span class="step-no">02</span><h3>Doldur</h3><p>Token’ını .env dosyasına, kaynak kimliklerini config.json’a yaz.</p><span class="step-time">Yaklaşık on dakika</span></li>
+      <li class="reveal"><span class="step-no">03</span><h3>Planla</h3><p><code>--plan</code> ağa çıkmadan yapılacak işlemi, izinleri ve etkiyi gösterir.</p><span class="step-time">Saniyeler</span></li>
+      <li class="reveal"><span class="step-no">04</span><h3>Çalıştır</h3><p><code>--execute</code> gerçek API çağrılarını yapar, çıktıyı boş bir klasöre yazar.</p><span class="step-time">Platform işi kadar</span></li>
+    </ol>
+    <div class="bezel output-bezel reveal">
+      <figure class="window output" data-ui aria-label="Örnek çalışma çıktısı">
+        <div class="window-bar"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span>output/run-001 · örnek</span></div>
+        <div class="output-body">
+          <ul class="files"><li>artifact.qvf</li><li>manifest.json</li></ul>
+<pre><code>{
+  "operation": "qlik-export",
+  "artifact": { "file": "artifact.qvf", "bytes": …, "sha256": "…" },
+  "verification": "API response received; application
+                   opening must be verified in your tenant"
+}</code></pre>
+        </div>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<section class="section coverage wrap" id="kapsam" aria-labelledby="coverageTitle">
+  <div class="section-head reveal">
+    <div>
+      <h2 id="coverageTitle">Kapsam haritası</h2>
+      <p><span data-count="domains">23</span> veri alanında <span data-count="products">185</span> ürün izleniyor. <span data-count="readyDomains">7</span> alanda hazır paket var; diğerleri geliştirme planında ve doğrulanmadan indirme verilmez.</p>
+    </div>
+  </div>
+  <div class="cov-head" aria-hidden="true"><span>Alan</span><span>Yazılım</span><span>Ürün</span><span>Durum</span></div>
+  <div class="coverage-list" id="coverage"></div>
+</section>
+
+<section class="section faq wrap" id="sorular" aria-labelledby="faqTitle">
+  <div class="section-head reveal">
+    <div>
+      <h2 id="faqTitle">Sık sorulanlar</h2>
+      <p>Bulamadığın bir şey varsa GitHub’da bir konu aç.</p>
+    </div>
+  </div>
+  <ul class="faq-list" id="faqList"></ul>
+</section>
+
+<section class="cta wrap">
+  <div class="bezel cta-bezel reveal">
+    <div class="cta-inner">
+      <h2>Bir paket seç, <em>önce planla.</em></h2>
+      <a class="btn btn-primary btn-invert" href="#paketler">Paketlere dön<span class="btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 19V5m-6 6 6-6 6 6"/></svg></span></a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="wrap footer-inner">
+    <div>
+      <a class="brand" href="/">datawork</a>
+      <p>Veri danışmanlığında tekrar eden platform işleri için açık kaynak çalıştırıcılar.</p>
+    </div>
+    <nav aria-label="Alt menü"><a href="#paketler">Paketler</a><a href="#akis">Nasıl çalışır</a><a href="#kapsam">Kapsam</a><a href="#sorular">Sorular</a></nav>
+    <div class="footer-meta">
+      <p>Son derleme 15 Ekim 2026 · <a href="/checksums.json">SHA-256 listesi</a></p>
+      <p>MIT lisansı · © 2026 Murat. Paketler üretim onaylı değildir; README’deki etkileri okumadan <code>--execute</code> çalıştırma.</p>
+    </div>
+  </div>
+</footer>
+
+<div id="toast" role="status" aria-live="polite"></div>
+<script type="module" src="/app.js"></script>
+</body>
+</html>
