@@ -45,7 +45,7 @@ Yalnızca son iki aşama tamamlanınca `live-tested` / `native-open-tested` işa
 
 - Airbyte mevcut job takibi: connection_id/job_id ile yalnızca GET; kesinti sonrasında aynı sync takip edilir. Yeni aktarım/reset/cancel başlatılmaz; eski çıktı dosyaları korunur.
 
-- Fabric Notebook: kullanıcı ipynb kaynağından yeni öğe oluşturma, 201/202 LRO takibi, workspace/öğe kontrolü ve getDefinition ile geri indirme. Hücre kaynakları karşılaştırılır; çıktı içeren girdi reddedilir. Notebook execution, Lakehouse bağlama ve canlı Fabric kabulü henüz yok.
+- Fabric Notebook: kullanıcı ipynb kaynağından yeni öğe oluşturma, 201/202 LRO takibi, workspace/öğe kontrolü ve getDefinition ile geri indirme. Hücre kaynakları karşılaştırılır; çıktı içeren girdi reddedilir. Mevcut notebook için yeni öğe oluşturmayan ayrı export paketi de var. Notebook execution, Lakehouse bağlama ve canlı Fabric kabulü henüz yok.
 
 ## Öncelikli kalan işler
 

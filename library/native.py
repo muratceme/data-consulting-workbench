@@ -754,25 +754,33 @@ def fabric_result(client, out, path, payload, stage, expected_status):
 def fabric_notebook(cfg, out, factory):
     try:workspace=str(uuid.UUID(required(cfg,'workspace_id')))
     except ValueError:raise NativeError('Fabric workspace_id UUID olmalı.') from None
-    document=input_json(cfg,'notebook_file','notebook.ipynb')
-    sources=notebook_sources(document)
-    name=required(cfg,'display_name')
-    if len(name)>200:raise NativeError('Fabric notebook adı en fazla 200 karakter olmalı.')
+    exporting=cfg['operation']=='fabric-notebook-export'
+    sources=None;name=None
+    if exporting:
+        try:item=str(uuid.UUID(required(cfg,'notebook_id')))
+        except ValueError:raise NativeError('Fabric notebook_id UUID olmalı.') from None
+    else:
+        document=input_json(cfg,'notebook_file','notebook.ipynb')
+        sources=notebook_sources(document)
+        name=required(cfg,'display_name')
+        if len(name)>200:raise NativeError('Fabric notebook adı en fazla 200 karakter olmalı.')
     client=factory('https://api.fabric.microsoft.com',{'Authorization':'Bearer '+secret('FABRIC_ACCESS_TOKEN')})
     path='/v1/workspaces/'+workspace+'/notebooks'
-    content=json.dumps(document,ensure_ascii=False).encode('utf-8')
-    payload={'displayName':name,'definition':{'format':'ipynb','parts':[{
-        'path':'notebook-content.ipynb','payloadType':'InlineBase64','payload':base64.b64encode(content).decode()}]}}
-    journal(out,workspace_id=workspace,display_name=name,execution='not_run')
-    created=fabric_result(client,out,path,payload,'create',201)
-    item=required(created,'id')
-    try:item=str(uuid.UUID(item))
-    except ValueError:raise NativeError('Fabric notebook kimliği geçersiz; platform geçmişini kontrol edin.') from None
-    journal(out,notebook_id=item,state='created')
+    journal(out,workspace_id=workspace,execution='not_run_by_package')
+    if not exporting:
+        content=json.dumps(document,ensure_ascii=False).encode('utf-8')
+        payload={'displayName':name,'definition':{'format':'ipynb','parts':[{
+            'path':'notebook-content.ipynb','payloadType':'InlineBase64','payload':base64.b64encode(content).decode()}]}}
+        journal(out,display_name=name)
+        created=fabric_result(client,out,path,payload,'create',201)
+        item=required(created,'id')
+        try:item=str(uuid.UUID(item))
+        except ValueError:raise NativeError('Fabric notebook kimliği geçersiz; platform geçmişini kontrol edin.') from None
+    journal(out,notebook_id=item,state='reading' if exporting else 'created')
     def identity(response):
-        if response.get('id')!=item or response.get('workspaceId')!=workspace or response.get('type')!='Notebook' or response.get('displayName')!=name:
+        if response.get('id')!=item or response.get('workspaceId')!=workspace or response.get('type')!='Notebook' or (name is not None and response.get('displayName')!=name):
             raise NativeError('Fabric notebook/workspace kimliği veya adı eşleşmedi.')
-    identity(created)
+    if not exporting:identity(created)
     identity(client.json('GET',path+'/'+item))
     exported=fabric_result(client,out,path+'/'+item+'/getDefinition?format=ipynb',None,'export',200)
     parts=exported.get('definition',{}).get('parts')
@@ -783,9 +791,10 @@ def fabric_notebook(cfg, out, factory):
         raise NativeError('Fabric tam bir ipynb tanımı döndürmedi.')
     try:raw=base64.b64decode(required(candidates[0],'payload'),validate=True)
     except ValueError:raise NativeError('Fabric notebook Base64 içeriği geçersiz.') from None
-    if notebook_sources(json_object(raw))!=sources:
+    downloaded_sources=notebook_sources(json_object(raw))
+    if sources is not None and downloaded_sources!=sources:
         raise NativeError('Fabric geri okunan hücreler yayımlanan notebook ile eşleşmedi.')
-    journal(out,state='verified',execution='not_run')
+    journal(out,state='exported' if exporting else 'verified',execution='not_run_by_package')
     return write_artifact(out,'notebook.ipynb',raw)
 
 
@@ -922,7 +931,7 @@ def databricks_run(cfg, out, factory):
     return receipt(out,'databricks-run.json',{'job_id':job,'run_id':run,'life_cycle_state':'TERMINATED','result_state':'SUCCESS'})
 
 
-HANDLERS = {'fabric-notebook':fabric_notebook,'dataform-compile':dataform_compile,'qlik-export':qlik,'qlik-template':qlik,'powerbi-export':powerbi,'tableau-export':tableau,'sap-b1-schema':sap,'sap-odata-schema':sap,'oracle-schema':oracle,'bigquery-table':bigquery,'bigquery-agent':bigquery,'databricks-profile':databricks_profile,'adf-deploy':adf,'adf-run':adf,'airflow-run':airflow,'sap-quotation-draft':sap_quotation_draft,'dbt-run':dbt_run,'prefect-run':prefect_run,'snowflake-quality':snowflake_quality,'github-actions-run':github_actions,'fivetran-sync':fivetran_sync,'airbyte-sync':airbyte_sync,'dataform-run':dataform_run,'powerbi-refresh':powerbi_refresh,'databricks-run':databricks_run,'databricks-monitor':databricks_run,'airbyte-monitor':airbyte_sync,'adf-monitor':adf,'airflow-monitor':airflow,'dbt-monitor':dbt_run,'prefect-monitor':prefect_run,'dataform-monitor':dataform_run,'powerbi-monitor':powerbi_refresh}
+HANDLERS = {'fabric-notebook-export':fabric_notebook,'fabric-notebook':fabric_notebook,'dataform-compile':dataform_compile,'qlik-export':qlik,'qlik-template':qlik,'powerbi-export':powerbi,'tableau-export':tableau,'sap-b1-schema':sap,'sap-odata-schema':sap,'oracle-schema':oracle,'bigquery-table':bigquery,'bigquery-agent':bigquery,'databricks-profile':databricks_profile,'adf-deploy':adf,'adf-run':adf,'airflow-run':airflow,'sap-quotation-draft':sap_quotation_draft,'dbt-run':dbt_run,'prefect-run':prefect_run,'snowflake-quality':snowflake_quality,'github-actions-run':github_actions,'fivetran-sync':fivetran_sync,'airbyte-sync':airbyte_sync,'dataform-run':dataform_run,'powerbi-refresh':powerbi_refresh,'databricks-run':databricks_run,'databricks-monitor':databricks_run,'airbyte-monitor':airbyte_sync,'adf-monitor':adf,'airflow-monitor':airflow,'dbt-monitor':dbt_run,'prefect-monitor':prefect_run,'dataform-monitor':dataform_run,'powerbi-monitor':powerbi_refresh}
 
 
 RESUME_OPERATIONS = {

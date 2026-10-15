@@ -1,6 +1,12 @@
 """Executable operations are explicit; taxonomy coverage is not implementation coverage."""
 COMMON = 'Python 3.10+. Anahtarlar yalnızca yerel .env/ortam değişkenlerinden okunur. --plan ağ çağrısı yapmaz; --execute API işlemini başlatır. HTML raporu teslim edilmez.'
 OPERATIONS = [
+ dict(operation='fabric-notebook-export', product='Fabric Lakehouse', domain='lakehouse', title='Mevcut Fabric notebook kaynağını indir', output='Fabric’ten indirilen .ipynb kaynak dosyası', kind='code',
+      description='Mevcut notebook kimliğini doğrular, getDefinition ile ipynb kaynağını indirir. Yeni notebook oluşturmaz ve hücreleri çalıştırmaz. Çıktıları temizlenmiş kaynak notebook desteklenir.',
+      config={'workspace_id':'YOUR_WORKSPACE_UUID','notebook_id':'YOUR_NOTEBOOK_UUID'}, secrets=['FABRIC_ACCESS_TOKEN'],
+      requirements='Notebook read/write izinleri, Notebook.ReadWrite.All veya Item.ReadWrite.All token scope. Şifreli sensitivity label içeren notebook export edilemez. Çalıştırma çıktıları ve ekleri temizlenmiş nbformat 4 notebook gerekir.',
+      effects='GET ile öğe kimliği okunur; getDefinition okuma amaçlı POST çağrısıdır. 202 asenkron export sonucu takip edilir. Notebook oluşturma, değiştirme, silme veya çalıştırma yapılmaz. İndirilen kaynak kod ve metadata iş bilgisi içerebilir; dosyayı yerelde koruyun. POST otomatik tekrar edilmez. Önceki yayımlamada notebook_id kaydedildiyse bu paketle indirme tekrar denenebilir; ID yoksa önce platform geçmişinden bulun.',
+      sources=['https://learn.microsoft.com/en-us/rest/api/fabric/notebook/items/get-notebook','https://learn.microsoft.com/en-us/rest/api/fabric/notebook/items/get-notebook-definition','https://learn.microsoft.com/en-us/rest/api/fabric/articles/item-management/definitions/notebook-definition']),
  dict(operation='fabric-notebook', product='Fabric Lakehouse', domain='lakehouse', title='Fabric notebook yayımla ve tanımını geri indir', output='Workspace içinde Notebook + geri okunan .ipynb', kind='code',
       description='İncelenmiş ipynb dosyanızı Fabric içinde yeni notebook olarak yayımlar. Asenkron işlemleri takip eder; kaynak hücreleri geri okuyup karşılaştırır. Notebook otomatik çalıştırılmaz.',
       config={'workspace_id':'YOUR_WORKSPACE_UUID','display_name':'Datawork schema discovery','notebook_file':'notebook.ipynb'}, secrets=['FABRIC_ACCESS_TOKEN'],

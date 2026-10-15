@@ -38,3 +38,7 @@ Başlatma yanıtı kaybolduğu için iş kimliği yoksa önce platform geçmişi
 Doğrulama: yerel HTTP sözleşme testleri; canlı tenant kabulü henüz yapılmadı.
 
 Çalışma kaydı güncellemeleri geçici dosya, flush/fsync ve atomik replace kullanır. Yazma/replace başarısız olduğunda önceki kayıt korunur; bu mekanizma her dosya sistemi veya ani güç kaybında mutlak dayanıklılık garantisi değildir.
+
+## Fabric notebook indirmesini yeniden deneme
+
+Yayımlama sırasında `notebook_id` kaydedildiyse **Mevcut Fabric notebook kaynağını indir** paketine aynı workspace_id/notebook_id değerlerini girin. Paket yeni notebook oluşturmaz; getDefinition okuma işlemi için POST kullanır. Kaynak notebook çıktıları/ekleri temizlenmiş olmalı. Oluşturma operation kimliği var ama notebook_id yoksa önce Fabric işlem sonucunu platformda kontrol edin; yayımlama paketini tekrar başlatmak yeni öğe oluşturabilir. Fabric için `--resume-from` henüz desteklenmez.

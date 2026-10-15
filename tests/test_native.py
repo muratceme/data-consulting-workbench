@@ -169,7 +169,7 @@ class Contracts(unittest.TestCase):
         result=self.fabric_execute()
         self.assertFalse(self.queue);self.assertEqual(result['artifact']['file'],'notebook.ipynb')
         self.assertEqual(json.loads((self.output/'notebook.ipynb').read_text()),self.fabric_document)
-        self.assertEqual(json.loads((self.output/'run-state.json').read_text())['execution'],'not_run')
+        self.assertEqual(json.loads((self.output/'run-state.json').read_text())['execution'],'not_run_by_package')
 
     def test_fabric_async_creation_and_export_wait_for_success(self):
         self.fabric_setup();self.fabric_accept(self.fabric_path,self.fabric_payload)
@@ -289,6 +289,32 @@ class Contracts(unittest.TestCase):
         self.assertEqual(json.loads(stdout.getvalue())['operation'],'databricks-monitor')
         self.assertEqual([request[0] for request in self.received],['GET'])
         self.assertEqual(json.loads(checkpoint.read_text()),{'job_id':17,'run_id':42})
+
+    def test_fabric_existing_notebook_export_never_creates_or_runs(self):
+        self.fabric_setup()
+        self.step('GET',self.fabric_path+'/'+self.FABRIC_ITEM,self.fabric_item)
+        self.step('POST',self.fabric_path+'/'+self.FABRIC_ITEM+'/getDefinition?format=ipynb',self.fabric_export(),payload=None)
+        self.run_op('fabric-notebook-export',workspace_id=self.FABRIC_WORKSPACE,notebook_id=self.FABRIC_ITEM)
+        self.assertFalse(self.queue);self.assertEqual(len(self.received),2)
+        self.assertEqual(json.loads((self.output/'notebook.ipynb').read_text()),self.fabric_document)
+        self.assertEqual(json.loads((self.output/'run-state.json').read_text())['state'],'exported')
+
+    def test_fabric_export_wrong_item_and_invalid_uuid_block_definition_call(self):
+        self.fabric_setup()
+        with self.assertRaises(native.NativeError):self.run_op('fabric-notebook-export',workspace_id=self.FABRIC_WORKSPACE,notebook_id='../invalid')
+        self.assertFalse(self.received)
+        self.output=Path(self.temp.name)/'wrong-item'
+        self.step('GET',self.fabric_path+'/'+self.FABRIC_ITEM,{**self.fabric_item,'type':'Lakehouse'})
+        with self.assertRaises(native.NativeError):self.run_op('fabric-notebook-export',workspace_id=self.FABRIC_WORKSPACE,notebook_id=self.FABRIC_ITEM)
+        self.assertEqual(len(self.received),1)
+
+    def test_fabric_existing_export_rejects_cell_outputs(self):
+        self.fabric_setup();self.fabric_document['cells'][0]['outputs']=[{'output_type':'stream','text':'PRIVATE_SENTINEL'}]
+        self.step('GET',self.fabric_path+'/'+self.FABRIC_ITEM,self.fabric_item)
+        self.step('POST',self.fabric_path+'/'+self.FABRIC_ITEM+'/getDefinition?format=ipynb',self.fabric_export())
+        with self.assertRaises(native.NativeError):self.run_op('fabric-notebook-export',workspace_id=self.FABRIC_WORKSPACE,notebook_id=self.FABRIC_ITEM)
+        self.assertFalse((self.output/'notebook.ipynb').exists())
+        self.assertNotIn('PRIVATE_SENTINEL',(self.output/'run-state.json').read_text())
 
     def qlik_export(self,app='app'):
         self.step('POST',f'/api/v1/apps/{app}/export',status=201,headers={'Location':'/api/v1/temp-contents/file'})

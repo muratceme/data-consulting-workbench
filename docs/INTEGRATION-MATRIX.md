@@ -43,7 +43,7 @@
 | Veri Ambarı | ClickHouse | ClickHouse | Planlandı; paket yok | Sorgu işi API / SQL sürücüsü | Platform tablosu, view veya SQL modeli |
 | Data Lake & Lakehouse | Databricks | Databricks Lakehouse | Kısmi: databricks-monitor, databricks-run, databricks-profile | Workspace/catalog API + SQL/Spark SDK | Notebook, job veya native tablo |
 | Data Lake & Lakehouse | Databricks | Unity Catalog | Planlandı; paket yok | Workspace/catalog API + SQL/Spark SDK | Notebook, job veya native tablo |
-| Data Lake & Lakehouse | Microsoft | Fabric Lakehouse | Kısmi: fabric-notebook | Workspace/catalog API + SQL/Spark SDK | Notebook, job veya native tablo |
+| Data Lake & Lakehouse | Microsoft | Fabric Lakehouse | Kısmi: fabric-notebook-export, fabric-notebook | Workspace/catalog API + SQL/Spark SDK | Notebook, job veya native tablo |
 | Data Lake & Lakehouse | Microsoft | OneLake | Planlandı; paket yok | Workspace/catalog API + SQL/Spark SDK | Notebook, job veya native tablo |
 | Data Lake & Lakehouse | Amazon | S3 / Lake Formation | Planlandı; paket yok | Workspace/catalog API + SQL/Spark SDK | Notebook, job veya native tablo |
 | Data Lake & Lakehouse | Google | Cloud Storage / BigLake | Planlandı; paket yok | Workspace/catalog API + SQL/Spark SDK | Notebook, job veya native tablo |

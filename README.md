@@ -4,7 +4,7 @@ Kullanıcının kendi API/SDK erişimiyle çalışan kod blokları ve agentlar. 
 
 ## Güncel durum
 
-15 Ekim 2026: 23 alan / 185 ürün bağlamı korunuyor. 33 uygulanmış işlem, Tableau Cloud/Server ayrımıyla **34 indirilebilir paket** var. Diğer 370 görev **planlanan entegrasyon**; indirme bağlantıları yok. Bu sayıların hiçbiri tüm ürünlerin çalıştığı anlamına gelmez.
+15 Ekim 2026: 23 alan / 185 ürün bağlamı korunuyor. 34 uygulanmış işlem, Tableau Cloud/Server ayrımıyla **35 indirilebilir paket** var. Diğer 370 görev **planlanan entegrasyon**; indirme bağlantıları yok. Bu sayıların hiçbiri tüm ürünlerin çalıştığı anlamına gelmez.
 
 | Uygulama | Uygulanmış işlem | Teslim |
 |---|---|---|
@@ -17,7 +17,7 @@ Kullanıcının kendi API/SDK erişimiyle çalışan kod blokları ve agentlar. 
 | Oracle Fusion ERP | REST describe | Kaynak sözleşmesi JSON; ERP belgesi değildir |
 | BigQuery | SELECT dry-run → bütçe kontrolü → hedef tablo işi → sonuç kontrolü | BigQuery'de tablo, yerelde iş makbuzu |
 | BigQuery agent | Canlı API şeması → model → BigQuery SELECT dry-run | `.sql`; sorgu çalıştırılmaz |
-| Fabric Lakehouse | İncelenmiş ipynb yayımla → asenkron sonucu izle → geri indir ve kaynak hücreleri karşılaştır | Workspace notebook + `.ipynb`; otomatik çalıştırılmaz |
+| Fabric Lakehouse | İncelenmiş ipynb yayımla → asenkron sonucu izle → geri indir ve kaynak hücreleri karşılaştır; mevcut notebook için ayrı export | Workspace notebook + `.ipynb`; otomatik çalıştırılmaz |
 | Databricks Lakehouse | Profil notebook’u üret → SOURCE import → get-status → export | Workspace notebook + Python kaynak dosyası; otomatik çalıştırılmaz |
 | Databricks Jobs | Mevcut job’ı parametrelerle çalıştır, job/run kimliklerini ve terminal sonucu doğrula | Platform run + sonuç kaydı; görev çıktıları indirilmez |
 | Databricks mevcut run takibi | Kesinti sonrası job_id/run_id ile yalnızca GET üzerinden takip | Yeni iş başlatmadan sonuç kaydı |
@@ -58,7 +58,7 @@ Sunucu varsayılan olarak `http://localhost:4322` üzerinde çalışır. Uygun d
 
 Yeni/boş çıktı klasörü gerekir. Yazma ve LLM maliyeti olabilen işlemler README'de belirtilir. Şema ve proje bağlamı seçilen modele gönderilir; agent satır verisi çekmez. Kısmi çalışma kimlikleri `run-state.json`, dosya özeti `manifest.json` içindedir. Otomatik rollback veya üretimde otomatik model-kodu yürütme yoktur.
 
-Toplam **162 test** geçti (156 Python + 6 görünüm testi). Test sayısı canlı tenant doğrulaması değildir.
+Toplam **165 test** geçti (159 Python + 6 görünüm testi). Test sayısı canlı tenant doğrulaması değildir.
 
 ## Test katmanları
 
