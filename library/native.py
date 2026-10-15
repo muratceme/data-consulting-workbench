@@ -12,6 +12,7 @@ import json
 import math
 import os
 import re
+import tempfile
 import time
 import urllib.error
 import urllib.request
@@ -96,10 +97,17 @@ class HTTP:
 
     def json(self, method, path, payload=None):
         raw, _ = self.request(method, path, payload)
-        try:
-            return json.loads(raw)
-        except (ValueError, UnicodeError):
-            raise NativeError('API geçerli JSON döndürmedi.') from None
+        return json_object(raw)
+
+
+def json_object(raw):
+    try:
+        value=json.loads(raw)
+    except (ValueError, UnicodeError):
+        raise NativeError('API geçerli JSON döndürmedi.') from None
+    if not isinstance(value,dict):
+        raise NativeError('API beklenen JSON nesnesini döndürmedi.')
+    return value
 
 
 def header(headers, name):
@@ -154,8 +162,21 @@ def poll(client, path, *, state, success, failures, attempts=120, delay=2):
 
 def journal(out, **values):
     path = out / 'run-state.json'
-    old = json.loads(path.read_text()) if path.exists() else {}
-    path.write_text(json.dumps({**old, **values}, indent=2), encoding='utf-8')
+    old = json.loads(path.read_text(encoding='utf-8')) if path.exists() else {}
+    # Replace only after the complete new checkpoint has reached the filesystem.
+    # A failed write/replace leaves the previous checkpoint intact.
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', dir=out,
+                                         prefix='.run-state-', suffix='.tmp', delete=False) as stream:
+            temporary = Path(stream.name)
+            json.dump({**old, **values}, stream, indent=2)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
 
 
 def qlik(cfg, out, factory):
@@ -769,8 +790,7 @@ def powerbi_refresh(cfg, out, factory):
     journal(out,workspace_id=workspace,dataset_id=dataset,refresh_id=request_id,state='monitoring')
     for _ in range(120):
         raw,_,http_status=client.request('GET',expected,with_status=True)
-        try:result=json.loads(raw)
-        except (ValueError,UnicodeError):raise NativeError('Power BI geçerli JSON döndürmedi.') from None
+        result=json_object(raw)
         state=result.get('status');extended=result.get('extendedStatus')
         journal(out,state=state,extended_status=extended)
         failures={'Failed','Disabled','Cancelled','TimedOut'}
@@ -855,7 +875,7 @@ def main():
             print(json.dumps({'operation':cfg['operation'],'network_calls':0,'contract':contract,'instructions':'README izinlerini ve config.json değerlerini inceleyin. .env erişim bilgilerini girin; ardından --execute.'},ensure_ascii=False))
         else:
             print(json.dumps(execute(cfg,args.output),ensure_ascii=False))
-    except (NativeError,ValueError,KeyError,OSError,RuntimeError) as exc:
+    except (NativeError,ValueError,KeyError,OSError,RuntimeError,TypeError,AttributeError) as exc:
         # Library/model exception text can contain URLs or secrets: only safe NativeError text is shown.
         parser.exit(1,(str(exc) if isinstance(exc,NativeError) else 'Yapılandırma, API yanıtı veya model çıktısı işlenemedi; README ve ortamınızı kontrol edin.')+'\n')
 

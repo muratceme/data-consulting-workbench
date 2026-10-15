@@ -23,3 +23,5 @@ Yaklaşık dört dakika sonunda yerel takip zaman aşımına uğrayabilir; platf
 Başlatma yanıtı kaybolduğu için iş kimliği yoksa önce platform geçmişinden bulun. `request_pending` kaydı işlemin başarısız olduğunu kanıtlamaz. API anahtarını veya parametre dosyasını kurtarma kaydına eklemeyin. Bu akış otomatik rollback, kimlik bilgisi yenileme veya tüm ürünler için genel resume değildir.
 
 Doğrulama: yerel HTTP sözleşme testleri; canlı tenant kabulü henüz yapılmadı.
+
+Çalışma kaydı güncellemeleri geçici dosya, flush/fsync ve atomik replace kullanır. Yazma/replace başarısız olduğunda önceki kayıt korunur; bu mekanizma her dosya sistemi veya ani güç kaybında mutlak dayanıklılık garantisi değildir.

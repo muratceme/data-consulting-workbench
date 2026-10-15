@@ -57,7 +57,7 @@ Sunucu varsayılan olarak `http://localhost:4322` üzerinde çalışır. Uygun d
 
 Yeni/boş çıktı klasörü gerekir. Yazma ve LLM maliyeti olabilen işlemler README'de belirtilir. Şema ve proje bağlamı seçilen modele gönderilir; agent satır verisi çekmez. Kısmi çalışma kimlikleri `run-state.json`, dosya özeti `manifest.json` içindedir. Otomatik rollback veya üretimde otomatik model-kodu yürütme yoktur.
 
-Toplam **145 test** geçti (139 Python + 6 görünüm testi). Test sayısı canlı tenant doğrulaması değildir.
+Toplam **149 test** geçti (143 Python + 6 görünüm testi). Test sayısı canlı tenant doğrulaması değildir.
 
 ## Test katmanları
 

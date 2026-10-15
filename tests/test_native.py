@@ -108,6 +108,40 @@ class Contracts(unittest.TestCase):
         self.assertEqual(len(self.received),1)
         self.assertEqual(json.loads((self.output/'run-state.json').read_text())['state'],'compilation_pending')
 
+    def test_checkpoint_replace_failure_preserves_previous_run_identity(self):
+        self.output.mkdir()
+        native.journal(self.output,run_id=123,state='running',label='Türkçe')
+        before=(self.output/'run-state.json').read_bytes()
+        with patch.object(native.os,'replace',side_effect=OSError('disk unavailable')):
+            with self.assertRaises(OSError):native.journal(self.output,state='success')
+        self.assertEqual((self.output/'run-state.json').read_bytes(),before)
+        self.assertEqual(list(self.output.glob('*.tmp')),[])
+        native.journal(self.output,state='success')
+        self.assertEqual(json.loads((self.output/'run-state.json').read_text(encoding='utf-8')),{'run_id':123,'state':'success','label':'Türkçe'})
+
+    def test_checkpoint_flush_failure_does_not_truncate_previous_state(self):
+        self.output.mkdir();native.journal(self.output,run_id=123,state='running')
+        with patch.object(native.os,'fsync',side_effect=OSError('disk full')):
+            with self.assertRaises(OSError):native.journal(self.output,state='success')
+        self.assertEqual(json.loads((self.output/'run-state.json').read_text())['state'],'running')
+        self.assertEqual(list(self.output.glob('*.tmp')),[])
+
+    def test_transport_rejects_nonobject_json_without_exposing_body(self):
+        client=self.factory('https://example.test')
+        for raw in [b'null',b'[]',b'"PRIVATE_SENTINEL"',b'13',b'{invalid PRIVATE_SENTINEL']:
+            self.step('GET','/shape',raw)
+            with self.assertRaises(native.NativeError) as error:client.json('GET','/shape')
+            self.assertNotIn('PRIVATE_SENTINEL',str(error.exception))
+
+    def test_cli_malformed_nested_response_does_not_print_trace_or_secret(self):
+        config=Path(self.temp.name)/'config.json';config.write_text('{"operation":"airbyte-monitor"}')
+        for error in [AttributeError('PRIVATE_SENTINEL'),TypeError('PRIVATE_SENTINEL')]:
+            stderr=io.StringIO()
+            with patch.object(sys,'argv',['native.py','--config',str(config),'--execute']),patch.object(sys,'stderr',stderr),patch.object(native,'execute',side_effect=error),patch('agent.load_env'):
+                with self.assertRaises(SystemExit) as stopped:native.main()
+            self.assertEqual(stopped.exception.code,1)
+            self.assertNotIn('PRIVATE_SENTINEL',stderr.getvalue());self.assertNotIn('Traceback',stderr.getvalue())
+
     def qlik_export(self,app='app'):
         self.step('POST',f'/api/v1/apps/{app}/export',status=201,headers={'Location':'/api/v1/temp-contents/file'})
         self.step('GET','/api/v1/temp-contents/file',b'QVF test bytes; NOT engine-generated')
