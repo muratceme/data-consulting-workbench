@@ -925,6 +925,38 @@ def databricks_run(cfg, out, factory):
 HANDLERS = {'fabric-notebook':fabric_notebook,'dataform-compile':dataform_compile,'qlik-export':qlik,'qlik-template':qlik,'powerbi-export':powerbi,'tableau-export':tableau,'sap-b1-schema':sap,'sap-odata-schema':sap,'oracle-schema':oracle,'bigquery-table':bigquery,'bigquery-agent':bigquery,'databricks-profile':databricks_profile,'adf-deploy':adf,'adf-run':adf,'airflow-run':airflow,'sap-quotation-draft':sap_quotation_draft,'dbt-run':dbt_run,'prefect-run':prefect_run,'snowflake-quality':snowflake_quality,'github-actions-run':github_actions,'fivetran-sync':fivetran_sync,'airbyte-sync':airbyte_sync,'dataform-run':dataform_run,'powerbi-refresh':powerbi_refresh,'databricks-run':databricks_run,'databricks-monitor':databricks_run,'airbyte-monitor':airbyte_sync,'adf-monitor':adf,'airflow-monitor':airflow,'dbt-monitor':dbt_run,'prefect-monitor':prefect_run,'dataform-monitor':dataform_run,'powerbi-monitor':powerbi_refresh}
 
 
+RESUME_OPERATIONS = {
+    'databricks-run': ('databricks-monitor', ('job_id',), ('run_id',)),
+    'airbyte-sync': ('airbyte-monitor', ('connection_id',), ('job_id',)),
+    'adf-run': ('adf-monitor', ('pipeline_name',), ('run_id',)),
+    'airflow-run': ('airflow-monitor', ('dag_id',), ('dag_run_id',)),
+    'dbt-run': ('dbt-monitor', ('account_id','job_id'), ('run_id',)),
+    'prefect-run': ('prefect-monitor', ('deployment_id',), ('flow_run_id',)),
+    'dataform-run': ('dataform-monitor', ('compilation_result',), ('workflow_invocation',)),
+    'powerbi-refresh': ('powerbi-monitor', ('workspace_id','dataset_id'), ('refresh_id',)),
+}
+
+
+def resume_config(cfg, checkpoint):
+    if not isinstance(cfg,dict) or not isinstance(checkpoint,dict):
+        raise NativeError('Config ve çalışma kaydı JSON nesnesi olmalı.')
+    spec=RESUME_OPERATIONS.get(cfg.get('operation'))
+    if spec is None:
+        spec=next((entry for entry in RESUME_OPERATIONS.values() if entry[0]==cfg.get('operation')),None)
+    if spec is None:raise NativeError('Bu işlemde --resume-from desteklenmiyor; platform geçmişini kontrol edin.')
+    operation,context,identities=spec
+    for key in context:
+        if key not in checkpoint or checkpoint[key]!=cfg.get(key):
+            raise NativeError('Çalışma kaydı config kaynağıyla eşleşmedi: '+key)
+    for key in identities:
+        value=checkpoint.get(key)
+        if isinstance(value,bool) or not isinstance(value,(str,int)) or not value or (isinstance(value,int) and value<0):
+            raise NativeError('Çalışma kaydında geçerli '+key+' yok; yeni iş başlatılmadı.')
+    # Copy only run identifiers. Never accept URLs, tokens, operation names or parameters
+    # from a checkpoint; the original local configuration remains authoritative.
+    return {**cfg,'operation':operation,**{key:checkpoint[key] for key in identities}}
+
+
 def execute(cfg, output, factory=HTTP):
     op = cfg.get('operation')
     if op not in HANDLERS:
@@ -944,6 +976,7 @@ def main():
     agent.load_env()
     parser = argparse.ArgumentParser()
     parser.add_argument('--config',default='config.json'); parser.add_argument('--output',default='output')
+    parser.add_argument('--resume-from',help='Desteklenen işlemde önceki run-state.json ile yalnızca takip et')
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument('--plan',action='store_true'); mode.add_argument('--execute',action='store_true')
     args = parser.parse_args()
@@ -951,9 +984,15 @@ def main():
         cfg=json.loads(Path(args.config).read_text(encoding='utf-8'))
         if cfg.get('operation') not in HANDLERS:
             raise NativeError('Desteklenmeyen işlem.')
+        if args.resume_from:
+            checkpoint=input_json({'resume_file':args.resume_from},'resume_file',args.resume_from)
+            cfg=resume_config(cfg,checkpoint)
         if args.plan:
             contract_file = Path(args.config).resolve().parent / 'contract.json'
             contract = json.loads(contract_file.read_text(encoding='utf-8')) if contract_file.exists() else {}
+            if args.resume_from:
+                contract={key:value for key,value in contract.items() if key in ('sources','secrets','verification')}
+                contract.update(operation=cfg['operation'],effects='Mevcut iş yalnızca GET ile takip edilir; dbt başarı artifactı indirilir. Yeni iş başlatılmaz.',requirements='Önceki config kaynak adresleri korunmalı; geçerli okuma erişimi ve yeni/boş output gerekir.')
             print(json.dumps({'operation':cfg['operation'],'network_calls':0,'contract':contract,'instructions':'README izinlerini ve config.json değerlerini inceleyin. .env erişim bilgilerini girin; ardından --execute.'},ensure_ascii=False))
         else:
             print(json.dumps(execute(cfg,args.output),ensure_ascii=False))

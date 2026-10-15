@@ -250,6 +250,46 @@ class Contracts(unittest.TestCase):
             self.assertFalse((self.output/'notebook.ipynb').exists())
             self.assertEqual(json.loads((self.output/'run-state.json').read_text())['notebook_id'],self.FABRIC_ITEM)
 
+    def test_resume_maps_eight_platforms_without_loading_checkpoint_secrets_or_urls(self):
+        for start,(monitor,context,ids) in native.RESUME_OPERATIONS.items():
+            with self.subTest(operation=start):
+                cfg={'operation':start,'server':'https://trusted.example',**{key:'original-'+key for key in context}}
+                state={**{key:cfg[key] for key in context},**{key:123 for key in ids},'server':'https://untrusted.example','operation':'qlik-template','access_token':'PRIVATE_SENTINEL'}
+                resumed=native.resume_config(cfg,state)
+                self.assertEqual(resumed['operation'],monitor);self.assertEqual(resumed['server'],cfg['server'])
+                self.assertNotIn('access_token',resumed);self.assertEqual(cfg['operation'],start)
+                for key in ids:self.assertEqual(resumed[key],123)
+                self.assertEqual(native.resume_config(resumed,state),resumed)
+
+    def test_resume_rejects_missing_ids_wrong_source_and_unsupported_operations(self):
+        cfg={'operation':'databricks-run','job_id':17}
+        for state in [{'job_id':18,'run_id':42},{'job_id':17},{'job_id':17,'run_id':True},{'job_id':17,'run_id':-1}]:
+            with self.assertRaises(native.NativeError):native.resume_config(cfg,state)
+        with self.assertRaises(native.NativeError):native.resume_config({'operation':'fabric-notebook'},{})
+        self.assertFalse(self.received)
+
+    def test_cli_resume_plan_is_offline_and_reports_monitor_effects(self):
+        config=Path(self.temp.name)/'config.json';config.write_text('{"operation":"databricks-run","job_id":17}')
+        checkpoint=Path(self.temp.name)/'run-state.json';checkpoint.write_text('{"job_id":17,"run_id":42}')
+        contract=Path(self.temp.name)/'contract.json';contract.write_text('{"operation":"databricks-run","effects":"START NEW RUN"}')
+        stdout=io.StringIO()
+        with patch.object(sys,'argv',['native.py','--config',str(config),'--plan','--resume-from',str(checkpoint)]),patch.object(sys,'stdout',stdout),patch('agent.load_env'):
+            native.main()
+        plan=json.loads(stdout.getvalue())
+        self.assertEqual(plan['operation'],'databricks-monitor');self.assertEqual(plan['network_calls'],0)
+        self.assertNotIn('START NEW RUN',stdout.getvalue());self.assertFalse(self.received)
+
+    def test_cli_resume_executes_only_existing_databricks_run(self):
+        config=Path(self.temp.name)/'config.json';config.write_text('{"operation":"databricks-run","job_id":17,"workspace_url":"https://workspace.example"}')
+        checkpoint=Path(self.temp.name)/'run-state.json';checkpoint.write_text('{"job_id":17,"run_id":42}')
+        self.step('GET','/api/2.2/jobs/runs/get?run_id=42',{'job_id':17,'run_id':42,'state':{'life_cycle_state':'TERMINATED','result_state':'SUCCESS'}})
+        original=native.execute;stdout=io.StringIO()
+        with patch.object(sys,'argv',['native.py','--config',str(config),'--execute','--resume-from',str(checkpoint),'--output',str(self.output)]),patch.object(sys,'stdout',stdout),patch('agent.load_env'),patch.object(native,'execute',side_effect=lambda cfg,out:original(cfg,out,self.factory)):
+            native.main()
+        self.assertEqual(json.loads(stdout.getvalue())['operation'],'databricks-monitor')
+        self.assertEqual([request[0] for request in self.received],['GET'])
+        self.assertEqual(json.loads(checkpoint.read_text()),{'job_id':17,'run_id':42})
+
     def qlik_export(self,app='app'):
         self.step('POST',f'/api/v1/apps/{app}/export',status=201,headers={'Location':'/api/v1/temp-contents/file'})
         self.step('GET','/api/v1/temp-contents/file',b'QVF test bytes; NOT engine-generated')

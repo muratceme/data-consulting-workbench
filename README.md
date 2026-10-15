@@ -58,7 +58,7 @@ Sunucu varsayılan olarak `http://localhost:4322` üzerinde çalışır. Uygun d
 
 Yeni/boş çıktı klasörü gerekir. Yazma ve LLM maliyeti olabilen işlemler README'de belirtilir. Şema ve proje bağlamı seçilen modele gönderilir; agent satır verisi çekmez. Kısmi çalışma kimlikleri `run-state.json`, dosya özeti `manifest.json` içindedir. Otomatik rollback veya üretimde otomatik model-kodu yürütme yoktur.
 
-Toplam **158 test** geçti (152 Python + 6 görünüm testi). Test sayısı canlı tenant doğrulaması değildir.
+Toplam **162 test** geçti (156 Python + 6 görünüm testi). Test sayısı canlı tenant doğrulaması değildir.
 
 ## Test katmanları
 
@@ -94,3 +94,5 @@ Katalogdaki **Mevcut Databricks çalışmasını yeniden başlatmadan takip et**
 ## Diğer platformlarda kesinti sonrası takip
 
 ADF, Airflow, dbt Cloud, Prefect, Dataform ve Power BI için de ayrı takip paketleri bulunur. Bu paketler yeni çalışma başlatmadan mevcut kimliği sorgular; dbt başarılı çalışma artifact’ını indirir. Platform ve yapılandırma eşlemeleri [kurtarma rehberinde](docs/RECOVERY.md).
+
+Güncel sekiz takip akışında `--resume-from onceki/run-state.json` kullanılabilir: çalışma kimliği otomatik aktarılır, config kaynak kimlikleri karşılaştırılır, yeni iş başlatılmaz. Komut örnekleri [kurtarma rehberinde](docs/RECOVERY.md).

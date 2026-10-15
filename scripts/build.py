@@ -37,9 +37,15 @@ def build():
 
 ## Çalıştırma
 1. ZIP’i açın. `.env.example` dosyasını `.env` olarak kopyalayın; gerekli erişim değişkenlerini doldurun. Anahtarları tarayıcıya, config.json’a veya Git’e koymayın.
-2. `config.json` içindeki YOUR_ alanlarını doldurun. SQL işlemi için query.sql, agent için context.md dosyasını düzenleyin. Token alma/yenileme kullanıcının kimlik sağlayıcısında yapılır; paket token üretmez.
+2. `config.json` içindeki YOUR_ alanlarını ve 0/-1 kimlik yer tutucularını doldurun. Girdi dosyalarını README'deki işleme göre düzenleyin. Token alma/yenileme kullanıcının kimlik sağlayıcısında yapılır; paket token üretmez.
 3. `python native.py --plan` ile işlemi kontrol edin (ağ çağrısı yok).
 4. `python native.py --execute --output output/run-001` komutunu çalıştırın. Her çalışma için yeni/boş çıktı klasörü kullanın.
+
+## Kesinti sonrası takip
+Databricks job, Airbyte sync, ADF run, Airflow run, dbt run, Prefect run, Dataform invocation ve Power BI enhanced refresh paketleri önceki kaydı kullanabilir:
+`python native.py --plan --resume-from output/run-001/run-state.json`
+`python native.py --execute --resume-from output/run-001/run-state.json --output output/continued-001`
+Orijinal config kaynak adreslerini koruyun. Bu seçenek yeni iş başlatmaz; yalnızca mevcut işi takip eder. İş kimliği kaydedilmediyse önce platform geçmişinden bulun. Diğer işlemlerde bu seçenek açık hata verir; otomatik yeniden gönderim yapılmaz.
 
 ## Platform etkileri
 {task['effects']}

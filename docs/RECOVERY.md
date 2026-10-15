@@ -1,5 +1,18 @@
 # Kesinti sonrası mevcut çalışmayı takip etme
 
+## Güncel paketten tek komutla devam
+
+Aşağıdaki sekiz platformun güncel başlatma veya takip paketinde, önceki config kaynak adreslerini koruyarak kayıt dosyasını gösterebilirsiniz. Eski ZIP’lerde bu seçenek olmayabilir; güncel paketi indirin.
+
+```sh
+python native.py --plan --resume-from output/run-001/run-state.json
+python native.py --execute --resume-from output/run-001/run-state.json --output output/continued-001
+```
+
+Çalıştırıcı işi otomatik olarak ilgili monitor işlemine çevirir. Kaydın kaynak kimliklerini config ile karşılaştırır; yalnızca çalışma kimliklerini aktarır. Kayıttaki sunucu adresi, işlem adı veya anahtarlar kullanılmaz. Eksik/uyuşmayan kimlikte yeni iş başlatmadan durur. Workspace/server adresi orijinal config’te korunmalıdır; eski kayıtlar her platformun sunucu adresini içermediğinden adres değişikliğini kayıt üzerinden doğrulamak mümkün değildir. Bu komut Fabric, Qlik, SAP gibi tablodaki sekiz akışın dışındaki işlemlerde desteklenmez.
+
+## Kimlikleri elle aktarma
+
 Başlatma paketini yeniden çalıştırmak yeni bir platform işi oluşturabilir. Aşağıdaki ayrı takip paketleri yalnızca GET kullanır. Önceki `run-state.json` dosyasını koruyun; kimlikleri takip paketinin `config.json` dosyasına aktarın, geçerli erişimi yerel `.env` içine koyun ve yeni/boş bir çıktı klasörü seçin.
 
 | Paket | Önceki kayıttan alınacak kimlikler | Ek yapılandırma |
