@@ -42,7 +42,7 @@ def build():
 4. `python native.py --execute --output output/run-001` komutunu çalıştırın. Her çalışma için yeni/boş çıktı klasörü kullanın.
 
 ## Kesinti sonrası takip
-Databricks job, Airbyte sync, ADF run, Airflow run, dbt run, Prefect run, Dataform invocation ve Power BI enhanced refresh paketleri önceki kaydı kullanabilir:
+Fabric notebook job, Databricks job, Airbyte sync, ADF run, Airflow run, dbt run, Prefect run, Dataform invocation ve Power BI enhanced refresh paketleri önceki kaydı kullanabilir:
 `python native.py --plan --resume-from output/run-001/run-state.json`
 `python native.py --execute --resume-from output/run-001/run-state.json --output output/continued-001`
 Orijinal config kaynak adreslerini koruyun. Bu seçenek yeni iş başlatmaz; yalnızca mevcut işi takip eder. İş kimliği kaydedilmediyse önce platform geçmişinden bulun. Diğer işlemlerde bu seçenek açık hata verir; otomatik yeniden gönderim yapılmaz.

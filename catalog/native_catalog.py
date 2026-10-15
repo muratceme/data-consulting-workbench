@@ -1,6 +1,12 @@
 """Executable operations are explicit; taxonomy coverage is not implementation coverage."""
 COMMON = 'Python 3.10+. Anahtarlar yalnızca yerel .env/ortam değişkenlerinden okunur. --plan ağ çağrısı yapmaz; --execute API işlemini başlatır. HTML raporu teslim edilmez.'
 OPERATIONS = [
+ dict(operation='fabric-notebook-run', product='Fabric Lakehouse', domain='lakehouse', title='Fabric notebook çalıştır ve sonucunu takip et', output='Fabric RunNotebook job instance + sonuç kaydı', kind='code',
+      description='Hazır notebook kimliğini doğrular, varsayılan yapılandırmasıyla RunNotebook işi başlatır ve kesin job instance kimliğiyle Completed sonucunu bekler. Yeni notebook üretmez.',
+      config={'workspace_id':'YOUR_WORKSPACE_UUID','notebook_id':'YOUR_NOTEBOOK_UUID'}, secrets=['FABRIC_ACCESS_TOKEN'],
+      requirements='Notebook.Execute.All veya Item.Execute.All ve notebook/job okuma erişimi; workspace rolü, desteklenen kapasite, çalışma kimliği ve veri kaynaklarının yetkileri hazır olmalı. Notebook runtime, environment ve Lakehouse bağlantısı platformda önceden ayarlanmalı. Bu paket parametre/session override yapmaz.',
+      effects='Notebook hücreleri gerçek ortamda çalışır; içeriğine göre veri yazma/silme, dış servis çağrıları ve kapasite maliyeti oluşabilir. İncelenmiş notebook kullanın. POST otomatik tekrarlanmaz; yanıt kaybında platform geçmişinden job kimliğini bulun. Failed/Cancelled/Deduped başarı sayılmaz; timeout işi iptal etmez. Hücre çıktıları, exitValue ve hata ayrıntıları indirilmez. Yalnızca platformun tamamlanma durumu doğrulanır; iş kuralı doğruluğu ayrıca test edilmelidir.',
+      sources=['https://learn.microsoft.com/en-us/rest/api/fabric/core/job-scheduler/run-on-demand-item-job','https://learn.microsoft.com/en-us/rest/api/fabric/core/job-scheduler/get-item-job-instance','https://learn.microsoft.com/en-us/fabric/data-engineering/notebook-public-api']),
  dict(operation='fabric-notebook-export', product='Fabric Lakehouse', domain='lakehouse', title='Mevcut Fabric notebook kaynağını indir', output='Fabric’ten indirilen .ipynb kaynak dosyası', kind='code',
       description='Mevcut notebook kimliğini doğrular, getDefinition ile ipynb kaynağını indirir. Yeni notebook oluşturmaz ve hücreleri çalıştırmaz. Çıktıları temizlenmiş kaynak notebook desteklenir.',
       config={'workspace_id':'YOUR_WORKSPACE_UUID','notebook_id':'YOUR_NOTEBOOK_UUID'}, secrets=['FABRIC_ACCESS_TOKEN'],
@@ -180,6 +186,8 @@ OPERATIONS = [
 # These are design targets, not claims of a verified vendor capability.
 # Monitor packages retain vendor-specific identities and output contracts; no writes are made.
 MONITORS = [
+ ('fabric-notebook-run','fabric-notebook-monitor','Fabric notebook',{'job_instance_id':'YOUR_JOB_INSTANCE_UUID'},[],
+  'Fabric Notebook.Read.All/ReadWrite.All veya Item.Read.All/ReadWrite.All token ve notebook/job okuma erişimi; workspace_id/notebook_id/job_instance_id önceki çalışmaya ait olmalı.'),
  ('adf-run','adf-monitor','ADF pipeline',{'run_id':'YOUR_RUN_ID'},['parameters_file'],
   'ARM OAuth token ve pipelineRuns/read yetkisi; subscription/resource group/factory/pipeline ve run_id aynı çalışmayı göstermeli.'),
  ('airflow-run','airflow-monitor','Airflow DAG',{'dag_run_id':'YOUR_DAG_RUN_ID'},['conf_file'],

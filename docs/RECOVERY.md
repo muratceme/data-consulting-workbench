@@ -2,14 +2,14 @@
 
 ## Güncel paketten tek komutla devam
 
-Aşağıdaki sekiz platformun güncel başlatma veya takip paketinde, önceki config kaynak adreslerini koruyarak kayıt dosyasını gösterebilirsiniz. Eski ZIP’lerde bu seçenek olmayabilir; güncel paketi indirin.
+Aşağıdaki dokuz platformun güncel başlatma veya takip paketinde, önceki config kaynak adreslerini koruyarak kayıt dosyasını gösterebilirsiniz. Eski ZIP’lerde bu seçenek olmayabilir; güncel paketi indirin.
 
 ```sh
 python native.py --plan --resume-from output/run-001/run-state.json
 python native.py --execute --resume-from output/run-001/run-state.json --output output/continued-001
 ```
 
-Çalıştırıcı işi otomatik olarak ilgili monitor işlemine çevirir. Kaydın kaynak kimliklerini config ile karşılaştırır; yalnızca çalışma kimliklerini aktarır. Kayıttaki sunucu adresi, işlem adı veya anahtarlar kullanılmaz. Eksik/uyuşmayan kimlikte yeni iş başlatmadan durur. Workspace/server adresi orijinal config’te korunmalıdır; eski kayıtlar her platformun sunucu adresini içermediğinden adres değişikliğini kayıt üzerinden doğrulamak mümkün değildir. Bu komut Fabric, Qlik, SAP gibi tablodaki sekiz akışın dışındaki işlemlerde desteklenmez.
+Çalıştırıcı işi otomatik olarak ilgili monitor işlemine çevirir. Kaydın kaynak kimliklerini config ile karşılaştırır; yalnızca çalışma kimliklerini aktarır. Kayıttaki sunucu adresi, işlem adı veya anahtarlar kullanılmaz. Eksik/uyuşmayan kimlikte yeni iş başlatmadan durur. Workspace/server adresi orijinal config’te korunmalıdır; eski kayıtlar her platformun sunucu adresini içermediğinden adres değişikliğini kayıt üzerinden doğrulamak mümkün değildir. Bu komut Fabric notebook yayımlama/export, Qlik, SAP gibi tablodaki dokuz akışın dışındaki işlemlerde desteklenmez.
 
 ## Kimlikleri elle aktarma
 
@@ -17,6 +17,7 @@ Başlatma paketini yeniden çalıştırmak yeni bir platform işi oluşturabilir
 
 | Paket | Önceki kayıttan alınacak kimlikler | Ek yapılandırma |
 |---|---|---|
+| `fabric-notebook-monitor` | `workspace_id`, `notebook_id`, `job_instance_id` | UUID değerleri; yalnızca job durumu GET ile okunur |
 | `databricks-monitor` | `job_id`, `run_id` | Aynı `workspace_url` |
 | `airbyte-monitor` | `connection_id`, `job_id` | Airbyte Cloud |
 | `adf-monitor` | `pipeline_name`, `run_id` | Aynı subscription, resource group, factory |
@@ -31,7 +32,7 @@ python native.py --plan
 python native.py --execute --output output/continued-001
 ```
 
-Yaklaşık dört dakika sonunda yerel takip zaman aşımına uğrayabilir; platform işi iptal edilmez. Aynı kimliklerle yeni bir çıktı klasöründe tekrar takip edilebilir. Başarısız veya iptal edilmiş işler yeniden başlatılmaz ve başarı dosyası oluşturulmaz. dbt başarılı olduğunda platformun `run_results.json` artifact’ını da indirir.
+Çoğu pakette yaklaşık dört dakika sonunda yerel takip zaman aşımına uğrayabilir; platform işi iptal edilmez. Fabric job takibi API’nin Retry-After süresini izlediğinden daha uzun sürebilir. Aynı kimliklerle yeni bir çıktı klasöründe tekrar takip edilebilir. Başarısız veya iptal edilmiş işler yeniden başlatılmaz ve başarı dosyası oluşturulmaz. dbt başarılı olduğunda platformun `run_results.json` artifact’ını da indirir.
 
 Başlatma yanıtı kaybolduğu için iş kimliği yoksa önce platform geçmişinden bulun. `request_pending` kaydı işlemin başarısız olduğunu kanıtlamaz. API anahtarını veya parametre dosyasını kurtarma kaydına eklemeyin. Bu akış otomatik rollback, kimlik bilgisi yenileme veya tüm ürünler için genel resume değildir.
 
@@ -41,4 +42,4 @@ Doğrulama: yerel HTTP sözleşme testleri; canlı tenant kabulü henüz yapılm
 
 ## Fabric notebook indirmesini yeniden deneme
 
-Yayımlama sırasında `notebook_id` kaydedildiyse **Mevcut Fabric notebook kaynağını indir** paketine aynı workspace_id/notebook_id değerlerini girin. Paket yeni notebook oluşturmaz; getDefinition okuma işlemi için POST kullanır. Kaynak notebook çıktıları/ekleri temizlenmiş olmalı. Oluşturma operation kimliği var ama notebook_id yoksa önce Fabric işlem sonucunu platformda kontrol edin; yayımlama paketini tekrar başlatmak yeni öğe oluşturabilir. Fabric için `--resume-from` henüz desteklenmez.
+Yayımlama sırasında `notebook_id` kaydedildiyse **Mevcut Fabric notebook kaynağını indir** paketine aynı workspace_id/notebook_id değerlerini girin. Paket yeni notebook oluşturmaz; getDefinition okuma işlemi için POST kullanır. Kaynak notebook çıktıları/ekleri temizlenmiş olmalı. Oluşturma operation kimliği var ama notebook_id yoksa önce Fabric işlem sonucunu platformda kontrol edin; yayımlama paketini tekrar başlatmak yeni öğe oluşturabilir. Fabric yayımlama/export için `--resume-from` henüz desteklenmez; notebook çalıştırma için desteklenir.

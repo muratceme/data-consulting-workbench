@@ -250,7 +250,7 @@ class Contracts(unittest.TestCase):
             self.assertFalse((self.output/'notebook.ipynb').exists())
             self.assertEqual(json.loads((self.output/'run-state.json').read_text())['notebook_id'],self.FABRIC_ITEM)
 
-    def test_resume_maps_eight_platforms_without_loading_checkpoint_secrets_or_urls(self):
+    def test_resume_maps_supported_platforms_without_loading_checkpoint_secrets_or_urls(self):
         for start,(monitor,context,ids) in native.RESUME_OPERATIONS.items():
             with self.subTest(operation=start):
                 cfg={'operation':start,'server':'https://trusted.example',**{key:'original-'+key for key in context}}
@@ -315,6 +315,59 @@ class Contracts(unittest.TestCase):
         with self.assertRaises(native.NativeError):self.run_op('fabric-notebook-export',workspace_id=self.FABRIC_WORKSPACE,notebook_id=self.FABRIC_ITEM)
         self.assertFalse((self.output/'notebook.ipynb').exists())
         self.assertNotIn('PRIVATE_SENTINEL',(self.output/'run-state.json').read_text())
+
+    def fabric_job_start(self,**headers):
+        self.fabric_setup()
+        self.fabric_job_path='/v1/workspaces/'+self.FABRIC_WORKSPACE+'/items/'+self.FABRIC_ITEM+'/jobs/'
+        self.step('GET',self.fabric_path+'/'+self.FABRIC_ITEM,self.fabric_item)
+        self.step('POST',self.fabric_job_path+'RunNotebook/instances',status=202,payload=None,headers={'Location':'https://api.fabric.microsoft.com'+self.fabric_job_path+'instances/'+self.FABRIC_OPERATION,'Retry-After':'4',**headers})
+    def fabric_job_status(self,state='Completed',**extra):
+        self.step('GET',self.fabric_job_path+'instances/'+self.FABRIC_OPERATION,{'id':self.FABRIC_OPERATION,'itemId':self.FABRIC_ITEM,'jobType':'RunNotebook','status':state,**extra},headers={'Retry-After':'3'})
+    def fabric_job_execute(self,monitor=False):
+        return self.run_op('fabric-notebook-monitor' if monitor else 'fabric-notebook-run',workspace_id=self.FABRIC_WORKSPACE,notebook_id=self.FABRIC_ITEM,**({'job_instance_id':self.FABRIC_OPERATION} if monitor else {}))
+
+    def test_fabric_notebook_run_respects_retry_after_and_omits_exit_value(self):
+        self.fabric_job_start();self.fabric_job_status('InProgress');self.fabric_job_status(exitValue='PRIVATE_SENTINEL')
+        with patch.object(native.time,'sleep') as sleep:self.fabric_job_execute()
+        self.assertEqual([call.args[0] for call in sleep.call_args_list],[4,3]);self.assertFalse(self.queue)
+        self.assertNotIn('PRIVATE_SENTINEL',''.join(p.read_text() for p in self.output.iterdir()))
+
+    def test_fabric_job_fail_cancel_deduped_are_not_success(self):
+        for status in ('Failed','Cancelled','Deduped'):
+            self.output=Path(self.temp.name)/status;self.fabric_job_start();self.fabric_job_status(status,failureReason={'message':'PRIVATE_SENTINEL'})
+            with patch.object(native.time,'sleep'),self.assertRaises(native.NativeError):self.fabric_job_execute()
+            self.assertFalse((self.output/'manifest.json').exists());self.assertFalse(self.queue)
+            self.assertNotIn('PRIVATE_SENTINEL',(self.output/'run-state.json').read_text())
+
+    def test_fabric_job_identity_failure_blocks_delivery(self):
+        for index,extra in enumerate([{'id':self.FABRIC_ITEM},{'itemId':self.FABRIC_OPERATION},{'jobType':'OtherJob'},{'failureReason':{'message':'failure'}}]):
+            self.output=Path(self.temp.name)/str(index);self.fabric_job_start();self.fabric_job_status(**extra)
+            with patch.object(native.time,'sleep'),self.assertRaises(native.NativeError):self.fabric_job_execute()
+            self.assertFalse((self.output/'fabric-notebook-run.json').exists())
+
+    def test_fabric_job_untrusted_location_never_followed(self):
+        self.fabric_job_start(Location='https://other.example/jobs/'+self.FABRIC_OPERATION)
+        with self.assertRaises(native.NativeError):self.fabric_job_execute()
+        self.assertEqual(len(self.received),2)
+
+    def test_fabric_job_ambiguous_post_is_not_retried(self):
+        self.fabric_setup()
+        self.step('GET',self.fabric_path+'/'+self.FABRIC_ITEM,self.fabric_item)
+        self.step('POST','/v1/workspaces/'+self.FABRIC_WORKSPACE+'/items/'+self.FABRIC_ITEM+'/jobs/RunNotebook/instances',status=503)
+        with self.assertRaises(native.NativeError):self.fabric_job_execute()
+        self.assertEqual(len(self.received),2);self.assertEqual(json.loads((self.output/'run-state.json').read_text())['state'],'request_pending')
+
+    def test_fabric_job_timeout_then_resume_only_gets_existing_instance(self):
+        self.fabric_job_start()
+        for _ in range(120):self.fabric_job_status('InProgress')
+        with patch.object(native.time,'sleep'),self.assertRaisesRegex(native.NativeError,'zaman aşımı'):self.fabric_job_execute()
+        checkpoint=json.loads((self.output/'run-state.json').read_text());self.assertEqual(checkpoint['job_instance_id'],self.FABRIC_OPERATION)
+        self.assertFalse((self.output/'manifest.json').exists());before=len(self.received)
+        self.output=Path(self.temp.name)/'continued';self.fabric_job_status()
+        cfg=native.resume_config({'operation':'fabric-notebook-run','workspace_id':self.FABRIC_WORKSPACE,'notebook_id':self.FABRIC_ITEM},checkpoint)
+        native.execute(cfg,self.output,self.factory)
+        self.assertEqual([call[0] for call in self.received[before:]],['GET'])
+        self.assertTrue((self.output/'fabric-notebook-run.json').exists())
 
     def qlik_export(self,app='app'):
         self.step('POST',f'/api/v1/apps/{app}/export',status=201,headers={'Location':'/api/v1/temp-contents/file'})

@@ -798,6 +798,55 @@ def fabric_notebook(cfg, out, factory):
     return write_artifact(out,'notebook.ipynb',raw)
 
 
+def fabric_job(cfg, out, factory):
+    def guid(key):
+        try:return str(uuid.UUID(required(cfg,key)))
+        except ValueError:raise NativeError('Fabric '+key+' UUID olmalı.') from None
+    workspace=guid('workspace_id');item=guid('notebook_id')
+    monitoring=cfg['operation']=='fabric-notebook-monitor'
+    if monitoring:run=guid('job_instance_id')
+    client=factory('https://api.fabric.microsoft.com',{'Authorization':'Bearer '+secret('FABRIC_ACCESS_TOKEN')})
+    base='/v1/workspaces/'+workspace
+    path=base+'/items/'+item+'/jobs/instances/'
+    headers={}
+    journal(out,workspace_id=workspace,notebook_id=item,state='monitoring' if monitoring else 'checking')
+    if not monitoring:
+        notebook=client.json('GET',base+'/notebooks/'+item)
+        if notebook.get('id')!=item or notebook.get('workspaceId')!=workspace or notebook.get('type')!='Notebook':
+            raise NativeError('Fabric çalıştırılacak notebook kimliği eşleşmedi.')
+        journal(out,state='request_pending')
+        _,headers,status=client.request('POST',base+'/items/'+item+'/jobs/RunNotebook/instances',with_status=True)
+        if status!=202:raise NativeError('Fabric notebook çalıştırma kabulü doğrulanamadı; platform geçmişini kontrol edin.')
+        location=urlsplit(header(headers,'Location'))
+        if location.scheme!='https' or location.netloc!='api.fabric.microsoft.com' or not location.path.startswith(path) or location.query or location.fragment:
+            raise NativeError('Fabric job Location beklenen workspace/notebook ile eşleşmedi.')
+        raw_id=location.path[len(path):]
+        try:run=str(uuid.UUID(raw_id))
+        except ValueError:raise NativeError('Fabric job instance kimliği geçersiz; tekrar başlatmadan geçmişi kontrol edin.') from None
+        if raw_id!=run:raise NativeError('Fabric job instance yolu geçersiz.')
+    journal(out,job_instance_id=run,state='monitoring')
+    for attempt in range(120):
+        if not monitoring or attempt:
+            retry=header(headers,'Retry-After')
+            delay=int(retry) if retry.isdecimal() else 2
+            if delay>300:raise NativeError('Fabric uzun bekleme istedi; run-state.json kimliğiyle daha sonra takip edin.')
+            time.sleep(delay)
+        raw,headers,status=client.request('GET',path+run,with_status=True)
+        if status!=200:raise NativeError('Fabric job sorgusu beklenen HTTP durumunu döndürmedi.')
+        response=json_object(raw)
+        if response.get('id')!=run or response.get('itemId')!=item or response.get('jobType')!='RunNotebook':
+            raise NativeError('Fabric job/notebook/tür kimliği eşleşmedi.')
+        state=response.get('status')
+        if state not in ('NotStarted','InProgress','Completed','Failed','Cancelled','Deduped'):
+            raise NativeError('Fabric job durumu bilinmiyor.')
+        journal(out,state=state)
+        if state=='Completed':
+            if response.get('failureReason'):raise NativeError('Fabric Completed yanıtı hata bilgisi içeriyor; platformu kontrol edin.')
+            return receipt(out,'fabric-notebook-run.json',{'workspace_id':workspace,'notebook_id':item,'job_instance_id':run,'status':state})
+        if state in ('Failed','Cancelled','Deduped'):raise NativeError('Fabric notebook işi başarısız, iptal edildi veya atlandı.')
+    raise NativeError('Fabric notebook takip zaman aşımı; iş iptal edilmedi. Aynı kimlikle takip edin.')
+
+
 def dataform_compile(cfg, out, factory):
     parent=required(cfg,'repository')
     commit=required(cfg,'git_commit_sha').lower()
@@ -931,10 +980,11 @@ def databricks_run(cfg, out, factory):
     return receipt(out,'databricks-run.json',{'job_id':job,'run_id':run,'life_cycle_state':'TERMINATED','result_state':'SUCCESS'})
 
 
-HANDLERS = {'fabric-notebook-export':fabric_notebook,'fabric-notebook':fabric_notebook,'dataform-compile':dataform_compile,'qlik-export':qlik,'qlik-template':qlik,'powerbi-export':powerbi,'tableau-export':tableau,'sap-b1-schema':sap,'sap-odata-schema':sap,'oracle-schema':oracle,'bigquery-table':bigquery,'bigquery-agent':bigquery,'databricks-profile':databricks_profile,'adf-deploy':adf,'adf-run':adf,'airflow-run':airflow,'sap-quotation-draft':sap_quotation_draft,'dbt-run':dbt_run,'prefect-run':prefect_run,'snowflake-quality':snowflake_quality,'github-actions-run':github_actions,'fivetran-sync':fivetran_sync,'airbyte-sync':airbyte_sync,'dataform-run':dataform_run,'powerbi-refresh':powerbi_refresh,'databricks-run':databricks_run,'databricks-monitor':databricks_run,'airbyte-monitor':airbyte_sync,'adf-monitor':adf,'airflow-monitor':airflow,'dbt-monitor':dbt_run,'prefect-monitor':prefect_run,'dataform-monitor':dataform_run,'powerbi-monitor':powerbi_refresh}
+HANDLERS = {'fabric-notebook-run':fabric_job,'fabric-notebook-monitor':fabric_job,'fabric-notebook-export':fabric_notebook,'fabric-notebook':fabric_notebook,'dataform-compile':dataform_compile,'qlik-export':qlik,'qlik-template':qlik,'powerbi-export':powerbi,'tableau-export':tableau,'sap-b1-schema':sap,'sap-odata-schema':sap,'oracle-schema':oracle,'bigquery-table':bigquery,'bigquery-agent':bigquery,'databricks-profile':databricks_profile,'adf-deploy':adf,'adf-run':adf,'airflow-run':airflow,'sap-quotation-draft':sap_quotation_draft,'dbt-run':dbt_run,'prefect-run':prefect_run,'snowflake-quality':snowflake_quality,'github-actions-run':github_actions,'fivetran-sync':fivetran_sync,'airbyte-sync':airbyte_sync,'dataform-run':dataform_run,'powerbi-refresh':powerbi_refresh,'databricks-run':databricks_run,'databricks-monitor':databricks_run,'airbyte-monitor':airbyte_sync,'adf-monitor':adf,'airflow-monitor':airflow,'dbt-monitor':dbt_run,'prefect-monitor':prefect_run,'dataform-monitor':dataform_run,'powerbi-monitor':powerbi_refresh}
 
 
 RESUME_OPERATIONS = {
+    'fabric-notebook-run': ('fabric-notebook-monitor', ('workspace_id','notebook_id'), ('job_instance_id',)),
     'databricks-run': ('databricks-monitor', ('job_id',), ('run_id',)),
     'airbyte-sync': ('airbyte-monitor', ('connection_id',), ('job_id',)),
     'adf-run': ('adf-monitor', ('pipeline_name',), ('run_id',)),

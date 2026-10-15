@@ -45,7 +45,7 @@ Yalnızca son iki aşama tamamlanınca `live-tested` / `native-open-tested` işa
 
 - Airbyte mevcut job takibi: connection_id/job_id ile yalnızca GET; kesinti sonrasında aynı sync takip edilir. Yeni aktarım/reset/cancel başlatılmaz; eski çıktı dosyaları korunur.
 
-- Fabric Notebook: kullanıcı ipynb kaynağından yeni öğe oluşturma, 201/202 LRO takibi, workspace/öğe kontrolü ve getDefinition ile geri indirme. Hücre kaynakları karşılaştırılır; çıktı içeren girdi reddedilir. Mevcut notebook için yeni öğe oluşturmayan ayrı export paketi de var. Notebook execution, Lakehouse bağlama ve canlı Fabric kabulü henüz yok.
+- Fabric Notebook: kullanıcı ipynb kaynağından yeni öğe oluşturma, 201/202 LRO takibi, workspace/öğe kontrolü ve getDefinition ile geri indirme. Hücre kaynakları karşılaştırılır; çıktı içeren girdi reddedilir. Mevcut notebook için yeni öğe oluşturmayan ayrı export paketi de var. Mevcut notebook için ayrı RunNotebook çalıştırma ve GET takip paketleri var; kesin job kimliği/Completed kontrol edilir. Lakehouse/runtime bağlama, parametre/session override ve canlı Fabric kabulü henüz yok.
 
 ## Öncelikli kalan işler
 
@@ -62,7 +62,7 @@ Snowflake ilk kesiti: OAuth SQL API, benzersiz isimli kalıcı profil view’ı 
 
 ## Mevcut sınırlar
 
-- Otomatik OAuth consent/token yenileme, streaming büyük indirme, genel checkpoint resume henüz yok; Databricks, Airbyte, ADF, Airflow, dbt Cloud, Prefect, Dataform ve Power BI için mevcut iş kimliğiyle ayrı takip paketleri var.
+- Otomatik OAuth consent/token yenileme, streaming büyük indirme, genel checkpoint resume henüz yok; Databricks, Airbyte, ADF, Airflow, dbt Cloud, Prefect, Dataform, Power BI ve Fabric notebook işleri için mevcut iş kimliğiyle ayrı takip paketleri var.
 - Download redirect'leri güvenlik için reddedilir; bu bazı gerçek tenant akışlarını ayrıca geliştirmeyi gerektirebilir.
 - Qlik Cloud dışında QVF uyumluluğu kanıtlanmadı. PBIX ve Tableau test dosyaları yerel fixture, gerçek uygulama dosyası değil.
 - Başarısız yazma isteği otomatik tekrar edilmez; kullanıcı kaydedilen job/app ID'yi incelemelidir.
