@@ -18,7 +18,7 @@ try { saved = new Set(JSON.parse(localStorage.getItem('datawork-saved') || '[]')
 const BY_TOOL = {'Qlik':'Qlik','Microsoft Power BI':'Power BI','Tableau':'Tableau','SAP':'SAP','Oracle':'Oracle Fusion','Snowflake':'Snowflake','Databricks':'Databricks','Fivetran':'Fivetran','Airbyte':'Airbyte','dbt':'dbt Cloud','Prefect':'Prefect','Apache':'Airflow','GitHub':'GitHub Actions'};
 const BY_PRODUCT = {'Fabric Lakehouse':'Fabric','Azure Data Factory':'Data Factory','BigQuery':'BigQuery','Dataform':'Dataform','dbt Core':'dbt','dbt Cloud':'dbt','SQL dosyaları':'SQL','CSV / Excel':'CSV / Excel','Rapor gereksinimleri':'Rapor gereksinimleri'};
 // Local packages say what they hand over in one or two words.
-const LOCAL_TAG = {'veri-profili':'profil','kalite-kontrol':'kalite','tablo-mutabakati':'mutabakat','sql-soyagaci':'soy ağacı','pbit-model':'model dokümanı','tableau-envanter':'envanter','qlik-soyagaci':'soy ağacı','dbt-denetim':'denetim','sql-yazari':'.sql','dax-yazari':'.dax','veri-sozlugu':'sözlük','kalite-kurali':'rules.json','qlik-powerbi':'.m','kpi-tanimlayici':'KPI'};
+const LOCAL_TAG = {'veri-profili':'profil','kalite-kontrol':'kalite','tablo-mutabakati':'mutabakat','sql-soyagaci':'soy ağacı','pbit-model':'model dokümanı','tableau-envanter':'envanter','qlik-soyagaci':'soy ağacı','dbt-denetim':'denetim','sql-yazari':'.sql','dax-yazari':'.dax','veri-sozlugu':'sözlük','kalite-kurali':'rules.json','qlik-powerbi':'.m','kpi-tanimlayici':'KPI','kvkk-maskeleme':'maskeleme','sema-farki':'şema farkı','tarih-tablosu':'takvim','dosya-birlestir':'birleştirme','sql-aciklayici':'açıklama','donem-yorumu':'yorum'};
 const platformOf = t => BY_PRODUCT[t.product.name] || BY_TOOL[t.tool.name] || t.product.name;
 
 // The delivered thing, as short as a file extension.

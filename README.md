@@ -4,7 +4,7 @@ Veri işleri için iki tür paket: **kod blokları** (aynı girdiden hep aynı s
 
 ## Güncel durum
 
-15 Ekim 2026: 23 alan / 189 ürün bağlamı. **51 indirilebilir paket**: 37 platform API paketi (36 kod bloğu + BigQuery agent) ve 14 yerel paket (8 kod bloğu + 6 agent). Toplam 44 kod bloğu, 7 agent. Diğer 372 görev **planlanan entegrasyon**; indirme bağlantıları yok.
+16 Ekim 2026: 23 alan / 189 ürün bağlamı. **57 indirilebilir paket**: 37 platform API paketi (36 kod bloğu + BigQuery agent) ve 20 yerel paket (12 kod bloğu + 8 agent). Toplam 48 kod bloğu, 9 agent. Diğer 372 görev **planlanan entegrasyon**; indirme bağlantıları yok.
 
 ### Yerel kod blokları (internet yok, Python standart kütüphanesi)
 
@@ -18,10 +18,14 @@ Veri işleri için iki tür paket: **kod blokları** (aynı girdiden hep aynı s
 | Tableau envanteri | .twb/.twbx | Kaynaklar, hesaplanan alanlar, kullanılmayan alanlar |
 | Qlik soy ağacı | .qvs | Tablolar, kaynaklar, STORE/DROP, uyarılar, Mermaid |
 | dbt denetimi | manifest.json | Test/doküman kapsamı, katman kuralları, freshness |
+| KVKK maskeleme | CSV/XLSX | Takma ad (tuzlu HMAC) / kısmi / sil; not alanındaki gömülü veriler; yeniden tarama |
+| Şema farkı | İki DDL dosyası/klasörü | Eklenen/silinen tablo-sütun, tip daralması, NOT NULL, olası yeniden adlandırma, ALTER taslağı |
+| Tarih tablosu | Tarih aralığı + tatil dosyası | Türkçe takvim boyutu, resmî tatil, iş günü sırası, mali yıl; CSV + SQL |
+| Dosya birleştirme | CSV/XLSX klasörü | Tek tablo + kaynak dosya; şema kayması, ondalık ayırıcı farkı, mükerrer satır |
 
 ### Yerel AI agent’lar (Ollama, OpenAI veya Anthropic)
 
-SQL yazarı, DAX ölçü yazarı, veri sözlüğü, kalite kuralı önerici, Qlik → Power BI geçişi, KPI tanımlayıcı. Ortak kurallar (`library/agents/llm.py`): kişisel veri maskelenir, giden metin `output/gonderilecek-istek.json` dosyasına yazılır ve onay istenir (`--yes`), `--dry-run` modeli çağırmaz, model yanıtı JSON olarak yerelde denetlenir ve kurala uymazsa bir kez düzeltme istenir. Model üretimi hiçbir sistemde otomatik çalıştırılmaz.
+SQL yazarı, DAX ölçü yazarı, veri sözlüğü, kalite kuralı önerici, Qlik → Power BI geçişi, KPI tanımlayıcı, SQL açıklayıcı (yanıtta SQL’de olmayan tablo adı reddedilir) ve dönem yorumu (toplamlar kodla hesaplanır; metindeki her sayı bu olgularla eşleştirilir). Ortak kurallar (`library/agents/llm.py`): kişisel veri maskelenir, giden metin `output/gonderilecek-istek.json` dosyasına yazılır ve onay istenir (`--yes`), `--dry-run` modeli çağırmaz, model yanıtı JSON olarak yerelde denetlenir ve kurala uymazsa bir kez düzeltme istenir. Model üretimi hiçbir sistemde otomatik çalıştırılmaz.
 
 ### Platform API paketleri
 
@@ -82,7 +86,7 @@ Platform paketi:
 
 Yeni/boş çıktı klasörü gerekir. Yazma ve LLM maliyeti olabilen işlemler README'de belirtilir. Şema ve proje bağlamı seçilen modele gönderilir; agent satır verisi çekmez. Kısmi çalışma kimlikleri `run-state.json`, dosya özeti `manifest.json` içindedir. Otomatik rollback veya üretimde otomatik model-kodu yürütme yoktur.
 
-Toplam **189 test** geçiyor. Yerel paket testleri (`tests/test_local.py`) paketlenmiş kopyayı örnek veriyle çalıştırır; agent’lar OpenAI/Anthropic/Ollama biçiminde konuşan sahte model sunucusuyla test edilir (maskeleme, onay, dry-run, düzeltme denemesi, HTTP hatası). Agent’lar ayrıca yerel bir Ollama modeliyle (qwen3 14B) elle denendi. Test sayısı canlı tenant doğrulaması değildir.
+Toplam **197 test** geçiyor. Yerel paket testleri (`tests/test_local.py`) paketlenmiş kopyayı örnek veriyle çalıştırır; agent’lar OpenAI/Anthropic/Ollama biçiminde konuşan sahte model sunucusuyla test edilir (maskeleme, onay, dry-run, düzeltme denemesi, HTTP hatası). Agent’lar ayrıca yerel bir Ollama modeliyle (qwen3 14B) elle denendi. Test sayısı canlı tenant doğrulaması değildir.
 
 ## Test katmanları
 

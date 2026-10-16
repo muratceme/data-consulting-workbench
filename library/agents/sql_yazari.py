@@ -8,36 +8,11 @@ from pathlib import Path
 import llm
 from common import here, output_dir, write_json, write_text
 from sql_soyagaci import analyse, clean_sql, norm
+from sema_farki import display, schema_from_ddl
 
 DIALECTS = {'ansi': 'ANSI SQL', 'tsql': 'Microsoft SQL Server (T-SQL)', 'postgres': 'PostgreSQL', 'bigquery': 'Google BigQuery Standard SQL',
             'snowflake': 'Snowflake SQL', 'databricks': 'Databricks SQL', 'oracle': 'Oracle SQL', 'mysql': 'MySQL 8'}
 WRITE = re.compile(r'\b(INSERT|UPDATE|DELETE|MERGE|DROP|ALTER|CREATE|TRUNCATE|GRANT|REVOKE|EXEC|EXECUTE|CALL|COPY|UNLOAD|REPLACE\s+INTO)\b', re.I)
-
-
-def display(name):
-    return '.'.join(part.strip('[]"`') for part in re.split(r'\s*\.\s*', name.strip()))
-
-
-def schema_from_ddl(text):
-    tables = {}
-    for m in re.finditer(r'CREATE\s+(?:OR\s+REPLACE\s+)?(?:TEMP\w*\s+|TRANSIENT\s+)?TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([\w.\[\]"`]+)\s*\((.*?)\)\s*(?:;|\n\s*\n|$|WITH|PARTITION|CLUSTER|ENGINE|TBLPROPERTIES)', text, re.I | re.S):
-        cols = []
-        depth, buf = 0, ''
-        for ch in m.group(2) + ',':
-            if ch == '(':
-                depth += 1
-            elif ch == ')':
-                depth -= 1
-            if ch == ',' and depth == 0:
-                part = buf.strip()
-                buf = ''
-                if part and not re.match(r'^(PRIMARY|FOREIGN|CONSTRAINT|UNIQUE|CHECK|INDEX|KEY)\b', part, re.I):
-                    bits = part.split(None, 1)
-                    cols.append({'name': bits[0].strip('[]"`'), 'type': (bits[1] if len(bits) > 1 else '').split(' NOT ')[0].split(' DEFAULT ')[0].strip()})
-                continue
-            buf += ch
-        tables[display(m.group(1))] = cols
-    return tables
 
 
 def load_schema(path):

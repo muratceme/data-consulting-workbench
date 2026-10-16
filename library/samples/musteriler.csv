@@ -1,0 +1,13 @@
+musteri_no;ad_soyad;tckn;telefon;eposta;iban;dogum_tarihi;sehir;segment;notlar
+M001;Ayşe Yılmaz;10000791952;0540 254 60 93;musteri1@ornek.test;TR01 8159 0830 1661 3186 0913 90;19.10.1990;İzmir;Bireysel;
+M002;Mehmet Kaya;10001583884;0537 147 81 27;musteri2@ornek.test;TR46 2819 4821 9935 1819 0937 86;25.06.1994;Ankara;Kurumsal;
+M003;Zeynep Demir;10002375716;0541 406 41 33;musteri3@ornek.test;TR31 9487 5749 1186 2527 6018 95;11.12.1987;Antalya;Kurumsal;Aradı, yeni numarası +90 541 406 41 33
+M004;Ali Çelik;10003167648;0548 916 68 18;musteri4@ornek.test;TR14 7104 9746 5075 2917 0342 36;13.08.1970;Bursa;Bireysel;
+M005;Elif Şahin;10003959502;0544 511 80 45;musteri5@ornek.test;TR26 8465 6321 2233 0792 4402 68;12.10.2001;Trabzon;Kurumsal;
+M006;Mustafa Öztürk;10004751402;0534 807 75 89;musteri6@ornek.test;TR07 8666 6176 0313 7215 9010 92;18.02.1988;İstanbul;Bireysel;
+M007;Fatma Arslan;10005543334;0532 995 36 88;musteri7@ornek.test;TR62 4595 7117 7774 1215 4728 03;17.06.1974;İzmir;Bireysel;Fatura e-postası muhasebe@ornek.test olacak
+M008;Emre Doğan;10006335266;0554 640 48 92;musteri8@ornek.test;TR14 8525 3888 5393 3633 8750 04;16.05.1977;Ankara;Kurumsal;
+M009;Selin Aydın;10007127198;0544 927 54 56;musteri9@ornek.test;TR13 1373 5379 9075 1163 7265 16;15.07.1970;Antalya;Bireysel;VIP, teslimatta arayın
+M010;Burak Koç;10007919052;0535 230 13 29;musteri10@ornek.test;TR97 2997 5288 2001 8263 3043 48;08.10.1985;Bursa;Kurumsal;
+M011;Deniz Kurt;10008710962;0547 529 26 17;musteri11@ornek.test;TR57 9868 2828 8072 9022 2791 80;11.11.1998;Trabzon;Kurumsal;
+M012;Ceren Aksoy;10009502894;0555 895 23 81;musteri12@ornek.test;TR03 3401 8780 1759 8983 4788 78;08.12.1998;İstanbul;Kurumsal;

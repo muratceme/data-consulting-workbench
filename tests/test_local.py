@@ -12,6 +12,10 @@ from sql_soyagaci import analyse
 from qlik_soyagaci import parse as qlik_parse
 from kalite_kontrol import validate_rules
 from tablo_mutabakati import reconcile
+from sema_farki import narrowing, schema_from_ddl
+from tarih_tablosu import build as build_dates
+from donem_yorumu import unknown_numbers, allowed_numbers
+from datetime import date
 
 ITEMS = {i['id']: i for i in LOCAL}
 CLEAN_ENV = {k: v for k, v in os.environ.items() if not k.endswith(('_KEY', 'TOKEN')) and k not in ('PROVIDER', 'MODEL', 'OPENAI_BASE_URL', 'ANTHROPIC_BASE_URL', 'OLLAMA_URL')}
@@ -55,8 +59,8 @@ class LocalTestCase(unittest.TestCase):
 
 class PackageShape(LocalTestCase):
     def test_every_local_package_is_self_contained_and_has_no_network_code(self):
-        self.assertEqual(len(LOCAL), 14)
-        self.assertEqual(sum(i['kind'] == 'agent' for i in LOCAL), 6)
+        self.assertEqual(len(LOCAL), 20)
+        self.assertEqual(sum(i['kind'] == 'agent' for i in LOCAL), 8)
         for item in LOCAL:
             names = local_package.files(item)
             for required in ('main.py', 'README.md', 'LICENSE', 'task.json', 'run.bat', '.gitignore'):
@@ -208,6 +212,85 @@ class CodeBlocks(LocalTestCase):
         self.assertEqual(audit['summary']['unused_sources'], 1)
 
 
+    def test_kvkk_maskeleme_pseudonyms_are_stable_and_nothing_leaks(self):
+        p = self.package('kvkk-maskeleme')
+        done = self.ok(p.run('--salt', 'test-tuzu'))
+        self.assertIn('Kalan kişisel veri: 0', done.stdout)
+        summary = p.json('ozet.json')
+        self.assertEqual(sorted(summary['columns']), ['ad_soyad', 'dogum_tarihi', 'eposta', 'iban', 'tckn', 'telefon'])
+        self.assertEqual(summary['embedded'], {'notlar': 2})  # notes keep their text, only the embedded phone/e-mail is masked
+        rows = p.csv('maskeli.csv')
+        text = p.out('maskeli.csv').read_text(encoding='utf-8-sig')
+        for leaked in ('@ornek.test', 'Ayşe Yılmaz', '10000791952'):
+            self.assertNotIn(leaked, text)
+        self.assertEqual(rows[8]['notlar'], 'VIP, teslimatta arayın')
+        self.assertEqual(rows[2]['notlar'], 'Aradı, yeni numarası [TELEFON]')
+        self.assertEqual(rows[0]['sehir'], 'İzmir')
+        first = rows[0]['tckn']
+        self.ok(p.run('--salt', 'test-tuzu'))
+        self.assertEqual(p.csv('maskeli.csv')[0]['tckn'], first)  # same salt → same pseudonym, joins keep working
+        self.ok(p.run('--salt', 'baska-tuz'))
+        self.assertNotEqual(p.csv('maskeli.csv')[0]['tckn'], first)
+        self.ok(p.run('--method', 'kismi', '--keep', 'dogum_tarihi'))
+        row = p.csv('maskeli.csv')[0]
+        self.assertEqual((row['tckn'], row['eposta'], row['ad_soyad']), ('10*******52', 'm***@ornek.test', 'A*** Y***'))
+        self.assertEqual(row['dogum_tarihi'], '19.10.1990')
+        done = p.run('--columns', 'yok')
+        self.assertEqual(done.returncode, 1)
+        self.assertIn('sütunu dosyada yok', done.stderr)
+
+    def test_sema_farki_sample_and_strict(self):
+        p = self.package('sema-farki')
+        done = p.run('--strict')
+        self.assertEqual(done.returncode, 2, done.stderr)
+        diffs = {(d['tablo'], d['sutun'], d['degisiklik']): d for d in p.json('fark.json')['differences']}
+        self.assertIn(('dbo.Musteriler', 'TelefonNo', 'olası yeniden adlandırma'), diffs)
+        self.assertIn(('dbo.Iadeler', '', 'tablo eklendi'), diffs)
+        self.assertIn(('dbo.EskiKampanyalar', '', 'tablo silindi'), diffs)
+        self.assertEqual(diffs[('dbo.Siparisler', 'Tutar', 'tip değişti')]['risk'], 'daralma: veri kesilebilir')
+        self.assertEqual(diffs[('dbo.Siparisler', 'SiparisTarihi', 'tip değişti')]['risk'], '')
+        self.assertEqual(diffs[('dbo.Siparisler', 'Durum', 'tip değişti')]['risk'], '')
+        self.assertIn(('dbo.Musteriler', 'KayitTarihi', 'NOT NULL oldu'), diffs)
+        alter = p.out('alter-taslak.sql').read_text(encoding='utf-8')
+        self.assertIn('-- DİKKAT veri kaybı: ALTER TABLE dbo.Siparisler DROP COLUMN Aciklama;', alter)
+        self.ok(p.run('--old', 'ornek/sema_v1.sql', '--new', 'ornek/sema_v1.sql', '--strict'))
+        self.assertIn('İki şema aynı', p.out('sema-farki.md').read_text(encoding='utf-8'))
+
+    def test_tarih_tablosu_sample(self):
+        p = self.package('tarih-tablosu')
+        self.ok(p.run('--start', '2026-01-01', '--end', '2026-12-31', '--fiscal-start', '4'))
+        rows = {r['tarih']: r for r in p.csv('tarih-tablosu.csv')}
+        self.assertEqual(len(rows), 365)
+        self.assertEqual((rows['2026-10-29']['tatil_adi'], rows['2026-10-29']['is_gunu']), ('Cumhuriyet Bayramı', '0'))
+        self.assertEqual((rows['2026-10-28']['yarim_gun'], rows['2026-10-28']['is_gunu']), ('1', '1'))
+        self.assertEqual(rows['2026-05-27']['tatil_adi'], 'Kurban Bayramı 1. gün')  # from ornek/tatiller.csv
+        self.assertEqual(rows['2026-03-31']['mali_yil'], '2026')
+        self.assertEqual((rows['2026-04-01']['mali_yil'], rows['2026-04-01']['mali_ay']), ('2027', '1'))
+        self.assertEqual((rows['2026-12-31']['iso_hafta'], rows['2026-01-01']['gun_adi']), ('53', 'Perşembe'))
+        self.assertEqual(rows['2026-02-02']['aydaki_is_gunu_sirasi'], '1')
+        self.assertIn('INSERT INTO dim_tarih', p.out('tarih-tablosu.sql').read_text(encoding='utf-8'))
+        done = p.run('--start', '2026-02-30')
+        self.assertEqual(done.returncode, 1)
+        self.assertIn('YYYY-AA-GG', done.stderr)
+
+    def test_dosya_birlestir_sample(self):
+        p = self.package('dosya-birlestir')
+        self.ok(p.run())
+        summary = p.json('ozet.json')
+        self.assertEqual((summary['rows'], summary['duplicate_rows'], summary['columns']), (16, 1, ['Sipariş No', 'Sipariş Tarihi', 'Bölge', 'Tutar', 'kanal']))
+        self.assertEqual(summary['mixed_decimal_columns'], ['Tutar'])
+        missing = {f['dosya']: f['eksik'] for f in summary['files']}
+        self.assertEqual(missing, {'2026-07.csv': ['kanal'], '2026-08.csv': [], '2026-09.csv': ['Bölge']})
+        rows = p.csv('birlesik.csv')
+        self.assertEqual(rows[-1]['kaynak_dosya'], '2026-09.csv')
+        self.ok(p.run('--normalize-numbers'))
+        amounts = [r['Tutar'] for r in p.csv('birlesik.csv')]
+        self.assertTrue(all(',' not in a for a in amounts), amounts)
+        done = p.run('--strict')
+        self.assertEqual(done.returncode, 1)
+        self.assertIn('--strict', done.stderr)
+
+
 class Helpers(unittest.TestCase):
     def test_masking_is_checksum_aware(self):
         text, counts = mask_text('a@b.co 10000000146 12345678901 0532 123 45 67 TR330006100519786457841326')
@@ -223,6 +306,32 @@ class Helpers(unittest.TestCase):
             self.assertEqual(path.read_text(encoding='utf-8-sig').splitlines()[1:], ['"\'=HYPERLINK(""x"")"', '-5'])
             path.write_bytes('ad;şehir\nAli;İzmir\n'.encode('cp1254'))
             self.assertEqual(tabular.read(path)[1], [{'ad': 'Ali', 'şehir': 'İzmir'}])
+
+
+    def test_schema_parser_and_narrowing(self):
+        t = schema_from_ddl("/* x */ CREATE TABLE a.b ([Id] INT NOT NULL, Ad NVARCHAR(50) DEFAULT ('x,y'), Fiyat DECIMAL(18, 2), PRIMARY KEY (Id)); -- son")
+        self.assertEqual([(c['name'], c['type'], c['nullable'], c['pk']) for c in t['a.b']],
+                         [('Id', 'INT', False, True), ('Ad', 'NVARCHAR(50)', True, False), ('Fiyat', 'DECIMAL(18, 2)', True, False)])
+        for old, new, risky in [('VARCHAR(50)', 'VARCHAR(20)', True), ('VARCHAR(20)', 'NVARCHAR(20)', False), ('NVARCHAR(MAX)', 'NVARCHAR(100)', True),
+                                ('INT', 'BIGINT', False), ('BIGINT', 'INT', True), ('DECIMAL(18,2)', 'DECIMAL(20,4)', False), ('DECIMAL(18,2)', 'DECIMAL(18,4)', True), ('DECIMAL(18,4)', 'DECIMAL(18,2)', True),
+                                ('DATE', 'DATETIME2', False), ('DATETIME', 'DATE', True), ('INT', 'VARCHAR(10)', True)]:
+            self.assertEqual(narrowing(old, new), risky, f'{old} → {new}')
+
+    def test_date_dimension_holidays(self):
+        rows = {r['tarih']: r for r in build_dates(date(2026, 1, 1), date(2026, 12, 31), {date(2026, 3, 20): ('Ramazan Bayramı', False)})}
+        self.assertEqual(sum(r['resmi_tatil'] for r in rows.values()), 8)
+        self.assertEqual(rows['2026-03-20']['is_gunu'], 0)
+        self.assertEqual(rows['2026-07-15']['tatil_adi'], 'Demokrasi ve Millî Birlik Günü')
+        with self.assertRaisesRegex(ValueError, 'önce'):
+            build_dates(date(2026, 2, 1), date(2026, 1, 1), {})
+
+    def test_number_check_allows_rounding_but_not_invention(self):
+        facts = [{'olgu': 'Toplam 2026-09: 1.234.567,89; önceki 2026-08: 1.100.000,00; değişim 134.567,89 (%12,2)'}]
+        labels = {'2026-09', '2026-08'}
+        values = allowed_numbers(facts, labels)
+        for ok in ('2026-09 döneminde ciro %12,2 arttı', 'Ciro 1,2 milyon TL', 'yaklaşık %12', '134,6 bin TL', 'iki kanal, 2 bölge', '1.234.567,89 TL'):
+            self.assertEqual(unknown_numbers(ok, values, labels), [], ok)
+        self.assertEqual(unknown_numbers('Ciro %15 arttı ve 48.000 TL kayıp var', values, labels), ['15', '48.000'])
 
 
 # ---------------------------------------------------------------- agents
@@ -275,6 +384,9 @@ class FakeModel:
         self.server.server_close()
 
 
+sys.path.insert(0, str(ROOT / 'library' / 'agents'))
+from sql_aciklayici import statements as sql_statements
+N_SQL = len(sql_statements(ROOT / 'library' / 'samples' / 'sql'))
 GOOD = {
     'sql-yazari': {'sql': 'SELECT m.Sehir, SUM(k.Adet * k.BirimFiyat) AS Ciro FROM dbo.Siparisler s JOIN dbo.Musteriler m ON m.MusteriNo = s.MusteriNo '
                           'JOIN dbo.SiparisKalemleri k ON k.SiparisNo = s.SiparisNo GROUP BY m.Sehir', 'aciklama': 'Şehir bazında ciro.', 'varsayimlar': ['KDV hariç']},
@@ -293,7 +405,13 @@ GOOD = {
                                    {'ad': 'Tekrar alım oranı', 'tanim': '…', 'formul': '[tekrar_eden_musteri] / [musteri]', 'hedef_yonu': 'yukarı'}],
                         'genel_acik_sorular': ['90 mı 180 gün mü?']},
 }
-OUTPUTS = {'sql-yazari': 'sorgu.sql', 'dax-yazari': 'olculer.dax', 'veri-sozlugu': 'veri-sozlugu.md', 'kalite-kurali': 'rules.json',
+GOOD['sql-aciklayici'] = {'genel_ozet': 'ERP siparişlerinden müşteri özeti üretir.',
+                          'ifadeler': [{'no': f'S{i}', 'amac': f'{i}. adım', 'is_kurallari': ['İptaller hariç'], 'dikkat': []} for i in range(1, N_SQL + 1)],
+                          'sorular': ['Segment tablosu ne sıklıkla güncelleniyor?']}
+GOOD['donem-yorumu'] = {'baslik': 'Eylülde ciro %3,8 geriledi', 'ozet': 'Toplam ciro 119.487,60 ile önceki aya göre %3,8 düştü; düşüşü Ege sürükledi.',
+                        'bulgular': [{'metin': 'Ege %23,7 geriledi (-7.305,10).', 'kanit': ['F2']}, {'metin': 'Marmara %3,9 büyüdü.', 'kanit': ['F3']}],
+                        'aksiyonlar': ['Ege mağazalarını inceleyin.'], 'sorular': ['Ege’de mağaza kapanışı oldu mu?']}
+OUTPUTS = {'sql-aciklayici': 'sql-aciklama.md', 'donem-yorumu': 'donem-yorumu.md', 'sql-yazari': 'sorgu.sql', 'dax-yazari': 'olculer.dax', 'veri-sozlugu': 'veri-sozlugu.md', 'kalite-kurali': 'rules.json',
            'qlik-powerbi': 'gecis-plani.md', 'kpi-tanimlayici': 'kpi-katalogu.md'}
 KPI_ARGS = ('--data', 'ornek/satislar.csv')
 
@@ -342,6 +460,24 @@ class Agents(LocalTestCase):
         p, done = self.run_agent('qlik-powerbi', '--yes', answers=[GOOD['qlik-powerbi']])
         self.assertTrue((p.dir / 'output' / 'power-query' / 'Hedefler.m').is_file())
 
+    def test_new_agents_reject_invented_tables_and_numbers(self):
+        invented = {**GOOD['sql-aciklayici'], 'genel_ozet': 'Sonuç `mart.olmayan_tablo` tablosuna yazılır.'}
+        p, done = self.run_agent('sql-aciklayici', '--yes', answers=[invented, GOOD['sql-aciklayici']])
+        self.ok(done)
+        retry = self.model.requests[1]['body']['messages'][-1]['content']
+        self.assertIn('mart.olmayan_tablo', retry)
+        md = p.out('sql-aciklama.md').read_text(encoding='utf-8')
+        self.assertIn('WHERE olmadan UPDATE', md)  # risks come from code, not from the model
+        self.assertIn('flowchart LR', md)
+        self.model.requests.clear()
+        p, done = self.run_agent('donem-yorumu', '--yes', answers=[{**GOOD['donem-yorumu'], 'ozet': 'Ciro 250.000 TL azaldı.'}, GOOD['donem-yorumu']])
+        self.ok(done)
+        self.assertIn('250.000', self.model.requests[-1]['body']['messages'][-1]['content'])
+        sent = self.model.requests[0]['body']['messages'][-1]['content']
+        self.assertIn('F1: Toplam ciro 2026-09: 119.487,60', sent)
+        self.assertNotIn('01.09.2026', sent)  # rows never leave, only computed facts
+        self.assertEqual(p.csv('olgular.csv')[1]['grup'], 'bolge')
+
     def test_invalid_answer_gets_one_corrective_retry(self):
         bad = {'sql': 'SELECT s.KalemlerToplamCiro FROM dbo.Siparisler s'}
         p, done = self.run_agent('sql-yazari', '--yes', answers=[bad, GOOD['sql-yazari']])
@@ -354,7 +490,9 @@ class Agents(LocalTestCase):
     def test_two_invalid_answers_stop_without_output(self):
         for item_id, bad in [('sql-yazari', {'sql': 'DELETE FROM dbo.Urunler'}), ('dax-yazari', {'olculer': [{'ad': 'X', 'tablo': 'Satislar', 'ifade': 'SUM(Satislar[Yok])'}]}),
                              ('qlik-powerbi', {'tablolar': []}), ('veri-sozlugu', {'sutunlar': [{'ad': 'siparis_no', 'aciklama': 'x'}]}),
-                             ('kalite-kurali', {'rules': [{'column': 'olmayan', 'check': 'not_null'}]}), ('kpi-tanimlayici', 'bu json değil')]:
+                             ('kalite-kurali', {'rules': [{'column': 'olmayan', 'check': 'not_null'}]}), ('kpi-tanimlayici', 'bu json değil'),
+                             ('sql-aciklayici', {**GOOD['sql-aciklayici'], 'ifadeler': GOOD['sql-aciklayici']['ifadeler'][:-1]}),
+                             ('donem-yorumu', {**GOOD['donem-yorumu'], 'ozet': 'Ciro %9 düştü.'})]:
             with self.subTest(item_id):
                 p, done = self.run_agent(item_id, '--yes', answers=[bad, bad])
                 self.assertEqual(done.returncode, 1)
