@@ -1,0 +1,9 @@
+
+GROUP           TOPIC           PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                   HOST            CLIENT-ID
+siparis-etl     siparisler      0          1048200         1048230         30              consumer-1-6f1c2b0e-4a1b-4c8e-9a2d-1f0e3b5c7d9a /10.0.1.21      consumer-1
+siparis-etl     siparisler      1          1047990         1048010         20              consumer-1-6f1c2b0e-4a1b-4c8e-9a2d-1f0e3b5c7d9a /10.0.1.21      consumer-1
+siparis-etl     siparisler      2          998000          1048100         50100           consumer-2-0b7e4c3d-9f2a-4e1b-8c6d-5a4b3c2d1e0f /10.0.1.22      consumer-2
+
+GROUP           TOPIC           PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID     HOST            CLIENT-ID
+fatura-arsiv    faturalar       0          220100          389000          168900          -               -               -
+fatura-arsiv    faturalar       1          219800          388700          168900          -               -               -

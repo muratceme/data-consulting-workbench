@@ -1,0 +1,40 @@
+{
+  "type": "record",
+  "name": "Siparis",
+  "namespace": "com.ornek",
+  "fields": [
+    {
+      "name": "siparis_id",
+      "type": "string"
+    },
+    {
+      "name": "tutar",
+      "type": "float"
+    },
+    {
+      "name": "para_birimi",
+      "type": "string",
+      "default": "TRY"
+    },
+    {
+      "name": "kanal",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    },
+    {
+      "name": "musteri_id",
+      "type": "string"
+    },
+    {
+      "name": "kampanya",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    }
+  ]
+}

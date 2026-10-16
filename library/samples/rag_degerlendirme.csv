@@ -1,0 +1,6 @@
+soru_id;soru;beklenen;getirilen
+Q1;İade süresi kaç gün?;iade_politikasi.md#1;iade_politikasi.md#1|kargo.md#1|iade_politikasi.md#2
+Q2;Kargo ücretsiz limiti nedir?;kargo.md#2;kargo_kopya.md#2|kargo.md#2|kargo.md#1
+Q3;Hasarlı ürün ne yapılmalı?;iade_politikasi.md#3;kargo.md#1|iade_politikasi.md#2|tedarikci_notu.txt#1
+Q4;Para iadesi ne zaman?;iade_politikasi.md#2;iade_politikasi.md#2|iade_politikasi.md#1
+Q5;İstanbul teslimat süresi?;kargo.md#1;kargo.md#1

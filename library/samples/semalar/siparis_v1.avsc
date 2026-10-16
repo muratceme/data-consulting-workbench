@@ -1,0 +1,32 @@
+{
+  "type": "record",
+  "name": "Siparis",
+  "namespace": "com.ornek",
+  "fields": [
+    {
+      "name": "siparis_id",
+      "type": "string"
+    },
+    {
+      "name": "tutar",
+      "type": "double"
+    },
+    {
+      "name": "para_birimi",
+      "type": "string",
+      "default": "TRY"
+    },
+    {
+      "name": "kanal",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    },
+    {
+      "name": "not",
+      "type": "string"
+    }
+  ]
+}
