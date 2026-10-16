@@ -1,0 +1,15 @@
+2026-10-15 08:00:01,123 INFO  [main] Uygulama başladı
+2026-10-15 08:01:10,001 ERROR [worker-1] Sipariş 10234 işlenemedi: zaman aşımı (5000 ms)
+2026-10-15 08:02:11,002 ERROR [worker-2] Sipariş 10240 işlenemedi: zaman aşımı (5000 ms)
+2026-10-15 08:03:12,003 WARN  [worker-1] Yavaş sorgu 2300 ms
+2026-10-15 08:04:00,000 ERROR [api] Kullanıcı ayse@ornek.test için yetki hatası, istek id 3f2a9c1e-1b2c-4d5e-8f90-123456789abc
+2026-10-15 08:05:00,000 ERROR [api] Kullanıcı mehmet@ornek.test için yetki hatası, istek id 7b1d2e3f-aaaa-bbbb-cccc-0123456789ab
+2026-10-15 08:06:00,000 ERROR [db] Bağlantı havuzu dolu (aktif=50, bekleyen=12)
+Traceback (most recent call last):
+  File "/app/isle.py", line 42, in isle
+    raise ValueError("geçersiz tutar")
+ValueError: geçersiz tutar
+2026-10-15 08:07:00,000 FATAL [main] Disk dolu: /var/lib/app 98%
+2026-10-15 08:08:00,000 ERROR [worker-3] Sipariş 10301 işlenemedi: zaman aşımı (7000 ms)
+2026-10-15 08:09:00,000 INFO  [main] Sağlık kontrolü tamam
+2026-10-15 08:10:00,000 INFO  [main] Kapanış

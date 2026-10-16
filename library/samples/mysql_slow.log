@@ -1,0 +1,40 @@
+/usr/sbin/mysqld, Version: 8.0.36 (MySQL Community Server - GPL). started with:
+Tcp port: 3306  Unix socket: /var/run/mysqld/mysqld.sock
+Time                 Id Command    Argument
+# Time: 2026-10-15T10:00:01.000000Z
+# User@Host: app[app] @  [10.0.0.5]  Id:    12
+# Query_time: 2.500000  Lock_time: 0.000100 Rows_sent: 10  Rows_examined: 500000
+use magaza;
+SET timestamp=1760522401;
+SELECT * FROM siparis WHERE musteri_id = 42;
+# Time: 2026-10-15T10:05:12.000000Z
+# User@Host: app[app] @  [10.0.0.6]  Id:    15
+# Query_time: 3.000000  Lock_time: 0.000080 Rows_sent: 5  Rows_examined: 500000
+SET timestamp=1760522712;
+SELECT * FROM siparis WHERE musteri_id = 77;
+# Time: 2026-10-15T10:07:00.000000Z
+# User@Host: stok[stok] @  [10.0.0.9]  Id:    21
+# Query_time: 1.200000  Lock_time: 0.900000 Rows_sent: 0  Rows_examined: 1
+SET timestamp=1760522820;
+UPDATE stok SET adet = adet - 1 WHERE urun_id = 'U-1';
+# Time: 2026-10-15T11:00:00.000000Z
+# User@Host: rapor[rapor] @  [10.0.0.20]  Id:    33
+# Query_time: 5.000000  Lock_time: 0.000100 Rows_sent: 120  Rows_examined: 2400000
+SET timestamp=1760526000;
+SELECT u.ad, COUNT(*)
+FROM urun u JOIN siparis_kalem k ON k.urun_id = u.id
+WHERE u.kategori IN (1, 2, 3)
+GROUP BY u.ad;
+# Time: 2026-10-15T12:00:00.000000Z
+# User@Host: rapor[rapor] @  [10.0.0.20]  Id:    34
+# Query_time: 4.000000  Lock_time: 0.000100 Rows_sent: 80  Rows_examined: 2400000
+SET timestamp=1760529600;
+SELECT u.ad, COUNT(*)
+FROM urun u JOIN siparis_kalem k ON k.urun_id = u.id
+WHERE u.kategori IN (4,5)
+GROUP BY u.ad;
+# Time: 2026-10-15T12:30:00.000000Z
+# User@Host: app[app] @  [10.0.0.5]  Id:    12
+# Query_time: 1.000000  Lock_time: 0.000050 Rows_sent: 1  Rows_examined: 120000
+SET timestamp=1760531400;
+SELECT * FROM musteri WHERE eposta = 'a@ornek.test';
