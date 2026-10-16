@@ -253,7 +253,7 @@ def catalog(domains):
                     tasks.append({**op,'id':pid+'-'+op['operation'],'engine':'native','execution':'Platform API + LLM' if op['kind']=='agent' else 'Platform API','status':'contract-tested','input':op['requirements'],'reason':'Şema ve iş amacı yorumlanır; sonuç platform API’sinde doğrulanır.' if op['kind']=='agent' else 'İşlem sırası ve girdi/çıktı sözleşmesi sabittir; LLM gerekmez.','verification':{'contract':'tested','live':'not-tested','native_open':'not-tested'}})
                 for item in LOCAL:
                     if item['domain']==did and item['product']==product:
-                        tasks.append({**{k:v for k,v in item.items() if k not in ('domain','product','main','modules','samples')},'id':pid+'-'+item['id'],'local_id':item['id'],'operation':item['id'],
+                        tasks.append({**{k:v for k,v in item.items() if k not in ('domain','product','main','modules','samples','spec','op')},'id':pid+'-'+item['id'],'local_id':item['id'],'operation':item['id'],
                                       'engine':'local','execution':'Yerel Python + LLM' if item['kind']=='agent' else 'Yerel Python','status':'tested','files':sorted(item['samples']),
                                       'reason':'Muhakeme gereken adım modele, ayrıştırma ve denetim koda bırakılır.' if item['kind']=='agent' else 'Girdi ve kurallar açık; sonuç deterministik hesaplanır.',
                                       'verification':{'contract':'not-applicable','local':'tested','live':'not-tested'}})

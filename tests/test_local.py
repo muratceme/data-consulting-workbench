@@ -59,8 +59,9 @@ class LocalTestCase(unittest.TestCase):
 
 class PackageShape(LocalTestCase):
     def test_every_local_package_is_self_contained_and_has_no_network_code(self):
-        self.assertEqual(len(LOCAL), 20)
+        self.assertEqual(len([i for i in LOCAL if not i.get('op')]), 20)
         self.assertEqual(sum(i['kind'] == 'agent' for i in LOCAL), 8)
+        self.assertEqual(len({i['id'] for i in LOCAL}), len(LOCAL))
         for item in LOCAL:
             names = local_package.files(item)
             for required in ('main.py', 'README.md', 'LICENSE', 'task.json', 'run.bat', '.gitignore'):
@@ -289,6 +290,52 @@ class CodeBlocks(LocalTestCase):
         done = p.run('--strict')
         self.assertEqual(done.returncode, 1)
         self.assertIn('--strict', done.stderr)
+
+
+class SinglePurposeBlocks(LocalTestCase):
+    """Every block registered with islem.op runs from its packaged copy on its own sample and must reproduce the
+    summary values written next to it (expect=...). The values were checked by hand against the sample files."""
+
+    def test_every_registered_block_on_its_sample(self):
+        ops = [i for i in LOCAL if i.get('op')]
+        self.assertGreaterEqual(len(ops), 40)
+        for item in ops:
+            spec = item['spec']
+            with self.subTest(item['id']):
+                p = self.package(item['id'])
+                done = p.run(*spec['test_args'])
+                self.assertEqual(done.returncode, spec['exit_code'], done.stderr + done.stdout)
+                self.assertNotIn('Traceback', done.stderr)
+                summary = p.json('ozet.json')
+                for key, value in spec['expect'].items():
+                    self.assertEqual(summary.get(key), value, f"{item['id']}: {key}")
+                self.assertTrue(p.out('rapor.md').is_file())
+                self.assertTrue(spec['expect'], f"{item['id']} has no expected values")
+
+    def test_bad_input_is_a_readable_error(self):
+        for item_id, args, message in [('filtrele', ['--where', '__import__("os")'], 'yalnızca şu fonksiyonlar'), ('filtrele', ['--where', 'yok > 1'], 'bilinmeyen ad'),
+                                       ('grupla', ['--by', 'olmayan'], 'dosyada olmayan'), ('tckn-dogrula', ['--column', 'yok'], 'sütunu dosyada yok')]:
+            with self.subTest(item_id):
+                done = self.package(item_id).run(*args)
+                self.assertEqual(done.returncode, 1)
+                self.assertIn(message, done.stderr)
+                self.assertNotIn('Traceback', done.stderr)
+
+    def test_card_numbers_never_leave_unmasked(self):
+        p = self.package('kart-luhn')
+        self.ok(p.run())
+        text = p.out('sonuc.csv').read_text(encoding='utf-8-sig')
+        self.assertNotIn('4111 1111 1111 1111', text)
+        self.assertIn('411111******1111', text)
+
+    def test_control_totals_detect_a_changed_file(self):
+        p = self.package('kontrol-toplami')
+        self.ok(p.run('--output', 'kaynak'))
+        lines = (p.dir / 'ornek' / 'satislar.csv').read_text(encoding='utf-8').splitlines()
+        (p.dir / 'hedef.csv').write_text('\n'.join(lines[:-1]) + '\n', encoding='utf-8')
+        done = p.run('--input', 'hedef.csv', '--compare', 'kaynak/kontrol.json')
+        self.assertEqual(done.returncode, 2)
+        self.assertEqual(p.json('ozet.json')['fark'], 5)  # rows, content hash and three numeric totals
 
 
 class Helpers(unittest.TestCase):

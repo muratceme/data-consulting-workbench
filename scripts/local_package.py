@@ -59,7 +59,13 @@ def readme(item):
 
 def files(item):
     """Return {archive_name: bytes} for a LOCAL catalog entry."""
-    out = {'main.py': (LIB / item['main']).read_bytes()}
+    if item.get('op'):
+        import sys
+        sys.path.insert(0, str(LIB / 'blocks'))
+        import islem
+        out = {'main.py': islem.stub(item['spec']).encode('utf-8')}
+    else:
+        out = {'main.py': (LIB / item['main']).read_bytes()}
     for name in item['modules']:
         out[f'{name}.py'] = module_path(name).read_bytes()
     for name, src in item['samples'].items():

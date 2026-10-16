@@ -23,7 +23,7 @@ const platformOf = t => BY_PRODUCT[t.product.name] || BY_TOOL[t.tool.name] || t.
 
 // The delivered thing, as short as a file extension.
 function formatOf(t) {
-  if (t.engine === 'local') return LOCAL_TAG[t.local_id] || 'rapor';
+  if (t.engine === 'local') return LOCAL_TAG[t.local_id] || t.tag || 'rapor';
   const title = norm(t.title), all = norm(t.output + ' ' + t.title);
   if (title.includes('takip')) return 'takip';
   const rules = [[/qvf/, '.qvf'], [/pbix/, '.pbix'], [/twb/, '.twbx'], [/edmx/, '.edmx'], [/ipynb/, '.ipynb'], [/run_results|describe json/, '.json'], [/taslağ|taslak/, 'taslak'], [/view/, 'view'], [/\.sql|standard sql/, '.sql'], [/yenile/, 'yenile'], [/çaliştir/, 'çalışma'], [/tablo/, 'tablo'], [/notebook/, 'notebook'], [/senkron/, 'sync'], [/derleme/, 'derleme'], [/yayimla/, 'yayın']];

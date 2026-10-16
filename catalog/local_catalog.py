@@ -106,6 +106,20 @@ LOCAL = [
          command='python main.py --input satis.xlsx --date tarih --measure ciro --dims bolge,kanal --period ay'),
 ]
 
+# Single-purpose blocks registered with islem.op in category modules (library/blocks/*.py).
+import importlib, sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'library' / 'blocks'))
+import islem
+CATEGORY_MODULES = ['temizlik', 'dogrulama']
+for _name in CATEGORY_MODULES:
+    importlib.import_module(_name)
+for _spec in islem.OPS.values():
+    _deps = getattr(sys.modules[_spec['module']], 'REQUIRES', []) + _spec['requires']
+    LOCAL.append(dict(id=_spec['id'], kind='code', domain=_spec['domain'], product=_spec['product'], title=_spec['title'], main=None, op=_spec['id'],
+                      spec=_spec, tag=_spec['tag'], modules=list(dict.fromkeys(['common', 'tabular', 'islem', *_deps, _spec['module']])), samples=_spec['samples'],
+                      description=_spec['description'], input=_spec['input'], output=_spec['output'], command=_spec['command']))
+
 for item in LOCAL:
     item['requirements'] = AGENT_NOTE if item['kind'] == 'agent' else BLOCK_NOTE
     item['effects'] = ('Yalnızca output klasörüne yazar. Seçtiğin model sağlayıcısına maskelenmiş özet gönderilir; Ollama ile hiçbir veri bilgisayardan çıkmaz.'
