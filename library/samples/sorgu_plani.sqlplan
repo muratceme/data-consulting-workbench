@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ShowPlanXML xmlns="http://schemas.microsoft.com/sqlserver/2004/07/showplan" Version="1.564" Build="16.0.4105.2">
+  <BatchSequence><Batch><Statements>
+    <StmtSimple StatementText="SELECT s.SiparisNo, s.Tutar, m.MusteriAdi FROM dbo.Siparisler s JOIN dbo.Musteriler m ON m.MusteriNo = s.MusteriNo WHERE s.MusteriKodu = 12345 ORDER BY s.Tutar DESC" StatementSubTreeCost="48.12" StatementEstRows="1200">
+      <QueryPlan DegreeOfParallelism="1" MemoryGrant="102400">
+        <MissingIndexes>
+          <MissingIndexGroup Impact="87.4">
+            <MissingIndex Database="[ERP]" Schema="[dbo]" Table="[Siparisler]">
+              <ColumnGroup Usage="EQUALITY"><Column Name="[MusteriKodu]" ColumnId="4" /></ColumnGroup>
+              <ColumnGroup Usage="INCLUDE"><Column Name="[Tutar]" ColumnId="6" /><Column Name="[MusteriNo]" ColumnId="2" /></ColumnGroup>
+            </MissingIndex>
+          </MissingIndexGroup>
+        </MissingIndexes>
+        <Warnings>
+          <PlanAffectingConvert ConvertIssue="Seek Plan" Expression="CONVERT_IMPLICIT(int,[s].[MusteriKodu],0)=(12345)" />
+        </Warnings>
+        <RelOp NodeId="0" PhysicalOp="Sort" LogicalOp="Sort" EstimateRows="1200" EstimatedTotalSubtreeCost="48.12">
+          <Warnings><SpillToTempDb SpillLevel="1" SpilledThreadCount="1" /></Warnings>
+          <RunTimeInformation><RunTimeCountersPerThread Thread="0" ActualRows="98000" ActualExecutions="1" /></RunTimeInformation>
+          <RelOp NodeId="1" PhysicalOp="Nested Loops" LogicalOp="Inner Join" EstimateRows="1200" EstimatedTotalSubtreeCost="40.2">
+            <RelOp NodeId="2" PhysicalOp="Clustered Index Scan" LogicalOp="Clustered Index Scan" EstimateRows="1200" EstimatedTotalSubtreeCost="31.5" TableCardinality="4200000">
+              <IndexScan><Object Database="[ERP]" Schema="[dbo]" Table="[Siparisler]" Index="[PK_Siparisler]" /></IndexScan>
+              <RunTimeInformation><RunTimeCountersPerThread Thread="0" ActualRows="98000" ActualExecutions="1" /></RunTimeInformation>
+            </RelOp>
+            <RelOp NodeId="3" PhysicalOp="Key Lookup" LogicalOp="Clustered Index Seek" EstimateRows="1" EstimatedTotalSubtreeCost="8.1">
+              <IndexScan Lookup="1"><Object Database="[ERP]" Schema="[dbo]" Table="[Musteriler]" Index="[PK_Musteriler]" /></IndexScan>
+              <RunTimeInformation><RunTimeCountersPerThread Thread="0" ActualRows="98000" ActualExecutions="98000" /></RunTimeInformation>
+            </RelOp>
+          </RelOp>
+        </RelOp>
+      </QueryPlan>
+    </StmtSimple>
+  </Statements></Batch></BatchSequence>
+</ShowPlanXML>

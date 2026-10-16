@@ -1,0 +1,9 @@
+tablo;index;sutunlar;include;okuma;yazma;boyut_mb
+dbo.Siparisler;PK_Siparisler;SiparisNo;;9200000;410000;820
+dbo.Siparisler;IX_Siparis_Musteri;MusteriNo;;1200000;410000;190
+dbo.Siparisler;IX_Siparis_Musteri_Tarih;MusteriNo,SiparisTarihi;Tutar;830000;410000;260
+dbo.Siparisler;IX_Siparis_Durum;Durum;;0;410000;140
+dbo.Siparisler;IX_Siparis_Eski;SiparisTarihi,Durum;;12;410000;220
+dbo.Musteriler;PK_Musteriler;MusteriNo;;5000000;3000;40
+dbo.Musteriler;IX_Musteri_Sehir;Sehir;MusteriAdi;25000;3000;12
+dbo.Musteriler;IX_Musteri_Sehir_2;Sehir;;0;3000;9

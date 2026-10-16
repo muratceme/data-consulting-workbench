@@ -1,0 +1,7 @@
+query,calls,total_exec_time,mean_exec_time,rows,shared_blks_hit,shared_blks_read
+SELECT * FROM siparisler WHERE musteri_id = $1,182000,951000.4,5.22,182000,9100000,120000
+UPDATE stok SET miktar = miktar - $1 WHERE urun_id = $2,54000,210400.0,3.9,54000,400000,2000
+"SELECT tarih, SUM(tutar) FROM siparisler GROUP BY tarih",96,655000.0,6822.9,34000,2000000,7800000
+"INSERT INTO log_kayitlari VALUES ($1, $2, $3)",940000,98000.2,0.1,940000,3000000,1000
+SELECT * FROM musteriler WHERE lower(eposta) = $1,22000,330000.0,15.0,22000,100000,4400000
+VACUUM ANALYZE siparisler,2,41000.0,20500.0,0,50000,900000

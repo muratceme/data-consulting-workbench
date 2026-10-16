@@ -1,0 +1,41 @@
+job_id,user_email,creation_time,total_bytes_billed,total_slot_ms,cache_hit,query
+bquxjob_0000,etl-sa@proje.iam,2026-09-01 10:00:00,286000000000,163000,false,"SELECT tarih, COUNT(*) FROM `proje.mart.satis` WHERE tarih >= ""2026-09-01"" GROUP BY 1"
+bquxjob_0001,etl-sa@proje.iam,2026-09-02 10:01:00,618000000000,702000,false,"SELECT tarih, COUNT(*) FROM `proje.mart.satis` WHERE tarih >= ""2026-09-01"" GROUP BY 1"
+bquxjob_0002,etl-sa@proje.iam,2026-09-03 10:02:00,9000000000,351000,false,MERGE `proje.mart.musteri` ...
+bquxjob_0003,analist1@ornek.test,2026-09-04 10:03:00,18000000000,27000,false,SELECT * FROM `proje.ham.olaylar`
+bquxjob_0004,etl-sa@proje.iam,2026-09-05 10:04:00,409000000000,457000,false,SELECT * FROM `proje.ham.olaylar`
+bquxjob_0005,analist1@ornek.test,2026-09-06 10:05:00,4200000000000,792000,false,"SELECT * FROM `proje.ham.olaylar` WHERE kullanici = ""x"""
+bquxjob_0006,looker-sa@proje.iam,2026-09-07 10:06:00,0,380000,true,MERGE `proje.mart.musteri` ...
+bquxjob_0007,analist2@ornek.test,2026-09-08 10:07:00,621000000000,130000,false,MERGE `proje.mart.musteri` ...
+bquxjob_0008,analist1@ornek.test,2026-09-09 10:08:00,17000000000,70000,false,SELECT * FROM `proje.ham.olaylar`
+bquxjob_0009,analist2@ornek.test,2026-09-10 10:09:00,499000000000,223000,false,"SELECT * FROM `proje.ham.olaylar` WHERE kullanici = ""x"""
+bquxjob_0010,looker-sa@proje.iam,2026-09-11 10:10:00,0,536000,true,"SELECT * FROM `proje.ham.olaylar` WHERE kullanici = ""x"""
+bquxjob_0011,analist1@ornek.test,2026-09-12 10:11:00,3000000000,158000,false,"SELECT tarih, COUNT(*) FROM `proje.mart.satis` WHERE tarih >= ""2026-09-01"" GROUP BY 1"
+bquxjob_0012,looker-sa@proje.iam,2026-09-13 10:12:00,29000000000,90000,false,SELECT * FROM `proje.ham.olaylar`
+bquxjob_0013,analist1@ornek.test,2026-09-14 10:13:00,77000000000,800000,false,"SELECT * FROM `proje.ham.olaylar` WHERE kullanici = ""x"""
+bquxjob_0014,looker-sa@proje.iam,2026-09-15 10:14:00,334000000000,890000,false,SELECT * FROM `proje.ham.olaylar`
+bquxjob_0015,analist2@ornek.test,2026-09-16 10:15:00,28000000000,230000,false,"SELECT * FROM `proje.ham.olaylar` WHERE kullanici = ""x"""
+bquxjob_0016,etl-sa@proje.iam,2026-09-17 10:16:00,0,836000,true,SELECT * FROM `proje.ham.olaylar`
+bquxjob_0017,analist1@ornek.test,2026-09-18 10:17:00,714000000000,639000,false,"SELECT tarih, COUNT(*) FROM `proje.mart.satis` WHERE tarih >= ""2026-09-01"" GROUP BY 1"
+bquxjob_0018,analist2@ornek.test,2026-09-19 10:18:00,152000000000,586000,false,"SELECT tarih, COUNT(*) FROM `proje.mart.satis` WHERE tarih >= ""2026-09-01"" GROUP BY 1"
+bquxjob_0019,analist1@ornek.test,2026-09-20 10:19:00,708000000000,85000,false,MERGE `proje.mart.musteri` ...
+bquxjob_0020,looker-sa@proje.iam,2026-09-21 10:20:00,22000000000,678000,false,MERGE `proje.mart.musteri` ...
+bquxjob_0021,etl-sa@proje.iam,2026-09-22 10:21:00,0,574000,true,"SELECT * FROM `proje.ham.olaylar` WHERE kullanici = ""x"""
+bquxjob_0022,analist1@ornek.test,2026-09-23 10:22:00,0,835000,true,"SELECT tarih, COUNT(*) FROM `proje.mart.satis` WHERE tarih >= ""2026-09-01"" GROUP BY 1"
+bquxjob_0023,analist2@ornek.test,2026-09-24 10:23:00,0,695000,true,"SELECT tarih, COUNT(*) FROM `proje.mart.satis` WHERE tarih >= ""2026-09-01"" GROUP BY 1"
+bquxjob_0024,looker-sa@proje.iam,2026-09-25 10:24:00,0,20000,true,MERGE `proje.mart.musteri` ...
+bquxjob_0025,looker-sa@proje.iam,2026-09-26 10:25:00,686000000000,296000,false,"SELECT * FROM `proje.ham.olaylar` WHERE kullanici = ""x"""
+bquxjob_0026,looker-sa@proje.iam,2026-09-27 10:26:00,0,713000,true,SELECT * FROM `proje.ham.olaylar`
+bquxjob_0027,etl-sa@proje.iam,2026-09-28 10:27:00,21000000000,557000,false,MERGE `proje.mart.musteri` ...
+bquxjob_0028,analist2@ornek.test,2026-09-01 10:28:00,0,735000,true,"SELECT * FROM `proje.ham.olaylar` WHERE kullanici = ""x"""
+bquxjob_0029,analist1@ornek.test,2026-09-02 10:29:00,0,876000,true,MERGE `proje.mart.musteri` ...
+bquxjob_0030,looker-sa@proje.iam,2026-09-03 10:30:00,47000000000,611000,false,MERGE `proje.mart.musteri` ...
+bquxjob_0031,looker-sa@proje.iam,2026-09-04 10:31:00,23000000000,596000,false,"SELECT * FROM `proje.ham.olaylar` WHERE kullanici = ""x"""
+bquxjob_0032,analist1@ornek.test,2026-09-05 10:32:00,39000000000,452000,false,"SELECT tarih, COUNT(*) FROM `proje.mart.satis` WHERE tarih >= ""2026-09-01"" GROUP BY 1"
+bquxjob_0033,looker-sa@proje.iam,2026-09-06 10:33:00,34000000000,335000,false,MERGE `proje.mart.musteri` ...
+bquxjob_0034,looker-sa@proje.iam,2026-09-07 10:34:00,1000000000,33000,false,"SELECT * FROM `proje.ham.olaylar` WHERE kullanici = ""x"""
+bquxjob_0035,analist1@ornek.test,2026-09-08 10:35:00,39000000000,224000,false,MERGE `proje.mart.musteri` ...
+bquxjob_0036,etl-sa@proje.iam,2026-09-09 10:36:00,436000000000,627000,false,"SELECT * FROM `proje.ham.olaylar` WHERE kullanici = ""x"""
+bquxjob_0037,looker-sa@proje.iam,2026-09-10 10:37:00,0,622000,true,SELECT * FROM `proje.ham.olaylar`
+bquxjob_0038,analist1@ornek.test,2026-09-11 10:38:00,0,394000,true,"SELECT tarih, COUNT(*) FROM `proje.mart.satis` WHERE tarih >= ""2026-09-01"" GROUP BY 1"
+bquxjob_0039,analist1@ornek.test,2026-09-12 10:39:00,37000000000,695000,false,"SELECT * FROM `proje.ham.olaylar` WHERE kullanici = ""x"""

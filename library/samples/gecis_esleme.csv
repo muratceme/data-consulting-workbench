@@ -1,0 +1,10 @@
+kaynak_tablo;kaynak_sutun;hedef_tablo;hedef_sutun;donusum
+dbo.Musteriler;MusteriNo;public.musteriler;musteri_no;
+dbo.Musteriler;MusteriAdi;public.musteriler;musteri_adi;TRIM
+dbo.Musteriler;Sehir;public.musteriler;sehir;
+dbo.Musteriler;KayitTarihi;public.musteriler;kayit_tarihi;
+dbo.Siparisler;SiparisNo;public.siparisler;siparis_no;
+dbo.Siparisler;MusteriNo;public.siparisler;musteri_no;
+dbo.Siparisler;SiparisTarihi;public.siparisler;siparis_tarihi;
+dbo.Siparisler;Durum;public.siparisler;siparis_durumu;
+dbo.Urunler;UrunKodu;public.urunler;urun_kodu;

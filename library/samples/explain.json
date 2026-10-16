@@ -1,0 +1,63 @@
+[
+  {
+    "Plan": {
+      "Node Type": "Sort",
+      "Startup Cost": 9500.1,
+      "Total Cost": 9700.5,
+      "Plan Rows": 500,
+      "Actual Rows": 84000,
+      "Actual Total Time": 1850.4,
+      "Actual Loops": 1,
+      "Sort Key": [
+        "s.tutar DESC"
+      ],
+      "Sort Method": "external merge",
+      "Sort Space Used": 51200,
+      "Sort Space Type": "Disk",
+      "Plans": [
+        {
+          "Node Type": "Hash Join",
+          "Join Type": "Inner",
+          "Plan Rows": 500,
+          "Actual Rows": 84000,
+          "Actual Total Time": 1320.2,
+          "Actual Loops": 1,
+          "Plans": [
+            {
+              "Node Type": "Seq Scan",
+              "Relation Name": "siparisler",
+              "Alias": "s",
+              "Plan Rows": 500,
+              "Actual Rows": 84000,
+              "Actual Total Time": 1100.0,
+              "Actual Loops": 1,
+              "Filter": "(durum = 'Teslim'::text)",
+              "Rows Removed by Filter": 3916000
+            },
+            {
+              "Node Type": "Hash",
+              "Plan Rows": 12000,
+              "Actual Rows": 12000,
+              "Actual Total Time": 40.0,
+              "Actual Loops": 1,
+              "Plans": [
+                {
+                  "Node Type": "Index Scan",
+                  "Relation Name": "musteriler",
+                  "Alias": "m",
+                  "Index Name": "musteriler_pkey",
+                  "Plan Rows": 12000,
+                  "Actual Rows": 12000,
+                  "Actual Total Time": 30.0,
+                  "Actual Loops": 1
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "Planning Time": 1.2,
+    "Execution Time": 1862.7
+  }
+]
