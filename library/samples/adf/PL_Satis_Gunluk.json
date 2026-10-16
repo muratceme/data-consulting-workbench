@@ -1,0 +1,122 @@
+{
+  "name": "PL_Satis_Gunluk",
+  "properties": {
+    "activities": [
+      {
+        "name": "Lookup_Tablolar",
+        "type": "Lookup",
+        "typeProperties": {
+          "source": {
+            "type": "AzureSqlSource",
+            "sqlReaderQuery": "SELECT tablo FROM meta.yuklenecek"
+          },
+          "dataset": {
+            "referenceName": "DS_Meta",
+            "type": "DatasetReference"
+          }
+        },
+        "policy": {
+          "timeout": "0.12:00:00",
+          "retry": 0
+        }
+      },
+      {
+        "name": "ForEach_Tablo",
+        "type": "ForEach",
+        "dependsOn": [
+          {
+            "activity": "Lookup_Tablolar",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ],
+        "typeProperties": {
+          "items": {
+            "value": "@activity('Lookup_Tablolar').output.value",
+            "type": "Expression"
+          },
+          "isSequential": false,
+          "batchCount": 4,
+          "activities": [
+            {
+              "name": "Copy_Tablo",
+              "type": "Copy",
+              "inputs": [
+                {
+                  "referenceName": "DS_ERP_Sql",
+                  "type": "DatasetReference"
+                }
+              ],
+              "outputs": [
+                {
+                  "referenceName": "DS_Lake_Parquet",
+                  "type": "DatasetReference"
+                }
+              ],
+              "typeProperties": {
+                "source": {
+                  "type": "SqlServerSource",
+                  "sqlReaderQuery": "SELECT * FROM @{item().tablo}"
+                },
+                "sink": {
+                  "type": "ParquetSink"
+                }
+              },
+              "policy": {
+                "retry": 2,
+                "timeout": "0.02:00:00"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "name": "SP_Mart_Yukle",
+        "type": "SqlServerStoredProcedure",
+        "dependsOn": [
+          {
+            "activity": "ForEach_Tablo",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ],
+        "linkedServiceName": {
+          "referenceName": "LS_DWH",
+          "type": "LinkedServiceReference"
+        },
+        "typeProperties": {
+          "storedProcedureName": "mart.usp_satis_yukle"
+        }
+      },
+      {
+        "name": "Web_Bildir",
+        "type": "WebActivity",
+        "dependsOn": [
+          {
+            "activity": "SP_Mart_Yukle",
+            "dependencyConditions": [
+              "Failed"
+            ]
+          }
+        ],
+        "typeProperties": {
+          "url": "https://hooks.example.test/hata",
+          "method": "POST",
+          "headers": {
+            "Authorization": "Bearer abc123gizli"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "calisma_tarihi": {
+        "type": "string"
+      }
+    },
+    "annotations": [
+      "satis"
+    ]
+  }
+}

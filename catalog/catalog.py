@@ -13,27 +13,27 @@ DOMAINS = [
  ('transform','Analytics Engineering','Dönüşüm, test ve semantik katman','⌘',[
  ('dbt',['dbt Core','dbt Cloud']),('Google',['Dataform']),('SQLMesh',['SQLMesh']),('Coalesce',['Coalesce']),('Cube',['Cube'])], 'sql','SQL model envanteri','Dönüşüm modeli ve test stratejisi'),
  ('orchestration','Orkestrasyon & DataOps','Pipeline işletimi ve çalışma takibi','↗',[
- ('Apache',['Airflow']),('Dagster',['Dagster']),('Prefect',['Prefect']),('Astronomer',['Astro']),('Kestra',['Kestra']),('GitHub',['Actions']),('Jenkins',['Jenkins'])], 'report','Pipeline metrik raporu','Pipeline hata kök neden analizi'),
+ ('Apache',['Airflow']),('Dagster',['Dagster']),('Prefect',['Prefect']),('Astronomer',['Astro']),('Kestra',['Kestra']),('GitHub',['Actions']),('Jenkins',['Jenkins']),('Genel',['Zamanlama ve iş akışı dosyaları'])], 'report','Pipeline metrik raporu','Pipeline hata kök neden analizi'),
  ('stream','Streaming & Gerçek Zaman','Olay verisi ve akış mimarileri','≋',[
- ('Apache',['Kafka','Flink','Spark Streaming']),('Confluent',['Confluent Cloud']),('Amazon',['Kinesis']),('Microsoft',['Event Hubs']),('Google',['Pub/Sub','Dataflow']),('Redpanda',['Redpanda'])], 'quality','Olay dışa aktarımı kalite kontrolü','Olay şeması ve akış mimarisi'),
+ ('Apache',['Kafka','Flink','Spark Streaming']),('Confluent',['Confluent Cloud']),('Amazon',['Kinesis']),('Microsoft',['Event Hubs']),('Google',['Pub/Sub','Dataflow']),('Redpanda',['Redpanda']),('Genel',['Olay şemaları ve örnekleri'])], 'quality','Olay dışa aktarımı kalite kontrolü','Olay şeması ve akış mimarisi'),
  ('database','Veritabanı Yönetimi','İlişkisel, NoSQL ve operasyonel veri','▱',[
  ('PostgreSQL',['PostgreSQL']),('Microsoft',['SQL Server','Azure SQL']),('Oracle',['Oracle Database']),('MySQL',['MySQL']),('MongoDB',['Atlas']),('Redis',['Redis']),('Couchbase',['Capella']),('Amazon',['DynamoDB']),('Neo4j',['Neo4j'])], 'schema','Tablo şeması değişiklik raporu','İndeks ve sorgu iyileştirme incelemesi'),
  ('quality','Veri Kalitesi','Tamlık, tutarlılık ve doğruluk','✓',[
  ('Great Expectations',['GX']),('Soda',['Soda Core','Soda Cloud']),('AWS',['Deequ']),('Informatica',['Cloud Data Quality']),('Qlik',['Talend Data Quality']),('Ataccama',['ONE']),('Genel',['Veri doğrulama kuralları'])], 'quality','Veri kalite kural kontrolü','Kalite sorunu kök neden analizi'),
  ('governance','Yönetişim & Veri Kataloğu','Sahiplik, sözlük ve veri keşfi','◎',[
- ('Microsoft',['Purview']),('Collibra',['Data Intelligence Cloud']),('Alation',['Data Catalog']),('Google',['Dataplex']),('Atlan',['Atlan']),('OpenMetadata',['OpenMetadata']),('DataHub',['DataHub'])], 'dictionary','Veri sözlüğü oluşturma','Veri sahipliği ve yönetişim modeli'),
+ ('Microsoft',['Purview']),('Collibra',['Data Intelligence Cloud']),('Alation',['Data Catalog']),('Google',['Dataplex']),('Atlan',['Atlan']),('OpenMetadata',['OpenMetadata']),('DataHub',['DataHub']),('Genel',['Erişim ve sahiplik listeleri'])], 'dictionary','Veri sözlüğü oluşturma','Veri sahipliği ve yönetişim modeli'),
  ('mdm','Master Data Management','Müşteri, ürün ve tedarikçi ana verisi','◇',[
  ('SAP',['Master Data Governance']),('Informatica',['MDM SaaS']),('Semarchy',['xDM']),('Reltio',['Reltio']),('TIBCO',['EBX']),('Stibo Systems',['STEP']),('Genel',['Ana veri temizliği'])], 'dedupe','Ana veri mükerrer kayıt tespiti','Golden record ve eşleştirme stratejisi'),
  ('privacy','Gizlilik & Veri Güvenliği','Hassas veri, erişim ve maskeleme','⊡',[
- ('Microsoft',['Purview Information Protection']),('OneTrust',['Data Discovery']),('BigID',['BigID']),('Immuta',['Immuta']),('Privacera',['Privacera']),('IBM',['Guardium'])], 'mask','Belirlenen alanları maskeleme','Erişim ve veri sınıflandırma tasarımı'),
+ ('Microsoft',['Purview Information Protection']),('OneTrust',['Data Discovery']),('BigID',['BigID']),('Immuta',['Immuta']),('Privacera',['Privacera']),('IBM',['Guardium']),('Genel',['Hassas veri envanteri'])], 'mask','Belirlenen alanları maskeleme','Erişim ve veri sınıflandırma tasarımı'),
  ('observability','Veri Gözlemlenebilirliği','Freshness, hacim ve veri olayları','⌁',[
- ('Monte Carlo',['Monte Carlo']),('Bigeye',['Bigeye']),('Datadog',['Data Streams Monitoring']),('Acceldata',['Acceldata']),('Elementary',['Elementary'])], 'quality','Veri hacmi ve eksik değer raporu','Veri olayı incelemesi ve aksiyon planı'),
+ ('Monte Carlo',['Monte Carlo']),('Bigeye',['Bigeye']),('Datadog',['Data Streams Monitoring']),('Acceldata',['Acceldata']),('Elementary',['Elementary']),('Genel',['Tablo yükleme metrikleri'])], 'quality','Veri hacmi ve eksik değer raporu','Veri olayı incelemesi ve aksiyon planı'),
  ('science','Veri Bilimi & İstatistik','Keşif, deneyler ve hipotezler','∑',[
  ('Python',['pandas','SciPy','Jupyter']),('R',['R / Posit']),('SAS',['Viya']),('IBM',['SPSS']),('KNIME',['Analytics Platform']),('Alteryx',['Designer']),('Genel',['İstatistiksel analiz'])], 'profile','Keşifsel veri profilleme','Hipotez ve analiz yöntemi tasarımı'),
  ('ml','Machine Learning & MLOps','Model geliştirme, değerlendirme ve işletim','⟁',[
- ('scikit-learn',['scikit-learn']),('PyTorch',['PyTorch']),('TensorFlow',['TensorFlow']),('MLflow',['MLflow']),('Google',['Vertex AI']),('Amazon',['SageMaker']),('Microsoft',['Azure Machine Learning']),('DataRobot',['DataRobot'])], 'profile','Eğitim verisi profil raporu','Model değerlendirme ve drift stratejisi'),
+ ('scikit-learn',['scikit-learn']),('PyTorch',['PyTorch']),('TensorFlow',['TensorFlow']),('MLflow',['MLflow']),('Google',['Vertex AI']),('Amazon',['SageMaker']),('Microsoft',['Azure Machine Learning']),('DataRobot',['DataRobot']),('Genel',['Model değerlendirme dosyaları'])], 'profile','Eğitim verisi profil raporu','Model değerlendirme ve drift stratejisi'),
  ('ai','GenAI & Vektör Veri','RAG, doküman verisi ve değerlendirme','✳',[
- ('OpenAI',['API']),('Anthropic',['Claude API']),('LangChain',['LangChain','LangGraph']),('LlamaIndex',['LlamaIndex']),('Pinecone',['Pinecone']),('Qdrant',['Qdrant']),('Weaviate',['Weaviate']),('Milvus',['Milvus']),('PostgreSQL',['pgvector'])], 'dedupe','RAG veri kümesi mükerrer kontrolü','RAG mimarisi ve değerlendirme tasarımı'),
+ ('OpenAI',['API']),('Anthropic',['Claude API']),('LangChain',['LangChain','LangGraph']),('LlamaIndex',['LlamaIndex']),('Pinecone',['Pinecone']),('Qdrant',['Qdrant']),('Weaviate',['Weaviate']),('Milvus',['Milvus']),('PostgreSQL',['pgvector']),('Genel',['Doküman ve RAG verisi'])], 'dedupe','RAG veri kümesi mükerrer kontrolü','RAG mimarisi ve değerlendirme tasarımı'),
  ('product','Ürün & Pazarlama Analitiği','Davranış, funnel ve ölçümleme','◔',[
  ('Google',['GA4']),('Adobe',['Analytics']),('Amplitude',['Amplitude']),('Mixpanel',['Mixpanel']),('Segment',['Segment']),('Salesforce',['Data Cloud']),('HubSpot',['CRM']),('Genel',['Satış ve müşteri analitiği'])], 'report','Dışa aktarılan etkinlik raporu','Funnel ve ölçümleme planı'),
  ('spatial','Coğrafi & IoT Verisi','Konum, sensör ve zaman serileri','⌖',[
@@ -41,9 +41,9 @@ DOMAINS = [
  ('planning','Kurumsal Planlama & EPM','Bütçe, tahmin ve finansal konsolidasyon','▥',[
  ('SAP',['Analytics Cloud Planning']),('Oracle',['Cloud EPM']),('Anaplan',['Anaplan']),('IBM',['Planning Analytics']),('Workday',['Adaptive Planning']),('Board',['Board']),('Genel',['Bütçe ve tahmin dosyaları'])], 'reconcile','Bütçe ve gerçekleşen mutabakatı','Tahmin modeli ve senaryo tasarımı'),
  ('migration','Veri Migrasyonu','Keşif, eşleme ve geçiş doğrulaması','→',[
- ('AWS',['Database Migration Service']),('Microsoft',['Azure Database Migration']),('Google',['Database Migration Service']),('SAP',['Migration Cockpit']),('Oracle',['Zero Downtime Migration'])], 'reconcile','Geçiş öncesi ve sonrası mutabakat','Migrasyon dalgası ve cutover planı'),
+ ('AWS',['Database Migration Service']),('Microsoft',['Azure Database Migration']),('Google',['Database Migration Service']),('SAP',['Migration Cockpit']),('Oracle',['Zero Downtime Migration']),('Genel',['Geçiş eşleme dosyaları'])], 'reconcile','Geçiş öncesi ve sonrası mutabakat','Migrasyon dalgası ve cutover planı'),
  ('finops','Data FinOps & Performans','Kullanım, maliyet ve kapasite','↘',[
- ('Google',['BigQuery Billing Export']),('Snowflake',['Account Usage']),('Databricks',['System Tables']),('Microsoft',['Fabric Capacity Metrics']),('Amazon',['Cost and Usage Report'])], 'report','Kullanım ve maliyet özet raporu','Maliyet azaltma ve kapasite planı'),
+ ('Google',['BigQuery Billing Export']),('Snowflake',['Account Usage']),('Databricks',['System Tables']),('Microsoft',['Fabric Capacity Metrics']),('Amazon',['Cost and Usage Report']),('Genel',['Maliyet dışa aktarımları'])], 'report','Kullanım ve maliyet özet raporu','Maliyet azaltma ve kapasite planı'),
  ('files','Dosya & Self-Service Veri','Elektronik tablolar ve açık veri','▧',[
  ('Microsoft',['Excel','Power Query']),('Google',['Sheets']),('DuckDB',['DuckDB']),('OpenRefine',['OpenRefine']),('Apache',['Arrow / Parquet']),('Genel',['CSV / Excel','SQL dosyaları'])], 'report','CSV verisinden otomatik HTML rapor','Self-service veri hazırlama planı')
 ]

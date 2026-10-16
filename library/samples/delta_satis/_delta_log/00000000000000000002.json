@@ -1,0 +1,7 @@
+{"commitInfo": {"timestamp": 1790007200000, "operation": "WRITE", "operationParameters": {"mode": "Append"}}}
+{"add": {"path": "tarih=2026-09-12/part-0020.parquet", "size": 815839, "partitionValues": {"tarih": "2026-09-12"}, "dataChange": true, "modificationTime": 1790007200000}}
+{"add": {"path": "tarih=2026-09-12/part-0021.parquet", "size": 723704, "partitionValues": {"tarih": "2026-09-12"}, "dataChange": true, "modificationTime": 1790007200000}}
+{"add": {"path": "tarih=2026-09-12/part-0022.parquet", "size": 595787, "partitionValues": {"tarih": "2026-09-12"}, "dataChange": true, "modificationTime": 1790007200000}}
+{"add": {"path": "tarih=2026-09-12/part-0023.parquet", "size": 70414, "partitionValues": {"tarih": "2026-09-12"}, "dataChange": true, "modificationTime": 1790007200000}}
+{"add": {"path": "tarih=2026-09-12/part-0024.parquet", "size": 528240, "partitionValues": {"tarih": "2026-09-12"}, "dataChange": true, "modificationTime": 1790007200000}}
+{"add": {"path": "tarih=2026-09-12/part-0025.parquet", "size": 853651, "partitionValues": {"tarih": "2026-09-12"}, "dataChange": true, "modificationTime": 1790007200000}}

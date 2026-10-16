@@ -1,0 +1,19 @@
+name: CI
+on:
+  pull_request_target:
+    branches: [main]
+  push:
+    branches: [main]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: some-org/setup-tool@master
+      - name: Gizli anahtarı yazdır
+        run: echo "${{ secrets.DB_PASSWORD }}"
+      - name: Başlığı kullan
+        run: echo "${{ github.event.pull_request.title }}"
+      - uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c

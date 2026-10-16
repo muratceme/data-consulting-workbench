@@ -1,0 +1,7 @@
+{"commitInfo": {"timestamp": 1790000000000, "operation": "CREATE TABLE AS SELECT", "operationMetrics": {"numFiles": "4", "numOutputRows": "120000"}}}
+{"protocol": {"minReaderVersion": 1, "minWriterVersion": 2}}
+{"metaData": {"id": "abc", "format": {"provider": "parquet"}, "schemaString": "{\"type\": \"struct\", \"fields\": [{\"name\": \"siparis_no\", \"type\": \"string\", \"nullable\": true, \"metadata\": {}}, {\"name\": \"tutar\", \"type\": \"double\", \"nullable\": true, \"metadata\": {}}, {\"name\": \"tarih\", \"type\": \"date\", \"nullable\": true, \"metadata\": {}}]}", "partitionColumns": ["tarih"], "configuration": {}}}
+{"add": {"path": "tarih=2026-09-01/part-00001.parquet", "size": 48001000, "partitionValues": {"tarih": "2026-09-01"}, "dataChange": true, "modificationTime": 1790000000000}}
+{"add": {"path": "tarih=2026-09-02/part-00002.parquet", "size": 48002000, "partitionValues": {"tarih": "2026-09-02"}, "dataChange": true, "modificationTime": 1790000000000}}
+{"add": {"path": "tarih=2026-09-03/part-00003.parquet", "size": 48003000, "partitionValues": {"tarih": "2026-09-03"}, "dataChange": true, "modificationTime": 1790000000000}}
+{"add": {"path": "tarih=2026-09-04/part-00004.parquet", "size": 48004000, "partitionValues": {"tarih": "2026-09-04"}, "dataChange": true, "modificationTime": 1790000000000}}

@@ -1,0 +1,142 @@
+{
+  "format-version": 2,
+  "table-uuid": "9c12d441-03fe-4693-9a96-a0705ddf69c1",
+  "location": "s3://veri-golu/satis",
+  "last-updated-ms": 1790432000000,
+  "current-schema-id": 1,
+  "schemas": [
+    {
+      "schema-id": 0,
+      "type": "struct",
+      "fields": [
+        {
+          "id": 1,
+          "name": "siparis_no",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "id": 2,
+          "name": "tutar",
+          "required": false,
+          "type": "decimal(18,2)"
+        }
+      ]
+    },
+    {
+      "schema-id": 1,
+      "type": "struct",
+      "fields": [
+        {
+          "id": 1,
+          "name": "siparis_no",
+          "required": true,
+          "type": "string"
+        },
+        {
+          "id": 2,
+          "name": "tutar",
+          "required": false,
+          "type": "decimal(18,2)"
+        },
+        {
+          "id": 3,
+          "name": "tarih",
+          "required": false,
+          "type": "date"
+        }
+      ]
+    }
+  ],
+  "default-spec-id": 0,
+  "partition-specs": [
+    {
+      "spec-id": 0,
+      "fields": [
+        {
+          "name": "tarih_ay",
+          "transform": "month",
+          "source-id": 3,
+          "field-id": 1000
+        }
+      ]
+    }
+  ],
+  "properties": {
+    "write.format.default": "parquet",
+    "history.expire.max-snapshot-age-ms": "432000000"
+  },
+  "current-snapshot-id": 5004,
+  "snapshots": [
+    {
+      "snapshot-id": 5000,
+      "parent-snapshot-id": null,
+      "timestamp-ms": 1790000000000,
+      "summary": {
+        "operation": "append",
+        "added-data-files": "10",
+        "deleted-data-files": "0",
+        "added-records": "100000",
+        "total-records": "100000",
+        "total-data-files": "10"
+      },
+      "manifest-list": "s3://veri-golu/satis/metadata/snap-5000.avro"
+    },
+    {
+      "snapshot-id": 5001,
+      "parent-snapshot-id": 5000,
+      "timestamp-ms": 1790086400000,
+      "summary": {
+        "operation": "append",
+        "added-data-files": "2",
+        "deleted-data-files": "0",
+        "added-records": "1500",
+        "total-records": "101500",
+        "total-data-files": "12"
+      },
+      "manifest-list": "s3://veri-golu/satis/metadata/snap-5001.avro"
+    },
+    {
+      "snapshot-id": 5002,
+      "parent-snapshot-id": 5001,
+      "timestamp-ms": 1790172800000,
+      "summary": {
+        "operation": "overwrite",
+        "added-data-files": "5",
+        "deleted-data-files": "4",
+        "added-records": "52000",
+        "total-records": "101500",
+        "total-data-files": "13"
+      },
+      "manifest-list": "s3://veri-golu/satis/metadata/snap-5002.avro"
+    },
+    {
+      "snapshot-id": 5003,
+      "parent-snapshot-id": 5002,
+      "timestamp-ms": 1790259200000,
+      "summary": {
+        "operation": "append",
+        "added-data-files": "3",
+        "deleted-data-files": "0",
+        "added-records": "900",
+        "total-records": "102400",
+        "total-data-files": "16"
+      },
+      "manifest-list": "s3://veri-golu/satis/metadata/snap-5003.avro"
+    },
+    {
+      "snapshot-id": 5004,
+      "parent-snapshot-id": 5003,
+      "timestamp-ms": 1790345600000,
+      "summary": {
+        "operation": "delete",
+        "added-data-files": "0",
+        "deleted-data-files": "1",
+        "added-records": "0",
+        "total-records": "101900",
+        "total-data-files": "15"
+      },
+      "manifest-list": "s3://veri-golu/satis/metadata/snap-5004.avro"
+    }
+  ]
+}

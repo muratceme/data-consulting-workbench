@@ -1,0 +1,47 @@
+<?xml version="1.0"?>
+<DTS:Executable xmlns:DTS="www.microsoft.com/SqlServer/Dts" DTS:ExecutableType="Microsoft.Package" DTS:ObjectName="SatisYukle" DTS:VersionBuild="12">
+  <DTS:ConnectionManagers>
+    <DTS:ConnectionManager DTS:ObjectName="ERP_OLEDB" DTS:CreationName="OLEDB">
+      <DTS:ObjectData><DTS:ConnectionManager DTS:ConnectionString="Data Source=erp-sql01;Initial Catalog=ERP;Provider=SQLNCLI11.1;Integrated Security=SSPI;" /></DTS:ObjectData>
+    </DTS:ConnectionManager>
+    <DTS:ConnectionManager DTS:ObjectName="DWH_OLEDB" DTS:CreationName="OLEDB">
+      <DTS:ObjectData><DTS:ConnectionManager DTS:ConnectionString="Data Source=dwh-sql01;Initial Catalog=DWH;User ID=etl_user;Password=Gizli123;Provider=SQLNCLI11.1;" /></DTS:ObjectData>
+    </DTS:ConnectionManager>
+    <DTS:ConnectionManager DTS:ObjectName="Kaynak_CSV" DTS:CreationName="FLATFILE">
+      <DTS:ObjectData><DTS:ConnectionManager DTS:ConnectionString="C:\\Veri\\gelen\\satis.csv" /></DTS:ObjectData>
+    </DTS:ConnectionManager>
+  </DTS:ConnectionManagers>
+  <DTS:Variables>
+    <DTS:Variable DTS:ObjectName="CalismaTarihi" DTS:Namespace="User"><DTS:VariableValue>2026-09-30</DTS:VariableValue></DTS:Variable>
+  </DTS:Variables>
+  <DTS:Executables>
+    <DTS:Executable DTS:ExecutableType="Microsoft.ExecuteSQLTask" DTS:ObjectName="SQL - Staging temizle">
+      <DTS:ObjectData><SQLTask:SqlTaskData xmlns:SQLTask="www.microsoft.com/sqlserver/dts/tasks/sqltask" SQLTask:Connection="DWH_OLEDB" SQLTask:SqlStatementSource="TRUNCATE TABLE stg.satis" /></DTS:ObjectData>
+    </DTS:Executable>
+    <DTS:Executable DTS:ExecutableType="Microsoft.Pipeline" DTS:ObjectName="DFT - Satis yukle">
+      <DTS:ObjectData>
+        <pipeline>
+          <components>
+            <component name="OLE DB Kaynak" componentClassID="Microsoft.OLEDBSource">
+              <properties><property name="SqlCommand">SELECT * FROM dbo.Siparisler WHERE Tarih &gt;= '2026-01-01'</property></properties>
+            </component>
+            <component name="Turet - Tutar" componentClassID="Microsoft.DerivedColumn" />
+            <component name="Arama - Musteri" componentClassID="Microsoft.Lookup">
+              <properties><property name="SqlCommand">select MusteriNo, Segment from dbo.Musteriler</property></properties>
+            </component>
+            <component name="OLE DB Hedef" componentClassID="Microsoft.OLEDBDestination">
+              <properties><property name="OpenRowset">[stg].[satis]</property></properties>
+            </component>
+          </components>
+        </pipeline>
+      </DTS:ObjectData>
+    </DTS:Executable>
+    <DTS:Executable DTS:ExecutableType="Microsoft.ExecuteSQLTask" DTS:ObjectName="SQL - Mart yukle" DTS:Disabled="True">
+      <DTS:ObjectData><SQLTask:SqlTaskData xmlns:SQLTask="www.microsoft.com/sqlserver/dts/tasks/sqltask" SQLTask:Connection="DWH_OLEDB" SQLTask:SqlStatementSource="EXEC mart.usp_satis_yukle" /></DTS:ObjectData>
+    </DTS:Executable>
+  </DTS:Executables>
+  <DTS:PrecedenceConstraints>
+    <DTS:PrecedenceConstraint DTS:From="Package\SQL - Staging temizle" DTS:To="Package\DFT - Satis yukle" />
+    <DTS:PrecedenceConstraint DTS:From="Package\DFT - Satis yukle" DTS:To="Package\SQL - Mart yukle" />
+  </DTS:PrecedenceConstraints>
+</DTS:Executable>

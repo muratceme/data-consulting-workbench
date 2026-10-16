@@ -1,0 +1,8 @@
+is;cron
+ERP aktarımı;0 6 * * *
+Saatlik stok;15 * * * *
+Hafta içi rapor;30 8 * * 1-5
+Ay sonu kapanış;0 23 L * *
+Çeyrek başı;0 7 1 1,4,7,10 *
+Her 10 dk;*/10 * * * *
+Hatalı;61 25 * * *

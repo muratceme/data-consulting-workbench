@@ -1,0 +1,2 @@
+{"commitInfo": {"timestamp": 1790025200000, "operation": "DELETE", "operationParameters": {"predicate": "tarih = '2026-09-01'"}}}
+{"remove": {"path": "tarih=2026-09-01/part-00001.parquet", "deletionTimestamp": 1790025200000, "dataChange": true}}

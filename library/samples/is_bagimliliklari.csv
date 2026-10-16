@@ -1,0 +1,11 @@
+is;bagli_oldugu;sure_dk
+erp_cek;;20
+crm_cek;;15
+stg_yukle;erp_cek,crm_cek;25
+dim_musteri;stg_yukle;10
+fct_satis;stg_yukle,dim_musteri;35
+kalite;fct_satis;5
+rapor_yenile;kalite;12
+eski_is;yok_olan_is;5
+dongu_a;dongu_b;1
+dongu_b;dongu_a;1
