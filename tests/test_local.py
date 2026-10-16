@@ -67,7 +67,8 @@ class PackageShape(LocalTestCase):
             for required in ('main.py', 'README.md', 'LICENSE', 'task.json', 'run.bat', '.gitignore'):
                 self.assertIn(required, names, item['id'])
             self.assertEqual(item['kind'] == 'agent', '.env.example' in names, item['id'])
-            self.assertTrue(any(n.startswith('ornek/') for n in names), item['id'])
+            if item.get('spec', {}).get('kind') != 'none':  # generators (e.g. loan schedule) take parameters, not files
+                self.assertTrue(any(n.startswith('ornek/') for n in names), item['id'])
             code = b''.join(v for k, v in names.items() if k.endswith('.py') and k != 'llm.py')
             for forbidden in (b'import socket', b'import urllib', b'import requests', b'import http', b'subprocess', b'os.system'):
                 self.assertNotIn(forbidden, code, f"{item['id']} code block must stay offline")
