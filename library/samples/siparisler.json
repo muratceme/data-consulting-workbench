@@ -1,0 +1,123 @@
+{
+  "kaynak": "ornek-api",
+  "sayfa": 1,
+  "veri": [
+    {
+      "id": "S2001",
+      "tarih": "2026-09-03T10:07:00+03:00",
+      "musteri": {
+        "no": "M001",
+        "ad": "Ayşe",
+        "sehir": "İstanbul"
+      },
+      "kalemler": [
+        {
+          "urun": "P-300",
+          "adet": 1,
+          "fiyat": 950.0
+        },
+        {
+          "urun": "P-400",
+          "adet": 1,
+          "fiyat": 420.0
+        }
+      ],
+      "etiketler": [
+        "web",
+        "kampanya"
+      ],
+      "iptal": false
+    },
+    {
+      "id": "S2002",
+      "tarih": "2026-09-06T10:14:00+03:00",
+      "musteri": {
+        "no": "M002",
+        "ad": "Ali",
+        "sehir": "Ankara"
+      },
+      "kalemler": [
+        {
+          "urun": "P-300",
+          "adet": 2,
+          "fiyat": 950.0
+        }
+      ],
+      "etiketler": [
+        "web",
+        "kampanya"
+      ],
+      "iptal": false
+    },
+    {
+      "id": "S2003",
+      "tarih": "2026-09-09T10:21:00+03:00",
+      "musteri": {
+        "no": "M003",
+        "ad": "Elif",
+        "sehir": "İzmir"
+      },
+      "kalemler": [
+        {
+          "urun": "P-300",
+          "adet": 3,
+          "fiyat": 950.0
+        },
+        {
+          "urun": "P-400",
+          "adet": 1,
+          "fiyat": 420.0
+        }
+      ],
+      "etiketler": [
+        "magaza"
+      ],
+      "iptal": false
+    },
+    {
+      "id": "S2004",
+      "tarih": "2026-09-12T10:28:00+03:00",
+      "musteri": {
+        "no": "M004",
+        "ad": "Can",
+        "sehir": "Bursa"
+      },
+      "kalemler": [
+        {
+          "urun": "P-300",
+          "adet": 4,
+          "fiyat": 950.0
+        }
+      ],
+      "etiketler": [
+        "magaza"
+      ],
+      "iptal": true
+    },
+    {
+      "id": "S2005",
+      "tarih": "2026-09-15T10:35:00+03:00",
+      "musteri": {
+        "no": "M005",
+        "ad": "Deniz",
+        "sehir": null
+      },
+      "kalemler": [
+        {
+          "urun": "P-300",
+          "adet": 5,
+          "fiyat": 950.0
+        },
+        {
+          "urun": "P-400",
+          "adet": 1,
+          "fiyat": 420.0
+        }
+      ],
+      "etiketler": [
+        "magaza"
+      ],
+      "iptal": false
+    }
+  ]
+}

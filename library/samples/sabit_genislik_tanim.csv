@@ -1,0 +1,6 @@
+alan;baslangic;uzunluk;tip
+hesap_no;1;10;metin
+tarih;11;8;tarih:%Y%m%d
+tutar;19;12;sayi:2
+borc_alacak;31;1;metin
+aciklama;32;25;metin

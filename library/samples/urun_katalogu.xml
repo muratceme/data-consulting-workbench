@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<katalog guncelleme="2026-09-30">
+  <urun kod="P-100" aktif="true">
+    <ad>Laptop</ad>
+    <fiyat para="TRY">32500.00</fiyat>
+    <stok depo="IST">12</stok>
+  </urun>
+  <urun kod="P-200" aktif="true">
+    <ad>Monitör</ad>
+    <fiyat para="TRY">8400.00</fiyat>
+    <stok depo="IST">30</stok>
+  </urun>
+  <urun kod="P-300" aktif="true">
+    <ad>Klavye</ad>
+    <fiyat para="TRY">950.00</fiyat>
+    <stok depo="IST">0</stok>
+  </urun>
+  <urun kod="P-400" aktif="false">
+    <ad>Mouse</ad>
+    <fiyat para="TRY">420.00</fiyat>
+    <stok depo="IST">140</stok>
+  </urun>
+  <urun kod="P-500" aktif="true">
+    <ad>Kulaklık</ad>
+    <fiyat para="TRY">1850.00</fiyat>
+    <stok depo="IST">25</stok>
+  </urun>
+</katalog>

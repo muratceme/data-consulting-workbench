@@ -1,0 +1,8 @@
+hesap;hesap_adi;bakiye
+600;Yurt İçi Satışlar;5000000
+621;Satılan Mal Maliyeti;-3100000
+770;Genel Yönetim Giderleri;-600000
+120;Alıcılar;1400000
+320;Satıcılar;-900000
+120.B;Alıcılar - Şirket B (grup içi);350000
+600.B;Satışlar - Şirket B (grup içi);350000

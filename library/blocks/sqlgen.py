@@ -95,6 +95,7 @@ def csv_ddl(columns, rows, args):
 
 
 def snake(name):
+    name = re.sub(r'(?<=[a-zçğıöşü0-9])(?=[A-ZÇĞİÖŞÜ])', '_', name)  # MusteriNo → Musteri_No
     s = fold(name).translate(str.maketrans('çğıöşü', 'cgiosu'))
     s = re.sub(r'[^a-z0-9]+', '_', s).strip('_')
     return s if s and not s[0].isdigit() else f'c_{s}'
