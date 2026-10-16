@@ -4,7 +4,7 @@ Veri işleri için iki tür paket: **kod blokları** (aynı girdiden hep aynı s
 
 ## Güncel durum
 
-16 Ekim 2026: 23 alan / 189 ürün bağlamı. **57 indirilebilir paket**: 37 platform API paketi (36 kod bloğu + BigQuery agent) ve 20 yerel paket (12 kod bloğu + 8 agent). Toplam 48 kod bloğu, 9 agent. Diğer 372 görev **planlanan entegrasyon**; indirme bağlantıları yok.
+16 Ekim 2026: 23 alan / 197 ürün bağlamı. **186 indirilebilir paket**: 37 platform API paketi (36 kod bloğu + BigQuery agent) ve 149 yerel paket (141 kod bloğu + 8 agent). Toplam **177 kod bloğu, 9 agent**. Diğer 372 görev **planlanan entegrasyon**; indirme bağlantıları yok.
 
 ### Yerel kod blokları (internet yok, Python standart kütüphanesi)
 
@@ -22,6 +22,26 @@ Veri işleri için iki tür paket: **kod blokları** (aynı girdiden hep aynı s
 | Şema farkı | İki DDL dosyası/klasörü | Eklenen/silinen tablo-sütun, tip daralması, NOT NULL, olası yeniden adlandırma, ALTER taslağı |
 | Tarih tablosu | Tarih aralığı + tatil dosyası | Türkçe takvim boyutu, resmî tatil, iş günü sırası, mali yıl; CSV + SQL |
 | Dosya birleştirme | CSV/XLSX klasörü | Tek tablo + kaynak dosya; şema kayması, ondalık ayırıcı farkı, mükerrer satır |
+
+### Tek amaçlı yerel kod blokları (129)
+
+Her blok tek bir işi yapar; `library/blocks/<kategori>.py` içinde `islem.op(...)` ile kaydedilir. Kayıt; katalog metnini, komut satırı seçeneklerini, örnek veriyi ve örnek veride **elle doğrulanmış beklenen sonucu** birlikte taşır. Paketteki `main.py` iki satırlık bir başlatıcıdır; ortak çalıştırıcı (`islem.py`) girdiyi okur, hiçbir dosyayı değiştirmez, ağa çıkmaz ve `output/` altına `sonuc.csv`, `rapor.md`, `ozet.json` yazar.
+
+| Kategori | Blok | Örnekler |
+|---|---|---|
+| Veri temizleme ve dönüştürme (`temizlik.py`) | 27 | boşluk/görünmez karakter, snake_case, Türkçe büyük-küçük harf, bozuk karakter (Ã¼) onarma, tarih ve sayı biçimi, filtre ve formül (güvenli ifade), JOIN, DÜŞEYARA, pivot/unpivot, gruplama, dosya bölme, kodlama |
+| Veri doğrulama (`dogrulama.py`) | 15 | TCKN, VKN, IBAN (+banka), telefon (E.164), e-posta yazım önerisi, plaka, 81 il, posta kodu–il, kart Luhn + maskeleme, referans bütünlüğü, anahtar adayı, A→B tutarlılığı, desen profili, kontrol toplamı, satır kuralları |
+| Muhasebe ve finans (`finans.py`) | 17 | TDHP mizan kontrolü, özet bilanço/gelir tablosu, yevmiye denetimi, cari yaşlandırma, FIFO tahsilat eşleştirme, banka mutabakatı, MT940, e-Fatura (UBL-TR), KDV, kur çevirme, Benford, mükerrer ödeme, amortisman, kredi planı, stok maliyeti (FIFO/ortalama), gider sınıflandırma, nakit akışı |
+| Ana veri (`anaveri.py`) | 6 | benzer firma kümeleme, ünvan standardı, adres ayrıştırma, golden record + kaynak izi, ad-soyad ayırma, hiyerarşi (döngü/yetim) |
+| İstatistik (`analiz.py`) | 15 | tanımlayıcı istatistik, korelasyon, aykırı değer, histogram, ki-kare, A/B testi, örneklem büyüklüğü, regresyon, mevsimsellik, geriye dönük testli tahmin, seri anomalisi, dilimler, ölçekleme, Pareto, bootstrap güven aralığı |
+| Satış ve müşteri (`musteri.py`) | 12 | RFM, kohort, ABC, XYZ, sepet analizi, churn riski, CLV, huni, oturum, ürün performansı, dönem karşılaştırma, yeniden sipariş noktası |
+| SQL (`sqlgen.py`) | 11 | CSV→CREATE TABLE/INSERT (6 lehçe), MERGE/UPSERT, SCD2, güvenli biçimlendirici, lint, DDL→veri sözlüğü/ER (Mermaid), lehçe çevirisi, veri testleri |
+| Dosya biçimleri (`bicim.py`) | 9 | iç içe JSON, JSON Lines, XML, sabit genişlik, Excel sayfaları, CSV→XLSX, erişim logu, HTML rapor |
+| BI üreticileri (`bigen.py`) | 7 | DAX zaman zekâsı, Power Query M, BigQuery şeması, Qlik LOAD, Power BI RLS, KPI trafik ışığı, dbt iskeleti |
+| Konum ve sensör (`zaman.py`) | 6 | koordinat kontrolü, en yakın nokta, eşik ihlali, veri boşluğu, yeniden örnekleme, iş saati SLA |
+| Bütçe ve planlama (`planlama.py`) | 5 | bütçe–gerçekleşen, bütçe dağıtımı, yıl sonu tahmini, senaryo, konsolidasyon + grup içi eliminasyon |
+
+İstatistik bloklarındaki dağılım fonksiyonları (normal, t, ki-kare) standart kütüphaneyle yazıldı ve tablo değerleriyle karşılaştırıldı. Finans blokları kontrol amaçlıdır; muhasebe kaydı veya beyan yerine geçmez.
 
 ### Yerel AI agent’lar (Ollama, OpenAI veya Anthropic)
 
@@ -86,7 +106,7 @@ Platform paketi:
 
 Yeni/boş çıktı klasörü gerekir. Yazma ve LLM maliyeti olabilen işlemler README'de belirtilir. Şema ve proje bağlamı seçilen modele gönderilir; agent satır verisi çekmez. Kısmi çalışma kimlikleri `run-state.json`, dosya özeti `manifest.json` içindedir. Otomatik rollback veya üretimde otomatik model-kodu yürütme yoktur.
 
-Toplam **197 test** geçiyor. Yerel paket testleri (`tests/test_local.py`) paketlenmiş kopyayı örnek veriyle çalıştırır; agent’lar OpenAI/Anthropic/Ollama biçiminde konuşan sahte model sunucusuyla test edilir (maskeleme, onay, dry-run, düzeltme denemesi, HTTP hatası). Agent’lar ayrıca yerel bir Ollama modeliyle (qwen3 14B) elle denendi. Test sayısı canlı tenant doğrulaması değildir.
+Toplam **203 test** geçiyor (129 tek amaçlı blok, bir testin alt testleri olarak tek tek); tek amaçlı blokların her biri paketlenmiş kopyasıyla kendi örnek verisinde çalıştırılıp beklenen sonuçla karşılaştırılır. Yerel paket testleri (`tests/test_local.py`) paketlenmiş kopyayı örnek veriyle çalıştırır; agent’lar OpenAI/Anthropic/Ollama biçiminde konuşan sahte model sunucusuyla test edilir (maskeleme, onay, dry-run, düzeltme denemesi, HTTP hatası). Agent’lar ayrıca yerel bir Ollama modeliyle (qwen3 14B) elle denendi. Test sayısı canlı tenant doğrulaması değildir.
 
 ## Test katmanları
 
@@ -104,10 +124,11 @@ Canlı uçtan uca test ayrı bir aşamadır: lisanslı sandbox, ilgili sürüm, 
 - `catalog/native_catalog.py`: uygulanmış işlemler, erişim, etkiler, resmi kaynaklar; diğer ürünlerin açık plan durumu.
 - `library/native.py`: API transport, platform akışları ve çıktı denetimi.
 - `library/agent.py`: model sağlayıcısı; yeni akışta yalnızca model çağrısı için kullanılır.
-- `catalog/local_catalog.py`: yerel kod blokları ve agent’ların tanımı.
+- `catalog/local_catalog.py`: yerel kod blokları ve agent’ların tanımı; `CATEGORY_MODULES` tek amaçlı blok modüllerini yükler.
+- `library/blocks/islem.py`: tek amaçlı blokların ortak çalıştırıcısı ve kayıt mekanizması.
 - `library/blocks/`, `library/agents/`, `library/samples/`: yerel paket kodu ve kurgusal örnek veriler (`scripts/make_samples.py` ikili örnekleri üretir).
 - `scripts/build.py` + `scripts/local_package.py`: native ve yerel paketleri üretir; eski üretilmiş ZIP'leri kaldırır.
-- `dist/integration-plan.json`: 189 ürünün makine tarafından okunabilir entegrasyon planı.
+- `dist/integration-plan.json`: 197 ürünün makine tarafından okunabilir entegrasyon planı.
 - `docs/INTEGRATION-MATRIX.md`: tüm ürünler ve kalan kapsam.
 - `docs/NATIVE-ROADMAP.md`: tamamlanma ölçütleri ve sonraki geliştirme işleri.
 

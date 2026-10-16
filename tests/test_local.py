@@ -322,6 +322,26 @@ class SinglePurposeBlocks(LocalTestCase):
                 self.assertIn(message, done.stderr)
                 self.assertNotIn('Traceback', done.stderr)
 
+    def test_xlsx_writer_round_trips_and_keeps_numbers_numeric(self):
+        p = self.package('csv-xlsx')
+        self.ok(p.run())
+        cols, rows = tabular.read(p.out('veri.xlsx'))
+        src_cols, src_rows = tabular.read(p.dir / 'ornek' / 'satislar.csv')
+        self.assertEqual((cols, len(rows)), (src_cols, len(src_rows)))
+        self.assertEqual((rows[0]['tutar'], rows[0]['siparis_no']), ('1900.0', 'S1001'))  # stored as a number, read back as one
+
+    def test_sql_formatter_never_turns_code_into_a_comment(self):
+        p = self.package('sql-bicimlendir')
+        (p.dir / 'x.sql').write_text("SELECT a -- not\nFROM t WHERE b = 'x -- y'; /* c */ DELETE FROM u WHERE id = 1", encoding='utf-8')
+        self.ok(p.run('--input', 'x.sql'))
+        out = p.out('bicimli/x.sql').read_text(encoding='utf-8')
+        self.assertIn('-- not\n', out)
+        self.assertIn("'x -- y'", out)
+        for line in out.splitlines():
+            if '--' in line and "'" not in line:
+                self.assertTrue(line.strip().startswith(('--', 'SELECT')) and line.rstrip().endswith('not'), line)
+        self.assertEqual(p.json('ozet.json')['atlanan'], 0)
+
     def test_card_numbers_never_leave_unmasked(self):
         p = self.package('kart-luhn')
         self.ok(p.run())
