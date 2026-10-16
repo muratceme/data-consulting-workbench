@@ -1,0 +1,13 @@
+tarih;tablo;sutun;tip
+2026-10-15;dwh.fct_satis;siparis_no;varchar(12)
+2026-10-15;dwh.fct_satis;tutar;decimal(18,2)
+2026-10-15;dwh.fct_satis;tarih;date
+2026-10-15;dwh.dim_musteri;musteri_no;varchar(10)
+2026-10-15;dwh.dim_musteri;segment;varchar(20)
+2026-10-15;dwh.dim_musteri;eposta;varchar(100)
+2026-10-16;dwh.fct_satis;siparis_no;varchar(12)
+2026-10-16;dwh.fct_satis;tutar;decimal(12,2)
+2026-10-16;dwh.fct_satis;tarih;date
+2026-10-16;dwh.dim_musteri;musteri_no;varchar(10)
+2026-10-16;dwh.dim_musteri;segment;varchar(20)
+2026-10-16;dwh.fct_satis;kanal;varchar(20)

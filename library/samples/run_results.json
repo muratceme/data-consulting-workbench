@@ -1,0 +1,75 @@
+{
+  "metadata": {
+    "dbt_version": "1.8.7",
+    "generated_at": "2026-10-16T06:30:00Z"
+  },
+  "elapsed_time": 341.2,
+  "results": [
+    {
+      "unique_id": "model.perakende.stg_siparisler",
+      "status": "success",
+      "execution_time": 4.2,
+      "message": null,
+      "failures": null,
+      "adapter_response": {}
+    },
+    {
+      "unique_id": "model.perakende.stg_musteriler",
+      "status": "success",
+      "execution_time": 2.1,
+      "message": null,
+      "failures": null,
+      "adapter_response": {}
+    },
+    {
+      "unique_id": "model.perakende.stg_urunler",
+      "status": "success",
+      "execution_time": 1.9,
+      "message": null,
+      "failures": null,
+      "adapter_response": {}
+    },
+    {
+      "unique_id": "model.perakende.fct_satislar",
+      "status": "success",
+      "execution_time": 312.5,
+      "message": null,
+      "failures": null,
+      "adapter_response": {
+        "rows_affected": 120000
+      }
+    },
+    {
+      "unique_id": "model.perakende.dim_musteri",
+      "status": "error",
+      "execution_time": 0.8,
+      "message": "Database Error: column \"segment_kodu\" does not exist",
+      "failures": null,
+      "adapter_response": {}
+    },
+    {
+      "unique_id": "test.perakende.unique_stg_siparisler_siparis_id",
+      "status": "pass",
+      "execution_time": 3.0,
+      "message": null,
+      "failures": null,
+      "adapter_response": {}
+    },
+    {
+      "unique_id": "test.perakende.not_null_fct_satislar_siparis_id",
+      "status": "fail",
+      "execution_time": 6.2,
+      "message": "Got 14 results, configured to fail if != 0",
+      "failures": 14,
+      "adapter_response": {}
+    },
+    {
+      "unique_id": "model.perakende.stg_kampanyalar",
+      "status": "skipped",
+      "execution_time": 0.0,
+      "message": null,
+      "failures": null,
+      "adapter_response": {}
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+kullanici;ad_soyad;rol;son_giris
+ayse.yilmaz;Ayşe Yılmaz;DWH_OKUMA;2026-10-10
+ayse.yilmaz;Ayşe Yılmaz;FINANS_RAPOR;2026-10-10
+mehmet.kaya;Mehmet Kaya;DWH_OKUMA;2026-05-02
+mehmet.kaya;Mehmet Kaya;DWH_ADMIN;2026-05-02
+zeynep.demir;Zeynep Demir;DWH_OKUMA;2026-10-01
+etl_servis;;DWH_YAZMA;2026-10-15
+etl_servis;;DWH_ADMIN;2026-10-15
+eski.personel;Can Eski;DWH_OKUMA;2026-02-01
+eski.personel;Can Eski;IK_GIZLI;2026-02-01
+ortak.kullanici;;BI_OKUMA;2026-09-30
+ali.celik;Ali Çelik;DWH_OKUMA;2026-10-12
+ali.celik;Ali Çelik;FINANS_RAPOR;2026-10-12
+ali.celik;Ali Çelik;IK_GIZLI;2026-10-12
+ali.celik;Ali Çelik;SATIS_RAPOR;2026-10-12
+ali.celik;Ali Çelik;DWH_YAZMA;2026-10-12

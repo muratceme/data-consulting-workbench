@@ -1,0 +1,42 @@
+siparis_no;siparis_tarihi;musteri_no;musteri_eposta;bolge;urun_kodu;urun_adi;adet;birim_fiyat;tutar;durum
+S1001;2026-07-11;M002;musteri9@ornek.test;Marmara;P-300;Klavye;2;950,00;1900,00;Teslim edildi
+S1002;2026-09-16;M001;musteri2@ornek.test;Akdeniz;P-500;Kulaklık;1;1850,00;1850,00;İptal
+S1003;2026-02-27;M007;musteri1@ornek.test;Karadeniz;P-100;Laptop;2;32500,00;65000,00;Teslim edildi
+S1004;2026-01-28;M010;musteri7@ornek.test;Marmara;P-200;Monitör;5;8400,00;42000,00;Kargoda
+S1005;2026-03-19;M007;musteri3@ornek.test;Karadeniz;P-100;Laptop;5;32500,00;-950,00;Teslim edildi
+S1006;2026-09-15;M002;musteri10@ornek.test;Karadeniz;P-500;Kulaklık;3;1850,00;5550,00;Kargoda
+S1007;2026-09-12;M010;musteri1@ornek.test;Karadeniz;P-300;Klavye;1;950,00;950,00;Kargoda
+S1008;2026-07-20;M008;musteri10@ornek.test;;P-400;Mouse;5;420,00;2100,00;Teslim edildi
+S1009;2026-03-17;M002;musteri10@ornek.test;İç Anadolu;P-300;Klavye;2;950,00;1900,00;İptal
+S1010;2026-05-12;M002;musteri9@ornek.test;Akdeniz;P-300;Klavye;4;950,00;3800,00;teslim edildi 
+S1011;2026-08-23;M001;musteri11@ornek.test;Marmara;P-300;Klavye;2;950,00;1900,00;Teslim edildi
+S1012;2026-08-28;M008;musteri2@ornek.test;Marmara;P-300;Klavye;3;950,00;2850,00;Teslim edildi
+S1013;12.05.2026;M011;musteri10@ornek.test;Akdeniz;P-400;Mouse;1;420,00;420,00;Teslim edildi
+S1014;2026-01-24;M006;musteri3@ornek.test;Karadeniz;P-400;Mouse;3;420,00;1260,00;Teslim edildi
+S1015;2026-04-19;M003;musteri12@ornek.test;Ege;P-400;Mouse;1;420,00;420,00;İptal
+S1016;2026-02-15;M008;;Karadeniz;P-400;Mouse;4;420,00;1680,00;Teslim edildi
+S1017;2026-09-18;M012;musteri7@ornek.test;İç Anadolu;P-200;Monitör;4;8400,00;33600,00;İptal
+S1018;2026-02-15;M003;musteri4@ornek.test;Ege;P-200;Monitör;2;8400,00;16800,00;Teslim edildi
+S1019;2026-03-18;M005;musteri1@ornek.test;Ege;P-400;Mouse;5;420,00;2100,00;İptal
+S1020;2026-06-14;M012;musteri9@ornek.test;Karadeniz;P-500;Kulaklık;3;1850,00;5550,00;Teslim edildi
+S1021;2026-07-22;M007;musteri7@ornek.test;Marmara;P-400;Mouse;5;420,00;2100,00;İptal
+S1022;2026-04-12;M004;musteri8@ornek.test;Ege;P-400;Mouse;1;420,00;420,00;Teslim edildi
+S1021;2026-01-13;M001;musteri10@ornek.test;Ege;P-300;Klavye;5;950,00;4750,00;Teslim edildi
+S1024;2026-01-12;M004;musteri10@ornek.test;Akdeniz;P-300;Klavye;5;950,00;4750,00;Kargoda
+S1025;2026-06-25;M002;musteri2@ornek.test;Akdeniz;P-300;Klavye;3;950,00;2850,00;İptal
+S1026;2026-05-12;M003;musteri2@ornek.test;İç Anadolu;P-400;Mouse;4;420,00;1680,00;Teslim edildi
+S1027;2026-09-10;M004;musteri9@ornek.test;İç Anadolu;P-400;Mouse;2;420,00;840,00;Kargoda
+S1028;2026-09-19;M011;musteri2@ornek.test;İç Anadolu;P-500;Kulaklık;1;1850,00;1850,00;Teslim edildi
+S1029;2026-04-27;M009;musteri9@ornek.test;İç Anadolu;P-200;Monitör;3;8400,00;25200,00;Kargoda
+S1030;2026-04-22;M012;musteri4@ornek.test;Ege;P-500;Kulaklık;2;1850,00;3700,00;İptal
+S1031;2026-01-18;M008;musteri5@ornek.test;Ege;P-300;Klavye;1;950,00;950,00;Teslim edildi
+S1032;2026-06-12;M004;musteri2@ornek.test;Ege;P-400;Mouse;3;420,00;1260,00;İptal
+S1033;2026-04-25;M010;musteri10@ornek.test;Marmara;P-200;Monitör;3;8400,00;25200,00;İptal
+S1034;2026-02-22;M012;musteri4@ornek.test;Akdeniz;P-300;Klavye;1;950,00;950,00;Kargoda
+S1035;2026-02-22;M008;musteri7@ornek.test;Marmara;P-400;Mouse;3;420,00;1260,00;Kargoda
+S1036;2026-01-14;M010;musteri8@ornek.test;Ege;P-200;Monitör;2;8400,00;16800,00;İptal
+S1037;2026-09-27;M003;musteri1@ornek.test;Marmara;P-300;Klavye;2;950,00;1900,00;Teslim edildi
+S1038;2026-07-16;M004;musteri1@ornek.test;İç Anadolu;P-500;Kulaklık;2;1850,00;3700,00;Kargoda
+S1039;2026-04-28;M006;musteri5@ornek.test;Karadeniz;P-300;Klavye;5;950,00;4750,00;İptal
+S1040;2026-06-24;M011;musteri10@ornek.test;Karadeniz;P-200;Monitör;1;8400,00;8400,00;İptal
+S1021;2026-07-22;M007;musteri7@ornek.test;Marmara;P-400;Mouse;5;420,00;2100,00;İptal

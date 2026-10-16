@@ -1,0 +1,9 @@
+varlik;sahip;steward;aciklama;siniflandirma
+dwh.fct_satis;Satış Ekibi;ayse.yilmaz;Günlük satış olgu tablosu;iç
+dwh.dim_musteri;Satış Ekibi;;Müşteri boyutu;kişisel
+dwh.dim_urun;;;;genel
+dwh.fct_iade;Satış Ekibi;ayse.yilmaz;;
+ik.personel;İK;can.eski;Personel ana verisi;kişisel
+ik.bordro;İK;;Bordro;
+fin.gl_hareket;Finans;ayse.yilmaz;Genel muhasebe hareketleri;gizli
+ham.web_log;;;;
