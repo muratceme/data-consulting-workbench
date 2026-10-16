@@ -1,0 +1,9 @@
+cari_kod;unvan;vkn;telefon;eposta;il;iban
+C01;Anadolu Gıda A.Ş.;1234567890;0212 555 10 20;muhasebe@anadolugida.test;İstanbul;TR83 0006 2000 0000 0012 3456 78
+C02;Ege Lojistik Ltd. Şti.;9876543217;0232 444 20 30;finans@egelojistik.test;İzmir;TR10 0006 4000 0000 0087 6543 21
+C03;Başkent Yazılım A.Ş.;4540536921;0312 333 40 50;info@baskent.test;Ankara;TR96 0001 0000 0000 0011 1122 22
+C04;Karadeniz Tekstil;2223334447;0212 555;;Trabzon;TR25 0004 6000 0000 0033 3344 44
+C05;Akdeniz Turizm;3334445553;0242 222 11 00;rezervasyon@akdeniz.test;Atlantis;TR25 0004 6000 0000 0033 3344 40
+C06;;4445556665;0224 111 22 33;satis@bursaoto.test;Bursa;TR18 0006 7000 0000 0055 5566 66
+C07;Eski Cari Kaydı;;;;;
+C08;Marmara Enerji;5556667775;+90 532 111 22 33;info@firma;34;TR96 0001 2000 0000 0077 7788 88

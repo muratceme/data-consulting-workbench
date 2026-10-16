@@ -4,7 +4,7 @@ Veri işleri için iki tür paket: **kod blokları** (aynı girdiden hep aynı s
 
 ## Güncel durum
 
-16 Ekim 2026: 23 alan / 206 ürün bağlamı. **262 indirilebilir paket**: 37 platform API paketi (36 kod bloğu + BigQuery agent) ve 225 yerel paket (217 kod bloğu + 8 agent). Toplam **253 kod bloğu, 9 agent**; 23 alanın hepsinde en az bir indirilebilir paket var. Diğer 372 görev **planlanan entegrasyon**; indirme bağlantıları yok.
+16 Ekim 2026: 23 alan / 206 ürün bağlamı. **274 indirilebilir paket**: 37 platform API paketi (36 kod bloğu + BigQuery agent) ve 237 yerel paket (229 kod bloğu + 8 agent). Toplam **265 kod bloğu, 9 agent**; 23 alanın hepsinde en az bir indirilebilir paket var. Diğer 372 görev **planlanan entegrasyon**; indirme bağlantıları yok.
 
 ### Yerel kod blokları (internet yok, Python standart kütüphanesi)
 
@@ -23,7 +23,7 @@ Veri işleri için iki tür paket: **kod blokları** (aynı girdiden hep aynı s
 | Tarih tablosu | Tarih aralığı + tatil dosyası | Türkçe takvim boyutu, resmî tatil, iş günü sırası, mali yıl; CSV + SQL |
 | Dosya birleştirme | CSV/XLSX klasörü | Tek tablo + kaynak dosya; şema kayması, ondalık ayırıcı farkı, mükerrer satır |
 
-### Tek amaçlı yerel kod blokları (205)
+### Tek amaçlı yerel kod blokları (217)
 
 Her blok tek bir işi yapar; `library/blocks/<kategori>.py` içinde `islem.op(...)` ile kaydedilir. Kayıt; katalog metnini, komut satırı seçeneklerini, örnek veriyi ve örnek veride **elle doğrulanmış beklenen sonucu** birlikte taşır. Paketteki `main.py` iki satırlık bir başlatıcıdır; ortak çalıştırıcı (`islem.py`) girdiyi okur, hiçbir dosyayı değiştirmez, ağa çıkmaz ve `output/` altına `sonuc.csv`, `rapor.md`, `ozet.json` yazar.
 
@@ -32,14 +32,15 @@ Her blok tek bir işi yapar; `library/blocks/<kategori>.py` içinde `islem.op(..
 | Veri temizleme ve dönüştürme (`temizlik.py`) | 27 | boşluk/görünmez karakter, snake_case, Türkçe büyük-küçük harf, bozuk karakter (Ã¼) onarma, tarih ve sayı biçimi, filtre ve formül (güvenli ifade), JOIN, DÜŞEYARA, pivot/unpivot, gruplama, dosya bölme, kodlama |
 | Veri doğrulama (`dogrulama.py`) | 15 | TCKN, VKN, IBAN (+banka), telefon (E.164), e-posta yazım önerisi, plaka, 81 il, posta kodu–il, kart Luhn + maskeleme, referans bütünlüğü, anahtar adayı, A→B tutarlılığı, desen profili, kontrol toplamı, satır kuralları |
 | Muhasebe ve finans (`finans.py`) | 17 | TDHP mizan kontrolü, özet bilanço/gelir tablosu, yevmiye denetimi, cari yaşlandırma, FIFO tahsilat eşleştirme, banka mutabakatı, MT940, e-Fatura (UBL-TR), KDV, kur çevirme, Benford, mükerrer ödeme, amortisman, kredi planı, stok maliyeti (FIFO/ortalama), gider sınıflandırma, nakit akışı |
-| Ana veri (`anaveri.py`) | 6 | benzer firma kümeleme, ünvan standardı, adres ayrıştırma, golden record + kaynak izi, ad-soyad ayırma, hiyerarşi (döngü/yetim) |
+| Ana veri (`anaveri.py`) | 8 | benzer firma kümeleme, ünvan standardı, adres ayrıştırma, golden record + kaynak izi, ad-soyad ayırma, hiyerarşi (döngü/yetim), referans kod listesine eşleme, kayıt tamlık/geçerlilik skoru |
 | İstatistik (`analiz.py`) | 15 | tanımlayıcı istatistik, korelasyon, aykırı değer, histogram, ki-kare, A/B testi, örneklem büyüklüğü, regresyon, mevsimsellik, geriye dönük testli tahmin, seri anomalisi, dilimler, ölçekleme, Pareto, bootstrap güven aralığı |
 | Satış ve müşteri (`musteri.py`) | 12 | RFM, kohort, ABC, XYZ, sepet analizi, churn riski, CLV, huni, oturum, ürün performansı, dönem karşılaştırma, yeniden sipariş noktası |
 | SQL (`sqlgen.py`) | 10 | CSV→CREATE TABLE/INSERT (6 lehçe), MERGE/UPSERT, SCD2, güvenli biçimlendirici, lint, DDL→veri sözlüğü/ER (Mermaid), lehçe çevirisi, veri testleri |
 | Dosya biçimleri (`bicim.py`) | 9 | iç içe JSON, JSON Lines, XML, sabit genişlik, Excel sayfaları, CSV→XLSX, erişim logu, HTML rapor |
 | BI üreticileri (`bigen.py`) | 7 | DAX zaman zekâsı, Power Query M, BigQuery şeması, Qlik LOAD, Power BI RLS, KPI trafik ışığı, dbt iskeleti |
 | Konum ve sensör (`zaman.py`) | 6 | koordinat kontrolü, en yakın nokta, eşik ihlali, veri boşluğu, yeniden örnekleme, iş saati SLA |
-| Bütçe ve planlama (`planlama.py`) | 5 | bütçe–gerçekleşen, bütçe dağıtımı, yıl sonu tahmini, senaryo, konsolidasyon + grup içi eliminasyon |
+| Konum (`konum.py`) | 2 | GeoJSON bölgelerine nokta atama (delikli/çoklu çokgen), araç GPS rota, durak ve sıçrama özeti |
+| Bütçe ve planlama (`planlama.py`) | 7 | bütçe–gerçekleşen, bütçe dağıtımı, yıl sonu tahmini, senaryo, konsolidasyon + grup içi eliminasyon, çağrı merkezi personel ihtiyacı (Erlang C), fiyat–hacim–karma sapması |
 | Orkestrasyon (`orkestrasyon.py`) | 4 | cron açıklama + sonraki çalışmalar, Airflow DAG statik denetimi (ast), GitHub Actions güvenlik denetimi, iş bağımlılığı ve kritik yol |
 | Entegrasyon (`entegrasyon.py`) | 2 | ADF/Synapse pipeline envanteri (Mermaid), SSIS .dtsx paket envanteri |
 | Lakehouse (`lakehouse.py`) | 3 | Delta _delta_log özeti, Iceberg metadata özeti, nesne depolamada küçük dosya analizi |
@@ -47,8 +48,8 @@ Her blok tek bir işi yapar; `library/blocks/<kategori>.py` içinde `islem.op(..
 | Ambar ve FinOps (`maliyet.py`) | 9 | Snowflake sorgu geçmişi ve kredi, BigQuery iş maliyeti, bulut faturası özeti, ay sonu maliyet tahmini, zorunlu etiket uyumu, taahhüt (reserved/savings plan) önerisi, rightsizing, ortak maliyet dağıtımı (showback) |
 | Ambar tasarımı (`ambar.py`) | 2 | Redshift dağıtım/sıralama/sıkıştırma denetimi, Snowflake Time Travel/Fail-safe/klon depolama |
 | Migrasyon (`gecis.py`) | 6 | alan eşleme doğrulama, tablo satır sayısı mutabakatı, hedef uzunluk/kodlama riski, anahtarsız sütun profili karşılaştırması, T-SQL/Oracle → PostgreSQL sorgu çevirisi, bağımlılık ve hacme göre geçiş dalgaları |
-| ML (`ml.py`) | 5 | sınıflandırma ve regresyon metrikleri, PSI veri kayması, sızıntısız ayırma, sızıntı kontrolü |
-| GenAI / RAG (`rag.py`) | 5 | başlık duyarlı parçalama (JSONL), yakın kopya doküman, token/maliyet, prompt enjeksiyon taraması, hit@k/MRR |
+| ML (`ml.py`) | 8 | sınıflandırma ve regresyon metrikleri, PSI veri kayması, sızıntısız ayırma, sızıntı kontrolü, F1/maliyete göre eşik seçimi, kalibrasyon (Brier, ECE), WoE/IV |
+| GenAI / RAG (`rag.py`) | 8 | başlık duyarlı parçalama (JSONL), yakın kopya doküman, token/maliyet, prompt enjeksiyon taraması, hit@k/MRR, cevap değerlendirme (EM, token F1), LLM log maskeleme, LLM kullanım/maliyet/gecikme analizi |
 | Streaming (`akis.py`) | 6 | olaylardan JSON Schema, Avro uyumluluğu, olay gecikmesi/watermark, Kafka consumer lag, Kafka topic replikasyon denetimi, tekrar/çelişkili kopya/sıra boşluğu |
 | Gizlilik ve yönetişim (`yonetisim.py`) | 5 | klasör kişisel veri envanteri, saklama süresi, KVKK 30 gün başvuru takibi, erişim gözden geçirme, sahiplik kapsamı |
 | Gizlilik (`gizlilik.py`) | 4 | k-anonimlik ve l-çeşitlilik, genelleştirerek anonimleştirme, İYS izin kontrolü, yurt dışı aktarım envanteri |
@@ -121,7 +122,7 @@ Platform paketi:
 
 Yeni/boş çıktı klasörü gerekir. Yazma ve LLM maliyeti olabilen işlemler README'de belirtilir. Şema ve proje bağlamı seçilen modele gönderilir; agent satır verisi çekmez. Kısmi çalışma kimlikleri `run-state.json`, dosya özeti `manifest.json` içindedir. Otomatik rollback veya üretimde otomatik model-kodu yürütme yoktur.
 
-Toplam **203 test** geçiyor (205 tek amaçlı blok, bir testin alt testleri olarak tek tek); tek amaçlı blokların her biri paketlenmiş kopyasıyla kendi örnek verisinde çalıştırılıp beklenen sonuçla karşılaştırılır. Yerel paket testleri (`tests/test_local.py`) paketlenmiş kopyayı örnek veriyle çalıştırır; agent’lar OpenAI/Anthropic/Ollama biçiminde konuşan sahte model sunucusuyla test edilir (maskeleme, onay, dry-run, düzeltme denemesi, HTTP hatası). Agent’lar ayrıca yerel bir Ollama modeliyle (qwen3 14B) elle denendi. Test sayısı canlı tenant doğrulaması değildir.
+Toplam **203 test** geçiyor (217 tek amaçlı blok, bir testin alt testleri olarak tek tek); tek amaçlı blokların her biri paketlenmiş kopyasıyla kendi örnek verisinde çalıştırılıp beklenen sonuçla karşılaştırılır. Yerel paket testleri (`tests/test_local.py`) paketlenmiş kopyayı örnek veriyle çalıştırır; agent’lar OpenAI/Anthropic/Ollama biçiminde konuşan sahte model sunucusuyla test edilir (maskeleme, onay, dry-run, düzeltme denemesi, HTTP hatası). Agent’lar ayrıca yerel bir Ollama modeliyle (qwen3 14B) elle denendi. Test sayısı canlı tenant doğrulaması değildir.
 
 ## Test katmanları
 

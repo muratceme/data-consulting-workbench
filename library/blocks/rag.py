@@ -1,9 +1,10 @@
 """GenAI / RAG veri hazırlığı blokları: doküman parçalama, tekrar eden içerik, token ve maliyet tahmini, prompt enjeksiyon taraması, geri getirme değerlendirmesi.
 Hiçbir model veya embedding servisine bağlanmaz."""
 import hashlib, json, math, re, unicodedata
-from collections import Counter
+from collections import Counter, defaultdict
 from pathlib import Path
-from islem import op, arg, Result, need, fmt
+from common import mask_text
+from islem import op, arg, Result, need, numbers, fmt, fold
 
 D, P = 'ai', 'Doküman ve RAG verisi'
 DOCS = {f'dokumanlar/{n}': f'dokumanlar/{n}' for n in ('iade_politikasi.md', 'kargo.md', 'kargo_kopya.md', 'tedarikci_notu.txt')}
@@ -171,3 +172,128 @@ def retrieval(columns, rows, args):
     mrr = round(sum(1 / o['ilk_dogru_sira'] for o in out if o['ilk_dogru_sira']) / n, 4)
     return Result(f"{n} soru; " + ', '.join(f'{k} {v:.2f}' for k, v in hits.items()) + f', MRR {mrr:.3f}', list(out[0]), out, {'soru': n, **hits, 'mrr': mrr},
                   tables=[('Bulunamayan sorular', ['Soru', 'Beklenen'], [[o.get('soru', ''), o.get(args.expected, '')] for o in out if not o['ilk_dogru_sira']])])
+
+
+def answer_tokens(s):
+    return re.findall(r'\w+', fold(s))
+
+
+@op('llm-cevap-degerlendir', title='LLM cevaplarını beklenen cevapla karşılaştır (EM, token F1)', domain=D, product=P, tag='değerlendirme', samples={'llm_degerlendirme.csv': 'llm_degerlendirme.csv'},
+    args=[arg('--expected', default='beklenen'), arg('--answer', default='cevap'), arg('--question', default='soru')],
+    description='Soru–beklenen cevap–model cevabı üçlülerinden oluşan değerlendirme setinde her cevap için tam eşleşme (EM), token düzeyinde F1 ve beklenen cevabın model cevabında geçip geçmediğini Türkçe karakter ve noktalama farkını yok sayarak hesaplar; en düşük skorlu soruları listeler. Prompt veya model değişikliğinden önce/sonra regresyon testi için.',
+    input='Değerlendirme seti (soru, beklenen, cevap)', output='sonuc.csv (soru bazında skorlar)', command='python main.py --input eval_sonuclari.xlsx --expected ground_truth --answer model_output',
+    expect={'soru': 6, 'tam_eslesme_%': 33.3, 'ortalama_f1': 0.552, 'iceren_%': 50.0, 'bos_cevap': 1})
+def qa_eval(columns, rows, args):
+    e, a = need(args.expected, columns, '--expected'), need(args.answer, columns, '--answer')
+    q = args.question if args.question in columns else None
+    out, f1s = [], []
+    for i, r in enumerate(rows, 2):
+        exp, ans = answer_tokens(r[e]), answer_tokens(r[a])
+        common = sum((Counter(exp) & Counter(ans)).values())
+        f1 = 2 * common / (len(exp) + len(ans)) if common else 0.0
+        f1s.append(f1)
+        contains = bool(exp) and f' {" ".join(exp)} ' in f' {" ".join(ans)} '
+        out.append({'satir': i, 'soru': r[q] if q else '', 'tam_eslesme': int(exp == ans and bool(exp)), 'f1': round(f1, 3), 'iceriyor': int(contains),
+                    'not': 'boş cevap' if not ans else ''})
+    n = len(out) or 1
+    order = sorted(out, key=lambda o: (o['f1'], o['satir']))
+    return Result(f'{len(out)} soru; EM %{100 * sum(o["tam_eslesme"] for o in out) / n:.1f}, ortalama F1 {sum(f1s) / n:.3f}', list(out[0]), order,
+                  {'soru': len(out), 'tam_eslesme_%': round(100 * sum(o['tam_eslesme'] for o in out) / n, 1), 'ortalama_f1': round(sum(f1s) / n, 3),
+                   'iceren_%': round(100 * sum(o['iceriyor'] for o in out) / n, 1), 'bos_cevap': sum(o['not'] == 'boş cevap' for o in out)},
+                  notes=['Token F1 kelime örtüşmesidir; anlamca doğru ama farklı ifade edilmiş cevaplar düşük puan alabilir. Düşük skorlu soruları elle veya hakem modelle inceleyin.'])
+
+
+def mask_obj(obj, keys, counts, active=False):
+    """Mask every string (keys=None) or only strings under the given keys, keeping the structure."""
+    if isinstance(obj, dict):
+        return {k: mask_obj(v, keys, counts, active or (keys is not None and k in keys)) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [mask_obj(v, keys, counts, active) for v in obj]
+    if isinstance(obj, str) and (keys is None or active):
+        return mask_value(obj, counts)
+    return obj
+
+
+def mask_value(v, counts):
+    text, found = mask_text(v)
+    counts.update(found)
+    return text
+
+
+@op('llm-log-maskele', title='LLM sohbet/çağrı loglarında kişisel veriyi maskele', domain=D, product=P, tag='log maskeleme', kind='file', samples={'sohbet_kayitlari.jsonl': 'sohbet_kayitlari.jsonl'},
+    args=[arg('--keys', help='Yalnızca bu anahtarların değerlerini maskele (virgülle; varsayılan tüm metinler)')],
+    description='JSON Lines biçimindeki sohbet, prompt ve cevap loglarında iç içe tüm metin değerlerindeki e-posta, telefon, TCKN (kontrol haneli), IBAN ve kart numaralarını tür etiketleriyle değiştirir; yapıyı ve anahtarları korur. Logları değerlendirme setine, sağlayıcıya veya analitiğe aktarmadan önce kullanılır; bozuk satırları kişisel veri sızmasın diye çıktıya yazmaz.',
+    input='JSON Lines log dosyası', output='<ad>_maskeli.jsonl + sonuc.csv (tür bazında sayım)', command='python main.py --input prompts_2026-10.jsonl --keys content,prompt,completion',
+    expect={'kayit': 3, 'bozuk_satir': 1, 'maskelenen': 5, 'maskeli_kayit': 3})
+def log_mask(args):
+    keys = {k.strip() for k in args.keys.split(',') if k.strip()} if args.keys else None
+    lines, bad, counts, touched = [], 0, Counter(), 0
+    for line in Path(args.input).read_text(encoding='utf-8-sig', errors='replace').splitlines():
+        if not line.strip():
+            continue
+        try:
+            obj = json.loads(line)
+        except json.JSONDecodeError:
+            bad += 1
+            continue
+        before = sum(counts.values())
+        lines.append(json.dumps(mask_obj(obj, keys, counts), ensure_ascii=False))
+        touched += sum(counts.values()) > before
+    if not lines:
+        raise ValueError('Okunabilir JSON satırı yok.')
+    rows = [{'tur': k, 'adet': v} for k, v in counts.most_common()]
+    return Result(f'{len(lines)} kayıt; {sum(counts.values())} kişisel veri maskelendi ({touched} kayıtta); {bad} bozuk satır atlandı', ['tur', 'adet'], rows,
+                  {'kayit': len(lines), 'bozuk_satir': bad, 'maskelenen': sum(counts.values()), 'maskeli_kayit': touched},
+                  files={f'{Path(args.input).stem}_maskeli.jsonl': '\n'.join(lines) + '\n'},
+                  notes=['Ad-soyad ve adres gibi serbest metin kişisel verileri desenle yakalanmaz; bu alanları ayrıca gözden geçirin.'])
+
+
+def parse_prices(text):
+    out = {}
+    for part in (p.strip() for p in re.split(r'[;,]', text or '') if p.strip()):
+        name, _, val = part.partition('=')
+        inp, _, outp = val.partition('/')
+        try:
+            out[name.strip()] = (float(inp), float(outp or inp))
+        except ValueError:
+            raise ValueError(f'--prices biçimi: model=girdi/çıktı (1M token başına), ör. "model-a=0.5/1.5". Hatalı: {part}') from None
+    return out
+
+
+@op('llm-kullanim-analizi', title='LLM çağrı loglarından maliyet, gecikme ve hata analizi', domain=D, product=P, tag='LLM kullanım', samples={'llm_cagrilari.csv': 'llm_cagrilari.csv'},
+    args=[arg('--prices', default='model-a=0.5/1.5;model-b=3/15', help='model=girdi/çıktı USD (1M token başına); sözleşme fiyatlarınızı yazın'),
+          arg('--group', default='uygulama,model')],
+    description='Uygulama/model bazında çağrı sayısını, hata oranını, girdi ve çıktı token toplamını, verilen fiyatlarla maliyeti, p50/p95 gecikmeyi ve olumsuz geri bildirim oranını çıkarır; fiyatı tanımlanmamış modelleri ayrıca listeler. Model seçimi, bütçe ve SLA takibi için.',
+    input='Çağrı logu (uygulama, model, girdi/çıktı token, süre ms, durum, geri bildirim)', output='sonuc.csv (grup bazında özet)', command='python main.py --input gateway_logs.csv --prices "kucuk-model=0.15/0.6;buyuk-model=3/15"',
+    expect={'cagri': 12, 'hata_%': 16.7, 'toplam_maliyet': 0.1074, 'fiyatsiz_cagri': 1})
+def llm_usage(columns, rows, args):
+    for c in ('model', 'girdi_token', 'cikti_token'):
+        need(c, columns, 'çağrı logu')
+    prices = parse_prices(args.prices)
+    keys = [k.strip() for k in args.group.split(',') if k.strip() in columns]
+    tin, tout = numbers(rows, 'girdi_token'), numbers(rows, 'cikti_token')
+    lat = numbers(rows, 'sure_ms') if 'sure_ms' in columns else [None] * len(rows)
+    groups = defaultdict(list)
+    for r, i, o, l in zip(rows, tin, tout, lat):
+        groups[tuple(r[k].strip() for k in keys)].append((r, i or 0, o or 0, l))
+    out, unpriced = [], 0
+    for key, items in sorted(groups.items()):
+        model = items[0][0]['model'].strip()
+        price = prices.get(model)
+        sum_in, sum_out = sum(x[1] for x in items), sum(x[2] for x in items)
+        cost = round(sum_in * price[0] / 1e6 + sum_out * price[1] / 1e6, 6) if price else ''
+        unpriced += 0 if price else len(items)
+        errs = sum(x[0].get('durum', '').strip().lower() not in ('ok', 'basarili', 'success', '200', '') for x in items)
+        lats = sorted(x[3] for x in items if x[3] is not None)
+        fb = [x[0].get('geri_bildirim', '').strip().lower() for x in items if x[0].get('geri_bildirim', '').strip()]
+        nearest = lambda q: lats[min(len(lats) - 1, max(0, math.ceil(len(lats) * q) - 1))] if lats else ''
+        out.append({**dict(zip(keys, key)), 'cagri': len(items), 'hata_%': round(100 * errs / len(items), 1), 'girdi_token': int(sum_in), 'cikti_token': int(sum_out), 'maliyet_usd': cost,
+                    'p50_ms': fmt(nearest(0.5)), 'p95_ms': fmt(nearest(0.95)), 'olumsuz_%': round(100 * fb.count('olumsuz') / len(fb), 1) if fb else '', '_err': errs})
+    calls = sum(o['cagri'] for o in out)
+    errors = sum(o.pop('_err') for o in out)
+    total = sum(o['maliyet_usd'] for o in out if o['maliyet_usd'] != '')
+    out.sort(key=lambda o: -(o['maliyet_usd'] or 0))
+    return Result(f'{calls} çağrı; hata %{100 * errors / calls:.1f}; toplam ${total:.4f}', list(out[0]), out,
+                  {'cagri': calls, 'hata_%': round(100 * errors / calls, 1), 'toplam_maliyet': round(total, 4), 'fiyatsiz_cagri': unpriced,
+                   'fiyatsiz_model': sorted({o.get('model', '') for o in out if o['maliyet_usd'] == ''})},
+                  notes=['Fiyatlar örnektir; sağlayıcınızın güncel liste veya sözleşme fiyatlarını --prices ile verin. Önbelleğe alınmış girdi tokenları ayrıca indirimli olabilir.'])

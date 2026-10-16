@@ -1,5 +1,5 @@
 """Bütçe ve planlama blokları: bütçe–gerçekleşen, bütçe dağıtımı, yıl sonu tahmini, senaryo analizi, konsolidasyon ve grup içi eliminasyon."""
-import re
+import math, re
 from collections import defaultdict
 from pathlib import Path
 import tabular
@@ -208,3 +208,76 @@ def konsolidasyon(args):
     return Result(f'{len(files)} şirket konsolide edildi; {len(elim)} grup içi çift elimine edildi, {issues} çiftte mutabakat farkı', ['hesap', 'hesap_adi'] + companies + ['konsolide'], out,
                   {'sirket': len(files), 'eliminasyon': len(elim), 'mutabik_olmayan': issues}, files={'eliminasyon.csv': (list(elim[0]), elim)},
                   notes=['Kur çevrimi, azınlık payı ve yatırım–özkaynak eliminasyonu bu blokta yapılmaz.'])
+
+
+def erlang_c(n, a):
+    """Probability that a call waits (Erlang C) with n agents and a Erlangs of traffic; computed via the Erlang B recursion."""
+    b = 1.0
+    for k in range(1, n + 1):
+        b = a * b / (k + a * b)
+    return n * b / (n - a * (1 - b))
+
+
+@op('cagri-merkezi-personel', title='Çağrı merkezi personel ihtiyacı (Erlang C)', domain=D, product=P, tag='Erlang C', samples={'cagri_hacmi.csv': 'cagri_hacmi.csv'},
+    args=[arg('--interval', default='aralik'), arg('--calls', default='cagri'), arg('--aht', type=float, default=180.0, help='Ortalama görüşme + iş süresi (sn)'),
+          arg('--length', type=float, default=1800.0, help='Aralık uzunluğu (sn)'), arg('--sl', type=float, default=0.80, help='Hedef hizmet seviyesi'),
+          arg('--target', type=float, default=20.0, help='Hedef cevaplama süresi (sn)'), arg('--shrinkage', type=float, default=0.30, help='Mola, eğitim, devamsızlık payı')],
+    description='Aralık bazında çağrı tahmininden Erlang C modeliyle hedef hizmet seviyesini (ör. çağrıların %80’i 20 saniyede) sağlayan en az temsilci sayısını, beklenen hizmet seviyesini, ortalama bekleme süresini (ASA) ve doluluk oranını hesaplar; mola/devamsızlık payıyla vardiyaya yazılacak kişi sayısını verir.',
+    input='Aralık bazında çağrı tahmini (aralık, çağrı)', output='sonuc.csv (aralık bazında personel)', command='python main.py --aht 240 --sl 0.9 --target 15 --shrinkage 0.35',
+    expect={'aralik': 8, 'toplam_cagri': 780, 'en_yogun_temsilci': 17, 'en_yogun_vardiya': 25})
+def erlang(columns, rows, args):
+    calls = numbers(rows, need(args.calls, columns, '--calls'))
+    icol = need(args.interval, columns, '--interval')
+    out = []
+    for r, c in zip(rows, calls):
+        c = c or 0.0
+        a = c * args.aht / args.length
+        n = max(1, math.floor(a) + 1) if a else 0
+        sl = asa = 1.0
+        while n:
+            pw = erlang_c(n, a)
+            sl = 1 - pw * math.exp(-(n - a) * args.target / args.aht)
+            asa = pw * args.aht / (n - a)
+            if sl >= args.sl:
+                break
+            n += 1
+        out.append({'aralik': r[icol], 'cagri': fmt(c), 'trafik_erlang': round(a, 2), 'temsilci': n, 'hizmet_seviyesi_%': round(100 * sl, 1) if n else '',
+                    'ort_bekleme_sn': round(asa, 1) if n else '', 'doluluk_%': round(100 * a / n, 1) if n else '', 'vardiya_kisi': math.ceil(n / (1 - args.shrinkage)) if n else 0})
+    peak = max(out, key=lambda o: o['temsilci'])
+    return Result(f'{len(out)} aralık; en yoğun aralık {peak["aralik"]}: {peak["temsilci"]} temsilci ({peak["vardiya_kisi"]} kişi vardiyada)', list(out[0]), out,
+                  {'aralik': len(out), 'toplam_cagri': round(sum(c or 0 for c in calls)), 'en_yogun_temsilci': peak['temsilci'], 'en_yogun_vardiya': peak['vardiya_kisi'],
+                   'temsilci_saat': round(sum(o['temsilci'] for o in out) * args.length / 3600, 1)},
+                  notes=['Erlang C çağrıyı bırakıp gidenleri (abandon) hesaba katmaz; yoğun aralıklarda biraz fazla personel önerir.',
+                         'Doluluk %85–90’ın üzerindeyse temsilci yorgunluğu artar; hedef hizmet seviyesini ve AHT’yi gerçekleşen değerlerle güncelleyin.'])
+
+
+@op('fiyat-hacim-karma', title='Fiyat–hacim–karma (price-volume-mix) sapma analizi', domain=D, product=P, tag='PVM', samples={'pvm_satis.csv': 'pvm_satis.csv'},
+    args=[arg('--item', default='urun'), arg('--bq', default='butce_adet'), arg('--bp', default='butce_fiyat'), arg('--aq', default='gercek_adet'), arg('--ap', default='gercek_fiyat')],
+    description='Bütçe (veya önceki dönem) ile gerçekleşen ciro arasındaki farkı ürün bazında hacim, karma (ürün sepeti değişimi) ve fiyat etkisine ayırır; üç etkinin toplamı ciro farkına eşittir. Yeni ve bırakılan ürünleri karma etkisinde gösterir. Yönetim raporunda “ciro neden saptı” sorusunu sayılarla cevaplamak için.',
+    input='Ürün bazında bütçe/gerçekleşen adet ve fiyat', output='sonuc.csv (ürün bazında etkiler)', command='python main.py --input pvm.xlsx --bq onceki_adet --bp onceki_fiyat',
+    expect={'toplam_fark': 230.0, 'hacim_etkisi': 450.0, 'fiyat_etkisi': 80.0, 'karma_etkisi': -300.0})
+def pvm(columns, rows, args):
+    icol = need(args.item, columns, '--item')
+    bq, bp, aq, ap = (numbers(rows, need(c, columns, f)) for c, f in ((args.bq, '--bq'), (args.bp, '--bp'), (args.aq, '--aq'), (args.ap, '--ap')))
+    items = []
+    for r, q1, p1, q2, p2 in zip(rows, bq, bp, aq, ap):
+        q1, q2 = q1 or 0.0, q2 or 0.0
+        p1 = p1 if p1 is not None else (p2 or 0.0)
+        p2 = p2 if p2 is not None else p1
+        items.append((r[icol], q1, p1, q2, p2))
+    tb, ta = sum(i[1] for i in items), sum(i[3] for i in items)
+    if not tb:
+        raise ValueError('Bütçe adet toplamı sıfır; hacim/karma ayrıştırılamaz.')
+    out = []
+    for name, q1, p1, q2, p2 in items:
+        vol = (ta - tb) * (q1 / tb) * p1
+        mix = (q2 - ta * q1 / tb) * p1
+        price = (p2 - p1) * q2
+        out.append({'urun': name, 'butce_ciro': round(q1 * p1, 2), 'gercek_ciro': round(q2 * p2, 2), 'fark': round(q2 * p2 - q1 * p1, 2), 'hacim': round(vol, 2), 'karma': round(mix, 2),
+                    'fiyat': round(price, 2), 'not': 'yeni ürün' if not q1 and q2 else 'bırakılan ürün' if q1 and not q2 else ''})
+    tot = {k: round(sum(o[k] for o in out), 2) for k in ('fark', 'hacim', 'karma', 'fiyat')}
+    return Result(f'Ciro farkı {tr_money(tot["fark"])} = hacim {tr_money(tot["hacim"])} + karma {tr_money(tot["karma"])} + fiyat {tr_money(tot["fiyat"])}', list(out[0]), out,
+                  {'butce_ciro': round(sum(o['butce_ciro'] for o in out), 2), 'gercek_ciro': round(sum(o['gercek_ciro'] for o in out), 2), 'toplam_fark': tot['fark'],
+                   'hacim_etkisi': tot['hacim'], 'karma_etkisi': tot['karma'], 'fiyat_etkisi': tot['fiyat']},
+                  notes=['Hacim: toplam adet değişimi × bütçe ortalama fiyatı. Karma: ürün payı değişimi × bütçe fiyatı. Fiyat: (gerçek − bütçe fiyat) × gerçek adet.',
+                         'Bütçesi olmayan yeni ürünlerde bütçe fiyatı olarak gerçek fiyat kullanılır; etkisi karmada görünür.'])

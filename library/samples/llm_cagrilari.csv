@@ -1,0 +1,13 @@
+zaman,uygulama,model,girdi_token,cikti_token,sure_ms,durum,geri_bildirim
+2026-10-15 09:00:01,destek,model-a,1000,200,800,ok,olumlu
+2026-10-15 09:01:10,destek,model-a,1200,300,900,ok,
+2026-10-15 09:02:30,destek,model-a,800,100,700,ok,olumsuz
+2026-10-15 09:03:00,destek,model-a,1500,0,30000,hata,
+2026-10-15 09:04:00,destek,model-b,2000,500,2500,ok,olumlu
+2026-10-15 10:00:00,rapor,model-b,5000,1000,4000,ok,
+2026-10-15 10:10:00,rapor,model-b,6000,1200,5000,ok,olumsuz
+2026-10-15 10:20:00,rapor,model-b,4000,800,3500,ok,olumlu
+2026-10-15 11:00:00,arama,model-a,300,50,400,ok,
+2026-10-15 11:01:00,arama,model-a,400,60,450,ok,olumlu
+2026-10-15 11:02:00,arama,model-a,350,55,420,hata,
+2026-10-15 11:03:00,arama,model-c,500,100,600,ok,

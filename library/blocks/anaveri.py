@@ -3,7 +3,7 @@ import difflib, re
 from collections import Counter, defaultdict
 import tabular
 import turkiye as tr
-from islem import op, arg, Result, need, col_list, fold, tr_title, tr_sort_key
+from islem import op, arg, Result, need, col_list, fold, fmt, tr_title, tr_sort_key
 
 REQUIRES = ['turkiye']
 D, P = 'mdm', 'Ana veri temizliği'
@@ -270,3 +270,108 @@ def hiyerarsi(columns, rows, args):
     return Result(f'{len(out)} düğüm, {len(roots)} kök, derinlik {depth}; {len(orphan)} yetim, {len(cyc)} düğüm döngüde', ['id', 'ad', 'ust_id', 'seviye', 'yol', 'durum'], out,
                   {'dugum': len(out), 'kok': len(roots), 'yetim': len([o for o in out if o['durum'].startswith('yetim')]), 'donguye_giren': len(cyc),
                    'max_derinlik': depth, 'tekrar_eden_id': len(dup)})
+
+
+@op('referans-esle', title='Serbest metin değerleri referans kod listesine eşle', domain=D, product=P, tag='kod listesi', samples={'urun_birimleri.csv': 'urun_birimleri.csv', 'birimler.csv': 'birimler.csv'},
+    args=[arg('--column', default='birim'), arg('--reference', default='@ornek/birimler.csv', help='Referans liste (kod, ad, esanlamlilar)'), arg('--min', type=float, default=0.85, help='Benzerlik eşiği')],
+    description='Bir sütundaki serbest metin değerleri (birim, ülke, şehir, kategori, ödeme tipi…) referans kod listesine eşler: kod, ad ve eş anlamlılarla büyük/küçük harf ve Türkçe karakter farkı gözetmeden tam eşleşme, olmazsa yazım benzerliğiyle öneri üretir. Farklı değer başına kullanım sayısı ve eşleme tablosu (eslesme_tablosu.csv) çıkarır; temizlik kuralı olarak geri yüklenebilir.',
+    input='Değerlerin olduğu dosya + referans kod listesi', output='sonuc.csv (farklı değer → kod) + eslesme_tablosu.csv', command='python main.py --input malzeme.xlsx --column olcu_birimi --reference birim_kodlari.csv --min 0.8',
+    expect={'farkli_deger': 12, 'tam': 10, 'benzer': 1, 'eslesmeyen': 1})
+def ref_map(columns, rows, args):
+    col = need(args.column, columns, '--column')
+    rcols, refs = tabular.read(args.reference)
+    for c in ('kod', 'ad'):
+        need(c, rcols, 'referans liste')
+    index = {}
+    for r in refs:
+        for name in [r['kod'], r['ad'], *(r.get('esanlamlilar', '') or '').split(',')]:
+            if name.strip():
+                index.setdefault(fold(name), r)
+    counts, sample = Counter(), {}
+    for r in rows:
+        v = r[col].strip()
+        if v:
+            counts[fold(v)] += 1
+            sample.setdefault(fold(v), v)
+    out = []
+    for key, n in counts.most_common():
+        hit = index.get(key)
+        if hit:
+            out.append({'deger': sample[key], 'adet': n, 'kod': hit['kod'], 'ad': hit['ad'], 'yontem': 'tam', 'skor': 1.0})
+            continue
+        best = max(index, key=lambda k: (difflib.SequenceMatcher(None, key, k).ratio(), k), default=None)
+        score = difflib.SequenceMatcher(None, key, best).ratio() if best else 0.0
+        ok = score >= args.min
+        out.append({'deger': sample[key], 'adet': n, 'kod': index[best]['kod'] if ok else '', 'ad': index[best]['ad'] if ok else '', 'yontem': 'benzer (onaylayın)' if ok else 'eşleşmedi',
+                    'skor': round(score, 3)})
+    c = Counter(o['yontem'] for o in out)
+    mapping = [{'kaynak_deger': o['deger'], 'kod': o['kod']} for o in out if o['kod']]
+    return Result(f'{len(out)} farklı değer; {c["tam"]} tam, {c["benzer (onaylayın)"]} benzer, {c["eşleşmedi"]} eşleşmedi', ['deger', 'adet', 'kod', 'ad', 'yontem', 'skor'], out,
+                  {'farkli_deger': len(out), 'tam': c['tam'], 'benzer': c['benzer (onaylayın)'], 'eslesmeyen': c['eşleşmedi'],
+                   'eslesen_kayit_%': round(100 * sum(o['adet'] for o in out if o['kod']) / (sum(counts.values()) or 1), 1)},
+                  files={'eslesme_tablosu.csv': (['kaynak_deger', 'kod'], mapping)},
+                  notes=['Benzer eşleşmeler yazım yakınlığına dayanır; "kutu" ile "koli" gibi anlamca farklı değerleri onaylamadan kullanmayın.'])
+
+
+def valid_for(col, value):
+    """'' when the value is valid for a column recognised by name, otherwise the reason; None when the column has no rule."""
+    name = fold(col).replace(' ', '_')
+    v = value.strip()
+    if re.search(r'e_?posta|email|e_?mail', name):
+        return '' if re.fullmatch(r'[\w.+-]+@[\w-]+(\.[\w-]+)+', v) else 'e-posta biçimi'
+    if re.search(r'telefon|gsm|cep', name):
+        d = re.sub(r'\D', '', v)
+        d = d[2:] if d.startswith('90') and len(d) == 12 else d[1:] if d.startswith('0') and len(d) == 11 else d
+        return '' if len(d) == 10 and d[0] in '2345' else 'telefon 10 hane değil'
+    if re.search(r'tckn|tc_?kimlik', name):
+        return tr.tckn(v)
+    if re.search(r'vkn|vergi_?no', name):
+        return tr.vkn(v)
+    if 'iban' in name:
+        return tr.iban(v)
+    if re.search(r'posta_?kodu', name):
+        return '' if re.fullmatch(r'(0[1-9]|[1-7]\d|8[01])\d{3}', v) else 'posta kodu'
+    if re.fullmatch(r'il|sehir', name):
+        return '' if tr.il_bul(v)[0] else 'il adı tanınmadı'
+    return None
+
+
+@op('ana-veri-tamlik', title='Ana veri kayıtları için tamlık ve geçerlilik skoru', domain=D, product=P, tag='veri kalitesi skoru', samples={'cari_kartlar.csv': 'cari_kartlar.csv'},
+    args=[arg('--required', default='unvan,vkn,telefon,eposta,il,iban', help='Skora giren alanlar (alan:ağırlık da yazılabilir)'), arg('--key', default='cari_kod'),
+          arg('--min-score', type=float, default=80.0)],
+    description='Müşteri, tedarikçi veya cari kartlarında her kayıt için ağırlıklı tamlık ve geçerlilik skorunu hesaplar: alan dolu mu, adına göre tanınan alanlarda değer geçerli mi (VKN/TCKN kontrol hanesi, IBAN mod 97, e-posta, telefon, il, posta kodu). Alan bazında doluluk/geçerlilik oranlarını ve eşik altındaki kayıtları eksik alan listesiyle verir.',
+    input='Ana veri listesi (CSV/XLSX)', output='sonuc.csv (kayıt bazında skor) + alan özeti', command='python main.py --input tedarikciler.xlsx --required "unvan:2,vkn:3,iban:3,eposta,telefon" --min-score 90',
+    expect={'kayit': 8, 'tam_kayit': 2, 'esik_alti': 3})
+def completeness(columns, rows, args):
+    fields = []
+    for part in (p.strip() for p in args.required.split(',') if p.strip()):
+        name, _, w = part.partition(':')
+        fields.append((need(name.strip(), columns, '--required'), float(w) if w else 1.0))
+    total_w = sum(w for _, w in fields)
+    key = args.key if args.key in columns else None
+    stats = {f: [0, 0] for f, _ in fields}
+    out = []
+    for i, r in enumerate(rows, 2):
+        got, problems = 0.0, []
+        for f, w in fields:
+            v = r[f].strip()
+            if not v:
+                problems.append(f'{f}: boş')
+                continue
+            stats[f][0] += 1
+            reason = valid_for(f, v)
+            if reason:
+                problems.append(f'{f}: {reason}')
+            else:
+                stats[f][1] += 1
+                got += w
+        score = round(100 * got / total_w, 1)
+        out.append({'kayit': r[key] if key else i, 'skor': score, 'sorunlar': '; '.join(problems)})
+    out.sort(key=lambda o: (o['skor'], str(o['kayit'])))
+    n = len(rows) or 1
+    field_rows = [[f, w, round(100 * stats[f][0] / n, 1), round(100 * stats[f][1] / n, 1), 'evet' if valid_for(f, 'x') is not None else 'yalnız doluluk'] for f, w in fields]
+    return Result(f'{len(rows)} kayıt; ortalama skor {sum(o["skor"] for o in out) / n:.1f}; {sum(o["skor"] < args.min_score for o in out)} kayıt {fmt(args.min_score)} altında',
+                  ['kayit', 'skor', 'sorunlar'], out,
+                  {'kayit': len(rows), 'ortalama_skor': round(sum(o['skor'] for o in out) / n, 1), 'tam_kayit': sum(o['skor'] == 100 for o in out),
+                   'esik_alti': sum(o['skor'] < args.min_score for o in out)},
+                  tables=[('Alan özeti', ['Alan', 'Ağırlık', 'Dolu %', 'Geçerli %', 'Geçerlilik kuralı'], field_rows)])

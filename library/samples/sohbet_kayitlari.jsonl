@@ -1,0 +1,4 @@
+{"oturum": "S1", "mesajlar": [{"rol": "kullanici", "icerik": "Merhaba, siparişim gelmedi. E-postam ayse@ornek.test, telefonum 0532 111 22 33."}, {"rol": "asistan", "icerik": "Sipariş numaranızı paylaşır mısınız?"}]}
+{"oturum": "S2", "mesajlar": [{"rol": "kullanici", "icerik": "TC kimlik no 10000791952, IBAN TR33 0006 1005 1978 6457 8413 26 iade için."}]}
+{"oturum": "S3", "mesajlar": [{"rol": "kullanici", "icerik": "Kargo ne zaman gelir?"}], "meta": {"musteri_eposta": "mehmet@ornek.test"}}
+{"oturum": "S4", "mesajlar": [{"rol": "kullanici", "icerik": "yarım kalan satır 0533 222 33 44"

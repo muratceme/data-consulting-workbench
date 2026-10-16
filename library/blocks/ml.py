@@ -221,3 +221,139 @@ def leak(columns, rows, args):
             suspicious += 1
             out.append({'tur': 'hedefi ele veren alan', 'sutun': c, 'ayrinti': 'her değer tek bir hedef sınıfına karşılık geliyor'})
     return Result(f'{len(out)} sızıntı bulgusu', ['tur', 'sutun', 'ayrinti'], out, {'kimlik_cakismasi': ids, 'ayni_satir': dup, 'supheli_ozellik': suspicious})
+
+
+def labeled(columns, rows, args):
+    ys = numbers(rows, need(args.actual, columns, '--actual'))
+    ps = numbers(rows, need(args.score, columns, '--score'))
+    pairs = [(int(y), p) for y, p in zip(ys, ps) if y in (0, 1) and p is not None]
+    if not pairs:
+        raise ValueError('0/1 gerçek değer ve sayısal skor içeren satır yok.')
+    if any(not 0 <= p <= 1 for _, p in pairs):
+        raise ValueError('Skorlar 0–1 aralığında olasılık olmalı.')
+    return pairs
+
+
+@op('esik-optimizasyonu', title='Sınıflandırma eşiğini F1 veya hata maliyetine göre seç', domain=D, product=P, tag='eşik', samples={'model_tahminleri.csv': 'model_tahminleri.csv'},
+    args=[arg('--actual', default='gercek'), arg('--score', default='skor'), arg('--fp-cost', type=float, default=1.0, help='Yanlış pozitif başına maliyet'),
+          arg('--fn-cost', type=float, default=5.0, help='Yanlış negatif başına maliyet'), arg('--step', type=float, default=0.05)],
+    description='Model olasılık skorları için 0–1 arasındaki eşiklerde karışıklık matrisini, kesinlik, duyarlılık ve F1’i hesaplar; F1’i en yüksek ve iş maliyetini (yanlış pozitif × maliyet + yanlış negatif × maliyet) en düşük yapan eşiği önerir. Varsayılan 0,5 eşiğinin dengesiz sınıflarda neden yetersiz kaldığını gösterir.',
+    input='Tahmin dosyası (gerçek 0/1, skor 0–1)', output='sonuc.csv (eşik × metrikler)', command='python main.py --actual churn --score olasilik --fp-cost 50 --fn-cost 400',
+    expect={'kayit': 600, 'en_iyi_f1_esik': 0.6, 'en_dusuk_maliyet_esik': 0.5, 'en_dusuk_maliyet': 171.0})
+def threshold(columns, rows, args):
+    pairs = labeled(columns, rows, args)
+    out = []
+    for i in range(1, int(round(1 / args.step))):
+        t = round(i * args.step, 4)
+        tp = sum(1 for y, p in pairs if p >= t and y)
+        fp = sum(1 for y, p in pairs if p >= t and not y)
+        fn = sum(1 for y, p in pairs if p < t and y)
+        tn = len(pairs) - tp - fp - fn
+        prec = tp / (tp + fp) if tp + fp else 0.0
+        rec = tp / (tp + fn) if tp + fn else 0.0
+        f1 = 2 * prec * rec / (prec + rec) if prec + rec else 0.0
+        out.append({'esik': t, 'tp': tp, 'fp': fp, 'fn': fn, 'tn': tn, 'kesinlik': round(prec, 4), 'duyarlilik': round(rec, 4), 'f1': round(f1, 4),
+                    'maliyet': round(fp * args.fp_cost + fn * args.fn_cost, 2)})
+    best_f1 = max(out, key=lambda o: (o['f1'], -o['esik']))
+    best_cost = min(out, key=lambda o: (o['maliyet'], o['esik']))
+    half = next((o for o in out if abs(o['esik'] - 0.5) < 1e-9), None)
+    for o in out:
+        o['oneri'] = ', '.join(x for x, b in (('en iyi F1', best_f1), ('en düşük maliyet', best_cost)) if o is b)
+    return Result(f'En iyi F1 {best_f1["f1"]} (eşik {best_f1["esik"]}); en düşük maliyet {best_cost["maliyet"]:,} (eşik {best_cost["esik"]})', list(out[0]), out,
+                  {'kayit': len(pairs), 'pozitif_orani_%': round(100 * sum(y for y, _ in pairs) / len(pairs), 1), 'en_iyi_f1_esik': best_f1['esik'], 'en_iyi_f1': best_f1['f1'],
+                   'en_dusuk_maliyet_esik': best_cost['esik'], 'en_dusuk_maliyet': best_cost['maliyet'], 'esik_0_5_maliyet': half['maliyet'] if half else ''},
+                  notes=['Eşik, doğrulama verisinde seçilip test verisinde kontrol edilmelidir; aynı veride seçmek iyimser sonuç verir.'])
+
+
+@op('kalibrasyon', title='Olasılık kalibrasyonu: güvenilirlik tablosu, Brier ve ECE', domain=D, product=P, tag='kalibrasyon', samples={'model_tahminleri.csv': 'model_tahminleri.csv'},
+    args=[arg('--actual', default='gercek'), arg('--score', default='skor'), arg('--bins', type=int, default=10)],
+    description='Modelin verdiği olasılıkların gerçekleşen oranlarla uyumunu ölçer: eşit genişlikte skor dilimlerinde ortalama tahmin ve gerçek oranı (güvenilirlik eğrisi), Brier skoru, log loss ve beklenen kalibrasyon hatasını (ECE) hesaplar; aşırı iyimser/kötümser dilimleri işaretler. Olasılığı fiyatlama veya bütçe hesabında kullanılan modeller için.',
+    input='Tahmin dosyası (gerçek 0/1, skor 0–1)', output='sonuc.csv (dilim bazında kalibrasyon)', command='python main.py --actual temerrut --score pd --bins 20',
+    expect={'kayit': 600, 'dilim': 10, 'brier': 0.1324})
+def calibration(columns, rows, args):
+    pairs = labeled(columns, rows, args)
+    bins = [[] for _ in range(args.bins)]
+    for y, p in pairs:
+        bins[min(args.bins - 1, int(p * args.bins))].append((y, p))
+    out, ece = [], 0.0
+    for i, b in enumerate(bins):
+        if not b:
+            continue
+        conf = sum(p for _, p in b) / len(b)
+        acc = sum(y for y, _ in b) / len(b)
+        ece += len(b) / len(pairs) * abs(acc - conf)
+        gap = acc - conf
+        out.append({'dilim': f'{i / args.bins:.2f}–{(i + 1) / args.bins:.2f}', 'kayit': len(b), 'ort_tahmin': round(conf, 4), 'gercek_oran': round(acc, 4), 'fark': round(gap, 4),
+                    'yorum': 'iyimser (tahmin yüksek)' if gap < -0.1 else 'kötümser (tahmin düşük)' if gap > 0.1 else ''})
+    brier = sum((p - y) ** 2 for y, p in pairs) / len(pairs)
+    eps = 1e-15
+    logloss = -sum(y * math.log(max(p, eps)) + (1 - y) * math.log(max(1 - p, eps)) for y, p in pairs) / len(pairs)
+    base = sum(y for y, _ in pairs) / len(pairs)
+    return Result(f'Brier {brier:.4f} (taban {base * (1 - base):.4f}), ECE {ece:.4f}, log loss {logloss:.4f}', list(out[0]), out,
+                  {'kayit': len(pairs), 'dilim': len(out), 'brier': round(brier, 4), 'brier_taban': round(base * (1 - base), 4), 'ece': round(ece, 4), 'log_loss': round(logloss, 4)},
+                  notes=['Brier taban değeri, herkese ortalama oranı veren modelin skorudur; model bunun altında kalmalıdır.',
+                         'Kalibrasyonu bozuk ama sıralaması iyi modeller Platt/izotonik kalibrasyonla düzeltilebilir.'])
+
+
+def woe_table(groups, total_good, total_bad):
+    rows, iv = [], 0.0
+    for label, (good, bad) in groups:
+        dg, db = (good or 0.5) / total_good, (bad or 0.5) / total_bad
+        woe = math.log(dg / db)
+        iv += (dg - db) * woe
+        rows.append((label, good + bad, bad, round(100 * bad / (good + bad), 1) if good + bad else 0, round(woe, 4)))
+    return rows, iv
+
+
+def strength(iv):
+    return 'şüpheli: sızıntı olabilir' if iv > 0.5 else 'güçlü' if iv > 0.3 else 'orta' if iv > 0.1 else 'zayıf' if iv > 0.02 else 'işe yaramaz'
+
+
+@op('woe-iv', title='Değişken gücü: WoE ve Information Value (IV)', domain=D, product=P, tag='WoE/IV', samples={'egitim_verisi.csv': 'egitim_verisi.csv'},
+    args=[arg('--target', default='churn', help='0/1 hedef sütunu'), arg('--features', help='Virgülle sütunlar (varsayılan: hedef ve kimlik dışındakiler)'),
+          arg('--bins', type=int, default=5, help='Sayısal değişkenler için eşit frekanslı dilim'), arg('--max-cats', type=int, default=20)],
+    description='İkili hedef için her değişkenin dilimlerinde olay oranını, Weight of Evidence (WoE) değerini ve değişkenin toplam Information Value’sunu hesaplar; değişkenleri gücüne göre sıralar. Sayısal değişkenleri eşit frekanslı dilimlere böler, çok kategorili alanları dolu/boş olarak değerlendirir ve IV’si 0,5’i aşan (hedefi sızdıran) alanları uyarır. Kredi skorlama ve churn modellerinde değişken seçimi için.',
+    input='Eğitim verisi (hedef 0/1 + değişkenler)', output='sonuc.csv (değişken × dilim WoE) + IV sıralaması', command='python main.py --input basvurular.csv --target temerrut --bins 10',
+    expect={'ozellik': 5, 'en_guclu': 'iptal_tarihi'})
+def woe_iv(columns, rows, args):
+    tcol = need(args.target, columns, '--target')
+    ys = numbers(rows, tcol)
+    data = [(r, int(y)) for r, y in zip(rows, ys) if y in (0, 1)]
+    bad_total = sum(y for _, y in data)
+    good_total = len(data) - bad_total
+    if not bad_total or not good_total:
+        raise ValueError('Hedefte hem 0 hem 1 olmalı.')
+    feats = col_list(args.features, columns, '--features') if args.features else [c for c in columns if c != tcol and len({r[c] for r, _ in data}) < len(data)]
+    out, ivs = [], []
+    for f in feats:
+        vals = numbers([r for r, _ in data], f)
+        filled = [v for v, (r, _) in zip(vals, data) if r[f].strip()]
+        numeric = filled and all(v is not None for v in filled)
+        groups = defaultdict(lambda: [0, 0])
+        if numeric:
+            ordered = sorted(filled)
+            edges = sorted({ordered[min(len(ordered) - 1, len(ordered) * k // args.bins)] for k in range(1, args.bins)})
+            for v, (r, y) in zip(vals, data):
+                if v is None:
+                    key = (len(edges) + 1, 'boş')
+                else:
+                    k = sum(v >= e for e in edges)
+                    lo = '-∞' if k == 0 else fmt(edges[k - 1])
+                    hi = '∞' if k == len(edges) else fmt(edges[k])
+                    key = (k, f'[{lo}, {hi})')
+                groups[key][y] += 1
+        else:
+            cats = {r[f].strip() for r, _ in data}
+            many = len(cats) > args.max_cats
+            for r, y in data:
+                v = r[f].strip()
+                groups[(0, 'dolu' if v else 'boş') if many else (0, v or 'boş')][y] += 1
+        table, iv = woe_table([(lbl, (g[0], g[1])) for (_, lbl), g in sorted(groups.items())], good_total, bad_total)
+        ivs.append([f, 'sayısal' if numeric else 'kategorik', round(iv, 4), strength(iv)])
+        out += [{'ozellik': f, 'dilim': lbl, 'kayit': n, 'olay': b, 'olay_orani_%': rate, 'woe': w} for lbl, n, b, rate, w in table]
+    ivs.sort(key=lambda x: -x[2])
+    return Result(f'{len(feats)} değişken; en güçlü {ivs[0][0]} (IV {ivs[0][2]}, {ivs[0][3]})', ['ozellik', 'dilim', 'kayit', 'olay', 'olay_orani_%', 'woe'], out,
+                  {'kayit': len(data), 'olay_orani_%': round(100 * bad_total / len(data), 1), 'ozellik': len(feats), 'en_guclu': ivs[0][0], 'en_guclu_iv': ivs[0][2],
+                   'supheli': [x[0] for x in ivs if x[2] > 0.5]},
+                  tables=[('Information Value sıralaması', ['Değişken', 'Tür', 'IV', 'Güç'], ivs)],
+                  notes=['WoE = ln(olay olmayan payı / olay payı); boş dilimlerde 0,5 düzeltmesi uygulanır.', 'IV > 0,5 genelde hedefin bilgisini taşıyan (ör. sonradan dolan tarih) alanlara işaret eder.'])
