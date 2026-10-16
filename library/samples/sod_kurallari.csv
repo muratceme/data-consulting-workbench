@@ -1,0 +1,5 @@
+rol_a;rol_b;risk;aciklama
+FINANS_RAPOR;DWH_YAZMA;yüksek;Finansal raporu hazırlayan kişi kaynak veriyi değiştirebilmemeli
+IK_GIZLI;DWH_YAZMA;yüksek;Gizli İK verisine erişen kişi ambar verisini değiştirebiliyor
+DWH_ADMIN;DWH_YAZMA;orta;Yönetici ve ETL yazma yetkisi ayrı hesaplarda olmalı
+DWH_ADMIN;FINANS_RAPOR;orta;Yönetici hesabı finansal raporlara erişmemeli

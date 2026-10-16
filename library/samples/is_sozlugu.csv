@@ -1,0 +1,11 @@
+terim;tanim;sahip;esanlamlilar
+Müşteri;Şirketten en az bir kez ürün veya hizmet satın almış gerçek ya da tüzel kişi.;Satış;Alıcı, Cari
+Aktif Müşteri;Son 12 ayda en az bir siparişi olan müşteri.;Satış;
+MÜŞTERİ;Ürün alan kişi;Pazarlama;
+Ciro;Ciro;Finans;
+Net Satış;Brüt satıştan iade, iskonto ve indirimlerin düşülmesiyle bulunan tutar.;Finans;Ciro
+Brüt Satış;;Finans;
+Churn;Belirli bir dönemde hizmeti bırakan müşterilerin oranı.;;Kayıp Oranı
+Kayıp Oranı;Dönem başındaki müşterilerden dönem içinde kaybedilenlerin yüzdesi.;Pazarlama;
+Sipariş;Müşterinin ürün veya hizmet talebini kayıt altına alan belge.;Operasyon;
+Cari;Şirketin alacak veya borç ilişkisi bulunan hesap.;Muhasebe;

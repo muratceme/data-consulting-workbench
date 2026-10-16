@@ -1,0 +1,14 @@
+{
+  "name": "satis.siparis",
+  "owner": "Satış Veri Ekibi",
+  "version": "1.2",
+  "min_rows": 5,
+  "columns": [
+    {"name": "siparis_id", "type": "integer", "required": true, "unique": true},
+    {"name": "musteri_no", "type": "string", "required": true, "pattern": "^M[0-9]{3}$"},
+    {"name": "tarih", "type": "date", "required": true},
+    {"name": "tutar", "type": "number", "required": true, "min": 0},
+    {"name": "para_birimi", "type": "string", "allowed": ["TRY", "USD", "EUR"]},
+    {"name": "durum", "type": "string", "required": true, "allowed": ["yeni", "onaylandi", "iptal"]}
+  ]
+}

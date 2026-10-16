@@ -1,0 +1,15 @@
+tablo;sutun;siniflandirma
+crm.musteri;tckn;kişisel
+dwh.dim_musteri;tckn;kişisel
+stg.musteri;TCKN;
+crm.musteri;eposta;kişisel
+dwh.dim_musteri;e_posta;genel
+crm.musteri;telefon;kişisel
+dwh.dim_musteri;telefon;kişisel
+dwh.fct_satis;tutar;iç
+fin.fatura;tutar;gizli
+crm.musteri;dogum_tarihi;kişisel
+hr.personel;dogum_tarihi;özel
+hr.personel;maas;gizli
+dwh.dim_urun;urun_adi;genel
+dwh.dim_musteri;iban;

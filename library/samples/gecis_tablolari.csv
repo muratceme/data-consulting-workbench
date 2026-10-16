@@ -1,0 +1,14 @@
+tablo;boyut_gb;bagimliliklar
+musteri;40;
+urun;5;
+kategori;0,1;
+siparis;300;musteri
+siparis_kalem;800;siparis,urun
+odeme;120;siparis
+adres;20;musteri
+kampanya;2;
+kampanya_urun;1;kampanya,urun
+fatura;200;siparis,musteri
+log_a;50;log_b
+log_b;60;log_a
+stok;30;urun,depo

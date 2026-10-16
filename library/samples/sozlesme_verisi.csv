@@ -1,0 +1,11 @@
+siparis_id,musteri_no,tarih,tutar,para_birimi,durum,kanal
+1,M001,2026-10-01,150.50,TRY,yeni,web
+2,M002,2026-10-01,99.90,TRY,onaylandi,web
+3,M003,2026-10-02,-20,TRY,iptal,magaza
+3,M004,2026-10-02,45,USD,yeni,web
+5,M05,2026-10-03,80,TRY,yeni,web
+6,M006,03.10.2026,120,GBP,onaylandi,web
+7,M007,2026-10-04,abc,TRY,yeni,web
+8,,2026-10-04,60,TRY,yeni,magaza
+9,M009,2026-13-01,75,EUR,Onaylandi,web
+10,M010,2026-10-05,30,,yeni,web

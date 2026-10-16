@@ -1,0 +1,9 @@
+tedarikci;hizmet;ulke;veri_kategorisi;ozel_nitelikli;mekanizma;imza_tarihi;bildirim_tarihi;sozlesme_bitis
+Bulut A;Barındırma;Almanya;müşteri kimlik, iletişim;hayır;standart sözleşme;2026-03-02;2026-03-05;2028-03-01
+CRM B;CRM;ABD;müşteri iletişim;hayır;standart sözleşme;2026-05-04;2026-05-15;2027-05-01
+Mail C;E-posta servisi;İrlanda;çalışan iletişim;hayır;;;;2027-01-01
+Yerel D;Arşiv;Türkiye;müşteri kimlik;hayır;;;;2027-06-30
+Analitik E;Web analitiği;ABD;çerez, cihaz;hayır;standart sözleşme;2026-08-03;;2027-08-01
+Lab F;Laboratuvar;Almanya;sağlık;evet;standart sözleşme;2025-10-01;2025-10-03;2026-09-30
+Grup G;İK yazılımı;Hollanda;çalışan özlük;hayır;bağlayıcı şirket kuralları;;;2029-01-01
+Destek H;Çağrı merkezi;Birleşik Arap Emirlikleri;müşteri iletişim;hayır;arızi;;;2027-03-31
