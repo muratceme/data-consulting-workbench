@@ -1,0 +1,9 @@
+kaynak_id;tip;vcpu;ort_cpu;p95_cpu;ort_bellek;aylik_maliyet
+vm-rapor-01;D8s_v5;8;1,0;3,0;10;400
+vm-etl-01;D16s_v5;16;12;30;35;900
+vm-web-01;D4s_v5;4;45;85;70;200
+vm-web-02;D2s_v5;2;20;60;40;100
+vm-cache-01;E8s_v5;8;8;25;60;380
+vm-analitik;D32s_v5;32;4;15;20;1600
+vm-bastion;B1s;1;10;35;30;30
+vm-test-eski;D4s_v5;4;0,5;1,0;5;150

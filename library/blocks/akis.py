@@ -213,3 +213,123 @@ def lag(args):
     return Result(f'{len({r["grup"] for r in rows})} grup, {len(rows)} partition; {over} grup eşik üstünde', list(rows[0]), rows,
                   {'grup': len({r['grup'] for r in rows}), 'partition': len(rows), 'tuketicisiz_partition': sum(1 for r in rows if not r['tuketici']), 'esik_ustu_grup': over},
                   tables=[('Grup özeti', ['Grup', 'Topic', 'Partition', 'Toplam lag', 'Uyarı'], table)])
+
+
+def fields(line):
+    out = {}
+    for tok in re.split(r'\t+|\s{2,}', line.strip()):
+        k, sep, v = tok.partition(':')
+        if sep:
+            out[k.strip()] = v.strip()
+    return out
+
+
+def brokers(v):
+    return [b for b in re.split(r'[,\s]+', v or '') if b]
+
+
+@op('kafka-konu-denetimi', title='Kafka topic yapılandırma ve replikasyon denetimi', domain='stream', product='Kafka', tag='topic denetimi', kind='file', samples={'kafka_topics.txt': 'kafka_topics.txt'},
+    args=[arg('--min-rf', type=int, default=3, help='Beklenen en düşük replikasyon faktörü')],
+    description='kafka-topics.sh --describe çıktısını okur: replikasyon faktörü düşük topic’leri, min.insync.replicas eksik veya replikasyon faktörüne eşit (tek broker kaybında yazmayı durduran) ayarları, ISR’ı eksik (under-replicated) ve lideri olmayan (offline) partition’ları, tercih edilen lideri dışında çalışan partition’ları ve broker başına lider dağılımını raporlar.',
+    input='kafka-topics --describe çıktısı (.txt)', output='sonuc.csv (topic bazında bulgular) + partition ve lider tabloları', command='python main.py --input topics.txt --min-rf 3',
+    expect={'topic': 4, 'partition': 8, 'eksik_isr': 1, 'lidersiz': 1, 'sorunlu_topic': 3})
+def topics(args):
+    tops, parts = {}, []
+    for line in Path(args.input).read_text(encoding='utf-8-sig', errors='replace').splitlines():
+        f = fields(line)
+        if 'PartitionCount' in f:
+            cfg = dict(kv.split('=', 1) for kv in f.get('Configs', '').split(',') if '=' in kv)
+            tops[f['Topic']] = {'rf': int(f.get('ReplicationFactor') or 0), 'pc': int(f.get('PartitionCount') or 0), 'cfg': cfg}
+        elif 'Partition' in f and 'Topic' in f:
+            leader = f.get('Leader', '').strip()
+            parts.append({'topic': f['Topic'], 'partition': int(f['Partition']), 'lider': '' if leader in ('none', '-1', '') else leader,
+                          'replikalar': brokers(f.get('Replicas')), 'isr': brokers(f.get('Isr'))})
+    if not tops and not parts:
+        raise ValueError('kafka-topics --describe çıktısı bulunamadı (Topic: … PartitionCount: … satırları bekleniyor).')
+    for p_ in parts:
+        tops.setdefault(p_['topic'], {'rf': len(p_['replikalar']), 'pc': 0, 'cfg': {}})
+    out = []
+    for t, info in sorted(tops.items()):
+        issues = []
+        rf, cfg = info['rf'], info['cfg']
+        mine = [p_ for p_ in parts if p_['topic'] == t]
+        if rf < args.min_rf:
+            issues.append(f'replikasyon faktörü {rf} < {args.min_rf}')
+        isr_min = cfg.get('min.insync.replicas')
+        if isr_min is None and rf > 1:
+            issues.append('min.insync.replicas topic’te tanımsız (broker varsayılanı, genelde 1)')
+        elif isr_min is not None and rf > 1 and int(isr_min) >= rf:
+            issues.append(f'min.insync.replicas={isr_min} ≥ RF: tek broker kaybında acks=all yazmalar durur')
+        if info['pc'] == 1 or len(mine) == 1:
+            issues.append('tek partition: tüketici paralelliği yok')
+        under = [p_ for p_ in mine if p_['lider'] and len(p_['isr']) < len(p_['replikalar'])]
+        offline = [p_ for p_ in mine if not p_['lider']]
+        moved = [p_ for p_ in mine if p_['lider'] and p_['replikalar'] and p_['lider'] != p_['replikalar'][0]]
+        if under:
+            issues.append(f"ISR eksik partition: {', '.join(str(p_['partition']) for p_ in under)}")
+        if offline:
+            issues.append(f"LİDERSİZ partition: {', '.join(str(p_['partition']) for p_ in offline)}")
+        if moved:
+            issues.append(f"tercih edilen lider dışında: {', '.join(str(p_['partition']) for p_ in moved)} (leader election önerilir)")
+        out.append({'topic': t, 'partition': len(mine) or info['pc'], 'rf': rf, 'min_isr': isr_min or '', 'bulgu': '; '.join(issues), 'durum': 'SORUNLU' if issues else 'uygun'})
+    leaders = Counter(p_['lider'] for p_ in parts if p_['lider'])
+    out.sort(key=lambda o: (o['durum'] != 'SORUNLU', o['topic']))
+    return Result(f'{len(out)} topic, {len(parts)} partition; {sum(o["durum"] == "SORUNLU" for o in out)} topic sorunlu', ['topic', 'partition', 'rf', 'min_isr', 'bulgu', 'durum'], out,
+                  {'topic': len(out), 'partition': len(parts), 'eksik_isr': sum(1 for p_ in parts if p_['lider'] and len(p_['isr']) < len(p_['replikalar'])),
+                   'lidersiz': sum(1 for p_ in parts if not p_['lider']), 'sorunlu_topic': sum(o['durum'] == 'SORUNLU' for o in out)},
+                  tables=[('Broker başına lider', ['Broker', 'Lider partition'], sorted(leaders.items())),
+                          ('Partition’lar', ['Topic', 'Partition', 'Lider', 'Replikalar', 'ISR'], [[p_['topic'], p_['partition'], p_['lider'] or 'yok', ','.join(p_['replikalar']), ','.join(p_['isr'])] for p_ in parts])],
+                  notes=['Dahili topic’ler (__consumer_offsets, _schemas) de değerlendirilir; bulguları küme ayarlarıyla birlikte yorumlayın.'])
+
+
+def get_path(obj, path):
+    for part in path.split('.'):
+        obj = obj.get(part) if isinstance(obj, dict) else None
+    return obj
+
+
+@op('olay-tekrar-sira', title='Olaylarda tekrar, çelişkili kopya ve sıra boşluğu kontrolü', domain='stream', product=GENEL, tag='exactly-once', kind='file', samples={'odeme_olaylari.jsonl': 'odeme_olaylari.jsonl'},
+    args=[arg('--id', dest='id_field', default='olay_id', help='Olay kimliği alanı (iç içe: a.b)'), arg('--key', default='hesap', help='Sıranın tutulduğu anahtar alanı'),
+          arg('--seq', default='sira', help='Anahtar içinde artan sıra/versiyon alanı (boş bırakılabilir)')],
+    description='JSON Lines olay dökümünde aynı kimlikle birden çok gelen olayları (birebir kopya veya içeriği farklı çelişkili kopya), anahtar bazında sıra numarasındaki boşlukları (kayıp olay) ve sıra dışı gelen olayları bulur. At-least-once teslimatın, yeniden deneme ve CDC akışlarının doğrulanması için.',
+    input='JSON Lines olay dosyası', output='sonuc.csv (bulgular)', command='python main.py --input dlq_export.jsonl --id event.id --key payload.account_id --seq payload.version',
+    expect={'olay': 11, 'tekrar': 2, 'celiskili_tekrar': 1, 'eksik_sira': 3, 'sira_disi': 1, 'bozuk_satir': 1})
+def dedupe(args):
+    events, bad = load_events(args.input)
+    seen, out = {}, []
+    dup = conflict = 0
+    for n, e in enumerate(events, 1):
+        eid = get_path(e, args.id_field)
+        if eid is None:
+            continue
+        body = json.dumps(e, sort_keys=True, ensure_ascii=False)
+        if eid in seen:
+            dup += 1
+            same = seen[eid][1] == body
+            conflict += not same
+            out.append({'tur': 'tekrar' if same else 'ÇELİŞKİLİ TEKRAR', 'anahtar': get_path(e, args.key) or '', 'olay_id': eid, 'sira': get_path(e, args.seq) if args.seq else '',
+                        'ayrinti': f'ilk görüldüğü olay #{seen[eid][0]}' + ('' if same else '; içerik farklı')})
+        else:
+            seen[eid] = (n, body)
+    missing = late = 0
+    if args.seq:
+        per = defaultdict(list)
+        firsts = {}
+        for e in events:
+            eid, k, s = get_path(e, args.id_field), get_path(e, args.key), get_path(e, args.seq)
+            if isinstance(s, (int, float)) and not isinstance(s, bool) and k is not None and firsts.setdefault(eid if eid is not None else id(e), id(e)) == id(e):
+                per[str(k)].append(int(s))
+        for k, seqs in sorted(per.items()):
+            top = None
+            for s in seqs:
+                if top is not None and s < top:
+                    late += 1
+                    out.append({'tur': 'sıra dışı', 'anahtar': k, 'olay_id': '', 'sira': s, 'ayrinti': f'{top} sonrasında geldi'})
+                top = s if top is None else max(top, s)
+            gaps = sorted(set(range(min(seqs), max(seqs) + 1)) - set(seqs))
+            missing += len(gaps)
+            if gaps:
+                out.append({'tur': 'EKSİK SIRA', 'anahtar': k, 'olay_id': '', 'sira': ', '.join(map(str, gaps[:20])), 'ayrinti': f'{len(gaps)} sıra numarası hiç gelmedi'})
+    return Result(f'{len(events)} olay; {dup} tekrar ({conflict} çelişkili), {missing} eksik sıra, {late} sıra dışı', ['tur', 'anahtar', 'olay_id', 'sira', 'ayrinti'], out,
+                  {'olay': len(events), 'tekrar': dup, 'celiskili_tekrar': conflict, 'eksik_sira': missing, 'sira_disi': late, 'bozuk_satir': bad},
+                  notes=['Çelişkili tekrar, aynı kimlikle farklı içerik demektir: üretici kimliği yeniden kullanıyor olabilir, tüketici tarafında son yazan kazanır.'])

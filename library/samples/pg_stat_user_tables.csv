@@ -1,0 +1,6 @@
+schemaname,relname,n_live_tup,n_dead_tup,seq_scan,idx_scan,last_autovacuum,last_autoanalyze
+public,siparis,5000000,1500000,120,900000,2026-10-01 03:00,2026-10-01 03:10
+public,musteri,200000,1000,85000,10,2026-10-15 02:00,2026-10-15 02:05
+public,urun,5000,4000,300,100,,
+public,log_kayit,80000000,200000,5,0,2026-10-14 01:00,2026-10-14 01:00
+public,stok,30000,20,10000,50000,2026-10-15 01:00,2026-10-15 01:00

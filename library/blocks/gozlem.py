@@ -1,5 +1,8 @@
-"""Veri gözlemlenebilirliği blokları: tazelik SLA, hacim anomalisi, şema değişikliği ve NULL oranı izleme. Metadata dışa aktarımları üzerinde çalışır."""
-from collections import defaultdict
+"""Veri gözlemlenebilirliği blokları: tazelik SLA, hacim anomalisi, şema değişikliği, NULL oranı, iş çalışma geçmişi ve log hata özeti.
+Metadata dışa aktarımları ve log dosyaları üzerinde çalışır."""
+import re
+from collections import Counter, defaultdict
+from pathlib import Path
 from datetime import datetime
 import tabular
 from islem import op, arg, Result, need, numbers, fmt
@@ -122,3 +125,102 @@ def nulls(columns, rows, args):
             if v - med >= args.jump:
                 out.append({'seri': s, 'tarih': d.isoformat(), 'deger': v, 'gecmis_medyan': round(med, 2), 'artis_puan': round(v - med, 2)})
     return Result(f'{len(series)} seri; {len(out)} ani artış', ['seri', 'tarih', 'deger', 'gecmis_medyan', 'artis_puan'], out, {'seri': len(series), 'sicrama': len(out)})
+
+
+OK_WORDS = {'basarili', 'success', 'succeeded', 'ok', 'tamam', 'completed'}
+
+
+def pct(sorted_vals, q):
+    return sorted_vals[min(len(sorted_vals) - 1, max(0, -(-len(sorted_vals) * q // 100) - 1))] if sorted_vals else None
+
+
+@op('pipeline-calisma-analizi', title='İş (pipeline) çalışma geçmişi: başarı oranı, süre ve yavaşlama', domain=D, product=P, tag='iş geçmişi', samples={'is_calismalari.csv': 'is_calismalari.csv'},
+    args=[arg('--job', default='is'), arg('--start', default='baslangic'), arg('--end', default='bitis'), arg('--status', default='durum'),
+          arg('--slow', type=float, default=2.0, help='Son süre, geçmiş medyanın bu katını aşarsa yavaşlama'), arg('--streak', type=int, default=2, help='Art arda bu kadar hata uyarı')],
+    description='Orkestratör çalışma geçmişinden (Airflow, ADF, SQL Agent, cron logu) iş bazında başarı oranını, medyan ve p95 süreyi, son çalışmanın geçmiş medyana göre yavaşlamasını, art arda hata sayısını ve son başarılı çalışma zamanını çıkarır. Sabah raporu ve SLA takibi için.',
+    input='Çalışma geçmişi (iş, başlangıç, bitiş, durum)', output='sonuc.csv (iş bazında özet)', command='python main.py --input dag_runs.csv --job dag_id --start start_date --end end_date --status state',
+    expect={'is': 4, 'calisma': 29, 'basari_%': 82.8, 'yavaslayan': 1, 'ardisik_hatali': 1})
+def runs(columns, rows, args):
+    j, s, e, st = (need(c, columns, f) for c, f in ((args.job, '--job'), (args.start, '--start'), (args.end, '--end'), (args.status, '--status')))
+    jobs = defaultdict(list)
+    for r in rows:
+        a, b = tabular.parse_date(r[s]), tabular.parse_date(r[e])
+        if a:
+            ok = r[st].strip().lower() in OK_WORDS
+            jobs[r[j].strip()].append((a[0], (b[0] - a[0]).total_seconds() / 60 if b else None, ok))
+    out = []
+    for name, rs in sorted(jobs.items()):
+        rs.sort()
+        good = [d for _, d, ok in rs[:-1] if ok and d is not None]
+        med = sorted(good)[len(good) // 2] if good else None
+        last_t, last_d, last_ok = rs[-1]
+        streak = 0
+        for _, _, ok in reversed(rs):
+            if ok:
+                break
+            streak += 1
+        warn = []
+        if last_ok and med and last_d is not None and last_d > args.slow * med:
+            warn.append(f'yavaşlama: son süre medyanın {last_d / med:.1f} katı')
+        if streak >= args.streak:
+            warn.append(f'art arda {streak} hata')
+        durs = sorted(d for _, d, ok in rs if ok and d is not None)
+        last_good = next((t for t, _, ok in reversed(rs) if ok), None)
+        out.append({'is': name, 'calisma': len(rs), 'basarili': sum(ok for *_, ok in rs), 'basari_%': round(100 * sum(ok for *_, ok in rs) / len(rs), 1),
+                    'medyan_dk': fmt(round(durs[len(durs) // 2], 1)) if durs else '', 'p95_dk': fmt(round(pct(durs, 95), 1)) if durs else '',
+                    'son_sure_dk': fmt(round(last_d, 1)) if last_d is not None else '', 'son_durum': 'başarılı' if last_ok else 'HATALI', 'ardisik_hata': streak,
+                    'son_basarili': last_good.isoformat(sep=' ') if last_good else 'hiç', 'uyari': '; '.join(warn)})
+    out.sort(key=lambda o: (not o['uyari'], o['is']))
+    total = sum(o['calisma'] for o in out)
+    return Result(f'{len(out)} iş, {total} çalışma; {sum(bool(o["uyari"]) for o in out)} işte uyarı', list(out[0]), out,
+                  {'is': len(out), 'calisma': total, 'basari_%': round(100 * sum(o['basarili'] for o in out) / total, 1) if total else 0,
+                   'yavaslayan': sum('yavaşlama' in o['uyari'] for o in out), 'ardisik_hatali': sum(o['ardisik_hata'] >= args.streak for o in out)})
+
+
+LOG_HEAD = re.compile(r'^\[?(\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:[.,]\d+)?Z?)\]?\s+(?:\[?(TRACE|DEBUG|INFO|NOTICE|WARN(?:ING)?|ERROR|SEVERE|CRITICAL|FATAL)\]?)?\s*(?:\[[^\]]*\]\s*)?(.*)$', re.I)
+ERROR_LEVELS = {'ERROR', 'SEVERE', 'CRITICAL', 'FATAL'}
+NORMALIZE = [(re.compile(r'[\w.+-]+@[\w-]+(?:\.[\w-]+)+'), '<EPOSTA>'), (re.compile(r'\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b', re.I), '<ID>'),
+             (re.compile(r'\b\d{1,3}(?:\.\d{1,3}){3}\b'), '<IP>'), (re.compile(r'\b0x[0-9a-f]+\b', re.I), '<HEX>'), (re.compile(r'"[^"]*"|\'[^\']*\''), '<METİN>'),
+             (re.compile(r'\d+(?:[.,]\d+)?'), '<N>')]
+
+
+def signature(msg):
+    for rx, rep in NORMALIZE:
+        msg = rx.sub(rep, msg)
+    return re.sub(r'\s+', ' ', msg).strip()[:200]
+
+
+@op('log-hata-ozeti', title='Uygulama logundaki hataları imzalarına göre grupla', domain=D, product=P, tag='log analizi', kind='file', samples={'uygulama.log': 'uygulama.log'},
+    args=[arg('--top', type=int, default=50, help='En çok kaç imza listelensin')],
+    description='Zaman damgalı düz metin loglarında ERROR/FATAL kayıtlarını ve Python/Java yığın izlerini (traceback) kayıt bazında toplar; sayıları, kimlikleri, e-posta ve IP adreslerini yer tutucuya çevirerek aynı hatanın farklı örneklerini tek imzada birleştirir. İmza başına adet, ilk/son görülme ve istisna türlerini verir; kişisel veri rapora yazılmaz.',
+    input='Uygulama logu (.log/.txt)', output='sonuc.csv (hata imzaları)', command='python main.py --input /var/log/app/app.log --top 20',
+    expect={'kayit': 11, 'hata': 7, 'imza': 4, 'uyari': 1})
+def logs(args):
+    records, cur = [], None
+    for line in Path(args.input).read_text(encoding='utf-8-sig', errors='replace').splitlines():
+        m = LOG_HEAD.match(line)
+        if m:
+            cur = {'zaman': m.group(1), 'seviye': (m.group(2) or '').upper().replace('WARNING', 'WARN'), 'mesaj': m.group(3), 'ek': []}
+            records.append(cur)
+        elif cur is not None and line.strip():
+            cur['ek'].append(line.strip())
+    if not records:
+        raise ValueError('Zaman damgalı log satırı bulunamadı (2026-10-15 08:00:01 ERROR … biçimi bekleniyor).')
+    groups, exc = {}, Counter()
+    for r in records:
+        kinds = [m.group(1) for x in r['ek'] for m in [re.match(r'^([\w.]+(?:Error|Exception|Fault))\b', x)] if m]
+        if r['seviye'] not in ERROR_LEVELS and not kinds:
+            continue
+        exc.update(k.split('.')[-1] for k in kinds)
+        sig = signature(r['mesaj'])
+        g = groups.setdefault(sig, {'imza': sig, 'seviye': r['seviye'] or 'istisna', 'adet': 0, 'ilk': r['zaman'], 'son': r['zaman'], 'istisna': set()})
+        g['adet'] += 1
+        g['son'] = r['zaman']
+        g['istisna'].update(k.split('.')[-1] for k in kinds)
+    out = sorted(groups.values(), key=lambda g: -g['adet'])[:args.top]
+    for g in out:
+        g['istisna'] = ', '.join(sorted(g['istisna']))
+    errors = sum(g['adet'] for g in groups.values())
+    return Result(f'{len(records)} kayıt; {errors} hata {len(groups)} imzada toplandı', ['imza', 'seviye', 'adet', 'ilk', 'son', 'istisna'], out,
+                  {'kayit': len(records), 'hata': errors, 'imza': len(groups), 'uyari': sum(r['seviye'] == 'WARN' for r in records), 'istisna': dict(exc)},
+                  tables=[('Seviyeye göre kayıt', ['Seviye', 'Kayıt'], Counter(r['seviye'] or '-' for r in records).most_common())])

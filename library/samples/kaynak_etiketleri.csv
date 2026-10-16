@@ -1,0 +1,11 @@
+kaynak_id,servis,maliyet_usd,tag_owner,tag_cost_center,tag_env
+i-001,Amazon EC2,300,ayse,CC100,prod
+i-002,Amazon EC2,150,,CC100,prod
+db-01,Amazon RDS,500,mehmet,,Prod
+bucket-log,Amazon S3,40,,,
+fn-rapor,AWS Lambda,5,ali,CC200,test
+i-003,Amazon EC2,220,zeynep,CC300,staging
+db-02,Amazon RDS,80,can,CC200,dev
+bucket-dev,Amazon S3,25,can,CC200,dev
+i-004,Amazon EC2,600,,,
+eks-ana,Amazon EKS,380,ops,CC100,prod

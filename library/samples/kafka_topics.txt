@@ -1,0 +1,12 @@
+Topic: siparisler	TopicId: q1Xb7	PartitionCount: 3	ReplicationFactor: 3	Configs: min.insync.replicas=2,retention.ms=604800000
+	Topic: siparisler	Partition: 0	Leader: 1	Replicas: 1,2,3	Isr: 1,2,3
+	Topic: siparisler	Partition: 1	Leader: 2	Replicas: 2,3,1	Isr: 2,3,1
+	Topic: siparisler	Partition: 2	Leader: 3	Replicas: 3,1,2	Isr: 3,1,2
+Topic: odemeler	TopicId: Zr8kQ	PartitionCount: 2	ReplicationFactor: 2	Configs: min.insync.replicas=2
+	Topic: odemeler	Partition: 0	Leader: 1	Replicas: 1,2	Isr: 1,2
+	Topic: odemeler	Partition: 1	Leader: 1	Replicas: 2,1	Isr: 1
+Topic: loglar	TopicId: L0g5a	PartitionCount: 1	ReplicationFactor: 1	Configs: cleanup.policy=delete
+	Topic: loglar	Partition: 0	Leader: 2	Replicas: 2	Isr: 2
+Topic: musteri-cdc	TopicId: Cdc9p	PartitionCount: 2	ReplicationFactor: 3	Configs: min.insync.replicas=2,cleanup.policy=compact
+	Topic: musteri-cdc	Partition: 0	Leader: 3	Replicas: 3,1,2	Isr: 3,1,2
+	Topic: musteri-cdc	Partition: 1	Leader: none	Replicas: 1,2,3	Isr: 

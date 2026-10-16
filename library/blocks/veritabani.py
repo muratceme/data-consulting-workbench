@@ -1,9 +1,11 @@
-"""Veritabanı performans blokları: SQL Server sorgu planı, bekleme istatistikleri ve indeks kullanımı; PostgreSQL EXPLAIN ve pg_stat_statements.
+"""Veritabanı performans blokları: SQL Server sorgu planı, bekleme istatistikleri, indeks kullanımı ve deadlock grafiği; PostgreSQL EXPLAIN,
+pg_stat_statements ve tablo şişmesi; MySQL slow query log.
 Veritabanına bağlanmaz; DBA’nın dışa aktardığı plan/DMV/istatistik dosyalarını okur."""
 import json, re
 import xml.etree.ElementTree as ET
 from collections import Counter, defaultdict
 from pathlib import Path
+import tabular
 from islem import op, arg, Result, need, numbers, fmt
 
 SS, PG = 'SQL Server', 'PostgreSQL'
@@ -207,3 +209,132 @@ def indexes(columns, rows, args):
                   {'kullanilmayan': sum(o['oneri'].startswith('kaldır') for o in out), 'ortusen': sum(o['oneri'] == 'örtüşüyor' for o in out), 'kazanc_mb': sum(o['kazanc_mb'] for o in out)},
                   files={'drop-taslagi.sql': drops or '-- Öneri yok'},
                   notes=['Kullanım istatistiği sunucu yeniden başlayınca sıfırlanır; ay sonu/yıl sonu raporlarında kullanılan indeksleri gözden kaçırmamak için yeterince uzun bir dönemi inceleyin.'])
+
+
+def fingerprint(sql):
+    s = re.sub(r'/\*.*?\*/|--[^\n]*|#[^\n]*', ' ', sql, flags=re.S).lower()
+    s = re.sub(r"'(?:[^'\\]|\\.|'')*'|\"(?:[^\"\\]|\\.)*\"", '?', s)
+    s = re.sub(r'\b\d+(?:\.\d+)?\b', '?', s)
+    s = re.sub(r'\bin\s*\(\s*\?(?:\s*,\s*\?)*\s*\)', 'in (?+)', s)
+    return re.sub(r'\s+', ' ', s).strip().rstrip(';').strip()
+
+
+@op('mysql-yavas-log', title='MySQL/MariaDB slow query log analizi', domain='database', product='MySQL', tag='slow log', kind='file', samples={'mysql_slow.log': 'mysql_slow.log'},
+    args=[arg('--ratio', type=float, default=1000.0, help='Taranan/dönen satır oranı bu değeri aşarsa indeks şüphesi'), arg('--top', type=int, default=30)],
+    description='slow_query_log dosyasındaki sorguları parmak izine (sabitler ve IN listeleri ? olarak) göre gruplar; toplam/ortalama/en uzun süreyi, kilit bekleme payını ve taranan/dönen satır oranını hesaplar. Oranı yüksek sorguları eksik indeks, kilit beklemesi baskın olanları çakışma şüphesiyle işaretler; pt-query-digest kurulamayan ortamlar için.',
+    input='slow query log (.log)', output='sonuc.csv (parmak izi bazında)', command='python main.py --input /var/lib/mysql/db-slow.log --top 20',
+    expect={'sorgu': 6, 'parmak_izi': 4, 'toplam_sure': 16.7, 'indeks_supheli': 3, 'kilit_agirlikli': 1})
+def slowlog(args):
+    entries, cur = [], None
+    for line in Path(args.input).read_text(encoding='utf-8-sig', errors='replace').splitlines():
+        m = re.match(r'#\s*Query_time:\s*([\d.]+)\s+Lock_time:\s*([\d.]+)\s+Rows_sent:\s*(\d+)\s+Rows_examined:\s*(\d+)', line)
+        if m:
+            cur = {'t': float(m.group(1)), 'lock': float(m.group(2)), 'sent': int(m.group(3)), 'exam': int(m.group(4)), 'sql': []}
+            entries.append(cur)
+        elif line.startswith('#'):
+            cur = None if cur and cur['sql'] else cur
+        elif cur is not None and not re.match(r'\s*(SET\s+timestamp=|use\s+\w+;)', line, re.I) and line.strip():
+            cur['sql'].append(line.strip())
+    entries = [e for e in entries if e['sql']]
+    if not entries:
+        raise ValueError('Slow log kaydı bulunamadı (# Query_time: … satırları bekleniyor).')
+    groups = {}
+    for e in entries:
+        fp = fingerprint(' '.join(e['sql']))
+        g = groups.setdefault(fp, {'parmak_izi': fp[:300], 'adet': 0, 'toplam_sn': 0.0, 'en_uzun_sn': 0.0, 'kilit_sn': 0.0, 'taranan': 0, 'donen': 0})
+        g['adet'] += 1
+        g['toplam_sn'] += e['t']
+        g['en_uzun_sn'] = max(g['en_uzun_sn'], e['t'])
+        g['kilit_sn'] += e['lock']
+        g['taranan'] += e['exam']
+        g['donen'] += e['sent']
+    out = []
+    for g in sorted(groups.values(), key=lambda g: -g['toplam_sn']):
+        ratio = g['taranan'] / max(g['donen'], 1)
+        warn = []
+        if ratio > args.ratio:
+            warn.append('taranan/dönen oranı yüksek: indeks eksik olabilir')
+        if g['kilit_sn'] > 0.5 * g['toplam_sn']:
+            warn.append('sürenin çoğu kilit beklemesi')
+        out.append({**g, 'toplam_sn': round(g['toplam_sn'], 3), 'ort_sn': round(g['toplam_sn'] / g['adet'], 3), 'kilit_sn': round(g['kilit_sn'], 3), 'tarama_orani': round(ratio), 'uyari': '; '.join(warn)})
+    total = sum(e['t'] for e in entries)
+    return Result(f'{len(entries)} yavaş sorgu, {len(groups)} parmak izi; toplam {total:.1f} sn', ['parmak_izi', 'adet', 'toplam_sn', 'ort_sn', 'en_uzun_sn', 'kilit_sn', 'taranan', 'donen', 'tarama_orani', 'uyari'], out[:args.top],
+                  {'sorgu': len(entries), 'parmak_izi': len(groups), 'toplam_sure': round(total, 2), 'indeks_supheli': sum('indeks' in o['uyari'] for o in out),
+                   'kilit_agirlikli': sum('kilit' in o['uyari'] for o in out)},
+                  notes=['Parmak izi sabitleri ? ile değiştirir; aynı sorgunun farklı parametreli çalışmaları tek satırda toplanır. EXPLAIN ile planı doğrulayın.'])
+
+
+@op('pg-tablo-sisme', title='PostgreSQL tablo şişmesi, vacuum ve sıralı tarama kontrolü', domain='database', product=PG, tag='vacuum', samples={'pg_stat_user_tables.csv': 'pg_stat_user_tables.csv'},
+    args=[arg('--as-of', default='2026-10-16'), arg('--dead-pct', type=float, default=20.0), arg('--min-dead', type=int, default=10000), arg('--vacuum-days', type=int, default=7)],
+    description='pg_stat_user_tables dışa aktarımından ölü satır oranı yüksek (VACUUM gerektiren), autovacuum’un uzun süredir uğramadığı, hiç istatistiği toplanmamış ve büyük olup indeks yerine sıralı taramayla okunan tabloları bulur; her tablo için önerilen bakım işlemini yazar.',
+    input='pg_stat_user_tables CSV’si', output='sonuc.csv (tablo bazında bulgular)', command='python main.py --input pg_stats.csv --as-of 2026-12-01 --dead-pct 10',
+    expect={'tablo': 5, 'vacuum_gerekli': 1, 'indeks_supheli': 1, 'istatistiksiz': 1, 'sorunlu_tablo': 3})
+def bloat(columns, rows, args):
+    for c in ('relname', 'n_live_tup', 'n_dead_tup', 'seq_scan', 'idx_scan'):
+        need(c, columns, 'pg_stat_user_tables')
+    as_of = tabular.parse_date(args.as_of)[0]
+    live, dead, seq, idx = (numbers(rows, c) for c in ('n_live_tup', 'n_dead_tup', 'seq_scan', 'idx_scan'))
+    out = []
+    for r, lv, dd, sq, ix in zip(rows, live, dead, seq, idx):
+        lv, dd, sq, ix = lv or 0, dd or 0, sq or 0, ix or 0
+        ratio = 100 * dd / (lv + dd) if lv + dd else 0.0
+        issues = []
+        if ratio >= args.dead_pct and dd >= args.min_dead:
+            issues.append('VACUUM (ANALYZE) gerekli')
+        last_vac = tabular.parse_date(r.get('last_autovacuum', '') or r.get('last_vacuum', '') or '')
+        if ratio >= args.dead_pct / 2 and dd >= args.min_dead and (not last_vac or (as_of - last_vac[0]).days > args.vacuum_days):
+            issues.append(f'autovacuum {args.vacuum_days} günden uzun süredir çalışmamış: eşikleri tablo bazında düşürün')
+        if not (r.get('last_autoanalyze', '').strip() or r.get('last_analyze', '').strip()):
+            issues.append('istatistik hiç toplanmamış: ANALYZE')
+        if lv >= 100000 and sq >= 100 and sq > 10 * ix:
+            issues.append('büyük tablo çoğunlukla sıralı taranıyor: indeks eksik olabilir')
+        out.append({'tablo': f"{r.get('schemaname', '').strip()}.{r['relname'].strip()}".strip('.'), 'canli': int(lv), 'olu': int(dd), 'olu_%': round(ratio, 1),
+                    'seq_scan': int(sq), 'idx_scan': int(ix), 'son_autovacuum': last_vac[0].isoformat(sep=' ') if last_vac else '', 'bulgu': '; '.join(issues)})
+    out.sort(key=lambda o: (not o['bulgu'], -o['olu']))
+    return Result(f'{len(out)} tablo; {sum(bool(o["bulgu"]) for o in out)} tabloda bakım önerisi', list(out[0]), out,
+                  {'tablo': len(out), 'vacuum_gerekli': sum('VACUUM' in o['bulgu'] for o in out), 'indeks_supheli': sum('indeks' in o['bulgu'] for o in out),
+                   'istatistiksiz': sum('istatistik' in o['bulgu'] for o in out), 'sorunlu_tablo': sum(bool(o['bulgu']) for o in out), 'toplam_olu_satir': sum(o['olu'] for o in out)},
+                  notes=['İstatistikler son pg_stat_reset’ten beri birikir; seq_scan/idx_scan oranını sıfırlama tarihine göre yorumlayın.'])
+
+
+@op('sqlserver-deadlock', title='SQL Server deadlock grafiğini (XML) çözümle', domain='database', product=SS, tag='deadlock', kind='file', samples={'deadlock.xml': 'deadlock.xml'},
+    description='system_health veya Extended Events’ten alınan xml_deadlock_report (bir veya birden çok <deadlock>) içinden her süreç için kurban olup olmadığını, oturum, uygulama, kilit modu, tuttuğu ve beklediği nesne/indeksi ve çalıştırdığı sorgu ya da yordamı çıkarır; en sık deadlock’a karışan nesneleri özetler.',
+    input='Deadlock XML (.xdl/.xml)', output='sonuc.csv (deadlock × süreç)', command='python main.py --input system_health_deadlocks.xml',
+    expect={'deadlock': 2, 'surec': 4, 'kurban': 2, 'en_sik_nesne': 'Satis.dbo.Stok'})
+def deadlock(args):
+    root = read_xml(args.input)
+    graphs = [root] if root.tag.split('}')[-1] == 'deadlock' else [e for e in root.iter() if e.tag.split('}')[-1] == 'deadlock']
+    if not graphs:
+        raise ValueError('<deadlock> öğesi bulunamadı.')
+    out, objects = [], Counter()
+    for n, g in enumerate(graphs, 1):
+        victims = {v.get('id') for v in g.iter() if v.tag.endswith('victimProcess')} | ({g.get('victim')} if g.get('victim') else set())
+        holds, waits = defaultdict(set), defaultdict(set)
+        involved = set()
+        for res in g.iter():
+            obj = res.get('objectname')
+            if not obj or res.tag.split('}')[-1] in ('process', 'frame'):
+                continue
+            label = obj + (f" ({res.get('indexname')})" if res.get('indexname') else '')
+            involved.add(obj)
+            for o in res.iter():
+                tag = o.tag.split('}')[-1]
+                if tag == 'owner':
+                    holds[o.get('id')].add(f"{label} [{o.get('mode', '')}]")
+                elif tag == 'waiter':
+                    waits[o.get('id')].add(f"{label} [{o.get('mode', '')}]")
+        objects.update(involved)
+        for p_ in (e for e in g.iter() if e.tag.split('}')[-1] == 'process'):
+            pid = p_.get('id')
+            frames = [f for f in p_.iter() if f.tag.split('}')[-1] == 'frame' and (f.text or '').strip()]
+            buf = next((e.text for e in p_.iter() if e.tag.split('}')[-1] == 'inputbuf' and e.text), '')
+            sql = (frames[0].text if frames else buf) or ''
+            out.append({'deadlock': n, 'surec': pid, 'spid': p_.get('spid', ''), 'kurban': 'EVET' if pid in victims else 'hayır', 'uygulama': p_.get('clientapp', ''),
+                        'kullanici': p_.get('loginname', ''), 'kilit_modu': p_.get('lockMode', ''), 'izolasyon': p_.get('isolationlevel', ''),
+                        'tuttugu': '; '.join(sorted(holds[pid])), 'bekledigi': '; '.join(sorted(waits[pid])),
+                        'yordam': frames[0].get('procname', '') if frames else '', 'sorgu': re.sub(r'\s+', ' ', sql).strip()[:300]})
+    top = objects.most_common(1)[0][0] if objects else ''
+    return Result(f'{len(graphs)} deadlock, {len(out)} süreç; en sık nesne {top or "-"}', list(out[0]) if out else ['deadlock'], out,
+                  {'deadlock': len(graphs), 'surec': len(out), 'kurban': sum(o['kurban'] == 'EVET' for o in out), 'en_sik_nesne': top},
+                  tables=[('Deadlock’a karışan nesneler', ['Nesne', 'Deadlock'], objects.most_common())],
+                  notes=['Kalıcı çözüm genelde nesnelere aynı sırada erişmek, işlemi kısaltmak ve bekleyen sorguya uygun indeks eklemektir; READ COMMITTED SNAPSHOT okuma–yazma çakışmalarını azaltır.'])

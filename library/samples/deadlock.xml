@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<events>
+  <event name="xml_deadlock_report" timestamp="2026-10-15T09:12:44.120Z">
+    <data name="xml_report">
+      <value>
+        <deadlock>
+          <victim-list><victimProcess id="process1a" /></victim-list>
+          <process-list>
+            <process id="process1a" spid="61" waitresource="KEY: 7:72057594045595648 (8194443284a0)" lockMode="U" isolationlevel="read committed (2)" clientapp="ERP" hostname="APP01" loginname="erp_user">
+              <executionStack>
+                <frame procname="Satis.dbo.usp_stok_dus" line="12">UPDATE dbo.Stok SET Adet = Adet - @adet WHERE UrunId = @urun</frame>
+              </executionStack>
+              <inputbuf>EXEC dbo.usp_stok_dus @urun = 5, @adet = 1</inputbuf>
+            </process>
+            <process id="process2b" spid="74" waitresource="KEY: 7:72057594045661184 (a1b2c3d4e5f6)" lockMode="X" isolationlevel="read committed (2)" clientapp="Web" hostname="WEB02" loginname="web_user">
+              <executionStack />
+              <inputbuf>UPDATE dbo.Siparis SET Durum = 2 WHERE SiparisId = 900</inputbuf>
+            </process>
+          </process-list>
+          <resource-list>
+            <keylock hobtid="72057594045595648" dbid="7" objectname="Satis.dbo.Stok" indexname="PK_Stok" id="lock1" mode="X">
+              <owner-list><owner id="process2b" mode="X" /></owner-list>
+              <waiter-list><waiter id="process1a" mode="U" requestType="wait" /></waiter-list>
+            </keylock>
+            <keylock hobtid="72057594045661184" dbid="7" objectname="Satis.dbo.Siparis" indexname="PK_Siparis" id="lock2" mode="X">
+              <owner-list><owner id="process1a" mode="X" /></owner-list>
+              <waiter-list><waiter id="process2b" mode="X" requestType="wait" /></waiter-list>
+            </keylock>
+          </resource-list>
+        </deadlock>
+      </value>
+    </data>
+  </event>
+  <event name="xml_deadlock_report" timestamp="2026-10-15T14:40:03.500Z">
+    <data name="xml_report">
+      <value>
+        <deadlock>
+          <victim-list><victimProcess id="process3c" /></victim-list>
+          <process-list>
+            <process id="process3c" spid="88" waitresource="KEY: 7:72057594045595648 (99aa88bb77cc)" lockMode="U" isolationlevel="serializable (4)" clientapp="Fatura Servisi" hostname="APP03" loginname="fatura_user">
+              <executionStack />
+              <inputbuf>UPDATE dbo.Stok SET Rezerve = Rezerve + 1 WHERE UrunId = 12</inputbuf>
+            </process>
+            <process id="process4d" spid="91" waitresource="PAGE: 7:1:44120" lockMode="IX" isolationlevel="read committed (2)" clientapp="ERP" hostname="APP01" loginname="erp_user">
+              <executionStack />
+              <inputbuf>INSERT INTO dbo.Fatura (SiparisId, Tutar) VALUES (901, 150)</inputbuf>
+            </process>
+          </process-list>
+          <resource-list>
+            <pagelock fileid="1" pageid="44120" dbid="7" objectname="Satis.dbo.Fatura" id="lock3" mode="X">
+              <owner-list><owner id="process3c" mode="X" /></owner-list>
+              <waiter-list><waiter id="process4d" mode="IX" requestType="wait" /></waiter-list>
+            </pagelock>
+            <keylock hobtid="72057594045595648" dbid="7" objectname="Satis.dbo.Stok" indexname="PK_Stok" id="lock4" mode="X">
+              <owner-list><owner id="process4d" mode="X" /></owner-list>
+              <waiter-list><waiter id="process3c" mode="U" requestType="wait" /></waiter-list>
+            </keylock>
+          </resource-list>
+        </deadlock>
+      </value>
+    </data>
+  </event>
+</events>

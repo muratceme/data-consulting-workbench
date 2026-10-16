@@ -1,0 +1,6 @@
+schema,table,diststyle,sortkey1,skew_rows,unsorted,stats_off,tbl_rows,size,encoded,pct_used
+public,fct_satis,KEY(musteri_id),tarih,8.5,35.0,2.0,500000000,120000,Y,12.0
+public,dim_musteri,ALL,,1.0,0.0,0.0,8000000,4000,Y,0.4
+public,dim_urun,ALL,urun_id,1.0,0.0,15.0,20000,50,Y,0.01
+stg,ham_log,EVEN,,1.2,,0.0,300000000,90000,N,9.0
+public,fct_stok,KEY(urun_id),tarih,1.5,5.0,3.0,40000000,15000,Y,1.5

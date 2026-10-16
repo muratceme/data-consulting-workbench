@@ -202,3 +202,129 @@ def eom(columns, rows, args):
                   (f'; bütçe ≈ {over_day.isoformat()} günü aşılır' if over_day else ''), list(out[0]), out,
                   {'gun': len(mtd_days), 'ay_basindan': round(mtd, 2), 'ay_sonu_tahmini': round(fc, 2), 'butce_asimi': fc > args.budget,
                    'asim_tarihi': over_day.isoformat() if over_day else ''})
+
+
+@op('etiket-uyumu', title='Bulut kaynaklarında zorunlu etiket (tag) uyumu', domain='finops', product=GENEL, tag='etiket politikası', samples={'kaynak_etiketleri.csv': 'kaynak_etiketleri.csv'},
+    args=[arg('--resource', default='kaynak_id'), arg('--cost', default='maliyet_usd'), arg('--prefix', default='tag_', help='Etiket sütunlarının öneki'),
+          arg('--required', default='owner,cost_center,env', help='Zorunlu etiketler'), arg('--allowed', default='env=prod|test|dev', help='etiket=değer1|değer2;… izin verilen değerler')],
+    description='Maliyet veya kaynak envanteri dışa aktarımında her kaynağın zorunlu etiketlerini (sahip, maliyet merkezi, ortam…) kontrol eder; eksik ve izin verilen listede olmayan (Prod/prod gibi) değerleri, uyumsuz kaynakların maliyetini ve toplam içindeki payını raporlar. Showback/chargeback öncesi etiket temizliği için.',
+    input='Kaynak × etiket × maliyet CSV’si (AWS CUR, Azure, GCP dışa aktarımı)', output='sonuc.csv (uyumsuz kaynaklar)', command='python main.py --input cur.csv --resource line_item_resource_id --prefix resource_tags_user_ --cost line_item_unblended_cost',
+    expect={'kaynak_sayisi': 10, 'uyumsuz': 5, 'uyumsuz_maliyet_%': 65.7, 'gecersiz_deger': 2})
+def tags(columns, rows, args):
+    rcol = need(args.resource, columns, '--resource')
+    required = [t.strip() for t in args.required.split(',') if t.strip()]
+    tcols = {t: need(args.prefix + t, columns, '--required') for t in required}
+    allowed = {}
+    for part in (p for p in args.allowed.split(';') if p.strip()):
+        k, _, v = part.partition('=')
+        allowed[k.strip()] = set(x.strip() for x in v.split('|'))
+    costs = numbers(rows, need(args.cost, columns, '--cost'))
+    res = {}
+    for r, c in zip(rows, costs):
+        k = r[rcol].strip()
+        e = res.setdefault(k, {'cost': 0.0, 'tags': {t: '' for t in required}})
+        e['cost'] += c or 0.0
+        for t in required:
+            e['tags'][t] = e['tags'][t] or r[tcols[t]].strip()
+    total = sum(e['cost'] for e in res.values()) or 1.0
+    out, missing, invalid = [], Counter(), 0
+    for k, e in sorted(res.items(), key=lambda kv: -kv[1]['cost']):
+        gone = [t for t in required if not e['tags'][t]]
+        bad = [f'{t}={e["tags"][t]}' for t in required if e['tags'][t] and t in allowed and e['tags'][t] not in allowed[t]]
+        missing.update(gone)
+        invalid += len(bad)
+        if gone or bad:
+            out.append({'kaynak': k, 'maliyet': round(e['cost'], 2), 'eksik_etiket': ', '.join(gone), 'gecersiz_deger': ', '.join(bad), **{t: e['tags'][t] for t in required}})
+    bad_cost = sum(o['maliyet'] for o in out)
+    return Result(f'{len(res)} kaynak; {len(out)} uyumsuz, maliyetin %{100 * bad_cost / total:.1f}’i etiket politikası dışında', ['kaynak', 'maliyet', 'eksik_etiket', 'gecersiz_deger', *required], out,
+                  {'kaynak_sayisi': len(res), 'uyumsuz': len(out), 'uyumsuz_maliyet': round(bad_cost, 2), 'uyumsuz_maliyet_%': round(100 * bad_cost / total, 1), 'gecersiz_deger': invalid,
+                   'eksik': dict(missing)}, tables=[('Eksik etiketler', ['Etiket', 'Kaynak'], [[t, missing[t]] for t in required])])
+
+
+@op('rezervasyon-onerisi', title='Saatlik kullanımdan taahhüt (reserved/savings plan) önerisi', domain='finops', product=GENEL, tag='commitment',
+    samples={'saatlik_kullanim.csv': 'saatlik_kullanim.csv'},
+    args=[arg('--usage', default='vcpu', help='Saatlik kullanım sütunu (vCPU, örnek sayısı, kredi…)'), arg('--rate', type=float, default=0.10, help='Birim saat isteğe bağlı (on-demand) fiyat'),
+          arg('--discount', type=float, default=0.40, help='Taahhüt indirimi (0,40 = yüzde 40)')],
+    description='Saatlik kullanım serisinde her olası taahhüt düzeyinin maliyetini hesaplar (taahhüt edilen kısım her saat indirimli ödenir, aşan kısım isteğe bağlı fiyattan): en düşük toplam maliyeti veren düzeyi, kapsama ve taahhüt kullanım oranını, isteğe bağlıya göre tasarrufu verir. Fiyat ve indirim parametredir; sözleşme koşullarınızla çalıştırın.',
+    input='Saatlik kullanım CSV’si (saat, kullanım)', output='sonuc.csv (taahhüt düzeyi × maliyet)', command='python main.py --usage instances --rate 0.192 --discount 0.37',
+    expect={'saat': 336, 'onerilen_taahhut': 10, 'tasarruf_%': 24.2})
+def commit(columns, rows, args):
+    use = [u or 0.0 for u in numbers(rows, need(args.usage, columns, '--usage'))]
+    if not use:
+        raise ValueError('Kullanım satırı yok.')
+    price = args.rate * (1 - args.discount)
+    on_demand = sum(use) * args.rate
+    out = []
+    for c in sorted({0.0, *use}):
+        level = int(c) if float(c).is_integer() else c
+        over = sum(max(0.0, u - c) for u in use)
+        cost = c * price * len(use) + over * args.rate
+        used = sum(min(u, c) for u in use)
+        out.append({'taahhut': level, 'maliyet': round(cost, 2), 'tasarruf': round(on_demand - cost, 2), 'tasarruf_%': round(100 * (on_demand - cost) / on_demand, 1) if on_demand else 0,
+                    'kapsama_%': round(100 * used / sum(use), 1) if sum(use) else 0, 'taahhut_kullanim_%': round(100 * used / (c * len(use)), 1) if c else ''})
+    best = min(out, key=lambda o: o['maliyet'])
+    for o in out:
+        o['oneri'] = 'ÖNERİLEN' if o is best else ''
+    return Result(f'{len(use)} saat; önerilen taahhüt {best["taahhut"]} birim, tasarruf %{best["tasarruf_%"]} ({best["tasarruf"]:,.2f})', list(out[0]), out,
+                  {'saat': len(use), 'istege_bagli_maliyet': round(on_demand, 2), 'onerilen_taahhut': best['taahhut'],
+                   'tasarruf_%': best['tasarruf_%'], 'tasarruf': best['tasarruf']},
+                  notes=['Analiz geçmiş kullanımın gelecekte süreceğini varsayar; büyüme veya taşınma planı varsa taahhüdü düşük tutun.',
+                         f'Bir birim taahhüt, kullanım o düzeyin üzerinde olduğu saatlerin oranı %{100 * (1 - args.discount):.0f}’den fazlaysa kârlıdır.'])
+
+
+@op('kaynak-boyutlandirma', title='Boşta ve gereğinden büyük sanal makineleri bul (rightsizing)', domain='finops', product=GENEL, tag='rightsizing',
+    samples={'kaynak_kullanim.csv': 'kaynak_kullanim.csv'},
+    args=[arg('--idle-p95', type=float, default=5.0, help='p95 CPU bu değerin altındaysa boşta'), arg('--small-p95', type=float, default=40.0, help='p95 CPU bu değerin altındaysa küçültülebilir'),
+          arg('--mem', type=float, default=50.0, help='Bellek kullanımı bu değerin altında olmalı')],
+    description='Sanal makine/örnek kullanım özetinden (vCPU, ortalama ve p95 CPU, bellek, aylık maliyet) boşta duran kaynakları (kapat/durdur) ve CPU ile belleği birlikte düşük kullanılanları (bir boy küçült) bulur; tahmini aylık tasarrufu hesaplar. Bellek yoğun ve en küçük boydaki kaynakları küçültme önerisinden çıkarır.',
+    input='Kaynak kullanım CSV’si (kaynak, vcpu, ort/p95 CPU %, bellek %, aylık maliyet)', output='sonuc.csv (öneriler)', command='python main.py --input azure_advisor_export.csv --small-p95 30',
+    expect={'kaynak_sayisi': 8, 'bosta': 2, 'kucultulebilir': 2, 'tahmini_tasarruf': 1800})
+def rightsize(columns, rows, args):
+    for c in ('kaynak_id', 'vcpu', 'p95_cpu', 'ort_bellek', 'aylik_maliyet'):
+        need(c, columns, 'kullanım dosyası')
+    vcpu, p95, mem, cost = (numbers(rows, c) for c in ('vcpu', 'p95_cpu', 'ort_bellek', 'aylik_maliyet'))
+    out = []
+    for r, v, p, m, c in zip(rows, vcpu, p95, mem, cost):
+        c = c or 0.0
+        if p is not None and p < args.idle_p95:
+            act, save = 'BOŞTA: kapat veya zamanla durdur', c
+        elif p is not None and p < args.small_p95 and (m is None or m < args.mem) and (v or 0) > 1:
+            act, save = f'KÜÇÜLT: {fmt(v)} → {fmt(v / 2)} vCPU', c / 2
+        else:
+            act, save = 'uygun' if not (p is not None and p < args.small_p95) else ('uygun (bellek yoğun)' if m is not None and m >= args.mem else 'uygun (en küçük boy)'), 0.0
+        out.append({'kaynak_id': r['kaynak_id'], 'tip': r.get('tip', ''), 'vcpu': fmt(v), 'p95_cpu': fmt(p), 'ort_bellek': fmt(m), 'aylik_maliyet': round(c, 2), 'oneri': act, 'tahmini_tasarruf': round(save, 2)})
+    out.sort(key=lambda o: -o['tahmini_tasarruf'])
+    saving = sum(o['tahmini_tasarruf'] for o in out)
+    return Result(f'{len(out)} kaynak; aylık tahmini tasarruf {money(saving)} (toplamın %{100 * saving / (sum(o["aylik_maliyet"] for o in out) or 1):.0f}’i)', list(out[0]), out,
+                  {'kaynak_sayisi': len(out), 'bosta': sum(o['oneri'].startswith('BOŞTA') for o in out), 'kucultulebilir': sum(o['oneri'].startswith('KÜÇÜLT') for o in out),
+                   'tahmini_tasarruf': round(saving, 2)},
+                  notes=['Bir boy küçültmenin maliyeti yarıya indirdiği varsayılır; gerçek fiyatı hedef boyun liste fiyatıyla kontrol edin.',
+                         'En az 14–30 günlük kullanım verisi kullanın; ay sonu kapanışı gibi dönemsel yükleri kaçırmayın.'])
+
+
+@op('maliyet-paylastir', title='Ortak/etiketsiz maliyeti projelere dağıt (showback)', domain='finops', product=GENEL, tag='showback', samples={'bulut_maliyet.csv': 'bulut_maliyet.csv'},
+    args=[arg('--tag', default='etiket_proje'), arg('--cost', default='maliyet_usd'), arg('--method', choices=['oransal', 'esit'], default='oransal'),
+          arg('--shared', default='', help='Ortak sayılacak etiket değerleri (virgülle, ör. platform,ortak)')],
+    description='Etiketsiz ve ortak (platform, ağ, güvenlik) maliyetleri, projelerin doğrudan maliyetleri oranında veya eşit olarak dağıtır; proje bazında doğrudan + dağıtılan = toplam maliyeti ve payını üretir. Aylık showback/chargeback raporu için.',
+    input='Maliyet CSV’si (etiket, maliyet)', output='sonuc.csv (proje bazında dağıtılmış maliyet)', command='python main.py --tag tag_project --shared platform,network --method oransal',
+    expect={'proje': 2, 'paylastirilan': 3517.21, 'toplam': 23548.47})
+def showback(columns, rows, args):
+    tcol = need(args.tag, columns, '--tag')
+    shared_tags = {s.strip().lower() for s in args.shared.split(',') if s.strip()}
+    direct, shared = defaultdict(float), 0.0
+    for r, c in zip(rows, numbers(rows, need(args.cost, columns, '--cost'))):
+        t = r[tcol].strip()
+        if not t or t.lower() in shared_tags:
+            shared += c or 0.0
+        else:
+            direct[t] += c or 0.0
+    if not direct:
+        raise ValueError('Etiketli (doğrudan) maliyet yok; dağıtım yapılamaz.')
+    base = sum(direct.values())
+    out = []
+    for t, v in sorted(direct.items(), key=lambda kv: -kv[1]):
+        add = shared * (v / base if args.method == 'oransal' else 1 / len(direct))
+        out.append({'proje': t, 'dogrudan': round(v, 2), 'paylastirilan': round(add, 2), 'toplam': round(v + add, 2), 'pay_%': round(100 * (v + add) / (base + shared), 2)})
+    return Result(f'{len(out)} proje; {money(shared)} ortak/etiketsiz maliyet {args.method} dağıtıldı', list(out[0]), out,
+                  {'proje': len(out), 'dogrudan': round(base, 2), 'paylastirilan': round(shared, 2), 'toplam': round(base + shared, 2)},
+                  notes=['Oransal dağıtım, ortak maliyeti en çok harcayan projeye en çok yükler; ağ/güvenlik gibi kalemler için kullanım ölçüsü varsa onu tercih edin.'])
