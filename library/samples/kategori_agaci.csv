@@ -1,0 +1,13 @@
+kategori_id;ust_id;ad
+1;;Tüm ürünler
+2;1;Elektronik
+3;2;Bilgisayar
+4;3;Dizüstü
+5;3;Masaüstü
+6;2;Telefon
+7;1;Ev
+8;7;Mutfak
+9;99;Bahçe
+10;11;Döngü A
+11;10;Döngü B
+12;8;Küçük ev aletleri
