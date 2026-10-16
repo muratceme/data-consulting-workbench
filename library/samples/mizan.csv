@@ -1,0 +1,20 @@
+hesap_kodu;hesap_adi;borc;alacak
+100;Kasa;12.000,00;14.500,00
+102;Bankalar;2.218.000,00;1.240.000,00
+120;Alıcılar;960.000,00;610.000,00
+153;Ticari Mallar;720.000,00;455.000,00
+191;İndirilecek KDV;98.000,00;0,00
+255;Demirbaşlar;340.000,00;0,00
+257;Birikmiş Amortismanlar;0,00;68.000,00
+320;Satıcılar;530.000,00;512.000,00
+335;Personele Borçlar;120.000,00;145.000,00
+360;Ödenecek Vergi ve Fonlar;40.000,00;62.000,00
+391;Hesaplanan KDV;0,00;186.000,00
+500;Sermaye;0,00;900.000,00
+600;Yurt İçi Satışlar;0,00;1.550.000,00
+610;Satıştan İadeler;42.000,00;0,00
+621;Satılan Ticari Mallar Maliyeti;455.000,00;0,00
+632;Genel Yönetim Giderleri;210.500,00;0,00
+642;Faiz Gelirleri;0,00;18.000,00
+656;Kambiyo Zararları;9.000,00;0,00
+780;Finansman Giderleri;6.000,00;0,00

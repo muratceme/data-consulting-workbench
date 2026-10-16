@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2" xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2" xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
+  <cbc:UBLVersionID>2.1</cbc:UBLVersionID>
+  <cbc:CustomizationID>TR1.2</cbc:CustomizationID>
+  <cbc:ProfileID>TEMELFATURA</cbc:ProfileID>
+  <cbc:ID>ABC2026000000101</cbc:ID>
+  <cbc:UUID>00000000-0000-4000-8000-026000000101</cbc:UUID>
+  <cbc:IssueDate>2026-09-12</cbc:IssueDate>
+  <cbc:InvoiceTypeCode>SATIS</cbc:InvoiceTypeCode>
+  <cbc:DocumentCurrencyCode>TRY</cbc:DocumentCurrencyCode>
+  <cac:AccountingSupplierParty><cac:Party><cac:PartyIdentification><cbc:ID schemeID="VKN">4540536920</cbc:ID></cac:PartyIdentification><cac:PartyName><cbc:Name>Örnek Satıcı A.Ş.</cbc:Name></cac:PartyName></cac:Party></cac:AccountingSupplierParty>
+  <cac:AccountingCustomerParty><cac:Party><cac:PartyIdentification><cbc:ID schemeID="VKN">1234567890</cbc:ID></cac:PartyIdentification><cac:PartyName><cbc:Name>Örnek Alıcı Ltd. Şti.</cbc:Name></cac:PartyName></cac:Party></cac:AccountingCustomerParty>
+  <cac:TaxTotal><cbc:TaxAmount currencyID="TRY">13495.00</cbc:TaxAmount></cac:TaxTotal>
+  <cac:LegalMonetaryTotal>
+    <cbc:LineExtensionAmount currencyID="TRY">67850.00</cbc:LineExtensionAmount>
+    <cbc:TaxExclusiveAmount currencyID="TRY">67850.00</cbc:TaxExclusiveAmount>
+    <cbc:TaxInclusiveAmount currencyID="TRY">81345.00</cbc:TaxInclusiveAmount>
+    <cbc:PayableAmount currencyID="TRY">81345.00</cbc:PayableAmount>
+  </cac:LegalMonetaryTotal>
+  <cac:InvoiceLine>
+    <cbc:ID>1</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="C62">2</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="TRY">65000.00</cbc:LineExtensionAmount>
+    <cac:TaxTotal><cbc:TaxAmount currencyID="TRY">13000.00</cbc:TaxAmount>
+      <cac:TaxSubtotal><cbc:TaxableAmount currencyID="TRY">65000.00</cbc:TaxableAmount><cbc:TaxAmount currencyID="TRY">13000.00</cbc:TaxAmount><cbc:Percent>20</cbc:Percent>
+        <cac:TaxCategory><cac:TaxScheme><cbc:Name>KDV</cbc:Name><cbc:TaxTypeCode>0015</cbc:TaxTypeCode></cac:TaxScheme></cac:TaxCategory></cac:TaxSubtotal></cac:TaxTotal>
+    <cac:Item><cbc:Name>Laptop</cbc:Name></cac:Item>
+    <cac:Price><cbc:PriceAmount currencyID="TRY">32500.00</cbc:PriceAmount></cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>2</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="C62">5</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="TRY">2100.00</cbc:LineExtensionAmount>
+    <cac:TaxTotal><cbc:TaxAmount currencyID="TRY">420.00</cbc:TaxAmount>
+      <cac:TaxSubtotal><cbc:TaxableAmount currencyID="TRY">2100.00</cbc:TaxableAmount><cbc:TaxAmount currencyID="TRY">420.00</cbc:TaxAmount><cbc:Percent>20</cbc:Percent>
+        <cac:TaxCategory><cac:TaxScheme><cbc:Name>KDV</cbc:Name><cbc:TaxTypeCode>0015</cbc:TaxTypeCode></cac:TaxScheme></cac:TaxCategory></cac:TaxSubtotal></cac:TaxTotal>
+    <cac:Item><cbc:Name>Mouse</cbc:Name></cac:Item>
+    <cac:Price><cbc:PriceAmount currencyID="TRY">420.00</cbc:PriceAmount></cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>3</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="C62">3</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="TRY">750.00</cbc:LineExtensionAmount>
+    <cac:TaxTotal><cbc:TaxAmount currencyID="TRY">75.00</cbc:TaxAmount>
+      <cac:TaxSubtotal><cbc:TaxableAmount currencyID="TRY">750.00</cbc:TaxableAmount><cbc:TaxAmount currencyID="TRY">75.00</cbc:TaxAmount><cbc:Percent>10</cbc:Percent>
+        <cac:TaxCategory><cac:TaxScheme><cbc:Name>KDV</cbc:Name><cbc:TaxTypeCode>0015</cbc:TaxTypeCode></cac:TaxScheme></cac:TaxCategory></cac:TaxSubtotal></cac:TaxTotal>
+    <cac:Item><cbc:Name>Kitap</cbc:Name></cac:Item>
+    <cac:Price><cbc:PriceAmount currencyID="TRY">250.00</cbc:PriceAmount></cac:Price>
+  </cac:InvoiceLine>
+</Invoice>
