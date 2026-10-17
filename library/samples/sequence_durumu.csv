@@ -1,0 +1,6 @@
+tablo;sequence;kaynak_max_id;hedef_sonraki_deger
+musteri;musteri_id_seq;12000;12001
+siparis;siparis_id_seq;4200000;4100000
+fatura;fatura_id_seq;900;900
+urun;urun_id_seq;500;
+odeme;odeme_id_seq;300;5000

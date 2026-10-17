@@ -2,7 +2,7 @@
 Broker’a veya şema kayıt servisine bağlanmaz; dışa aktarılmış örnekleri ve komut çıktılarını okur."""
 import json, re
 from collections import Counter, defaultdict
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from islem import op, arg, Result, fmt
 
@@ -333,3 +333,88 @@ def dedupe(args):
     return Result(f'{len(events)} olay; {dup} tekrar ({conflict} çelişkili), {missing} eksik sıra, {late} sıra dışı', ['tur', 'anahtar', 'olay_id', 'sira', 'ayrinti'], out,
                   {'olay': len(events), 'tekrar': dup, 'celiskili_tekrar': conflict, 'eksik_sira': missing, 'sira_disi': late, 'bozuk_satir': bad},
                   notes=['Çelişkili tekrar, aynı kimlikle farklı içerik demektir: üretici kimliği yeniden kullanıyor olabilir, tüketici tarafında son yazan kazanır.'])
+
+
+@op('cdc-olay-ozeti', title='Debezium CDC olaylarının tablo ve işlem bazında özeti', domain='stream', product='Kafka', tag='CDC', kind='file', samples={'cdc_olaylari.jsonl': 'cdc_olaylari.jsonl'},
+    description='Debezium biçimindeki değişiklik olaylarını (payload içinde veya düz; op c/u/d/r, before/after, source.table) tablo bazında ekleme, güncelleme, silme ve anlık görüntü (snapshot) sayılarına ayırır; hiçbir alanı değişmeyen boş güncellemeleri, en sık değişen alanları ve silme sonrası tombstone kayıtlarını raporlar. CDC kurulumunun ve tüketici mantığının doğrulanması için.',
+    input='CDC olayları (JSON Lines)', output='sonuc.csv (tablo × işlem) + değişen alanlar', command='python main.py --input dbserver1.inventory.customers.jsonl',
+    expect={'olay': 8, 'tombstone': 1, 'tablo': 2, 'bos_guncelleme': 1, 'silme': 1})
+def cdc(args):
+    stats = defaultdict(lambda: Counter())
+    fields = defaultdict(Counter)
+    tomb = bad = total = 0
+    for line in Path(args.input).read_text(encoding='utf-8-sig', errors='replace').splitlines():
+        if not line.strip():
+            continue
+        try:
+            obj = json.loads(line)
+        except json.JSONDecodeError:
+            bad += 1
+            continue
+        if obj is None or (isinstance(obj, dict) and 'payload' in obj and obj['payload'] is None):
+            tomb += 1
+            continue
+        ev = obj.get('payload', obj) if isinstance(obj, dict) else None
+        if not isinstance(ev, dict) or ev.get('op') not in ('c', 'u', 'd', 'r'):
+            bad += 1
+            continue
+        total += 1
+        src = ev.get('source') or {}
+        table = '.'.join(x for x in (src.get('schema') or src.get('db'), src.get('table')) if x) or 'bilinmiyor'
+        stats[table][ev['op']] += 1
+        if ev['op'] == 'u':
+            before, after = ev.get('before') or {}, ev.get('after') or {}
+            changed = [k for k in sorted(set(before) | set(after)) if before.get(k) != after.get(k)]
+            if not changed:
+                stats[table]['bos'] += 1
+            fields[table].update(changed)
+    if not total:
+        raise ValueError('Debezium olayı bulunamadı (op: c/u/d/r alanı bekleniyor).')
+    names = {'c': 'ekleme', 'u': 'guncelleme', 'd': 'silme', 'r': 'snapshot'}
+    out = [{'tablo': t, **{names[k]: s[k] for k in 'cudr'}, 'bos_guncelleme': s['bos'], 'en_cok_degisen': ', '.join(f'{f} ({n})' for f, n in fields[t].most_common(3))} for t, s in sorted(stats.items())]
+    return Result(f'{total} CDC olayı, {len(out)} tablo; {sum(s["bos"] for s in stats.values())} boş güncelleme, {tomb} tombstone', list(out[0]), out,
+                  {'olay': total, 'tombstone': tomb, 'bozuk_satir': bad, 'tablo': len(out), 'bos_guncelleme': sum(s['bos'] for s in stats.values()),
+                   'silme': sum(s['d'] for s in stats.values())},
+                  notes=['Boş güncellemeler genelde kaynakta değeri aynı yazan UPDATE’lerden gelir; tüketicide gereksiz işlem ve hedefte gereksiz sürüm yaratır.'])
+
+
+def ts(v):
+    if not isinstance(v, str):
+        return None
+    try:
+        return datetime.fromisoformat(v.replace('Z', '+00:00'))
+    except ValueError:
+        return None
+
+
+@op('pencere-toplam', title='Olay zamanına göre sabit pencerelerde toplam ve geç gelen olaylar', domain='stream', product=GENEL, tag='tumbling window', kind='file', samples={'olaylar.jsonl': 'olaylar.jsonl'},
+    args=[arg('--time', default='olay_zamani'), arg('--arrival', default='alinma_zamani'), arg('--value', default='tutar'), arg('--window', type=int, default=60, help='Pencere (sn)'),
+          arg('--lateness', type=int, default=30, help='İzin verilen gecikme (sn)')],
+    description='Olayları olay zamanına göre sabit (tumbling) pencerelere böler; her pencerede olay sayısını ve değer toplamını, pencere kapandıktan sonra (pencere sonu + izin verilen gecikme) gelen ve akış motorunda düşürülecek olayları gösterir. Flink/Spark/Kafka Streams pencere ve watermark ayarının sonuca etkisini önceden görmek için.',
+    input='JSON Lines olaylar (olay zamanı, varış zamanı, değer)', output='sonuc.csv (pencere bazında)', command='python main.py --window 300 --lateness 60 --value amount --time event_time --arrival ingest_time',
+    expect={'olay': 200, 'pencere': 10, 'gec_olay': 6})
+def windows(args):
+    events, bad = load_events(args.input)
+    win = defaultdict(lambda: {'olay': 0, 'toplam': 0.0, 'gec': 0, 'gec_toplam': 0.0})
+    skipped = 0
+    for e in events:
+        t, a = ts(get_path(e, args.time)), ts(get_path(e, args.arrival))
+        v = get_path(e, args.value)
+        if not t:
+            skipped += 1
+            continue
+        start = int(t.timestamp()) // args.window * args.window
+        w = win[start]
+        w['olay'] += 1
+        w['toplam'] += v if isinstance(v, (int, float)) and not isinstance(v, bool) else 0.0
+        if a and a.timestamp() > start + args.window + args.lateness:
+            w['gec'] += 1
+            w['gec_toplam'] += v if isinstance(v, (int, float)) and not isinstance(v, bool) else 0.0
+    if not win:
+        raise ValueError(f'"{args.time}" alanında okunabilir zaman yok.')
+    out = [{'pencere_baslangic': datetime.fromtimestamp(s, tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S'), 'olay': w['olay'], 'toplam': round(w['toplam'], 2),
+            'gec_olay': w['gec'], 'dusurulecek_toplam': round(w['gec_toplam'], 2), 'kesin_toplam': round(w['toplam'] - w['gec_toplam'], 2)} for s, w in sorted(win.items())]
+    late = sum(o['gec_olay'] for o in out)
+    return Result(f'{sum(o["olay"] for o in out)} olay, {len(out)} pencere ({args.window} sn); {late} olay izin verilen gecikmeden sonra geldi', list(out[0]), out,
+                  {'olay': sum(o['olay'] for o in out), 'pencere': len(out), 'gec_olay': late, 'zamansiz': skipped, 'bozuk_satir': bad},
+                  notes=['Geç olaylar akış motorunda varsayılan olarak düşürülür; kayıp kabul edilemiyorsa izin verilen gecikmeyi artırın veya yan çıktıya (side output) yönlendirin.'])

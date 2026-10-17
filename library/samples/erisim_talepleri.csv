@@ -1,0 +1,7 @@
+talep_no;talep_eden;onaylayan;kaynak;talep_tarihi;onay_tarihi;bitis_tarihi;durum
+T1;ayse.yilmaz;mehmet.kaya;dwh.satis;2026-10-01;2026-10-02;;aktif
+T2;ali.celik;ali.celik;dwh.ik;2026-10-03;2026-10-03;;aktif
+T3;can.eski;mehmet.kaya;crm;2026-09-01;2026-09-10;;aktif
+T4;zeynep.demir;;dwh.finans;2026-10-05;;;aktif
+T5;ece.kara;mehmet.kaya;dwh.satis;2026-08-01;2026-08-02;2026-09-30;aktif
+T6;deniz.kurt;ayse.yilmaz;dwh.satis;2026-07-01;2026-07-02;2026-08-01;kapalı

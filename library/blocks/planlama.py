@@ -281,3 +281,71 @@ def pvm(columns, rows, args):
                    'hacim_etkisi': tot['hacim'], 'karma_etkisi': tot['karma'], 'fiyat_etkisi': tot['fiyat']},
                   notes=['Hacim: toplam adet değişimi × bütçe ortalama fiyatı. Karma: ürün payı değişimi × bütçe fiyatı. Fiyat: (gerçek − bütçe fiyat) × gerçek adet.',
                          'Bütçesi olmayan yeni ürünlerde bütçe fiyatı olarak gerçek fiyat kullanılır; etkisi karmada görünür.'])
+
+
+@op('basa-bas-analizi', title='Çok ürünlü başa baş noktası ve güvenlik marjı', domain=D, product=P, tag='başa baş', samples={'basabas_urunler.csv': 'basabas_urunler.csv'},
+    args=[arg('--fixed', type=float, default=19000.0, help='Dönem sabit giderleri'), arg('--item', default='urun'), arg('--price', default='fiyat'), arg('--var', default='birim_degisken_maliyet'),
+          arg('--qty', default='planlanan_adet', help='Satış karmasını belirleyen planlanan adet')],
+    description='Ürün fiyatı, birim değişken maliyet ve planlanan satış karmasından ağırlıklı katkı payını hesaplar; sabit giderleri karşılayan toplam ve ürün bazında başa baş adedini, başa baş cirosunu, planlanan kârı ve güvenlik marjını (planlanan cironun başa başın ne kadar üstünde olduğu) verir. Negatif katkı paylı ürünleri işaretler.',
+    input='Ürün listesi (fiyat, değişken maliyet, planlanan adet) + sabit gider', output='sonuc.csv (ürün bazında başa baş)', command='python main.py --fixed 250000 --input fiyat_plani.xlsx',
+    expect={'basabas_adet': 500, 'basabas_ciro': 47500.0, 'guvenlik_marji_%': 50.0, 'planlanan_kar': 19000.0})
+def breakeven(columns, rows, args):
+    icol = need(args.item, columns, '--item')
+    prices, varc, qty = (numbers(rows, need(c, columns, f)) for c, f in ((args.price, '--price'), (args.var, '--var'), (args.qty, '--qty')))
+    items = [(r[icol], p or 0.0, v or 0.0, q or 0.0) for r, p, v, q in zip(rows, prices, varc, qty)]
+    total_q = sum(q for *_, q in items)
+    if not total_q:
+        raise ValueError('Planlanan adet toplamı sıfır; satış karması hesaplanamaz.')
+    wcm = sum(q / total_q * (p - v) for _, p, v, q in items)
+    if wcm <= 0:
+        raise ValueError('Ağırlıklı katkı payı sıfır veya negatif; bu karmayla başa baş noktası yok.')
+    be_units = args.fixed / wcm
+    out = []
+    for name, p, v, q in items:
+        units = be_units * q / total_q
+        out.append({'urun': name, 'fiyat': fmt(p), 'katki_payi': fmt(round(p - v, 4)), 'katki_orani_%': round(100 * (p - v) / p, 1) if p else '', 'karma_%': round(100 * q / total_q, 1),
+                    'basabas_adet': round(units, 1), 'basabas_ciro': round(units * p, 2), 'planlanan_adet': fmt(q), 'not': 'negatif katkı payı' if p < v else ''})
+    be_rev = sum(o['basabas_ciro'] for o in out)
+    plan_rev = sum(p * q for _, p, _, q in items)
+    profit = sum((p - v) * q for _, p, v, q in items) - args.fixed
+    mos = 100 * (plan_rev - be_rev) / plan_rev if plan_rev else 0.0
+    return Result(f'Başa baş {be_units:,.0f} adet / {tr_money(be_rev)} ciro; planlanan kâr {tr_money(profit)}, güvenlik marjı %{mos:.1f}', list(out[0]), out,
+                  {'agirlikli_katki_payi': round(wcm, 4), 'basabas_adet': round(be_units, 2), 'basabas_ciro': round(be_rev, 2), 'planlanan_ciro': round(plan_rev, 2),
+                   'planlanan_kar': round(profit, 2), 'guvenlik_marji_%': round(mos, 1)},
+                  notes=['Başa baş noktası satış karmasının planlandığı gibi gerçekleşeceğini varsayar; karma katkı payı düşük ürünlere kayarsa nokta yükselir.'])
+
+
+@op('duyarlilik-analizi', title='Formül tabanlı duyarlılık (tornado) analizi', domain=D, product=P, tag='tornado', samples={'surucular.csv': 'surucular.csv'},
+    args=[arg('--formula', default='adet * (fiyat - birim_maliyet) - sabit_gider', help='Sürücü adlarıyla sonuç formülü'), arg('--change', type=float, default=10.0, help='± yüzde değişim'),
+          arg('--name', default='surucu'), arg('--value', default='deger')],
+    requires=['temizlik'],
+    description='Bir sonuç formülünün (kâr, nakit, marj…) her sürücüyü tek tek ±% değiştirdiğinizde (veya dosyada verdiğiniz düşük/yüksek değerlere çektiğinizde) ne kadar oynadığını hesaplar ve sürücüleri etki aralığına göre sıralar (tornado grafiği verisi). Bütçe sunumlarında “hangi varsayım sonucu en çok etkiler” sorusu için.',
+    input='Sürücü listesi (sürücü, değer, isteğe bağlı dusuk/yuksek) + formül', output='sonuc.csv (sürücü × düşük/yüksek sonuç)', command='python main.py --formula "hacim * marj - opex" --change 15',
+    expect={'baz': 8000.0, 'en_etkili': 'fiyat', 'en_etkili_aralik': 10000.0})
+def tornado(columns, rows, args):
+    from temizlik import Expr
+    ncol, vcol = need(args.name, columns, '--name'), need(args.value, columns, '--value')
+    vals = numbers(rows, vcol)
+    base = {r[ncol].strip(): v for r, v in zip(rows, vals) if r[ncol].strip() and v is not None}
+    expr = Expr(args.formula, list(base))
+    calc = lambda env: expr({k: repr(float(x)) for k, x in env.items()}, [{k: repr(float(x)) for k, x in base.items()}])
+    b = calc(base)
+    if not isinstance(b, (int, float)):
+        raise ValueError('Formül baz değerlerle hesaplanamadı; sürücü adlarını kontrol edin.')
+    lo_col, hi_col = ('dusuk' if 'dusuk' in columns else None), ('yuksek' if 'yuksek' in columns else None)
+    lows = numbers(rows, lo_col) if lo_col else [None] * len(rows)
+    highs = numbers(rows, hi_col) if hi_col else [None] * len(rows)
+    out = []
+    for r, lo_v, hi_v in zip(rows, lows, highs):
+        k = r[ncol].strip()
+        if k not in base:
+            continue
+        lo_in = lo_v if lo_v is not None else base[k] * (1 - args.change / 100)
+        hi_in = hi_v if hi_v is not None else base[k] * (1 + args.change / 100)
+        lo_out, hi_out = calc({**base, k: lo_in}), calc({**base, k: hi_in})
+        out.append({'surucu': k, 'baz_deger': fmt(base[k]), 'dusuk_girdi': fmt(round(lo_in, 4)), 'yuksek_girdi': fmt(round(hi_in, 4)), 'dusuk_sonuc': round(lo_out, 2),
+                    'yuksek_sonuc': round(hi_out, 2), 'aralik': round(abs(hi_out - lo_out), 2)})
+    out.sort(key=lambda o: -o['aralik'])
+    return Result(f'Baz sonuç {tr_money(b)}; en etkili sürücü {out[0]["surucu"]} (aralık {tr_money(out[0]["aralik"])})', list(out[0]), out,
+                  {'baz': round(b, 2), 'surucu': len(out), 'en_etkili': out[0]['surucu'], 'en_etkili_aralik': out[0]['aralik']},
+                  notes=['Her sürücü diğerleri sabitken değiştirilir; sürücüler arası ilişki (fiyat artınca adedin düşmesi) için senaryo-analizi bloğunu kullanın.'])

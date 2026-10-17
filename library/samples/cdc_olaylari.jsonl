@@ -1,0 +1,9 @@
+{"payload": {"op": "c", "before": null, "after": {"id": 1, "ad": "Ayşe", "sehir": "İzmir"}, "source": {"db": "crm", "table": "musteri"}}}
+{"payload": {"op": "c", "before": null, "after": {"id": 2, "ad": "Mehmet", "sehir": "Ankara"}, "source": {"db": "crm", "table": "musteri"}}}
+{"payload": {"op": "u", "before": {"id": 1, "ad": "Ayşe", "sehir": "İzmir"}, "after": {"id": 1, "ad": "Ayşe", "sehir": "İstanbul"}, "source": {"db": "crm", "table": "musteri"}}}
+{"payload": {"op": "u", "before": {"id": 2, "ad": "Mehmet", "sehir": "Ankara"}, "after": {"id": 2, "ad": "Mehmet", "sehir": "Ankara"}, "source": {"db": "crm", "table": "musteri"}}}
+{"payload": {"op": "d", "before": {"id": 2, "ad": "Mehmet", "sehir": "Ankara"}, "after": null, "source": {"db": "crm", "table": "musteri"}}}
+null
+{"op": "r", "before": null, "after": {"id": 10, "tutar": 100}, "source": {"db": "crm", "table": "siparis"}}
+{"op": "r", "before": null, "after": {"id": 11, "tutar": 250}, "source": {"db": "crm", "table": "siparis"}}
+{"op": "c", "before": null, "after": {"id": 12, "tutar": 75}, "source": {"db": "crm", "table": "siparis"}}

@@ -5,7 +5,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from datetime import datetime
 import tabular
-from islem import op, arg, Result, need, numbers, fmt
+from islem import op, arg, Result, need, numbers, fmt, fold
 
 D, P = 'observability', 'Tablo yükleme metrikleri'
 
@@ -224,3 +224,80 @@ def logs(args):
     return Result(f'{len(records)} kayıt; {errors} hata {len(groups)} imzada toplandı', ['imza', 'seviye', 'adet', 'ilk', 'son', 'istisna'], out,
                   {'kayit': len(records), 'hata': errors, 'imza': len(groups), 'uyari': sum(r['seviye'] == 'WARN' for r in records), 'istisna': dict(exc)},
                   tables=[('Seviyeye göre kayıt', ['Seviye', 'Kayıt'], Counter(r['seviye'] or '-' for r in records).most_common())])
+
+
+PASS_WORDS = {'pass', 'passed', 'basarili', 'ok', 'success', 'gecti'}
+
+
+@op('kalite-skor-karti', title='Veri kalitesi testlerinden tablo skor kartı ve yeni/kararsız/kronik hatalar', domain=D, product=P, tag='skor kartı', samples={'kalite_testleri.csv': 'kalite_testleri.csv'},
+    args=[arg('--date', default='tarih'), arg('--table', default='tablo'), arg('--test', default='test'), arg('--status', default='durum'),
+          arg('--flaky', type=int, default=2, help='Durumu en az bu kadar kez değişen test kararsızdır'), arg('--chronic', type=int, default=3, help='Son bu kadar çalışmada hep hatalı test kroniktir')],
+    description='dbt test, Great Expectations veya özel kalite kontrolü sonuçlarının tarihli geçmişinden tablo bazında son ve önceki çalışma başarı oranını çıkarır; son çalışmada yeni kırılan testleri, durumu sürekli değişen (kararsız, flaky) testleri ve uzun süredir hep hatalı (kronik, kimsenin düzeltmediği) testleri ayırır. Haftalık veri kalitesi toplantısı için.',
+    input='Test sonuç geçmişi (tarih, tablo, test, durum)', output='sonuc.csv (tablo skor kartı) + test bulguları', command='python main.py --input dbt_test_history.csv --flaky 3 --chronic 5',
+    expect={'tablo': 2, 'test': 5, 'son_basari_%': 60.0, 'yeni_hata': 1, 'kararsiz': 1, 'kronik': 1})
+def scorecard(columns, rows, args):
+    d, t, x, s = (need(c, columns, f) for c, f in ((args.date, '--date'), (args.table, '--table'), (args.test, '--test'), (args.status, '--status')))
+    hist = defaultdict(list)
+    for r in rows:
+        dt = tabular.parse_date(r[d])
+        if dt:
+            hist[(r[t].strip(), r[x].strip())].append((dt[0], fold(r[s]) in PASS_WORDS))
+    runs = sorted({dt for h in hist.values() for dt, _ in h})
+    if not runs:
+        raise ValueError('Tarihi okunabilen test sonucu yok.')
+    last, prev = runs[-1], runs[-2] if len(runs) > 1 else None
+    findings, tables = [], defaultdict(lambda: {'son': [], 'once': []})
+    for (tb, test), h in sorted(hist.items()):
+        h.sort()
+        res = dict(h)
+        if last in res:
+            tables[tb]['son'].append(res[last])
+        if prev in res:
+            tables[tb]['once'].append(res[prev])
+        flips = sum(a[1] != b[1] for a, b in zip(h, h[1:]))
+        if last in res and not res[last] and prev in res and res[prev]:
+            findings.append([tb, test, 'yeni hata', 'son çalışmada kırıldı'])
+        if flips >= args.flaky:
+            findings.append([tb, test, 'kararsız', f'durumu {flips} kez değişti'])
+        tail = [ok for _, ok in h[-args.chronic:]]
+        if len(tail) >= args.chronic and not any(tail):
+            findings.append([tb, test, 'kronik', f'son {args.chronic} çalışmada hep hatalı'])
+    pct = lambda xs: round(100 * sum(xs) / len(xs), 1) if xs else ''
+    out = [{'tablo': tb, 'test_sayisi': len(v['son']), 'son_basari_%': pct(v['son']), 'onceki_basari_%': pct(v['once']),
+            'degisim': round(pct(v['son']) - pct(v['once']), 1) if v['son'] and v['once'] else ''} for tb, v in sorted(tables.items())]
+    out.sort(key=lambda o: (o['son_basari_%'] if o['son_basari_%'] != '' else 999))
+    allv = [ok for v in tables.values() for ok in v['son']]
+    kinds = Counter(f[2] for f in findings)
+    return Result(f'{len(out)} tablo, {len(hist)} test; son çalışma başarı %{pct(allv)}; {kinds["yeni hata"]} yeni hata, {kinds["kararsız"]} kararsız, {kinds["kronik"]} kronik', list(out[0]), out,
+                  {'tablo': len(out), 'test': len(hist), 'calisma': len(runs), 'son_basari_%': pct(allv), 'yeni_hata': kinds['yeni hata'], 'kararsiz': kinds['kararsız'], 'kronik': kinds['kronik']},
+                  tables=[('Test bulguları', ['Tablo', 'Test', 'Tür', 'Ayrıntı'], findings)])
+
+
+@op('teslim-sla-uyumu', title='Veri seti teslim saatlerinin SLA’ya uyum raporu', domain=D, product=P, tag='SLA uyumu', samples={'teslim_saatleri.csv': 'teslim_saatleri.csv'},
+    args=[arg('--date', default='tarih'), arg('--dataset', default='veri_seti'), arg('--delivered', default='teslim'), arg('--sla', default='sla')],
+    description='Günlük veri setlerinin (rapor, extract, tablo) gerçek teslim saatini SLA saatiyle karşılaştırır; veri seti bazında zamanında teslim oranını, geç günlerde ortalama ve en büyük gecikmeyi (dakika), hiç teslim edilmeyen günleri raporlar. Aylık hizmet seviyesi raporu ve iş birimiyle SLA görüşmesi için.',
+    input='Teslim kayıtları (tarih, veri seti, teslim saati, SLA saati)', output='sonuc.csv (veri seti bazında uyum)', command='python main.py --input teslimler.csv --sla hedef_saat',
+    expect={'veri_seti': 2, 'uyum_%': 70.0, 'gec_gun': 3, 'teslim_yok': 1})
+def delivery_sla(columns, rows, args):
+    d, ds, dl, sl = (need(c, columns, f) for c, f in ((args.date, '--date'), (args.dataset, '--dataset'), (args.delivered, '--delivered'), (args.sla, '--sla')))
+    hm = lambda v: (lambda m: int(m.group(1)) * 60 + int(m.group(2)) if m else None)(re.search(r'(\d{1,2}):(\d{2})', v or ''))
+    sets = defaultdict(list)
+    for r in rows:
+        due, got = hm(r[sl]), hm(r[dl])
+        if due is None:
+            continue
+        sets[r[ds].strip()].append((r[d], None if got is None else got - due))
+    out = []
+    for name, days in sorted(sets.items()):
+        late = [x for _, x in days if x is None or x > 0]
+        delays = [x for x in late if x is not None]
+        worst = max(((x if x is not None else float('inf')), dd) for dd, x in days) if late else None
+        out.append({'veri_seti': name, 'gun': len(days), 'zamaninda': len(days) - len(late), 'uyum_%': round(100 * (len(days) - len(late)) / len(days), 1),
+                    'gec_gun': len(late), 'teslim_yok': sum(x is None for _, x in days), 'ort_gecikme_dk': round(sum(delays) / len(delays), 1) if delays else '',
+                    'en_kotu_gun': worst[1] if worst else ''})
+    total = sum(o['gun'] for o in out)
+    ok = sum(o['zamaninda'] for o in out)
+    out.sort(key=lambda o: o['uyum_%'])
+    return Result(f'{len(out)} veri seti, {total} teslim günü; genel uyum %{100 * ok / total:.1f}', list(out[0]), out,
+                  {'veri_seti': len(out), 'uyum_%': round(100 * ok / total, 1), 'gec_gun': sum(o['gec_gun'] for o in out), 'teslim_yok': sum(o['teslim_yok'] for o in out)},
+                  notes=['Teslim saati boş olan günler geç (teslim edilmedi) sayılır; SLA dışı günler (tatil) için satırları dosyadan çıkarın.'])

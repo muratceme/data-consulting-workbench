@@ -4,7 +4,7 @@ import json, re
 from collections import Counter, defaultdict
 from pathlib import Path
 import tabular
-from islem import op, arg, Result, need, numbers, fold
+from islem import op, arg, Result, need, numbers, fold, fmt
 
 D, P = 'governance', 'Erişim ve sahiplik listeleri'
 
@@ -282,3 +282,72 @@ def contract(columns, rows, args):
     return Result(f'{spec.get("name", "sözleşme")}: {len(violations)} kural ihlali, {len(bad_rows)} satır etkilendi', ['sutun', 'kural', 'ihlal', 'ornek_satirlar', 'ayrinti'], out,
                   {'satir_sayisi': len(rows), 'ihlal_kural': len(violations), 'ihlal_satir': len(bad_rows), 'eksik_sutun': len(missing), 'fazla_sutun': len(extra)},
                   code=2 if args.strict and violations else 0)
+
+
+@op('erisim-talep-denetimi', title='Veri erişim taleplerinde kendi onayı, gecikme ve süresi dolan erişim', domain=D, product=P, tag='erişim talebi', samples={'erisim_talepleri.csv': 'erisim_talepleri.csv'},
+    args=[arg('--as-of', default='2026-10-16'), arg('--sla', type=int, default=3, help='Onay için gün')],
+    description='Erişim talep kayıtlarını denetler: talep edenin kendi talebini onayladığı, onay kaydı olmadan aktif olan, onayı SLA’dan geç verilen ve bitiş tarihi geçtiği hâlde hâlâ aktif olan (geçici) erişimleri listeler. İç denetim ve ISO 27001 / SOX erişim kontrolü kanıtı için.',
+    input='Talep kayıtları (talep eden, onaylayan, kaynak, talep/onay/bitiş tarihi, durum)', output='sonuc.csv (bulgulu talepler)', command='python main.py --input servicenow_access.csv --sla 2',
+    expect={'talep': 6, 'sorunlu': 4, 'kendi_onayi': 1, 'onaysiz': 1, 'gec_onay': 1, 'suresi_dolmus_aktif': 1})
+def access_requests(columns, rows, args):
+    for c in ('talep_no', 'talep_eden', 'onaylayan', 'talep_tarihi', 'onay_tarihi', 'durum'):
+        need(c, columns, 'talep kayıtları')
+    as_of = tabular.parse_date(args.as_of)[0].date()
+    day = lambda v: (lambda d: d[0].date() if d else None)(tabular.parse_date(v or ''))
+    out, kinds = [], Counter()
+    for r in rows:
+        active = fold(r['durum']) in ('aktif', 'active', 'acik')
+        req, ok, end = day(r['talep_tarihi']), day(r['onay_tarihi']), day(r.get('bitis_tarihi', ''))
+        issues = []
+        if r['onaylayan'].strip() and fold(r['onaylayan']) == fold(r['talep_eden']):
+            issues.append(('kendi onayı', 'talep eden kendi talebini onaylamış'))
+        if active and not (r['onaylayan'].strip() and ok):
+            issues.append(('onaysız', 'onay kaydı olmadan aktif'))
+        if req and ok and (ok - req).days > args.sla:
+            issues.append(('geç onay', f'onay {(ok - req).days} gün sürdü'))
+        if active and end and end < as_of:
+            issues.append(('süresi dolmuş aktif', f'bitiş {end} geçti, erişim hâlâ aktif'))
+        kinds.update(k for k, _ in issues)
+        if issues:
+            out.append({'talep_no': r['talep_no'], 'talep_eden': r['talep_eden'], 'onaylayan': r['onaylayan'], 'kaynak': r.get('kaynak', ''), 'bulgu': '; '.join(m for _, m in issues)})
+    return Result(f'{len(rows)} talep; {len(out)} talepte bulgu', ['talep_no', 'talep_eden', 'onaylayan', 'kaynak', 'bulgu'], out,
+                  {'talep': len(rows), 'sorunlu': len(out), 'kendi_onayi': kinds['kendi onayı'], 'onaysiz': kinds['onaysız'], 'gec_onay': kinds['geç onay'],
+                   'suresi_dolmus_aktif': kinds['süresi dolmuş aktif']})
+
+
+@op('rapor-kullanim-envanteri', title='BI rapor envanterinde kullanılmayan, sahipsiz ve boşa yenilenen raporlar', domain=D, product=P, tag='rapor envanteri',
+    samples={'bi_raporlari.csv': 'bi_raporlari.csv', 'ik_aktif_personel.csv': 'ik_aktif_personel.csv'},
+    args=[arg('--hr', default='@ornek/ik_aktif_personel.csv', help='Aktif kullanıcı listesi (kullanici, durum)'), arg('--as-of', default='2026-10-16'),
+          arg('--days', type=int, default=90, help='Bu kadar gündür açılmayan rapor emekliye ayrılabilir'), arg('--min-views', type=int, default=5)],
+    description='Power BI, Qlik veya Tableau rapor kullanım dışa aktarımında uzun süredir açılmayan (emekliye ayrılabilir), az kullanılan, sahibi boş veya ayrılmış çalışan olan ve kimse bakmadığı hâlde düzenli yenilenen (boşa kapasite harcayan) raporları bulur. Rapor yığılmasını azaltma ve lisans/kapasite tasarrufu için.',
+    input='Rapor kullanım listesi + aktif personel listesi', output='sonuc.csv (rapor bazında öneri)', command='python main.py --input pbi_activity.csv --days 120 --hr aktif_kullanicilar.csv',
+    expect={'rapor': 6, 'emekliye_ayir': 3, 'sahipsiz': 2, 'bosa_yenilenen': 2, 'az_kullanilan': 1, 'sorunlu': 5})
+def report_usage(columns, rows, args):
+    for c in ('rapor', 'sahip', 'son_goruntulenme'):
+        need(c, columns, 'rapor listesi')
+    hcols, hrows = tabular.read(args.hr)
+    need('kullanici', hcols, '--hr')
+    active = {fold(r['kullanici']) for r in hrows if fold(r.get('durum', 'aktif')) == 'aktif'}
+    as_of = tabular.parse_date(args.as_of)[0]
+    views = numbers(rows, 'goruntulenme_90g') if 'goruntulenme_90g' in columns else [None] * len(rows)
+    out, kinds = [], Counter()
+    for r, v in zip(rows, views):
+        seen, refreshed = tabular.parse_date(r['son_goruntulenme']), tabular.parse_date(r.get('son_yenileme', '') or '')
+        idle = (as_of - seen[0]).days if seen else None
+        tags = []
+        if idle is None or idle > args.days:
+            tags.append('emekliye ayır')
+        elif v is not None and v <= args.min_views:
+            tags.append('az kullanılan')
+        if not r['sahip'].strip() or fold(r['sahip']) not in active:
+            tags.append('sahipsiz')
+        if 'emekliye ayır' in tags and refreshed and (as_of - refreshed[0]).days <= 7:
+            tags.append('boşa yenileniyor')
+        kinds.update(tags)
+        out.append({'rapor': r['rapor'], 'calisma_alani': r.get('calisma_alani', ''), 'sahip': r['sahip'] or '-', 'acilmayan_gun': idle if idle is not None else 'hiç açılmadı',
+                    'goruntulenme_90g': fmt(v), 'oneri': ', '.join(tags)})
+    out.sort(key=lambda o: (not o['oneri'], o['rapor']))
+    return Result(f'{len(out)} rapor; {kinds["emekliye ayır"]} emekliye ayrılabilir, {kinds["sahipsiz"]} sahipsiz, {kinds["boşa yenileniyor"]} boşa yenileniyor', list(out[0]), out,
+                  {'rapor': len(out), 'emekliye_ayir': kinds['emekliye ayır'], 'sahipsiz': kinds['sahipsiz'], 'bosa_yenilenen': kinds['boşa yenileniyor'],
+                   'az_kullanilan': kinds['az kullanılan'], 'sorunlu': sum(bool(o['oneri']) for o in out)},
+                  notes=['Emekliye ayırmadan önce rapor sahibine haber verin ve raporu arşivleyin; dönemsel (yıl sonu) raporlar uzun süre açılmayabilir.'])

@@ -4,7 +4,7 @@ import re
 from collections import Counter, defaultdict
 from datetime import timedelta
 import tabular
-from islem import op, arg, Result, need, numbers, col_list, fold
+from islem import op, arg, Result, need, numbers, col_list, fold, fmt
 
 D, P = 'privacy', 'Hassas veri envanteri'
 
@@ -205,3 +205,68 @@ def transfer(columns, rows, args):
                    'ozel_nitelikli_yurt_disi': sum(o['yurt_disi'] == 'evet' and o['ozel_nitelikli'] == 'evet' for o in out)},
                   notes=['İş günü hesabında resmî tatiller dikkate alınmaz; sınırdaki bildirimleri takvimle kontrol edin.',
                          'Mekanizma adları serbest metindir: "standart sözleşme", "bağlayıcı şirket kuralları", "yeterlilik kararı", "taahhütname", "arızi" gibi yazın.'])
+
+
+@op('ihlal-bildirim-suresi', title='Veri ihlallerinde 72 saatlik Kurul bildirim süresi takibi', domain=D, product=P, tag='ihlal bildirimi', samples={'veri_ihlalleri.csv': 'veri_ihlalleri.csv'},
+    args=[arg('--as-of', default='2026-10-16 12:00', help='Açık olaylar için hesap zamanı'), arg('--hours', type=float, default=72.0)],
+    description='Veri ihlali kayıtlarında tespit ile Kurul’a bildirim arasındaki süreyi hesaplar: süresinde, geç bildirilmiş ve hâlâ bildirilmemiş (süresi dolmuş veya kalan saati işleyen) olayları ayırır; ilgili kişilere bildirim kaydı olmayan olayları ve etkilenen kişi sayısını raporlar. İhlal müdahale ekibinin günlük takibi için.',
+    input='İhlal kayıtları (olay, tespit zamanı, Kurul bildirim zamanı, ilgili kişi bildirimi, etkilenen kişi)', output='sonuc.csv (olay bazında süre durumu)', command='python main.py --input ihlal_kayitlari.xlsx --as-of "2026-12-01 09:00"',
+    expect={'olay': 5, 'gec_bildirim': 1, 'bildirilmemis_gecikmis': 1, 'suresi_isleyen': 1, 'ilgili_kisi_kaydi_yok': 3})
+def breach(columns, rows, args):
+    for c in ('olay_no', 'tespit_zamani', 'kurul_bildirim_zamani'):
+        need(c, columns, 'ihlal kayıtları')
+    now = tabular.parse_date(args.as_of)[0]
+    people = numbers(rows, 'etkilenen_kisi') if 'etkilenen_kisi' in columns else [None] * len(rows)
+    out = []
+    for r, n in zip(rows, people):
+        found = tabular.parse_date(r['tespit_zamani'])
+        if not found:
+            out.append({'olay_no': r['olay_no'], 'gecen_saat': '', 'kalan_saat': '', 'durum': 'tespit zamanı yok', 'etkilenen_kisi': fmt(n), 'ilgili_kisi_bildirimi': r.get('ilgili_kisi_bildirim', '')})
+            continue
+        sent = tabular.parse_date(r['kurul_bildirim_zamani'])
+        hours = ((sent[0] if sent else now) - found[0]).total_seconds() / 3600
+        if sent:
+            state = 'süresinde bildirildi' if hours <= args.hours else 'GEÇ BİLDİRİLDİ'
+        else:
+            state = 'BİLDİRİLMEDİ — süre doldu' if hours > args.hours else 'süre işliyor'
+        out.append({'olay_no': r['olay_no'], 'gecen_saat': round(hours, 1), 'kalan_saat': round(args.hours - hours, 1) if not sent and hours <= args.hours else '',
+                    'durum': state, 'etkilenen_kisi': fmt(n), 'ilgili_kisi_bildirimi': r.get('ilgili_kisi_bildirim', '').strip() or 'kayıt yok'})
+    order = {'BİLDİRİLMEDİ — süre doldu': 0, 'süre işliyor': 1, 'GEÇ BİLDİRİLDİ': 2}
+    out.sort(key=lambda o: (order.get(o['durum'], 3), o['olay_no']))
+    c = Counter(o['durum'] for o in out)
+    return Result(f'{len(out)} olay; {c["GEÇ BİLDİRİLDİ"]} geç, {c["BİLDİRİLMEDİ — süre doldu"]} bildirilmemiş ve süresi dolmuş, {c["süre işliyor"]} olayda süre işliyor', list(out[0]), out,
+                  {'olay': len(out), 'gec_bildirim': c['GEÇ BİLDİRİLDİ'], 'bildirilmemis_gecikmis': c['BİLDİRİLMEDİ — süre doldu'], 'suresi_isleyen': c['süre işliyor'],
+                   'ilgili_kisi_kaydi_yok': sum(o['ilgili_kisi_bildirimi'] == 'kayıt yok' for o in out), 'etkilenen_toplam': sum(n or 0 for n in people)},
+                  notes=['Süre tespit anından başlatılır; kurumunuzun prosedüründeki başlangıç anını (öğrenme/teyit) esas alın. Hukuki değerlendirme yerine geçmez.'])
+
+
+@op('cerez-envanteri', title='Çerez envanterini onay ve süre kurallarıyla denetle', domain=D, product=P, tag='çerez', samples={'cerezler.csv': 'cerezler.csv'},
+    args=[arg('--site', default='ornek.com.tr', help='Birinci taraf alan adı'), arg('--max-days', type=int, default=365, help='Bu süreden uzun çerezleri işaretle')],
+    description='Web sitesi çerez taraması dışa aktarımında (çerez, alan adı, kategori, süre, onaydan önce yerleşip yerleşmediği) zorunlu olmayan ama onay alınmadan yerleşen, kategorisi belirlenmemiş ve azami süreyi aşan çerezleri bulur; üçüncü taraf alan adlarını listeler. Çerez politikası ve onay yönetim aracı ayarlarını doğrulamak için.',
+    input='Çerez tarama listesi (CSV/XLSX)', output='sonuc.csv (çerez bazında bulgular)', command='python main.py --input cookie_scan.csv --site magaza.com.tr --max-days 180',
+    expect={'cerez': 7, 'sorunlu': 3, 'onaysiz_yerlesen': 2, 'ucuncu_taraf': 2})
+def cookies(columns, rows, args):
+    for c in ('cerez', 'alan_adi', 'kategori'):
+        need(c, columns, 'çerez listesi')
+    days = numbers(rows, 'sure_gun') if 'sure_gun' in columns else [None] * len(rows)
+    site = args.site.lower().lstrip('.')
+    out = []
+    for r, d in zip(rows, days):
+        cat = fold(r['kategori'])
+        dom = r['alan_adi'].strip().lower().lstrip('.')
+        third = not (dom == site or dom.endswith('.' + site))
+        before = r.get('onay_oncesi', '').strip().lower() in ('evet', 'e', 'true', '1', 'yes')
+        issues = []
+        if not cat:
+            issues.append('kategori belirlenmemiş')
+        if before and cat != 'zorunlu':
+            issues.append('zorunlu değil ama onaydan önce yerleşiyor')
+        if d is not None and d > args.max_days:
+            issues.append(f'süre {fmt(d)} gün > {args.max_days}')
+        out.append({'cerez': r['cerez'], 'alan_adi': r['alan_adi'], 'kategori': r['kategori'] or '-', 'sure_gun': fmt(d), 'taraf': 'üçüncü taraf' if third else 'birinci taraf',
+                    'onay_oncesi': 'evet' if before else 'hayır', 'bulgu': '; '.join(issues)})
+    out.sort(key=lambda o: (not o['bulgu'], o['cerez']))
+    return Result(f'{len(out)} çerez; {sum(bool(o["bulgu"]) for o in out)} sorunlu, {sum(o["taraf"] == "üçüncü taraf" for o in out)} üçüncü taraf', list(out[0]), out,
+                  {'cerez': len(out), 'sorunlu': sum(bool(o['bulgu']) for o in out), 'onaysiz_yerlesen': sum('onaydan önce' in o['bulgu'] for o in out),
+                   'ucuncu_taraf': sum(o['taraf'] == 'üçüncü taraf' for o in out)},
+                  notes=['Kategori adları zorunlu, analitik, tercih, pazarlama gibi yazılmalıdır; süre eşiğini kurumunuzun çerez politikasına göre verin.'])

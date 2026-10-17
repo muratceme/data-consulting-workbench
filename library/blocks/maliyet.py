@@ -328,3 +328,72 @@ def showback(columns, rows, args):
     return Result(f'{len(out)} proje; {money(shared)} ortak/etiketsiz maliyet {args.method} dağıtıldı', list(out[0]), out,
                   {'proje': len(out), 'dogrudan': round(base, 2), 'paylastirilan': round(shared, 2), 'toplam': round(base + shared, 2)},
                   notes=['Oransal dağıtım, ortak maliyeti en çok harcayan projeye en çok yükler; ağ/güvenlik gibi kalemler için kullanım ölçüsü varsa onu tercih edin.'])
+
+
+@op('birim-maliyet', title='Birim maliyet: işlem/müşteri başına bulut maliyeti trendi', domain='finops', product=GENEL, tag='unit economics',
+    samples={'aylik_maliyet.csv': 'aylik_maliyet.csv', 'is_metrikleri.csv': 'is_metrikleri.csv'},
+    args=[arg('--metrics', default='@ornek/is_metrikleri.csv', help='Aylık iş metriği (ay, metrik)'), arg('--metric', default='siparis'), arg('--month', default='ay'),
+          arg('--cost', default='maliyet'), arg('--alert', type=float, default=10.0, help='Önceki aya göre bu yüzdeden fazla artışta uyar')],
+    description='Aylık bulut maliyetini sipariş, aktif müşteri veya API çağrısı gibi bir iş metriğine böler; birim maliyetin aylık değişimini, maliyet ve hacim büyümesini yan yana gösterir ve birim maliyetin arttığı ayları işaretler. Toplam fatura yükselirken verimliliğin korunup korunmadığını göstermek için.',
+    input='Aylık maliyet (ay, maliyet) + aylık iş metriği (ay, metrik)', output='sonuc.csv (ay bazında birim maliyet)', command='python main.py --input cost_by_month.csv --metrics active_users.csv --metric aktif_kullanici',
+    expect={'ay': 4, 'son_birim_maliyet': 0.25, 'son_degisim_%': 25.0, 'uyari_ay': 1})
+def unit_cost(columns, rows, args):
+    mcol = need(args.month, columns, '--month')
+    cost = defaultdict(float)
+    for r, c in zip(rows, numbers(rows, need(args.cost, columns, '--cost'))):
+        cost[r[mcol].strip()[:7]] += c or 0.0
+    kcols, krows = tabular.read(args.metrics)
+    metric = {r[need(args.month, kcols, '--metrics')].strip()[:7]: v for r, v in zip(krows, numbers(krows, need(args.metric, kcols, '--metric'))) if v}
+    out, prev = [], None
+    for m in sorted(cost):
+        if m not in metric:
+            out.append({'ay': m, 'maliyet': round(cost[m], 2), 'metrik': '', 'birim_maliyet': '', 'degisim_%': '', 'maliyet_buyume_%': '', 'hacim_buyume_%': '', 'uyari': 'metrik yok'})
+            continue
+        unit = cost[m] / metric[m]
+        row = {'ay': m, 'maliyet': round(cost[m], 2), 'metrik': fmt(metric[m]), 'birim_maliyet': round(unit, 6), 'degisim_%': '', 'maliyet_buyume_%': '', 'hacim_buyume_%': '', 'uyari': ''}
+        if prev:
+            pm, pu = prev
+            row['degisim_%'] = round(100 * (unit / pu - 1), 1)
+            row['maliyet_buyume_%'] = round(100 * (cost[m] / cost[pm] - 1), 1)
+            row['hacim_buyume_%'] = round(100 * (metric[m] / metric[pm] - 1), 1)
+            if row['degisim_%'] > args.alert:
+                row['uyari'] = 'birim maliyet arttı: maliyet hacimden hızlı büyüyor'
+        prev = (m, unit)
+        out.append(row)
+    last = next((o for o in reversed(out) if o['birim_maliyet'] != ''), None)
+    return Result(f'{len(out)} ay; son birim maliyet {last["birim_maliyet"] if last else "-"} ({last["degisim_%"] if last else ""}%)', list(out[0]), out,
+                  {'ay': len(out), 'son_birim_maliyet': last['birim_maliyet'] if last else '', 'son_degisim_%': last['degisim_%'] if last else '',
+                   'uyari_ay': sum(bool(o['uyari']) and o['uyari'] != 'metrik yok' for o in out)})
+
+
+@op('depolama-katman-onerisi', title='Nesne depolamada erişim sıklığına göre sınıf (tier) önerisi', domain='finops', product=GENEL, tag='storage tier',
+    samples={'depolama_envanteri.csv': 'depolama_envanteri.csv'},
+    args=[arg('--prices', default='standard=0.023,ia=0.0125,archive=0.004', help='Sınıf=GB-ay fiyatı'), arg('--ia-days', type=int, default=30), arg('--archive-days', type=int, default=180)],
+    description='S3/Blob/GCS envanterinde önek (prefix) bazında boyut, son erişimden beri geçen gün ve mevcut depolama sınıfını okur; uzun süredir erişilmeyen verileri seyrek erişim veya arşiv sınıfına taşıma önerisini ve aylık tasarrufu fiyat parametreleriyle hesaplar. Yaşam döngüsü (lifecycle) kuralı yazmadan önce etkiyi görmek için.',
+    input='Depolama envanteri (kova, önek, boyut GB, son erişim gün, sınıf)', output='sonuc.csv (önek bazında öneri)', command='python main.py --input s3_inventory_summary.csv --prices "standard=0.0245,ia=0.0135,archive=0.0045"',
+    expect={'onek': 5, 'oneri': 3, 'aylik_tasarruf': 22.55, 'toplam_gb': 2100.0})
+def tiering(columns, rows, args):
+    for c in ('onek', 'boyut_gb', 'son_erisim_gun', 'sinif'):
+        need(c, columns, 'envanter')
+    prices = {}
+    for part in (p for p in args.prices.split(',') if '=' in p):
+        k, v = part.split('=', 1)
+        prices[k.strip().lower()] = float(v)
+    for k in ('standard', 'ia', 'archive'):
+        if k not in prices:
+            raise ValueError(f'--prices içinde "{k}" fiyatı yok.')
+    rank = {'standard': 0, 'ia': 1, 'archive': 2}
+    size, age = numbers(rows, 'boyut_gb'), numbers(rows, 'son_erisim_gun')
+    out = []
+    for r, s, a in zip(rows, size, age):
+        cur = r['sinif'].strip().lower()
+        want = 'archive' if (a or 0) > args.archive_days else 'ia' if (a or 0) > args.ia_days else 'standard'
+        move = cur in rank and rank[want] > rank[cur]
+        save = (s or 0) * (prices[cur] - prices[want]) if move else 0.0
+        out.append({'kova': r.get('kova', ''), 'onek': r['onek'], 'boyut_gb': fmt(s), 'son_erisim_gun': fmt(a), 'mevcut': cur, 'onerilen': want if move else cur,
+                    'aylik_tasarruf': round(save, 2), 'not': 'arşivden geri okuma ücretli ve gecikmeli' if move and want == 'archive' else ''})
+    out.sort(key=lambda o: -o['aylik_tasarruf'])
+    total = sum(o['aylik_tasarruf'] for o in out)
+    return Result(f'{len(out)} önek; {sum(o["aylik_tasarruf"] > 0 for o in out)} taşıma önerisi, aylık tasarruf {money(total)}', list(out[0]), out,
+                  {'onek': len(out), 'oneri': sum(o['aylik_tasarruf'] > 0 for o in out), 'aylik_tasarruf': round(total, 2), 'toplam_gb': round(sum(s or 0 for s in size), 2)},
+                  notes=['Seyrek erişim ve arşiv sınıflarında asgari saklama süresi ve okuma ücreti vardır; sık okunan önekleri taşımayın.'])

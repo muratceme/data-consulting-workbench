@@ -5,7 +5,7 @@ from pathlib import Path
 from collections import Counter, defaultdict
 import tabular
 from sema_farki import load as load_ddl, narrowing, base_type
-from islem import op, arg, Result, need, numbers, fmt
+from islem import op, arg, Result, need, numbers, fmt, fold
 
 REQUIRES = ['sema_farki']
 D, P = 'migration', 'Geçiş eşleme dosyaları'
@@ -356,3 +356,89 @@ def dalga(columns, rows, args):
     return Result(f'{len(out)} tablo {len(load)} dalgada; {len(cyclic)} tablo döngüde', ['dalga', 'sira', 'tablo', 'boyut_gb', 'bagimliliklar', 'not'], out,
                   {'tablo': len(out), 'dalga': len(load), 'dongu_tablo': len(cyclic), 'bilinmeyen_bagimlilik': len(unknown), 'kapasite_asan_dalga': sum(load[w] > args.max_gb for w in load)},
                   tables=[('Dalga özeti', ['Dalga', 'Tablo', 'Toplam GB', 'Not'], summary_rows)])
+
+
+def comparable(rows, col):
+    """Per-row canonical values: numbers with the column's decimal style, dates as ISO, text stripped."""
+    vals = [r[col].strip() for r in rows]
+    nums = numbers(rows, col)
+    if any(vals) and all(n is not None for v, n in zip(vals, nums) if v):
+        return [repr(round(n, 9)) if n is not None else '' for n in nums]
+    if any(vals) and all(tabular.parse_date(v) for v in vals if v):
+        return [tabular.parse_date(v)[0].isoformat() if v else '' for v in vals]
+    return vals
+
+
+@op('anahtar-mutabakati', title='Kaynak ve hedefi anahtara göre satır satır karşılaştır', domain=D, product=P, tag='satır mutabakatı',
+    samples={'kaynak_siparis.csv': 'kaynak_siparis.csv', 'hedef_siparis.csv': 'hedef_siparis.csv'},
+    args=[arg('--target', default='@ornek/hedef_siparis.csv'), arg('--key', default='id', help='Anahtar sütun(lar), virgülle'), arg('--ignore-case', action='store_true')],
+    description='Kaynak ve hedef dışa aktarımlarını anahtar sütun(lar)la eşleştirip hedefte eksik, hedefte fazla ve değeri değişmiş satırları, değişen sütunları eski/yeni değerleriyle listeler. Ondalık ayırıcı (100,50 / 100.5) ve tarih biçimi (01.10.2026 / 2026-10-01) farkını değişiklik saymaz; sütun adlarını büyük/küçük harf farkı gözetmeden eşler.',
+    input='İki CSV/XLSX (kaynak ve hedef) + anahtar', output='sonuc.csv (farklar) + sütun bazında fark sayısı', command='python main.py --input kaynak.csv --target hedef.csv --key siparis_no,satir_no',
+    expect={'eksik': 1, 'fazla': 1, 'degisen': 2, 'ayni': 2})
+def key_recon(columns, rows, args):
+    tcols, trows = tabular.read(args.target)
+    tmap = {c.strip().lower(): c for c in tcols}
+    keys = [k.strip() for k in args.key.split(',') if k.strip()]
+    for k in keys:
+        need(k, columns, '--key')
+        if k.lower() not in tmap:
+            raise ValueError(f'--key: "{k}" hedef dosyada yok.')
+    common = [c for c in columns if c.lower() in tmap and c not in keys]
+    sv = {c: comparable(rows, c) for c in keys + common}
+    tv = {c: comparable(trows, tmap[c.lower()]) for c in keys + common}
+    norm = (lambda v: fold(v)) if args.ignore_case else (lambda v: v)
+    src = {tuple(sv[k][i] for k in keys): i for i in range(len(rows))}
+    tgt = {tuple(tv[k][i] for k in keys): i for i in range(len(trows))}
+    out, per_col, same = [], Counter(), 0
+    for key in sorted(set(src) | set(tgt)):
+        label = ', '.join(rows[src[key]][k] if key in src else trows[tgt[key]][tmap[k.lower()]] for k in keys)
+        if key not in tgt:
+            out.append({'anahtar': label, 'durum': 'HEDEFTE EKSİK', 'sutun': '', 'kaynak': '', 'hedef': ''})
+            continue
+        if key not in src:
+            out.append({'anahtar': label, 'durum': 'hedefte fazla', 'sutun': '', 'kaynak': '', 'hedef': ''})
+            continue
+        i, j = src[key], tgt[key]
+        diffs = [c for c in common if norm(sv[c][i]) != norm(tv[c][j])]
+        if not diffs:
+            same += 1
+        for c in diffs:
+            per_col[c] += 1
+            out.append({'anahtar': label, 'durum': 'değişti', 'sutun': c, 'kaynak': rows[i][c], 'hedef': trows[j][tmap[c.lower()]]})
+    changed = len({o['anahtar'] for o in out if o['durum'] == 'değişti'})
+    missing = sum(o['durum'] == 'HEDEFTE EKSİK' for o in out)
+    extra = sum(o['durum'] == 'hedefte fazla' for o in out)
+    return Result(f'{len(rows)} → {len(trows)} satır; {same} aynı, {changed} değişmiş, {missing} hedefte eksik, {extra} hedefte fazla', ['anahtar', 'durum', 'sutun', 'kaynak', 'hedef'], out,
+                  {'kaynak_satir': len(rows), 'hedef_satir': len(trows), 'ayni': same, 'degisen': changed, 'eksik': missing, 'fazla': extra},
+                  tables=[('Sütun bazında değişiklik', ['Sütun', 'Satır'], per_col.most_common())])
+
+
+@op('sequence-kontrol', title='Geçiş sonrası identity/sequence çakışma kontrolü', domain=D, product=P, tag='sequence',
+    samples={'sequence_durumu.csv': 'sequence_durumu.csv'}, args=[arg('--dialect', choices=['postgres', 'sqlserver', 'oracle'], default='postgres')],
+    description='Veri taşındıktan sonra her tablonun en büyük kimlik değerini hedefteki sequence/identity’nin vereceği sonraki değerle karşılaştırır; sonraki değer mevcut en büyük kimliğe eşit veya küçükse ilk yeni kayıtta birincil anahtar çakışması olacağını işaretler ve seçilen veritabanı için düzeltme komutunu (setval, RESEED, RESTART) yazar.',
+    input='Tablo listesi (tablo, sequence, kaynak_max_id, hedef_sonraki_deger)', output='sonuc.csv + duzeltme.sql', command='python main.py --input seq_check.csv --dialect sqlserver',
+    expect={'tablo': 5, 'cakisma': 2, 'bilinmeyen': 1})
+def sequences(columns, rows, args):
+    for c in ('tablo', 'kaynak_max_id', 'hedef_sonraki_deger'):
+        need(c, columns, 'sequence listesi')
+    mx, nxt = numbers(rows, 'kaynak_max_id'), numbers(rows, 'hedef_sonraki_deger')
+    out, sql = [], []
+    for r, m, n in zip(rows, mx, nxt):
+        seq = r.get('sequence', '').strip() or f"{r['tablo'].strip()}_id_seq"
+        if m is None or n is None:
+            state = 'bilinmiyor'
+        elif n <= m:
+            state = 'ÇAKIŞMA'
+            target = int(m) + 1
+            sql.append({'postgres': f"SELECT setval('{seq}', {int(m)}, true);  -- {r['tablo']}: sonraki değer {target}",
+                        'sqlserver': f"DBCC CHECKIDENT ('{r['tablo'].strip()}', RESEED, {int(m)});  -- sonraki değer {target}",
+                        'oracle': f'ALTER SEQUENCE {seq} RESTART START WITH {target};'}[args.dialect])
+        else:
+            state = 'uygun'
+        out.append({'tablo': r['tablo'], 'sequence': seq, 'kaynak_max_id': fmt(m), 'hedef_sonraki_deger': fmt(n), 'pay': fmt(n - m) if m is not None and n is not None else '', 'durum': state})
+    out.sort(key=lambda o: (o['durum'] != 'ÇAKIŞMA', o['durum'] != 'bilinmiyor', o['tablo']))
+    c = Counter(o['durum'] for o in out)
+    return Result(f'{len(out)} tablo; {c["ÇAKIŞMA"]} çakışma, {c["bilinmiyor"]} bilinmiyor', list(out[0]), out,
+                  {'tablo': len(out), 'cakisma': c['ÇAKIŞMA'], 'bilinmeyen': c['bilinmiyor']},
+                  files={'duzeltme.sql': f'-- {args.dialect}: sequence/identity düzeltmeleri. Çalıştırmadan önce gözden geçirin.\n' + '\n'.join(sql) + '\n'} if sql else {},
+                  notes=['SQL Server identity için RESEED değeri son kullanılan değerdir; sonraki kayıt bir fazlasını alır. Sequence nesnelerinde ALTER SEQUENCE … RESTART WITH kullanın.'])

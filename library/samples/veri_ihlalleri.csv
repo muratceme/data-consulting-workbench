@@ -1,0 +1,6 @@
+olay_no;tespit_zamani;kurul_bildirim_zamani;ilgili_kisi_bildirim;etkilenen_kisi;veri_kategorisi
+I1;2026-10-01 09:00;2026-10-03 08:00;2026-10-04;1200;kimlik, iletişim
+I2;2026-10-05 10:00;2026-10-09 12:00;2026-10-10;300;iletişim
+I3;2026-10-15 18:00;;;45;müşteri işlem
+I4;2026-10-10 08:00;;;5000;kimlik, finans
+I5;2026-09-20 14:00;2026-09-23 13:00;;80;çalışan özlük

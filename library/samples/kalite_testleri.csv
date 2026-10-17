@@ -1,0 +1,16 @@
+tarih;tablo;test;durum
+2026-10-14;fct_satis;unique_id;pass
+2026-10-15;fct_satis;unique_id;pass
+2026-10-16;fct_satis;unique_id;pass
+2026-10-14;fct_satis;not_null_musteri;pass
+2026-10-15;fct_satis;not_null_musteri;pass
+2026-10-16;fct_satis;not_null_musteri;fail
+2026-10-14;fct_satis;kabul_degerleri;pass
+2026-10-15;fct_satis;kabul_degerleri;fail
+2026-10-16;fct_satis;kabul_degerleri;pass
+2026-10-14;dim_musteri;unique_id;pass
+2026-10-15;dim_musteri;unique_id;pass
+2026-10-16;dim_musteri;unique_id;pass
+2026-10-14;dim_musteri;email_format;fail
+2026-10-15;dim_musteri;email_format;fail
+2026-10-16;dim_musteri;email_format;fail
