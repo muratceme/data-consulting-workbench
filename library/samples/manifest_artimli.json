@@ -1,0 +1,59 @@
+{
+  "metadata": {
+    "dbt_version": "1.9.0"
+  },
+  "nodes": {
+    "model.p.fct_siparis": {
+      "resource_type": "model",
+      "name": "fct_siparis",
+      "config": {
+        "materialized": "incremental",
+        "unique_key": "siparis_id",
+        "incremental_strategy": "merge",
+        "on_schema_change": "append_new_columns"
+      },
+      "raw_code": "select * from {{ ref('stg_siparis') }}\n{% if is_incremental() %}\nwhere guncelleme >= (select max(guncelleme) - interval '3 day' from {{ this }})\n{% endif %}",
+      "columns": {}
+    },
+    "model.p.fct_olay": {
+      "resource_type": "model",
+      "name": "fct_olay",
+      "config": {
+        "materialized": "incremental"
+      },
+      "raw_code": "select * from {{ ref('stg_olay') }}\n{% if is_incremental() %}\nwhere olay_zamani > (select max(olay_zamani) from {{ this }})\n{% endif %}",
+      "columns": {}
+    },
+    "model.p.fct_odeme": {
+      "resource_type": "model",
+      "name": "fct_odeme",
+      "config": {
+        "materialized": "incremental",
+        "unique_key": "odeme_id",
+        "incremental_strategy": "merge"
+      },
+      "raw_code": "select * from {{ ref('stg_odeme') }}",
+      "columns": {}
+    },
+    "model.p.fct_log": {
+      "resource_type": "model",
+      "name": "fct_log",
+      "config": {
+        "materialized": "incremental",
+        "incremental_strategy": "append",
+        "on_schema_change": "fail"
+      },
+      "raw_code": "select * from {{ source('app', 'log') }}\n{% if is_incremental() %}\nwhere ts > (select dateadd(day, -1, max(ts)) from {{ this }})\n{% endif %}",
+      "columns": {}
+    },
+    "model.p.dim_musteri": {
+      "resource_type": "model",
+      "name": "dim_musteri",
+      "config": {
+        "materialized": "table"
+      },
+      "raw_code": "select * from {{ ref('stg_musteri') }}",
+      "columns": {}
+    }
+  }
+}

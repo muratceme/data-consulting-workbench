@@ -1,0 +1,15 @@
+musteri_sk;musteri_no;segment;sehir;gecerlilik_baslangic;gecerlilik_bitis;guncel_mi
+1;M1;Bronz;İzmir;2025-01-01;2025-06-01;0
+2;M1;Gümüş;İzmir;2025-06-01;2026-01-01;0
+3;M1;Altın;İzmir;2026-01-01;9999-12-31;1
+4;M2;Bronz;Ankara;2025-01-01;2025-08-01;0
+5;M2;Gümüş;Ankara;2025-07-01;9999-12-31;1
+6;M3;Bronz;Bursa;2025-01-01;2025-03-01;0
+7;M3;Gümüş;Bursa;2025-04-01;9999-12-31;1
+8;M4;Bronz;Adana;2025-01-01;2025-05-01;1
+9;M4;Gümüş;Adana;2025-05-01;9999-12-31;1
+10;M5;Bronz;Konya;2025-01-01;2025-09-01;0
+11;M6;Altın;Antalya;2025-01-01;2025-02-01;0
+12;M6;Altın;Antalya;2025-02-01;9999-12-31;1
+13;M7;Bronz;Kayseri;2025-05-01;2025-04-01;0
+14;M7;Gümüş;Kayseri;2025-04-01;9999-12-31;1

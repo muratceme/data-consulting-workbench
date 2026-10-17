@@ -432,3 +432,77 @@ def idle(columns, rows, args):
     return Result(f'{len(out)} kaynak; {idle_n} kaynak son {args.days} günde atıl, aylık tasarruf tahmini {money(saving)}', list(out[0]), out,
                   {'kaynak_sayisi': len(out), 'atil_kaynak': idle_n, 'aylik_tasarruf': saving, 'pencere_baslangic': start.strftime('%Y-%m-%d'), 'pencere_bitis': last.strftime('%Y-%m-%d')},
                   notes=['Aylık tahmin = penceredeki günlük ortalama maliyet × 30. Yedek, felaket kurtarma ve aylık çalışan işler düşük kullanımlı görünebilir; kapatmadan önce sahibine sorun.'])
+
+
+@op('lisans-kullanimi', title='Kullanılmayan BI/SaaS lisanslarını ve aylık israfı bul', domain='finops', product=GENEL, tag='lisans israfı', samples={'lisanslar.csv': 'lisanslar.csv'},
+    args=[arg('--user', default='kullanici'), arg('--product', default='urun'), arg('--license', default='lisans_turu'), arg('--price', default='aylik_ucret'),
+          arg('--last-login', default='son_giris'), arg('--as-of', default='2026-10-16'), arg('--days', type=int, default=90, help='Bu kadar gündür giriş yapmayan lisans atıl sayılır')],
+    description='Power BI, Tableau, Qlik veya başka bir SaaS aracının kullanıcı-lisans listesinden son giriş tarihine bakarak N gündür kullanılmayan ve hiç giriş yapılmamış lisansları bulur; ürün ve lisans türü bazında aylık/yıllık israfı hesaplar. Lisans yenileme ve gerçek ihtiyaç kadar satın alma kararı için.',
+    input='Lisans listesi (kullanıcı, ürün, lisans türü, aylık ücret, son giriş)', output='sonuc.csv (atıl lisanslar) + ürün bazında özet', command='python main.py --input pbi_users.csv --as-of 2026-10-31 --days 60',
+    expect={'lisans': 10, 'atil_lisans': 5, 'hic_giris': 1, 'aylik_israf': 120.0, 'yillik_israf': 1440.0})
+def licenses(columns, rows, args):
+    uc, pc, lc, lg = (need(c, columns, f) for c, f in ((args.user, '--user'), (args.product, '--product'), (args.license, '--license'), (args.last_login, '--last-login')))
+    price = numbers(rows, need(args.price, columns, '--price'))
+    as_of = (tabular.parse_date(args.as_of) or (None,))[0]
+    if not as_of:
+        raise ValueError(f'--as-of "{args.as_of}" tarih olarak okunamadı.')
+    out, by_product = [], defaultdict(lambda: [0, 0, 0.0])
+    for r, pr in zip(rows, price):
+        d = tabular.parse_date(r[lg]) if r[lg].strip() else None
+        days = (as_of - d[0]).days if d else None
+        idle = days is None or days > args.days
+        key = (r[pc].strip(), r[lc].strip())
+        by_product[key][0] += 1
+        if idle:
+            by_product[key][1] += 1
+            by_product[key][2] += pr or 0.0
+            out.append({'kullanici': r[uc].strip(), 'urun': key[0], 'lisans_turu': key[1], 'aylik_ucret': pr, 'son_giris': d[0].strftime('%Y-%m-%d') if d else '',
+                        'gun': days if days is not None else '', 'durum': 'hiç giriş yok' if d is None else f'{days} gündür giriş yok'})
+    out.sort(key=lambda o: (-(o['aylik_ucret'] or 0), o['urun'], o['kullanici']))
+    waste = round(sum(o['aylik_ucret'] or 0 for o in out), 2)
+    return Result(f'{len(rows)} lisansın {len(out)} tanesi {args.days} gündür kullanılmıyor; aylık israf {money(waste)}',
+                  ['kullanici', 'urun', 'lisans_turu', 'aylik_ucret', 'son_giris', 'gun', 'durum'], out,
+                  {'lisans': len(rows), 'atil_lisans': len(out), 'hic_giris': sum(o['durum'] == 'hiç giriş yok' for o in out), 'aylik_israf': waste, 'yillik_israf': round(waste * 12, 2)},
+                  tables=[('Ürün / lisans türü', ['Ürün', 'Lisans', 'Toplam', 'Atıl', 'Aylık israf'], [[k[0], k[1], v[0], v[1], money(v[2])] for k, v in sorted(by_product.items())])],
+                  notes=['Ayrılan çalışanların lisansları da bu listede atıl görünür; İK listesiyle karşılaştırıp önce onları geri alın. Paylaşılan/hizmet hesaplarını ayrıca değerlendirin.'])
+
+
+EGRESS_INTERNET = re.compile(r'^(internet|public|dış|dis|external|0\.0\.0\.0/0)$', re.I)
+
+
+@op('egress-analizi', title='Bulut veri transferi (egress) maliyetini yol ve türe göre ayır', domain='finops', product=GENEL, tag='egress',
+    samples={'veri_transferi.csv': 'veri_transferi.csv'},
+    args=[arg('--source', default='kaynak_bolge'), arg('--target', default='hedef_bolge', help='Hedef bölge veya "internet"'), arg('--gb', default='gb'),
+          arg('--price-internet', type=float, default=0.09, help='İnternete çıkış GB fiyatı'), arg('--price-inter', type=float, default=0.02, help='Bölgeler arası GB fiyatı'),
+          arg('--price-intra', type=float, default=0.01, help='Aynı bölge içi (bölgeler/AZ arası) GB fiyatı')],
+    description='Veri transferi kayıtlarını (kaynak bölge, hedef bölge veya internet, GB) internete çıkış, bölgeler arası ve bölge içi olarak sınıflar; verilen birim fiyatlarla yol bazında maliyeti, payını ve en pahalı yolları hesaplar. Çok bölgeli replikasyon, BI aracının bulut dışından veri çekmesi ve CDN kararları için.',
+    input='Transfer dökümü (kaynak bölge, hedef bölge/internet, GB)', output='sonuc.csv (yol bazında GB ve maliyet)', command='python main.py --input vpc_flow_ozet.csv --price-internet 0.085',
+    expect={'yol': 4, 'toplam_gb': 5600.0, 'toplam_maliyet': 124.0, 'internet_maliyet_%': 43.55})
+def egress(columns, rows, args):
+    s, t = need(args.source, columns, '--source'), need(args.target, columns, '--target')
+    gbs = numbers(rows, need(args.gb, columns, '--gb'))
+    paths = defaultdict(float)
+    for r, g in zip(rows, gbs):
+        if g is not None and r[s].strip():
+            paths[(r[s].strip(), r[t].strip() or 'internet')] += g
+    if not paths:
+        raise ValueError('GB değeri okunabilen satır yok.')
+    out = []
+    for (a, b), g in paths.items():
+        kind = 'internet' if EGRESS_INTERNET.match(b) else 'bölge içi' if a.lower() == b.lower() else 'bölgeler arası'
+        price = {'internet': args.price_internet, 'bölge içi': args.price_intra, 'bölgeler arası': args.price_inter}[kind]
+        out.append({'kaynak': a, 'hedef': b, 'tur': kind, 'gb': round(g, 2), 'birim_fiyat': price, 'maliyet': round(g * price, 2)})
+    total = sum(o['maliyet'] for o in out)
+    for o in out:
+        o['pay_%'] = round(100 * o['maliyet'] / total, 2) if total else 0
+    out.sort(key=lambda o: -o['maliyet'])
+    by_kind = defaultdict(lambda: [0.0, 0.0])
+    for o in out:
+        by_kind[o['tur']][0] += o['gb']
+        by_kind[o['tur']][1] += o['maliyet']
+    return Result(f'{len(out)} transfer yolu, {fmt(round(sum(o["gb"] for o in out), 2))} GB, maliyet {money(total)}; en pahalı yol {out[0]["kaynak"]} → {out[0]["hedef"]}',
+                  ['kaynak', 'hedef', 'tur', 'gb', 'birim_fiyat', 'maliyet', 'pay_%'], out,
+                  {'yol': len(out), 'toplam_gb': round(sum(o['gb'] for o in out), 2), 'toplam_maliyet': round(total, 2),
+                   'internet_maliyet_%': round(100 * by_kind['internet'][1] / total, 2) if total else 0},
+                  tables=[('Türe göre', ['Tür', 'GB', 'Maliyet'], [[k, round(v[0], 2), money(v[1])] for k, v in sorted(by_kind.items(), key=lambda kv: -kv[1][1])])],
+                  notes=['Varsayılan fiyatlar örnektir; sağlayıcınızın güncel fiyat listesini ve kademeli indirimleri --price-* ile girin. Ücretsiz ilk GB’lar ve özel bağlantı (Direct Connect, ExpressRoute) fiyatları hesaba katılmaz.'])

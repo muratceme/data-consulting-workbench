@@ -1,0 +1,9 @@
+istisna_no;politika;kapsam;talep_eden;onaylayan;baslangic;bitis;durum
+I1;Maskeleme;test_db.musteri;ayse;veri_sahibi_crm;2026-07-01;2026-12-31;aktif
+I2;Saklama süresi;arsiv.log_2019;mehmet;bt_guvenlik;2026-01-01;2026-09-30;aktif
+I3;Erişim;dwh.fct_satis;zeynep;veri_sahibi_satis;2026-10-01;2026-11-05;aktif
+I4;Maskeleme;rapor.musteri_liste;can;;2026-09-01;2026-12-01;aktif
+I5;Erişim;crm.musteri;mehmet;mehmet;2026-09-15;2026-12-15;aktif
+I6;Kalite kuralı;stg.urun;deniz;veri_sahibi_urun;2026-06-01;;aktif
+I7;Erişim;hr.maas;ali;ik_direktoru;2026-05-01;2026-08-01;kapandı
+I8;Saklama süresi;dwh.eski_kampanya;ece;bt_guvenlik;2025-01-01;2026-12-31;aktif

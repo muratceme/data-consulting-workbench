@@ -1,0 +1,11 @@
+is;bagli_oldugu;sure_dk
+erp_cek;;40
+crm_cek;;20
+web_cek;;30
+stg_yukle;erp_cek,crm_cek;25
+dim_musteri;stg_yukle;15
+fct_satis;stg_yukle,dim_musteri;45
+web_oturum;web_cek;35
+kalite;fct_satis;10
+finans_rapor;kalite;20
+pazarlama_rapor;web_oturum,dim_musteri;15

@@ -499,3 +499,52 @@ def master_changes(columns, rows, args):
                    'silinen': sum(o['degisim'] == 'silindi' for o in out), 'yuksek_risk': len(high | very), 'cok_yuksek_risk': len(very)},
                   notes=['Banka hesabı değişikliği, ödeme yapılmadan önce kayıtlı (eski) iletişim kanalından geri aranarak doğrulanmalıdır; yeni e-posta/telefonla doğrulama dolandırıcılığa açıktır.',
                          'Boşluk farkları değişiklik sayılmaz; --ignore ile zaman damgası gibi her gün değişen alanları dışlayın.'])
+
+
+UNIT = re.compile(r'^\s*([-+]?\d[\d.,]*)\s*([^\d\s].*)?$')
+
+
+@op('urun-ozellik-tutarlilik', title='Ürün özelliklerini kategori şablonuna göre denetle (eksik, fazla, birim)', domain=D, product=P, tag='ürün özellikleri',
+    samples={'urun_ozellikleri.csv': 'urun_ozellikleri.csv', 'kategori_sablonu.csv': 'kategori_sablonu.csv'},
+    args=[arg('--template', default='@ornek/kategori_sablonu.csv', help='Kategori şablonu (kategori, ozellik, zorunlu, birim)'), arg('--product', default='urun_kodu'),
+          arg('--category', default='kategori'), arg('--attribute', default='ozellik'), arg('--value', default='deger')],
+    description='Uzun biçimli ürün özellik verisini (ürün, kategori, özellik, değer) kategori şablonuyla karşılaştırır: zorunlu özelliği eksik ürünleri, şablonda olmayan özellikleri, değerin birimi şablondakinden farklı olanları (ör. g yerine kg, ml yerine L) ve sayı beklenen alanda sayı olmayan değerleri listeler. PIM/e-ticaret katalog kalitesi ve pazar yeri entegrasyonu öncesi kontrol için.',
+    input='Ürün özellikleri (uzun biçim) + kategori şablonu', output='sonuc.csv (ürün bazında bulgular)', command='python main.py --input pim_export.csv --template sablon.xlsx',
+    expect={'urun': 6, 'eksik_zorunlu': 2, 'bilinmeyen_ozellik': 1, 'birim_farkli': 2, 'sorunsuz_urun': 1})
+def attributes(columns, rows, args):
+    pc, cc, ac, vc = (need(c, columns, f) for c, f in ((args.product, '--product'), (args.category, '--category'), (args.attribute, '--attribute'), (args.value, '--value')))
+    tcols, trows = tabular.read(args.template)
+    for c in ('kategori', 'ozellik', 'zorunlu', 'birim'):
+        need(c, tcols, f'--template {c}')
+    template = defaultdict(dict)
+    for r in trows:
+        template[fold(r['kategori']).lower()][fold(r['ozellik']).lower()] = {'ad': r['ozellik'].strip(), 'zorunlu': fold(r['zorunlu']).lower() in ('evet', 'e', '1', 'true', 'yes'), 'birim': r['birim'].strip()}
+    products = defaultdict(lambda: {'kategori': '', 'ozellik': {}})
+    for r in rows:
+        p = products[r[pc].strip()]
+        p['kategori'] = r[cc].strip()
+        p['ozellik'][fold(r[ac]).lower()] = (r[ac].strip(), r[vc].strip())
+    out = []
+    for code, p in sorted(products.items()):
+        tpl = template.get(fold(p['kategori']).lower())
+        if tpl is None:
+            out.append({'urun': code, 'kategori': p['kategori'], 'bulgu': 'kategori şablonda yok', 'ozellik': '', 'deger': '', 'beklenen': ''})
+            continue
+        for key, spec in tpl.items():
+            if spec['zorunlu'] and not (p['ozellik'].get(key, ('', ''))[1]):
+                out.append({'urun': code, 'kategori': p['kategori'], 'bulgu': 'zorunlu özellik eksik', 'ozellik': spec['ad'], 'deger': '', 'beklenen': spec['birim']})
+        for key, (name, value) in p['ozellik'].items():
+            spec = tpl.get(key)
+            if spec is None:
+                out.append({'urun': code, 'kategori': p['kategori'], 'bulgu': 'şablonda olmayan özellik', 'ozellik': name, 'deger': value, 'beklenen': ''})
+            elif spec['birim'] and value:
+                m = UNIT.match(value)
+                if not m:
+                    out.append({'urun': code, 'kategori': p['kategori'], 'bulgu': 'sayı değil', 'ozellik': name, 'deger': value, 'beklenen': spec['birim']})
+                elif (m.group(2) or '').strip().lower() != spec['birim'].lower():
+                    out.append({'urun': code, 'kategori': p['kategori'], 'bulgu': 'birim farklı', 'ozellik': name, 'deger': value, 'beklenen': spec['birim']})
+    c = Counter(o['bulgu'] for o in out)
+    return Result(f'{len(products)} ürün; {len({o["urun"] for o in out})} üründe özellik bulgusu', ['urun', 'kategori', 'bulgu', 'ozellik', 'deger', 'beklenen'], out,
+                  {'urun': len(products), 'eksik_zorunlu': c['zorunlu özellik eksik'], 'bilinmeyen_ozellik': c['şablonda olmayan özellik'], 'birim_farkli': c['birim farklı'],
+                   'sayi_degil': c['sayı değil'], 'kategorisiz': c['kategori şablonda yok'], 'sorunsuz_urun': len(products) - len({o['urun'] for o in out})},
+                  notes=['Birim karşılaştırması büyük/küçük harf duyarsızdır ve dönüşüm yapmaz: 4000 g ile 4 kg aynı değer olsa da “birim farklı” sayılır; standart birime çevirip yeniden yükleyin.'])

@@ -1,0 +1,12 @@
+{"id": "v1", "model": "emb-v1", "vector": [0.5, 0.5, 0.5, 0.5]}
+{"id": "v2", "model": "emb-v1", "vector": [1, 0, 0, 0]}
+{"id": "v3", "model": "emb-v1", "vector": [0, 1, 0, 0]}
+{"id": "v4", "model": "emb-v1", "vector": [0, 0, 0.6, 0.8]}
+{"id": "v5", "model": "emb-v1", "vector": [0.6, 0.8, 0, 0]}
+{"id": "v6", "model": "emb-v1", "vector": [0, 0, 1, 0]}
+{"id": "v7", "model": "emb-v1", "vector": [2, 0, 0, 0]}
+{"id": "v8", "model": "emb-v2", "vector": [0, 0, 0, 1]}
+{"id": "v9", "model": "emb-v1", "vector": [0.5, 0.5, 0.5, 0.5]}
+{"id": "v10", "model": "emb-v1", "vector": [0.6, 0.8, 0]}
+{"id": "v11", "model": "emb-v1", "vector": [0, 0, 0, 0]}
+{"id": "v12", "model": "emb-v1", "vector": [0.5, "NaN", 0.5, 0.5]}

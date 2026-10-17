@@ -406,3 +406,66 @@ def feedback(columns, rows, args):
                    'az_veri': sum(o['durum'] == 'az veri' for o in out), 'okunamayan_puan': skipped}, tables=tables,
                   notes=['Wilson alt sınırı, olumlu oranın %95 güvenle en az bu kadar olduğunu söyler; 3/3 olumlu bir konu 90/100’den daha iyi sayılmaz.',
                          'Geri bildirim veren kullanıcılar tüm kullanıcıları temsil etmez; olumsuz deneyimler genelde daha çok bildirilir.'])
+
+
+@op('embedding-kontrol', title='Embedding vektörlerinde boyut, sıfır vektör, normalizasyon ve tekrar kontrolü', domain=D, product=P, tag='embedding kalitesi', kind='file',
+    samples={'embeddingler.jsonl': 'embeddingler.jsonl'},
+    args=[arg('--id', dest='id_field', default='id'), arg('--vector', default='vector', help='Vektör alanı (embedding, values…)'), arg('--model', default='model', help='Model adı alanı (isteğe bağlı)'),
+          arg('--tolerance', type=float, default=0.01, help='Normalize kabul edilen |norm − 1| sınırı')],
+    description='Vektör veritabanına (pgvector, Qdrant, Pinecone…) yüklenecek veya oradan dışa aktarılan embedding’leri (JSON Lines) denetler: çoğunluktan farklı boyuttaki, sıfır/sıfıra yakın, sayı olmayan (NaN, metin) değer içeren vektörleri, vektörlerin çoğu normalize iken normalize olmayanları, birebir aynı vektörü taşıyan kayıtları ve aynı indekse karışmış farklı embedding modellerini bulur. Kosinüs benzerliğinin sessizce bozulmasını önlemek için.',
+    input='Embedding dökümü (JSON Lines: id, vektör, isteğe bağlı model)', output='sonuc.csv (bulgular)', command='python main.py --input qdrant_export.jsonl --vector embedding --model model_name',
+    expect={'vektor': 12, 'boyut': 4, 'boyut_farkli': 1, 'sifir_vektor': 1, 'gecersiz': 1, 'normalize_disi': 1, 'tekrar': 1, 'model_sayisi': 2})
+def embeddings(args):
+    items, bad_lines = [], 0
+    for i, line in enumerate(Path(args.input).read_text(encoding='utf-8-sig').splitlines(), start=1):
+        if not line.strip():
+            continue
+        try:
+            items.append((i, json.loads(line)))
+        except json.JSONDecodeError:
+            bad_lines += 1
+    if not items:
+        raise ValueError('JSON Lines kaydı bulunamadı.')
+    out, vecs, models = [], [], Counter()
+
+    def add(rid, kind, detail):
+        out.append({'id': rid, 'bulgu': kind, 'detay': detail})
+    for line, obj in items:
+        rid = str(obj.get(args.id_field, f'satır {line}'))
+        models[str(obj.get(args.model, '')) or '(yok)'] += 1
+        v = obj.get(args.vector)
+        if not isinstance(v, list) or not v or not all(isinstance(x, (int, float)) and not isinstance(x, bool) and math.isfinite(x) for x in v):
+            add(rid, 'geçersiz vektör', 'liste değil veya sayı olmayan / NaN değer var')
+            continue
+        vecs.append((rid, v))
+    dims = Counter(len(v) for _, v in vecs)
+    dim = dims.most_common(1)[0][0] if dims else 0
+    norms = {}
+    for rid, v in vecs:
+        if len(v) != dim:
+            add(rid, 'boyut farklı', f'{len(v)} boyut (çoğunluk {dim})')
+        n = math.sqrt(sum(x * x for x in v))
+        norms[rid] = n
+        if n < 1e-9:
+            add(rid, 'sıfır vektör', 'norm 0; kosinüs benzerliği tanımsız')
+    nonzero = [n for n in norms.values() if n >= 1e-9]
+    normalized = sum(abs(n - 1) <= args.tolerance for n in nonzero) >= 0.8 * len(nonzero) if nonzero else False
+    if normalized:
+        for rid, n in norms.items():
+            if n >= 1e-9 and abs(n - 1) > args.tolerance:
+                add(rid, 'normalize değil', f'norm {fmt(round(n, 4), 4)}; diğer vektörler birim uzunlukta')
+    seen = {}
+    for rid, v in vecs:
+        key = hashlib.sha1(json.dumps([round(x, 6) for x in v]).encode()).hexdigest()
+        if key in seen:
+            add(rid, 'tekrar vektör', f'{seen[key]} ile birebir aynı')
+        else:
+            seen[key] = rid
+    if len(models) > 1:
+        add('-', 'karışık model', ', '.join(f'{m}: {c}' for m, c in models.most_common()))
+    c = Counter(o['bulgu'] for o in out)
+    return Result(f'{len(items)} vektör (çoğunluk {dim} boyut); {sum(v for k, v in c.items() if k != "karışık model")} bulgu', ['id', 'bulgu', 'detay'], out,
+                  {'vektor': len(items), 'boyut': dim, 'boyut_farkli': c['boyut farklı'], 'sifir_vektor': c['sıfır vektör'], 'gecersiz': c['geçersiz vektör'],
+                   'normalize_disi': c['normalize değil'], 'tekrar': c['tekrar vektör'], 'model_sayisi': len(models), 'bozuk_satir': bad_lines},
+                  notes=['Aynı indekste farklı modellerin veya boyutların vektörleri karşılaştırılamaz; sorgu tarafındaki modelle aynı model ve sürümle yeniden üretin.',
+                         'Tekrar vektörler genelde aynı metnin iki kez parçalanmasından gelir; dokuman-tekrar bloğuyla metin tarafını da kontrol edin.'])

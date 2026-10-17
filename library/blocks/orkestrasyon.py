@@ -384,3 +384,45 @@ def maintenance(columns, rows, args):
     return Result(f'{len(windows)} pencere; {len(out)} çalışma ({len({o["is"] for o in out})} iş) pencerelere denk geliyor', ['pencere', 'is', 'baslangic', 'bitis', 'durum'], out,
                   {'pencere': len(windows), 'cakisan_calisma': len(out), 'cakisan_is': len({o['is'] for o in out}), 'hatali_cron': len(bad)},
                   tables=[('İş bazında', ['İş', 'Çakışan çalışma'], Counter(o['is'] for o in out).most_common())])
+
+
+SUCCESS = {'success', 'basarili', 'başarılı', 'ok', 'succeeded'}
+
+
+@op('yeniden-deneme-analizi', title='Görev yeniden denemelerinden kararsız (flaky) görevleri ve boşa giden süreyi bul', domain='orchestration', product=GENEL, tag='retry',
+    samples={'gorev_denemeleri.csv': 'gorev_denemeleri.csv'},
+    args=[arg('--dag', default='dag_id'), arg('--task', default='task_id'), arg('--run', default='run_id'), arg('--try', dest='try_col', default='try_number'),
+          arg('--state', default='state'), arg('--duration', default='duration', help='Deneme süresi (saniye)'), arg('--flaky', type=int, default=2, help='En az bu kadar çalışmada tekrar denenip başarılı olan görev kararsızdır')],
+    description='Airflow task_instance (veya Dagster/Prefect) deneme geçmişinden her görev çalışmasının kaç denemede bittiğini çıkarır; yeniden denenip başarılı olan (kararsız) ve tüm denemelerde başarısız kalan çalışmaları, görev bazında yeniden deneme oranını ve başarısız denemelerde boşa giden süreyi raporlar. Retry ayarı ve kök neden önceliklendirmesi için.',
+    input='Deneme geçmişi (dag, görev, çalışma, deneme no, durum, süre)', output='sonuc.csv (görev bazında)', command='python main.py --input task_instance_history.csv --flaky 3',
+    expect={'gorev': 4, 'calisma': 18, 'tekrar_denenen_calisma': 4, 'basarisiz_calisma': 1, 'kararsiz_gorev': 1, 'bosa_sure_dk': 3.3})
+def retries(columns, rows, args):
+    dc, tc, rc, xc, sc = (need(c, columns, f) for c, f in ((args.dag, '--dag'), (args.task, '--task'), (args.run, '--run'), (args.try_col, '--try'), (args.state, '--state')))
+    tries, dur = numbers(rows, xc), numbers(rows, need(args.duration, columns, '--duration'))
+    runs = defaultdict(list)
+    for r, t, d in zip(rows, tries, dur):
+        if t is not None:
+            runs[(r[dc].strip(), r[tc].strip(), r[rc].strip())].append((t, r[sc].strip().lower(), d or 0.0))
+    tasks = defaultdict(lambda: {'calisma': 0, 'tekrar': 0, 'kararsiz': 0, 'basarisiz': 0, 'bosa_sn': 0.0, 'en_cok_deneme': 0})
+    for (dag, task, _), ts in runs.items():
+        ts.sort()
+        t = tasks[(dag, task)]
+        t['calisma'] += 1
+        t['en_cok_deneme'] = max(t['en_cok_deneme'], int(ts[-1][0]))
+        ok = ts[-1][1] in SUCCESS
+        if len(ts) > 1 or ts[-1][0] > 1:
+            t['tekrar'] += 1
+            t['kararsiz'] += ok
+            t['bosa_sn'] += sum(d for _, _, d in ts[:-1])
+        t['basarisiz'] += not ok
+    out = [{'dag': k[0], 'gorev': k[1], **v, 'tekrar_orani_%': round(100 * v['tekrar'] / v['calisma'], 1), 'bosa_sure_dk': round(v['bosa_sn'] / 60, 1),
+            'durum': 'kararsız' if v['kararsiz'] >= args.flaky else 'sürekli hatalı' if v['basarisiz'] else ''} for k, v in tasks.items()]
+    for o in out:
+        del o['bosa_sn']
+    out.sort(key=lambda o: (-o['tekrar'], -o['bosa_sure_dk'], o['dag'], o['gorev']))
+    wasted = round(sum(v['bosa_sn'] for v in tasks.values()) / 60, 1)
+    return Result(f'{len(out)} görev, {len(runs)} çalışma; {sum(v["tekrar"] for v in tasks.values())} çalışma yeniden denendi, {sum(o["durum"] == "kararsız" for o in out)} görev kararsız',
+                  ['dag', 'gorev', 'calisma', 'tekrar', 'kararsiz', 'basarisiz', 'en_cok_deneme', 'tekrar_orani_%', 'bosa_sure_dk', 'durum'], out,
+                  {'gorev': len(out), 'calisma': len(runs), 'tekrar_denenen_calisma': sum(v['tekrar'] for v in tasks.values()),
+                   'basarisiz_calisma': sum(v['basarisiz'] for v in tasks.values()), 'kararsiz_gorev': sum(o['durum'] == 'kararsız' for o in out), 'bosa_sure_dk': wasted},
+                  notes=['Boşa giden süre, son deneme dışındaki denemelerin toplam süresidir. Kararsız görevler genelde zaman aşımı, kaynak sistem kilitlenmesi veya yarış koşulundan kaynaklanır; retry sayısını artırmak kök nedeni gizler.'])

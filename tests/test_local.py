@@ -59,8 +59,8 @@ class LocalTestCase(unittest.TestCase):
 
 class PackageShape(LocalTestCase):
     def test_every_local_package_is_self_contained_and_has_no_network_code(self):
-        self.assertEqual(len([i for i in LOCAL if not i.get('op')]), 25)
-        self.assertEqual(sum(i['kind'] == 'agent' for i in LOCAL), 13)
+        self.assertEqual(len([i for i in LOCAL if not i.get('op')]), 30)
+        self.assertEqual(sum(i['kind'] == 'agent' for i in LOCAL), 18)
         self.assertEqual(len({i['id'] for i in LOCAL}), len(LOCAL))
         for item in LOCAL:
             names = local_package.files(item)
@@ -488,6 +488,13 @@ GOOD['regex-yazari'] = {'desen': '^(0[1-9]|[1-7]\\d|8[01]) ([A-Z] \\d{4,5}|[A-Z]
 GOOD['migrasyon-esleme'] = {'eslemeler': [{'hedef_tablo': 'crm.musteri', 'hedef_sutun': 'musteri_id', 'kaynak_tablo': 'dbo.Musteriler', 'kaynak_sutunlar': ['MusteriNo'], 'ifade': 'MusteriNo'}, {'hedef_tablo': 'crm.musteri', 'hedef_sutun': 'ad_soyad', 'kaynak_tablo': 'dbo.Musteriler', 'kaynak_sutunlar': ['MusteriAdi'], 'ifade': 'MusteriAdi'}, {'hedef_tablo': 'crm.musteri', 'hedef_sutun': 'sehir', 'kaynak_tablo': 'dbo.Musteriler', 'kaynak_sutunlar': ['Sehir'], 'ifade': 'Sehir'}, {'hedef_tablo': 'crm.musteri', 'hedef_sutun': 'telefon', 'kaynak_tablo': 'dbo.Musteriler', 'kaynak_sutunlar': ['Telefon'], 'ifade': 'Telefon'}, {'hedef_tablo': 'crm.musteri', 'hedef_sutun': 'kayit_tarihi', 'kaynak_tablo': 'dbo.Musteriler', 'kaynak_sutunlar': ['KayitTarihi'], 'ifade': 'KayitTarihi'}, {'hedef_tablo': 'crm.musteri', 'hedef_sutun': 'kaynak_sistem', 'kaynak_tablo': 'dbo.Musteriler', 'kaynak_sutunlar': [], 'ifade': "'ERP'"}, {'hedef_tablo': 'satis.siparis', 'hedef_sutun': 'siparis_id', 'kaynak_tablo': 'dbo.Siparisler', 'kaynak_sutunlar': ['SiparisNo'], 'ifade': 'SiparisNo'}, {'hedef_tablo': 'satis.siparis', 'hedef_sutun': 'musteri_id', 'kaynak_tablo': 'dbo.Siparisler', 'kaynak_sutunlar': ['MusteriNo'], 'ifade': 'MusteriNo'}, {'hedef_tablo': 'satis.siparis', 'hedef_sutun': 'siparis_tarihi', 'kaynak_tablo': 'dbo.Siparisler', 'kaynak_sutunlar': ['SiparisTarihi'], 'ifade': 'SiparisTarihi'}, {'hedef_tablo': 'satis.siparis', 'hedef_sutun': 'tutar', 'kaynak_tablo': 'dbo.Siparisler', 'kaynak_sutunlar': ['Tutar'], 'ifade': 'Tutar'}, {'hedef_tablo': 'satis.siparis', 'hedef_sutun': 'durum', 'kaynak_tablo': 'dbo.Siparisler', 'kaynak_sutunlar': ['Durum'], 'ifade': 'CAST(Durum AS VARCHAR(20))'}, {'hedef_tablo': 'satis.siparis', 'hedef_sutun': 'yukleme_zamani', 'kaynak_tablo': 'dbo.Siparisler', 'kaynak_sutunlar': [], 'ifade': 'CURRENT_TIMESTAMP'}], 'sorular': ['Kayıt tarihi boş müşteriler nasıl yüklenecek?']}
 OUTPUTS.update({'kvkk-envanteri': 'kvkk-envanteri.md', 'olay-analisti': 'olay-raporu.md', 'boyutsal-model': 'boyutsal-model.md', 'regex-yazari': 'desen.md',
                 'migrasyon-esleme': 'yukleme.sql'})
+GOOD['dbt-model-yazari'] = {'model_adi': 'fct_segment_siparis', 'aciklama': 'İptal hariç siparişler ve müşteri segmenti.', 'materializasyon': 'view', 'sql': "WITH siparis AS (SELECT * FROM {{ source('erp', 'siparis') }}),\nmusteri AS (SELECT * FROM {{ source('crm', 'musteri') }}),\nkampanya AS (SELECT * FROM {{ source('ref_data', 'kampanya') }})\nSELECT s.siparis_id, s.musteri_id, m.segment, s.tarih, s.tutar\nFROM siparis s\nJOIN musteri m ON m.musteri_id = s.musteri_id\nLEFT JOIN kampanya k ON k.kampanya_id = s.kampanya_id\nWHERE s.durum <> 'IPTAL'", 'kaynaklar': [{'tablo': 'erp.siparis', 'tur': 'source', 'source': 'erp', 'ad': 'siparis'}, {'tablo': 'crm.musteri', 'tur': 'source', 'source': 'crm', 'ad': 'musteri'}, {'tablo': 'ref.kampanya', 'tur': 'source', 'source': 'ref_data', 'ad': 'kampanya'}], 'sutunlar': [{'ad': 'siparis_id', 'aciklama': 'Sipariş anahtarı', 'testler': ['unique', 'not_null']}, {'ad': 'segment', 'aciklama': 'Müşteri segmenti', 'testler': ['accepted_values']}, {'ad': 'tutar', 'aciklama': 'Sipariş tutarı', 'testler': []}], 'notlar': ['kampanya join sonucu kullanılmıyor; kaldırılabilir.']}
+GOOD['zamanlama-planlayici'] = {'plan': [{'is': 'erp_cek', 'baslangic': '01:00'}, {'is': 'crm_cek', 'baslangic': '01:00'}, {'is': 'web_cek', 'baslangic': '01:20'}, {'is': 'stg_yukle', 'baslangic': '01:40'}, {'is': 'web_oturum', 'baslangic': '01:50'}, {'is': 'dim_musteri', 'baslangic': '02:05'}, {'is': 'fct_satis', 'baslangic': '02:20'}, {'is': 'pazarlama_rapor', 'baslangic': '02:25'}, {'is': 'kalite', 'baslangic': '03:05'}, {'is': 'finans_rapor', 'baslangic': '03:15'}], 'gerekce': 'Kritik yol önce; web zinciri boşluklara yerleşti.', 'notlar': ['finans_rapor 03:35’te hazır.']}
+GOOD['tasarruf-plani'] = {'ozet': 'En büyük kalem ec2-satis; taahhüt ve duraklatma ile tahmini 2.100 aylık tasarruf.', 'aksiyonlar': [{'baslik': 'ec2-satis için 1 yıllık taahhüt', 'aciklama': 'ec2-satis son 30 günde 5.372,14 harcadı ve sürekli çalışıyor.', 'kanit': ['F7'], 'tahmini_aylik_tasarruf': 1500, 'efor': 'düşük', 'risk': 'Kullanım düşerse taahhüt boşa gider.'}, {'baslik': 'redshift-pazarlama gece duraklatma', 'aciklama': 'Mesai dışında kullanılmıyorsa duraklatın.', 'kanit': ['F11'], 'tahmini_aylik_tasarruf': 600, 'efor': 'orta'}, {'baslik': 'Etiketsiz maliyeti sahiplendirme', 'aciklama': 'Toplamın %14,9’u etiketsiz.', 'kanit': ['F12'], 'tahmini_aylik_tasarruf': 0, 'efor': 'düşük'}], 'sorular': ['Redshift pazarlama mesai dışında kullanılıyor mu?']}
+GOOD['model-karti'] = {'model_adi': 'Churn modeli', 'amac': ['Ayrılma riski yüksek müşterileri elde tutma kampanyası için sıralamak.'], 'kullanim_alani': ['CRM ekibinin haftalık listesi; karar insanda.'], 'kullanilmamasi_gereken': ['Kredi ve fiyat kararları.'], 'bulgular': [{'metin': 'Genel ayrıştırma gücü yüksek: AUC 0,905.', 'kanit': ['F2']}, {'metin': 'Kurumsal segmentte duyarlılık %69,8, bireyselde %94,8; kurumsal müşterilerin ayrılanlarının önemli kısmı kaçırılıyor.', 'kanit': ['F4', 'F5']}], 'sinirlamalar': ['Eğitim verisinin dönemi belirtilmemiş.'], 'riskler': ['Kurumsal segmentte düşük kesinlik gereksiz kampanya maliyeti doğurur.'], 'izleme': ['Segment bazında AUC ve duyarlılık aylık izlenmeli.']}
+GOOD['eslestirme-hakemi'] = {'kararlar': [{'id': 'C1', 'karar': 'aynı', 'gerekce': 'Aynı VKN, aynı adres; yalnızca yazım farkı.'}, {'id': 'C2', 'karar': 'emin değil', 'gerekce': 'Pazarlama şirketi ayrı tüzel kişi olabilir; il ve VKN farklı.'}, {'id': 'C3', 'karar': 'emin değil', 'gerekce': 'C2 ile aynı durum.'}, {'id': 'C4', 'karar': 'farklı', 'gerekce': 'Aynı ad, farklı il, VKN ve telefon.'}, {'id': 'C5', 'karar': 'aynı', 'gerekce': 'Aynı telefon ve adres.'}]}
+OUTPUTS.update({'dbt-model-yazari': 'dbt-model.md', 'zamanlama-planlayici': 'zamanlama-plani.md', 'tasarruf-plani': 'tasarruf-plani.md', 'model-karti': 'model-karti.md',
+                'eslestirme-hakemi': 'eslesme.md'})
 KPI_ARGS = ('--data', 'ornek/satislar.csv')
 
 
@@ -584,6 +591,40 @@ class Agents(LocalTestCase):
         self.assertIn('Tutar,  -- UYARI: tip daralması DECIMAL(18,2) → DECIMAL(12,2)', sql)
         self.assertEqual(p.json('esleme.json')['tasinmayan_sutunlar'], ['dbo.Siparisler.Aciklama'])
 
+    def test_fourth_batch_agents_validate_locally(self):
+        dbt = GOOD['dbt-model-yazari']
+        raw = {**dbt, 'sql': dbt['sql'].replace("{{ source('erp', 'siparis') }}", 'erp.siparis')}
+        p, done = self.run_agent('dbt-model-yazari', '--yes', answers=[raw, dbt])
+        self.ok(done)
+        self.assertIn('ham tablo adı kaldı: erp.siparis', self.model.requests[1]['body']['messages'][-1]['content'])
+        self.assertIn("WHERE s.durum <> 'IPTAL'", self.model.requests[0]['body']['messages'][-1]['content'])  # literals survive comment stripping
+        model_sql = (p.dir / 'output' / 'models' / 'fct_segment_siparis.sql').read_text(encoding='utf-8')
+        self.assertTrue(model_sql.startswith("{{ config(materialized='view') }}"))
+        yml = (p.dir / 'output' / 'models' / 'schema.yml').read_text(encoding='utf-8')
+        self.assertIn('        # data_tests:', yml)  # placeholder-only tests never leave a null key
+        plan = GOOD['zamanlama-planlayici']['plan']
+        clash = {'plan': [{**x, 'baslangic': '01:00'} if x['is'] == 'web_cek' else x for x in plan]}
+        p, done = self.run_agent('zamanlama-planlayici', '--yes', answers=[clash, GOOD['zamanlama-planlayici']])
+        self.ok(done)
+        self.assertIn('3 iş aynı anda çalışıyor', self.model.requests[-1]['body']['messages'][-1]['content'])
+        self.assertEqual(p.json('plan.json')['bitis'], '03:35')
+        p, done = self.run_agent('tasarruf-plani', '--yes', answers=[GOOD['tasarruf-plani']])
+        self.ok(done)
+        self.assertEqual(p.json('tasarruf-plani.json')['toplam_tasarruf'], 2100)
+        self.assertNotIn('2026-09-15', self.model.requests[-1]['body']['messages'][-1]['content'])  # only totals leave, never rows
+        p, done = self.run_agent('model-karti', '--yes', answers=[{**GOOD['model-karti'], 'bulgular': [{'metin': 'AUC 0,95.', 'kanit': ['F2']}]}, GOOD['model-karti']])
+        self.ok(done)
+        self.assertIn('0,95', self.model.requests[-1]['body']['messages'][-1]['content'])
+        self.assertIn('F2: ROC AUC 0,905', self.model.requests[-2]['body']['messages'][-1]['content'])
+        wrong = {'kararlar': [{**k, 'karar': 'aynı'} if k['id'] == 'C4' else k for k in GOOD['eslestirme-hakemi']['kararlar']]}
+        p, done = self.run_agent('eslestirme-hakemi', '--yes', answers=[wrong])
+        self.ok(done)
+        sent = self.model.requests[-1]['body']['messages'][-1]['content']
+        self.assertNotIn('1234567802', sent)  # identifiers are compared locally, never sent
+        rows = {r['id']: r for r in p.csv('eslesme-kararlari.csv')}
+        self.assertIn('insan incelemesi', rows['C4']['kod_notu'])
+        self.assertEqual([r['kayit'] for r in p.csv('gruplar.csv') if r['grup'] == 'G2'], ['K04', 'K05'])
+
     def test_invalid_answer_gets_one_corrective_retry(self):
         bad = {'sql': 'SELECT s.KalemlerToplamCiro FROM dbo.Siparisler s'}
         p, done = self.run_agent('sql-yazari', '--yes', answers=[bad, GOOD['sql-yazari']])
@@ -603,7 +644,12 @@ class Agents(LocalTestCase):
                              ('olay-analisti', {'imzalar': GOOD['olay-analisti']['imzalar'][:2]}),
                              ('boyutsal-model', {**GOOD['boyutsal-model'], 'olgu': {**GOOD['boyutsal-model']['olgu'], 'olculer': ['adet', 'durum']}}),
                              ('regex-yazari', {'desen': r'^\d{2} [A-Z]+ \d+$'}),
-                             ('migrasyon-esleme', {'eslemeler': GOOD['migrasyon-esleme']['eslemeler'][:-1]})]:
+                             ('migrasyon-esleme', {'eslemeler': GOOD['migrasyon-esleme']['eslemeler'][:-1]}),
+                             ('dbt-model-yazari', {**GOOD['dbt-model-yazari'], 'kaynaklar': GOOD['dbt-model-yazari']['kaynaklar'][:2]}),
+                             ('zamanlama-planlayici', {'plan': GOOD['zamanlama-planlayici']['plan'][:-1]}),
+                             ('tasarruf-plani', {**GOOD['tasarruf-plani'], 'ozet': 'Yüzde 45 indirim mümkün.'}),
+                             ('model-karti', {**GOOD['model-karti'], 'riskler': []}),
+                             ('eslestirme-hakemi', {'kararlar': GOOD['eslestirme-hakemi']['kararlar'][:-1]})]:
             with self.subTest(item_id):
                 p, done = self.run_agent(item_id, '--yes', answers=[bad, bad])
                 self.assertEqual(done.returncode, 1)

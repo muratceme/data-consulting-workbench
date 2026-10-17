@@ -1,6 +1,9 @@
 """Veri ambarı tasarım ve depolama blokları: Redshift tablo tasarımı (dağıtım, sıralama, sıkıştırma) ve Snowflake depolama (Time Travel, Fail-safe, klon).
 Ambara bağlanmaz; sistem görünümlerinin dışa aktarımlarını okur. Fiyatlar parametredir."""
+import json, re
 from collections import Counter, defaultdict
+from datetime import timedelta
+from pathlib import Path
 import tabular
 from islem import op, arg, Result, need, numbers, fmt
 
@@ -148,3 +151,122 @@ def unused_tables(columns, rows, args):
     return Result(f'{len(out)} tablo; {sum(o["durum"] == "KULLANILMIYOR" for o in out)} tablo {args.days} gündür okunmuyor ({unused_gb:,.1f} GB)', list(out[0]), out,
                   {'tablo': len(out), 'kullanilmayan': sum(o['durum'] == 'KULLANILMIYOR' for o in out), 'kullanilmayan_gb': round(unused_gb, 2)},
                   notes=['Erişim geçmişi yalnız sorgu okumalarını gösterir; yükleme işlerinin yazdığı ama kimsenin okumadığı tablolar da burada kullanılmıyor görünür. Silmeden önce sahibine sorun ve yedekleyin.'])
+
+
+OPEN_END = {'', '9999-12-31', '9999-12-31 00:00:00', '2999-12-31', 'null', 'none'}
+TRUE = {'1', 'true', 'evet', 'e', 'y', 'yes', 't'}
+
+
+@op('scd2-butunluk', title='SCD tip 2 boyut tablosunda çakışan, boşluklu ve çok güncelli kayıtları bul', domain='warehouse', product='Snowflake', tag='SCD2',
+    samples={'dim_musteri_scd2.csv': 'dim_musteri_scd2.csv'},
+    args=[arg('--key', default='musteri_no', help='Doğal anahtar sütun(lar)ı, virgülle'), arg('--start', default='gecerlilik_baslangic'), arg('--end', default='gecerlilik_bitis'),
+          arg('--current', default='guncel_mi', help='Güncel bayrağı (boş bırakılabilir)'), arg('--ignore', default='', help='Değişiklik karşılaştırmasında yok sayılacak ek sütunlar (sk, yükleme zamanı)'),
+          arg('--inclusive', action='store_true', help='Bitiş tarihi kapsayıcı (sonraki başlangıç = bitiş + 1 gün); varsayılan: sonraki başlangıç = bitiş')],
+    description='Tip 2 yavaş değişen boyut dışa aktarımında her doğal anahtarın geçerlilik aralıklarını sıraya koyar; çakışan aralıkları, araya giren boşlukları, birden çok veya hiç güncel kaydı olmayan anahtarları, güncel bayrağı ile açık bitiş tarihi çelişen satırları, başlangıcı bitişinden sonra olan satırları ve hiçbir nitelik değişmeden açılmış gereksiz versiyonları bulur. Olgu tablosunun yanlış boyut versiyonuna bağlanmasını önlemek için.',
+    input='SCD2 boyut tablosu dışa aktarımı (anahtar, nitelikler, geçerlilik başlangıç/bitiş, güncel bayrağı)', output='sonuc.csv (bulgular)',
+    command='python main.py --input dim_customer.csv --key customer_id --start valid_from --end valid_to --current is_current --ignore customer_sk,load_ts',
+    expect={'anahtar': 7, 'satir': 14, 'sorunlu_anahtar': 6, 'cakisma': 1, 'bosluk': 1, 'coklu_guncel': 1, 'guncel_yok': 1, 'bayrak_tutarsiz': 1, 'gereksiz_versiyon': 1, 'ters_aralik': 1})
+def scd2(columns, rows, args):
+    keys = [need(k.strip(), columns, '--key') for k in args.key.split(',') if k.strip()]
+    sc, ec = need(args.start, columns, '--start'), need(args.end, columns, '--end')
+    cc = need(args.current, columns, '--current') if args.current else None
+    skip = set(keys) | {sc, ec} | ({cc} if cc else set()) | {c.strip() for c in args.ignore.split(',') if c.strip()}
+    # Columns unique on every row (surrogate keys, load timestamps) change with each version by design; they are not attributes.
+    auto = [c for c in columns if c not in skip and len(rows) > 1 and len({r[c].strip() for r in rows}) == len(rows)]
+    attrs = [c for c in columns if c not in skip and c not in auto]
+    groups = defaultdict(list)
+    for i, r in enumerate(rows, start=2):
+        groups[tuple(r[k].strip() for k in keys)].append((i, r))
+    out, step = [], timedelta(days=1 if args.inclusive else 0)
+
+    def add(key, kind, line, detail):
+        out.append({'anahtar': ' | '.join(key), 'bulgu': kind, 'satir': line, 'detay': detail})
+    for key, items in groups.items():
+        versions = []
+        for line, r in items:
+            s = tabular.parse_date(r[sc])
+            open_end = r[ec].strip().lower() in OPEN_END
+            e = None if open_end else tabular.parse_date(r[ec])
+            if not s or (not open_end and not e):
+                add(key, 'tarih okunamadı', line, f'{r[sc]} → {r[ec]}')
+                continue
+            s, e = s[0], (e[0] if e else None)
+            flag = r[cc].strip().lower() in TRUE if cc else open_end
+            if e is not None and e < s:
+                add(key, 'ters aralık', line, f'başlangıç {s:%Y-%m-%d} bitişten ({e:%Y-%m-%d}) sonra')
+                continue
+            if cc and flag != open_end:
+                add(key, 'bayrak tutarsız', line, 'güncel işaretli ama bitiş tarihi kapalı' if flag else 'bitiş açık ama güncel işaretli değil')
+            versions.append((s, e, flag, line, tuple(r[a].strip() for a in attrs)))
+        versions.sort(key=lambda v: v[0])
+        current = [v for v in versions if v[2]]
+        if len(current) > 1:
+            add(key, 'birden çok güncel', ', '.join(str(v[3]) for v in current), f'{len(current)} satır güncel')
+        elif not current and versions:
+            add(key, 'güncel kayıt yok', versions[-1][3], 'son versiyon kapalı (silinmiş kayıt olabilir)')
+        for a, b in zip(versions, versions[1:]):
+            if a[1] is None or b[0] < a[1] + step:
+                add(key, 'çakışma', f'{a[3]}, {b[3]}', f'{a[0]:%Y-%m-%d}–{a[1]:%Y-%m-%d} ile {b[0]:%Y-%m-%d} başlangıcı çakışıyor' if a[1] else 'açık uçlu versiyondan sonra yeni versiyon')
+            elif b[0] > a[1] + step:
+                add(key, 'boşluk', f'{a[3]}, {b[3]}', f'{(a[1] + step):%Y-%m-%d} ile {b[0]:%Y-%m-%d} arasında geçerli versiyon yok')
+            elif a[4] == b[4]:
+                add(key, 'gereksiz versiyon', f'{a[3]}, {b[3]}', 'nitelikler değişmeden yeni versiyon açılmış')
+    out.sort(key=lambda o: (o['anahtar'], str(o['satir'])))
+    c = Counter(o['bulgu'] for o in out)
+    return Result(f'{len(groups)} anahtar, {len(rows)} satır; {len({o["anahtar"] for o in out})} anahtarda SCD2 bulgusu', ['anahtar', 'bulgu', 'satir', 'detay'], out,
+                  {'anahtar': len(groups), 'satir': len(rows), 'sorunlu_anahtar': len({o['anahtar'] for o in out}), 'cakisma': c['çakışma'], 'bosluk': c['boşluk'],
+                   'coklu_guncel': c['birden çok güncel'], 'guncel_yok': c['güncel kayıt yok'], 'bayrak_tutarsiz': c['bayrak tutarsız'],
+                   'gereksiz_versiyon': c['gereksiz versiyon'], 'ters_aralik': c['ters aralık']},
+                  notes=['Açık bitiş: boş, 9999-12-31 veya 2999-12-31. Varsayılan kural: sonraki versiyon önceki versiyonun bitiş tarihinde başlar (bitiş hariç); bitişiniz kapsayıcıysa --inclusive verin.',
+                         'Gereksiz versiyon karşılaştırmasında her satırda farklı olan sütunlar (' + (', '.join(auto) or 'yok') + ') ve --ignore ile verilenler nitelik sayılmaz.'])
+
+
+def clustering_info(obj):
+    info = obj.get('clustering_information', obj)
+    if isinstance(info, str):
+        info = json.loads(info)
+    return info
+
+
+@op('clustering-derinligi', title='Snowflake clustering bilgisinden tablo kümeleme sağlığı', domain='warehouse', product='Snowflake', tag='clustering', kind='file',
+    samples={'snowflake_clustering.json': 'snowflake_clustering.json'},
+    args=[arg('--good', type=float, default=4, help='Ortalama derinlik bu değere kadar iyi'), arg('--bad', type=float, default=16, help='Ortalama derinlik bu değerin üstünde kötü')],
+    description='SYSTEM$CLUSTERING_INFORMATION çıktılarını (tablo başına JSON; dizi veya JSON Lines) okur; mikro-bölüm sayısını, sabit bölüm oranını, ortalama örtüşme ve derinliği, derinlik histogramından p90 derinliği hesaplar ve tabloları iyi/orta/kötü olarak sınıflar. Zaman damgası gibi yüksek kardinaliteli kümeleme anahtarlarına TO_DATE önerir. Otomatik kümeleme maliyetine değip değmeyeceğini görmek için.',
+    input='Tablo başına clustering_information JSON’u (tablo + bilgiler)', output='sonuc.csv (tablo bazında kümeleme sağlığı)',
+    command="python main.py --input clustering.json   # SELECT 'SATIS' tablo, SYSTEM$CLUSTERING_INFORMATION('SATIS') ...",
+    expect={'tablo': 3, 'iyi': 1, 'orta': 1, 'kotu': 1, 'anahtar_onerisi': 1})
+def clustering(args):
+    text = Path(args.input).read_text(encoding='utf-8-sig').strip()
+    try:
+        items = json.loads(text)
+        items = items if isinstance(items, list) else [items]
+    except json.JSONDecodeError:
+        items = [json.loads(l) for l in text.splitlines() if l.strip()]
+    out = []
+    for i, obj in enumerate(items, start=1):
+        info = clustering_info(obj)
+        total = info.get('total_partition_count') or 0
+        hist = {int(k): v for k, v in (info.get('partition_depth_histogram') or {}).items()}
+        n, cum, p90 = sum(hist.values()), 0, None
+        for depth in sorted(hist):
+            cum += hist[depth]
+            if p90 is None and n and cum >= 0.9 * n:
+                p90 = depth
+        depth = float(info.get('average_depth') or 0)
+        status = 'iyi' if depth <= args.good else 'kötü' if depth > args.bad else 'orta'
+        keys = str(info.get('cluster_by_keys', ''))
+        hint = ''
+        inner = re.search(r'LINEAR\((.*)\)', keys, re.I)
+        if inner and any(re.search(r'zaman|timestamp|_ts$|^ts$|_at$|time', k.strip().strip('"'), re.I) and '(' not in k for k in inner.group(1).split(',')):
+            hint = 'zaman damgası kümeleme anahtarı: TO_DATE(...) ile gün düzeyine indirin'
+        out.append({'tablo': obj.get('tablo') or obj.get('table') or f'#{i}', 'anahtar': keys, 'bolum': total,
+                    'sabit_bolum_%': round(100 * (info.get('total_constant_partition_count') or 0) / total, 1) if total else 0,
+                    'ort_ortusme': info.get('average_overlaps'), 'ort_derinlik': depth, 'p90_derinlik': p90, 'durum': status,
+                    'oneri': hint or ('kümeleme anahtarını sorgu filtrelerine göre gözden geçirin veya yeniden kümelemeye izin verin' if status == 'kötü' else '')})
+    if not out:
+        raise ValueError('clustering_information kaydı bulunamadı.')
+    out.sort(key=lambda o: -o['ort_derinlik'])
+    c = Counter(o['durum'] for o in out)
+    return Result(f'{len(out)} tablo; {c["kötü"]} tablo kötü kümelenmiş, {c["orta"]} orta', list(out[0]), out,
+                  {'tablo': len(out), 'iyi': c['iyi'], 'orta': c['orta'], 'kotu': c['kötü'], 'anahtar_onerisi': sum(bool(o['oneri']) and 'TO_DATE' in o['oneri'] for o in out)},
+                  notes=['Derinlik, aynı değer aralığını içeren üst üste binen mikro-bölüm sayısıdır; 1’e yakın olması budamanın (pruning) iyi çalıştığını gösterir. Küçük tablolarda (birkaç yüz bölüm) kümeleme genelde maliyetine değmez.'])

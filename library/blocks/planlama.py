@@ -442,3 +442,58 @@ def forecast_accuracy(columns, rows, args):
                   list(out[0]), out,
                   {'urun': len(out), 'wape_%': round(100 * tot_err / tot_act, 2), 'bias_%': round(100 * tot_bias / tot_act, 2), 'naif_daha_iyi': worse},
                   notes=['WAPE = Σ|tahmin − gerçek| / Σ gerçek. Sapma pozitifse tahmin sistematik olarak yüksektir. FVA, naif tahminin (bir önceki dönemin gerçekleşeni) WAPE’sinden modelin WAPE’si çıkarılarak ikinci dönemden itibaren hesaplanır; negatifse tahmin süreci değer katmıyor.'])
+
+
+@op('kapasite-planlama', title='Kaynak/ekip bazında talep ve kapasiteden doluluk, aşırı yük ve atıl dönemler', domain=D, product=P, tag='kapasite planı',
+    samples={'kapasite_talep.csv': 'kapasite_talep.csv'},
+    args=[arg('--resource', default='kaynak'), arg('--period', default='donem'), arg('--demand', default='talep'), arg('--capacity', default='kapasite'),
+          arg('--high', type=float, default=85, help='Bu doluluk yüzdesinin üstü riskli'), arg('--low', type=float, default=50, help='Bu doluluk yüzdesinin altı atıl')],
+    description='Ekip, makine, depo veya lisans gibi kaynakların dönem bazında talep ve kapasitesinden doluluk oranını hesaplar; kapasiteyi aşan (aşırı yük) dönemleri ve gereken ek kapasiteyi, riskli (yüksek doluluk) ve atıl dönemleri işaretler; kaynak bazında ortalama ve en yüksek doluluğu verir. İşe alım, vardiya ve yatırım planı için.',
+    input='Dönemsel talep ve kapasite (kaynak, dönem, talep, kapasite)', output='sonuc.csv (kaynak bazında) + kaynak × dönem doluluk tablosu', command='python main.py --input ekip_saatleri.xlsx --high 90 --low 40',
+    expect={'kaynak': 3, 'donem': 4, 'asiri_yuk': 3, 'ek_kapasite': 35.0, 'atil_donem': 3, 'ortalama_doluluk_%': 76.7})
+def capacity(columns, rows, args):
+    rc, pc = need(args.resource, columns, '--resource'), need(args.period, columns, '--period')
+    dem, cap = numbers(rows, need(args.demand, columns, '--demand')), numbers(rows, need(args.capacity, columns, '--capacity'))
+    cells, periods = defaultdict(lambda: [0.0, 0.0]), []
+    for r, d, c in zip(rows, dem, cap):
+        if d is None or c is None or not r[rc].strip():
+            continue
+        p = r[pc].strip()
+        if p not in periods:
+            periods.append(p)
+        cells[(r[rc].strip(), p)][0] += d
+        cells[(r[rc].strip(), p)][1] += c
+    if not cells:
+        raise ValueError('Talep ve kapasitesi sayı olan satır yok.')
+    resources = sorted({k[0] for k in cells}, key=tr_sort_key)
+    out, matrix = [], []
+    for res in resources:
+        utils, over, extra, idle, high = [], [], 0.0, 0, 0
+        for p in periods:
+            if (res, p) not in cells:
+                continue
+            d, c = cells[(res, p)]
+            u = 100 * d / c if c else float('inf')
+            utils.append(u)
+            if d > c:
+                over.append(p)
+                extra += d - c
+            elif u > args.high:
+                high += 1
+            if u < args.low:
+                idle += 1
+        tot_d = sum(cells[(res, p)][0] for p in periods if (res, p) in cells)
+        tot_c = sum(cells[(res, p)][1] for p in periods if (res, p) in cells)
+        out.append({'kaynak': res, 'ortalama_doluluk_%': round(100 * tot_d / tot_c, 1) if tot_c else '', 'en_yuksek_doluluk_%': round(max(utils), 1),
+                    'asiri_yuk_donem': ', '.join(over), 'ek_kapasite': round(extra, 2), 'riskli_donem': high, 'atil_donem': idle,
+                    'durum': 'kapasite yetersiz' if over else 'riskli' if high else 'atıl' if idle >= len(utils) / 2 else 'dengeli'})
+        matrix.append([res] + [f"%{fmt(round(100 * cells[(res, p)][0] / cells[(res, p)][1], 1))}" if (res, p) in cells and cells[(res, p)][1] else '' for p in periods])
+    out.sort(key=lambda o: (-o['ek_kapasite'], -(o['en_yuksek_doluluk_%'] or 0)))
+    total_d, total_c = sum(v[0] for v in cells.values()), sum(v[1] for v in cells.values())
+    n_over = sum(1 for d, c in cells.values() if d > c)
+    return Result(f'{len(resources)} kaynak × {len(periods)} dönem; {n_over} dönemde aşırı yük, gereken ek kapasite {fmt(round(sum(o["ek_kapasite"] for o in out), 2))}',
+                  list(out[0]), out,
+                  {'kaynak': len(resources), 'donem': len(periods), 'asiri_yuk': n_over, 'ek_kapasite': round(sum(o['ek_kapasite'] for o in out), 2),
+                   'atil_donem': sum(o['atil_donem'] for o in out), 'ortalama_doluluk_%': round(100 * total_d / total_c, 1) if total_c else None},
+                  tables=[('Kaynak × dönem doluluk', ['Kaynak'] + periods, matrix)],
+                  notes=['Ek kapasite, kapasiteyi aşan dönemlerde talep − kapasite toplamıdır. Dönemler arasında iş kaydırılabiliyorsa (stok, birikmiş iş) gerçek ihtiyaç daha düşük olabilir.'])

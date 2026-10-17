@@ -1,6 +1,6 @@
 """Dönüşüm (dbt) blokları: manifest.json’dan test ve doküman kapsamı, sources.json’dan kaynak tazeliği.
 dbt’yi çalıştırmaz; target/ klasöründeki çıktı dosyalarını okur."""
-import json
+import json, re
 from collections import Counter, defaultdict
 from pathlib import Path
 from islem import op, arg, Result, fmt
@@ -94,3 +94,43 @@ def freshness(args):
     return Result(f'{len(out)} kaynak; {c["pass"]} güncel, {c["warn"]} uyarı, {c["error"] + c["runtime error"]} hata', list(out[0]), out,
                   {'kaynak_sayisi': len(out), 'pass': c['pass'], 'warn': c['warn'], 'error': c['error'] + c['runtime error'], 'esiksiz': sum(bool(o['not']) for o in out),
                    'olusturma': (data.get('metadata') or {}).get('generated_at', '')})
+
+
+LOOKBACK = re.compile(r'interval|dateadd|date_sub|timestamp_sub|datetime_sub|date_add|-\s*\d|\blookback\b|var\(', re.I)
+
+
+@op('dbt-artimli-model-kontrol', title='dbt incremental modellerinde anahtar, filtre ve geç gelen veri riskleri', domain=D, product='dbt Core', tag='incremental', kind='file',
+    samples={'manifest_artimli.json': 'manifest_artimli.json'},
+    description='manifest.json’daki incremental modelleri tek tek inceler: unique_key tanımsız merge/delete+insert modellerini (tekrar eden satır), is_incremental() filtresi olmayan modelleri (her çalışmada tüm tabloyu tarar), MAX(...) ile filtreleyip geri bakış penceresi bırakmayan modelleri (geç gelen veri kaçar) ve on_schema_change ayarı olmayan modelleri (yeni sütunlar sessizce yok sayılır) işaretler.',
+    input='target/manifest.json', output='sonuc.csv (incremental model bazında bulgular)', command='python main.py --input target/manifest.json',
+    expect={'artimli_model': 4, 'sorunlu': 2, 'unique_key_yok': 1, 'filtre_yok': 1, 'geri_bakis_yok': 1, 'sema_ayari_yok': 2})
+def incremental(args):
+    m = load_json(args.input, 'manifest.json')
+    models = [v for v in m.get('nodes', {}).values() if v.get('resource_type') == 'model' and (v.get('config') or {}).get('materialized') == 'incremental']
+    if not models:
+        raise ValueError('manifest.json içinde incremental model yok.')
+    out = []
+    for v in sorted(models, key=lambda x: x.get('name', '')):
+        cfg, code = v.get('config') or {}, v.get('raw_code') or v.get('raw_sql') or ''
+        strategy = (cfg.get('incremental_strategy') or 'varsayılan').lower()
+        key = cfg.get('unique_key')
+        issues, warns = [], []
+        if not key and strategy not in ('append', 'insert_overwrite', 'microbatch'):
+            issues.append('unique_key yok: yeniden çalışmada tekrar eden satır')
+        filt = re.search(r'is_incremental\s*\(\s*\)', code)
+        if not filt and strategy != 'microbatch':
+            issues.append('is_incremental() filtresi yok: her çalışmada tüm kaynak taranır')
+        elif filt:
+            block = code[filt.end():filt.end() + 400]
+            if re.search(r'max\s*\(', block, re.I) and not LOOKBACK.search(block):
+                issues.append('MAX(...) filtresinde geri bakış yok: geç gelen veri kaçar')
+        if not cfg.get('on_schema_change') or cfg.get('on_schema_change') == 'ignore':
+            warns.append('on_schema_change yok/ignore: yeni sütunlar yüklenmez')
+        out.append({'model': v.get('name', ''), 'strateji': strategy, 'unique_key': ', '.join(key) if isinstance(key, list) else (key or ''),
+                    'on_schema_change': cfg.get('on_schema_change') or '', 'bulgu': '; '.join(issues), 'uyari': '; '.join(warns)})
+    out.sort(key=lambda o: (not o['bulgu'], o['model']))
+    flags = ' '.join(o['bulgu'] for o in out)
+    return Result(f'{len(out)} incremental model; {sum(bool(o["bulgu"]) for o in out)} modelde risk', ['model', 'strateji', 'unique_key', 'on_schema_change', 'bulgu', 'uyari'], out,
+                  {'artimli_model': len(out), 'sorunlu': sum(bool(o['bulgu']) for o in out), 'unique_key_yok': flags.count('unique_key yok'),
+                   'filtre_yok': flags.count('filtresi yok'), 'geri_bakis_yok': flags.count('geri bakış yok'), 'sema_ayari_yok': sum(bool(o['uyari']) for o in out)},
+                  notes=['Geri bakış kontrolü, is_incremental() bloğundaki ilk 400 karakterde interval/dateadd/var() gibi bir pencere arar; özel makrolar kullanıyorsanız elle doğrulayın.'])

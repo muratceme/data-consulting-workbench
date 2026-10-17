@@ -358,3 +358,43 @@ def alerts(columns, rows, args):
     out.sort(key=lambda o: -o['adet'])
     return Result(f'{sum(o["adet"] for o in out)} alarm, {len(out)} tür; {sum(bool(o["oneri"]) for o in out)} gürültülü tür', list(out[0]), out,
                   {'alarm': sum(o['adet'] for o in out), 'tur': len(out), 'gurultulu': sum(bool(o['oneri']) for o in out), 'onaysiz': sum(o['onaysiz'] for o in out)})
+
+
+def rank(vals, q):
+    s = sorted(vals)
+    return s[min(len(s) - 1, max(0, int(-(-len(s) * q // 1)) - 1))] if s else None  # nearest rank
+
+
+@op('uctan-uca-gecikme', title='Olay zamanından yükleme zamanına uçtan uca veri gecikmesi (p50/p95, SLA)', domain=D, product=P, tag='veri gecikmesi',
+    samples={'yukleme_gecikmesi.csv': 'yukleme_gecikmesi.csv'},
+    args=[arg('--table', default='tablo'), arg('--event', default='olay_zamani', help='Kaydın kaynakta oluştuğu zaman'), arg('--loaded', default='yukleme_zamani', help='Ambara/lake’e yüklendiği zaman'),
+          arg('--sla', type=float, default=60, help='Kabul edilen en uzun gecikme (dakika)')],
+    description='Kayıt veya parti bazında olay zamanı ile yükleme zamanı arasındaki farkı tablo bazında ölçer; p50, p95 ve en yüksek gecikmeyi, SLA’yı aşan kayıt sayısını ve oranını verir. Yükleme zamanı olay zamanından önce olan kayıtları (saat dilimi/saat kayması) ayrıca sayar ve istatistiğe katmaz. Gerçek zamanlıya yakın panoların ne kadar “taze” olduğunu kanıtlamak için.',
+    input='Kayıtlar (tablo, olay zamanı, yükleme zamanı)', output='sonuc.csv (tablo bazında gecikme)', command='python main.py --input latency_sample.csv --sla 15',
+    expect={'tablo': 3, 'kayit': 20, 'sla_ihlal': 7, 'saat_kaymasi': 1, 'en_kotu_tablo': 'stok'})
+def latency(columns, rows, args):
+    tc, ec, lc = need(args.table, columns, '--table'), need(args.event, columns, '--event'), need(args.loaded, columns, '--loaded')
+    lat, skew, bad = defaultdict(list), Counter(), 0
+    for r in rows:
+        e, l = tabular.parse_date(r[ec]), tabular.parse_date(r[lc])
+        if not e or not l:
+            bad += 1
+            continue
+        m = (l[0] - e[0]).total_seconds() / 60
+        if m < 0:
+            skew[r[tc].strip()] += 1
+        else:
+            lat[r[tc].strip()].append(m)
+    if not lat:
+        raise ValueError('Gecikmesi hesaplanabilen kayıt yok.')
+    out = []
+    for t in sorted(lat.keys() | skew.keys()):
+        v = lat.get(t, [])
+        breach = sum(x > args.sla for x in v)
+        out.append({'tablo': t, 'kayit': len(v), 'p50_dk': round(rank(v, 0.5), 1) if v else '', 'p95_dk': round(rank(v, 0.95), 1) if v else '', 'en_yuksek_dk': round(max(v), 1) if v else '',
+                    'sla_ihlal': breach, 'ihlal_%': round(100 * breach / len(v), 1) if v else '', 'saat_kaymasi': skew[t], 'durum': 'SLA aşılıyor' if breach else 'uygun'})
+    out.sort(key=lambda o: -(o['p95_dk'] or 0))
+    return Result(f'{len(out)} tablo; en kötü p95 {out[0]["tablo"]} ({fmt(out[0]["p95_dk"])} dk), {sum(o["sla_ihlal"] for o in out)} kayıt SLA’yı ({fmt(args.sla)} dk) aşıyor', list(out[0]), out,
+                  {'tablo': len(out), 'kayit': sum(o['kayit'] for o in out) + sum(skew.values()), 'sla_ihlal': sum(o['sla_ihlal'] for o in out), 'saat_kaymasi': sum(skew.values()),
+                   'en_kotu_tablo': out[0]['tablo'], 'okunamayan': bad},
+                  notes=['Yüzdelikler en yakın sıra yöntemiyle hesaplanır. Saat kayması sayılan kayıtlar genelde kaynak ile ambar arasındaki saat dilimi (UTC/yerel) farkından gelir; düzeltilmeden gecikme ölçümü yanıltıcıdır.'])

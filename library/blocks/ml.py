@@ -453,3 +453,45 @@ def fairness(columns, rows, args):
                    'max_tpr_farki': round(max(tprs) - min(tprs), 4) if tprs else None, 'max_fpr_farki': round(max(fprs) - min(fprs), 4) if fprs else None},
                   notes=['Etki oranı = grubun seçilme oranı / en yüksek grup seçilme oranı; 0,8 altı ABD 4/5 kuralında olumsuz etki işaretidir. Tek bir ölçüt adaleti kanıtlamaz; TPR (fırsat eşitliği) ve FPR farklarına birlikte bakın.',
                          'Az kayıtlı gruplarda oranlar oynaktır; korunan özelliği modelde kullanmamak dolaylı ayrımcılığı önlemez.'])
+
+
+@op('tahmin-araligi-kapsama', title='Regresyon tahmin aralıklarının kapsama oranı, genişliği ve Winkler skoru', domain=D, product=P, tag='tahmin aralığı',
+    samples={'tahmin_araliklari.csv': 'tahmin_araliklari.csv'},
+    args=[arg('--actual', default='gercek'), arg('--lower', default='alt'), arg('--upper', default='ust'), arg('--segment', default='segment', help='Kırılım (boş bırakılabilir)'),
+          arg('--nominal', type=float, default=90, help='Aralığın hedef kapsama oranı (yüzde)')],
+    description='Talep, fiyat veya süre tahminlerinin alt/üst aralıklarını gerçekleşenle karşılaştırır; gerçek değerin aralık içinde kalma oranını (kapsama) hedef orana göre, ortalama aralık genişliğini, aşağı ve yukarı kaçan kayıtları ve kapsama ile genişliği birlikte ölçen Winkler skorunu verir; segment bazında kırar. Aralığın gereğinden dar (aşırı güvenli) veya geniş olduğunu görmek için.',
+    input='Tahmin aralıkları (gerçek, alt, üst; isteğe bağlı segment)', output='sonuc.csv (segment bazında kapsama)', command='python main.py --input forecast_pi.csv --lower p05 --upper p95 --nominal 90',
+    expect={'kayit': 20, 'kapsama_%': 75.0, 'asagi_kacan': 2, 'yukari_kacan': 3, 'ortalama_genislik': 20.0, 'winkler': 35.0})
+def interval_coverage(columns, rows, args):
+    y, lo, hi = (numbers(rows, need(c, columns, f)) for c, f in ((args.actual, '--actual'), (args.lower, '--lower'), (args.upper, '--upper')))
+    seg = need(args.segment, columns, '--segment') if args.segment else None
+    alpha = 1 - args.nominal / 100
+    if not 0 < alpha < 1:
+        raise ValueError('--nominal 0 ile 100 arasında olmalı.')
+    groups, swapped = defaultdict(list), 0
+    for r, a, l, h in zip(rows, y, lo, hi):
+        if a is None or l is None or h is None:
+            continue
+        if l > h:
+            l, h, swapped = h, l, swapped + 1
+        score = (h - l) + (2 / alpha) * (l - a if a < l else a - h if a > h else 0)
+        item = (a < l, a > h, h - l, score)
+        groups['(tümü)'].append(item)
+        if seg:
+            groups[r[seg].strip() or '(boş)'].append(item)
+    if not groups:
+        raise ValueError('Gerçek, alt ve üst değeri okunabilen satır yok.')
+    out = []
+    for name, items in groups.items():
+        n = len(items)
+        cov = 100 * sum(not b and not u for b, u, _, _ in items) / n
+        out.append({'segment': name, 'kayit': n, 'kapsama_%': round(cov, 2), 'hedef_%': args.nominal, 'asagi_kacan': sum(b for b, _, _, _ in items),
+                    'yukari_kacan': sum(u for _, u, _, _ in items), 'ortalama_genislik': round(sum(w for _, _, w, _ in items) / n, 4),
+                    'winkler': round(sum(s for _, _, _, s in items) / n, 4), 'durum': 'aralık dar (aşırı güvenli)' if cov < args.nominal - 5 else 'aralık geniş' if cov > args.nominal + 5 else 'uygun'})
+    out.sort(key=lambda o: (o['segment'] != '(tümü)', o['kapsama_%']))
+    t = out[0]
+    return Result(f'{t["kayit"]} tahmin; kapsama %{fmt(t["kapsama_%"])} (hedef %{fmt(args.nominal)}), ortalama genişlik {fmt(t["ortalama_genislik"])}', list(t), out,
+                  {'kayit': t['kayit'], 'kapsama_%': t['kapsama_%'], 'asagi_kacan': t['asagi_kacan'], 'yukari_kacan': t['yukari_kacan'], 'ortalama_genislik': t['ortalama_genislik'],
+                   'winkler': t['winkler'], 'ters_aralik': swapped},
+                  notes=['Winkler skoru = genişlik + (2/α) × aralık dışında kalma mesafesi; düşük olan daha iyidir ve iki yöntemi aynı veride karşılaştırmak için kullanılır.',
+                         'Kapsama hedefin ±5 puanı dışındaysa durum işaretlenir. Az kayıtlı segmentlerde kapsama oranı oynaktır.'])

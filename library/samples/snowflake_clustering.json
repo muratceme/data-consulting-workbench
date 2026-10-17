@@ -1,0 +1,39 @@
+[
+  {
+    "tablo": "SATIS",
+    "clustering_information": {
+      "cluster_by_keys": "LINEAR(tarih)",
+      "total_partition_count": 1200,
+      "total_constant_partition_count": 900,
+      "average_overlaps": 1.2,
+      "average_depth": 1.8,
+      "partition_depth_histogram": {
+        "00000": 0,
+        "00001": 900,
+        "00002": 200,
+        "00003": 60,
+        "00004": 40
+      }
+    }
+  },
+  {
+    "tablo": "OLAY",
+    "clustering_information": "{\"cluster_by_keys\": \"LINEAR(olay_zamani)\", \"total_partition_count\": 5000, \"total_constant_partition_count\": 50, \"average_overlaps\": 120.3, \"average_depth\": 64.5, \"partition_depth_histogram\": {\"00001\": 50, \"00002\": 150, \"00004\": 300, \"00008\": 500, \"00016\": 1000, \"00032\": 1500, \"00064\": 1500}}"
+  },
+  {
+    "tablo": "MUSTERI",
+    "clustering_information": {
+      "cluster_by_keys": "LINEAR(bolge, segment)",
+      "total_partition_count": 300,
+      "total_constant_partition_count": 60,
+      "average_overlaps": 8.0,
+      "average_depth": 6.2,
+      "partition_depth_histogram": {
+        "00001": 60,
+        "00002": 40,
+        "00004": 100,
+        "00008": 100
+      }
+    }
+  }
+]

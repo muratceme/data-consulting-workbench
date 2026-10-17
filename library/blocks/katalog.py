@@ -452,3 +452,49 @@ def grant_diff(columns, rows, args):
                    'ayricalikli_eklenen': sum(r['ayricalikli'] == 'evet' for r in added), 'yeni_kullanici': len(new_users - old_users), 'cikan_kullanici': len(old_users - new_users)},
                   notes=['Yetki adları büyük/küçük harf ve boşluk farkı gözetilmeden karşılaştırılır. Rol üyelikleriyle gelen dolaylı yetkiler, dışa aktarım rolleri açmıyorsa görünmez.',
                          'Her ayrıcalıklı ekleme için onaylı talep kaydı (erisim-talep-denetimi bloğu) bulunmalıdır.'])
+
+
+@op('istisna-kaydi-kontrol', title='Veri politikası istisna kaydında süresi dolan, onaysız ve süresiz istisnalar', domain=D, product=P, tag='istisna kaydı',
+    samples={'politika_istisnalari.csv': 'politika_istisnalari.csv'},
+    args=[arg('--id', default='istisna_no'), arg('--requester', default='talep_eden'), arg('--approver', default='onaylayan'), arg('--start', default='baslangic'),
+          arg('--end', default='bitis'), arg('--status', default='durum'), arg('--active', default='aktif,açık,acik,onaylandı,onaylandi', help='Aktif sayılan durumlar'),
+          arg('--as-of', default='2026-10-16'), arg('--warn-days', type=int, default=30), arg('--max-days', type=int, default=365)],
+    description='Maskeleme, saklama süresi, erişim veya kalite politikalarına verilen istisnaların kaydını denetler: süresi dolduğu hâlde aktif görünen, önümüzdeki N günde dolacak, onaylayanı boş, talep edenin kendisinin onayladığı, bitiş tarihi olmayan ve izin verilen en uzun süreyi aşan istisnaları listeler. Denetim öncesi istisna temizliği için.',
+    input='İstisna kaydı (no, politika, talep eden, onaylayan, başlangıç, bitiş, durum)', output='sonuc.csv (bulgular)', command='python main.py --input exceptions.xlsx --as-of 2026-12-31 --warn-days 45',
+    expect={'istisna': 8, 'aktif': 7, 'sorunlu': 6, 'suresi_gecmis': 1, 'yaklasan': 1, 'onaysiz': 1, 'kendi_onayi': 1, 'suresiz': 1, 'uzun': 1})
+def exceptions(columns, rows, args):
+    ic, rq, ap = need(args.id, columns, '--id'), need(args.requester, columns, '--requester'), need(args.approver, columns, '--approver')
+    sc, ec, st = need(args.start, columns, '--start'), need(args.end, columns, '--end'), need(args.status, columns, '--status')
+    active = {fold(x).strip() for x in args.active.split(',') if x.strip()}
+    as_of = (tabular.parse_date(args.as_of) or (None,))[0]
+    if not as_of:
+        raise ValueError(f'--as-of "{args.as_of}" tarih olarak okunamadı.')
+    out, n_active = [], 0
+    kinds = Counter()
+    for r in rows:
+        if fold(r[st]).strip() not in active:
+            continue
+        n_active += 1
+        s, e = tabular.parse_date(r[sc]), tabular.parse_date(r[ec]) if r[ec].strip() else None
+        issues = []
+        if e is None:
+            issues.append(('süresiz', 'bitiş tarihi yok'))
+        elif e[0] < as_of:
+            issues.append(('süresi geçti', f'{(as_of - e[0]).days} gün önce doldu, hâlâ aktif'))
+        elif (e[0] - as_of).days <= args.warn_days:
+            issues.append(('yaklaşıyor', f'{(e[0] - as_of).days} gün içinde doluyor'))
+        if s and e and (e[0] - s[0]).days > args.max_days:
+            issues.append(('çok uzun', f'{(e[0] - s[0]).days} gün (en fazla {args.max_days})'))
+        if not r[ap].strip():
+            issues.append(('onaysız', 'onaylayan boş'))
+        elif fold(r[ap]).strip() == fold(r[rq]).strip():
+            issues.append(('kendi onayı', 'talep eden kendi istisnasını onaylamış'))
+        for kind, detail in issues:
+            kinds[kind] += 1
+            out.append({'istisna': r[ic].strip(), 'bulgu': kind, 'detay': detail, 'talep_eden': r[rq].strip(), 'onaylayan': r[ap].strip(), 'bitis': r[ec].strip()})
+    order = {'süresi geçti': 0, 'onaysız': 1, 'kendi onayı': 2, 'süresiz': 3, 'çok uzun': 4, 'yaklaşıyor': 5}
+    out.sort(key=lambda o: (order[o['bulgu']], o['istisna']))
+    return Result(f'{len(rows)} istisna ({n_active} aktif); {len({o["istisna"] for o in out})} istisnada bulgu', ['istisna', 'bulgu', 'detay', 'talep_eden', 'onaylayan', 'bitis'], out,
+                  {'istisna': len(rows), 'aktif': n_active, 'sorunlu': len({o['istisna'] for o in out}), 'suresi_gecmis': kinds['süresi geçti'], 'yaklasan': kinds['yaklaşıyor'],
+                   'onaysiz': kinds['onaysız'], 'kendi_onayi': kinds['kendi onayı'], 'suresiz': kinds['süresiz'], 'uzun': kinds['çok uzun']},
+                  notes=['Yalnızca aktif durumdaki istisnalar denetlenir. Süresi geçmiş istisnaya dayanan erişim veya maskeleme muafiyetini kapatın ya da yeniden onaya gönderin.'])

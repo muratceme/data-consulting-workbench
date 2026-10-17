@@ -1,0 +1,6 @@
+tarih;kaynak_bolge;hedef_bolge;gb;aciklama
+2026-10-01;eu-central-1;internet;500;web trafiği
+2026-10-01;eu-central-1;us-east-1;1200;replikasyon
+2026-10-01;eu-central-1;eu-central-1;3000;AZ arası
+2026-10-01;us-east-1;internet;100;API
+2026-10-02;eu-central-1;us-east-1;800;replikasyon
