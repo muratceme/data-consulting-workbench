@@ -609,3 +609,83 @@ def guven(columns, rows, args):
            {'olcu': 'medyan (bootstrap)', 'tahmin': round(d['medyan'], 2), 'alt': round(q(medians)[0], 2), 'ust': round(q(medians)[1], 2)}]
     return Result(f"Ortalama {fmt(round(d['ortalama'], 2))}; %{100 * args.level:.0f} GA {fmt(round(lo_t, 2))} – {fmt(round(hi_t, 2))}", list(out[0]), out,
                   {'n': len(v), 'ortalama': round(d['ortalama'], 2), 'ga_alt': round(lo_t, 2), 'ga_ust': round(hi_t, 2)})
+
+
+@op('normallik-testi', title='Sayısal sütunlarda normallik: çarpıklık, basıklık ve Jarque-Bera testi', domain=D, product=P, tag='normallik', samples={'olcumler.csv': 'olcumler.csv'},
+    args=[arg('--columns', default='', help='Test edilecek sütunlar (boşsa tüm sayısal sütunlar)'), arg('--alpha', type=float, default=0.05)],
+    description='Her sayısal sütun için çarpıklığı, fazla basıklığı ve Jarque-Bera istatistiğini hesaplar; p-değeri anlamlılık düzeyinin altındaysa normal dağılım varsayımını reddeder ve ortalama/medyan farkıyla yönü (sağa/sola çarpık, kalın kuyruk) yazar. t-testi, ANOVA veya doğrusal regresyon öncesi varsayım kontrolü ve parametrik/parametrik olmayan test seçimi için.',
+    input='CSV/XLSX + sayısal sütunlar', output='sonuc.csv (sütun bazında normallik)', command='python main.py --input olcum.csv --columns sure,tutar --alpha 0.01',
+    expect={'sutun': 2, 'normal_degil': 1})
+def normality(columns, rows, args):
+    cols = col_list(args.columns, columns, '--columns') if args.columns else columns
+    out = []
+    for c in cols:
+        vals = [v for v in numbers(rows, c) if v is not None]
+        filled = sum(bool(r[c].strip()) for r in rows)
+        if len(vals) < 8 or len(vals) < 0.8 * max(filled, 1):
+            continue
+        n = len(vals)
+        m = sum(vals) / n
+        m2 = sum((x - m) ** 2 for x in vals) / n
+        if m2 == 0:
+            continue
+        skew = sum((x - m) ** 3 for x in vals) / n / m2 ** 1.5
+        kurt = sum((x - m) ** 4 for x in vals) / n / m2 ** 2 - 3
+        jb = n / 6 * (skew ** 2 + kurt ** 2 / 4)
+        p = math.exp(-jb / 2)
+        med = sorted(vals)[n // 2] if n % 2 else sum(sorted(vals)[n // 2 - 1:n // 2 + 1]) / 2
+        shape = ('sağa çarpık' if skew > 0.5 else 'sola çarpık' if skew < -0.5 else 'simetrik') + (', kalın kuyruklu' if kurt > 1 else ', ince kuyruklu' if kurt < -1 else '')
+        out.append({'sutun': c, 'n': n, 'ortalama': round(m, 4), 'medyan': round(med, 4), 'carpiklik': round(skew, 4), 'basiklik': round(kurt, 4), 'jarque_bera': round(jb, 4),
+                    'p_degeri': round(p, 6), 'sonuc': 'normal değil' if p < args.alpha else 'normal reddedilemez', 'sekil': shape})
+    if not out:
+        raise ValueError('En az 8 sayısal değeri olan sütun yok.')
+    out.sort(key=lambda o: o['p_degeri'])
+    bad = sum(o['sonuc'] == 'normal değil' for o in out)
+    return Result(f'{len(out)} sütun; {bad} sütunda normallik reddedildi (α={fmt(args.alpha)})', list(out[0]), out, {'sutun': len(out), 'normal_degil': bad},
+                  notes=['Jarque-Bera büyük örneklemde küçük sapmaları da anlamlı bulur, küçük örneklemde (n < 30) gücü düşüktür; histogram bloğuyla dağılıma bakın. Normal değilse Mann-Whitney gibi parametrik olmayan testleri kullanın.'])
+
+
+@op('mann-whitney', title='İki grup için Mann-Whitney U testi (parametrik olmayan) ve etki büyüklüğü', domain=D, product=P, tag='Mann-Whitney', samples={'teslim_sureleri.csv': 'teslim_sureleri.csv'},
+    args=[arg('--group', default='depo'), arg('--value', default='sure_saat'), arg('--a', default='', help='Birinci grup (boşsa alfabetik ilk)'), arg('--b', default='', help='İkinci grup')],
+    description='Normal dağılmayan veya aykırı değer içeren ölçümlerde (teslim süresi, sepet tutarı, bekleme süresi) iki grubun dağılımını sıralara dayalı Mann-Whitney U testiyle karşılaştırır; bağ (tie) düzeltmeli normal yaklaşımla iki yönlü p-değeri, medyanları, üstünlük olasılığını (A grubundan rastgele bir değerin B’den büyük olma olasılığı) ve r etki büyüklüğünü verir.',
+    input='Grup ve ölçüm sütunu olan CSV/XLSX', output='sonuc.csv (grup özeti) + test sonucu', command='python main.py --group kanal --value sepet --a web --b magaza',
+    expect={'n_a': 12, 'n_b': 12, 'u': 7.5, 'p_degeri': 0.0002, 'ustunluk': 0.0521})
+def mann_whitney(columns, rows, args):
+    g, v = need(args.group, columns, '--group'), need(args.value, columns, '--value')
+    groups = defaultdict(list)
+    for r, x in zip(rows, numbers(rows, v)):
+        if x is not None and r[g].strip():
+            groups[r[g].strip()].append(x)
+    names = sorted(groups)
+    a = args.a or (names[0] if names else '')
+    b = args.b or next((n for n in names if n != a), '')
+    if a not in groups or b not in groups:
+        raise ValueError(f'İki grup bulunamadı; gruplar: {", ".join(names)}')
+    xa, xb = groups[a], groups[b]
+    n1, n2 = len(xa), len(xb)
+    pooled = sorted([(x, 0) for x in xa] + [(x, 1) for x in xb])
+    ranks, i, ties = [0.0] * len(pooled), 0, 0.0
+    while i < len(pooled):
+        j = i
+        while j + 1 < len(pooled) and pooled[j + 1][0] == pooled[i][0]:
+            j += 1
+        for k in range(i, j + 1):
+            ranks[k] = (i + j) / 2 + 1
+        t = j - i + 1
+        ties += t ** 3 - t
+        i = j + 1
+    r1 = sum(r for r, (_, grp) in zip(ranks, pooled) if grp == 0)
+    u1 = r1 - n1 * (n1 + 1) / 2
+    n = n1 + n2
+    mu = n1 * n2 / 2
+    sigma = math.sqrt(n1 * n2 / 12 * ((n + 1) - ties / (n * (n - 1))))
+    z = (u1 - mu - math.copysign(0.5, u1 - mu)) / sigma if sigma and u1 != mu else 0.0
+    p = 2 * (1 - N.cdf(abs(z)))
+    med = lambda s: sorted(s)[len(s) // 2] if len(s) % 2 else sum(sorted(s)[len(s) // 2 - 1:len(s) // 2 + 1]) / 2
+    out = [{'grup': k, 'n': len(s), 'medyan': round(med(s), 4), 'ortalama': round(sum(s) / len(s), 4), 'ortalama_sira': round(sum(r for r, (_, grp) in zip(ranks, pooled) if grp == idx) / len(s), 2)}
+           for idx, (k, s) in enumerate(((a, xa), (b, xb)))]
+    sup = u1 / (n1 * n2)
+    return Result(f'{a} vs {b}: U={fmt(u1)}, p={p:.4f} → {stars(p)}; {a} değerinin {b} değerinden büyük olma olasılığı %{fmt(round(100 * sup, 1))}', list(out[0]), out,
+                  {'grup_a': a, 'grup_b': b, 'n_a': n1, 'n_b': n2, 'u': round(u1, 2), 'z': round(z, 4), 'p_degeri': round(p, 4), 'ustunluk': round(sup, 4),
+                   'etki_r': round(abs(z) / math.sqrt(n), 4)},
+                  notes=['U, birinci grubun (A) sıra toplamından hesaplanır; üstünlük = U / (nA·nB). r etki büyüklüğü ≈ 0,1 küçük, 0,3 orta, 0,5 büyük. Normal yaklaşım bağ düzeltmeli ve süreklilik düzeltmelidir; çok küçük gruplarda (n < 8) kesin test tercih edilmelidir.'])

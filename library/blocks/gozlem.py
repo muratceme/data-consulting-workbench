@@ -1,6 +1,7 @@
 """Veri gözlemlenebilirliği blokları: tazelik SLA, hacim anomalisi, şema değişikliği, NULL oranı, iş çalışma geçmişi ve log hata özeti.
 Metadata dışa aktarımları ve log dosyaları üzerinde çalışır."""
-import re
+import math, re
+from statistics import NormalDist
 from collections import Counter, defaultdict
 from pathlib import Path
 from datetime import datetime
@@ -398,3 +399,50 @@ def latency(columns, rows, args):
                   {'tablo': len(out), 'kayit': sum(o['kayit'] for o in out) + sum(skew.values()), 'sla_ihlal': sum(o['sla_ihlal'] for o in out), 'saat_kaymasi': sum(skew.values()),
                    'en_kotu_tablo': out[0]['tablo'], 'okunamayan': bad},
                   notes=['Yüzdelikler en yakın sıra yöntemiyle hesaplanır. Saat kayması sayılan kayıtlar genelde kaynak ile ambar arasındaki saat dilimi (UTC/yerel) farkından gelir; düzeltilmeden gecikme ölçümü yanıltıcıdır.'])
+
+
+@op('degisim-noktasi', title='Günlük metrik serisinde kalıcı seviye değişimi (değişim noktası)', domain=D, product=P, tag='değişim noktası',
+    samples={'gunluk_metrik.csv': 'gunluk_metrik.csv'},
+    args=[arg('--table', default='tablo', help='Seri kimliği (tablo, metrik)'), arg('--date', default='tarih'), arg('--value', default='satir'),
+          arg('--min-change', type=float, default=10, help='Bu yüzdeden küçük seviye farkı raporlanmaz'), arg('--min-segment', type=int, default=5, help='Değişimden önce ve sonra en az gün')],
+    description='Tablo/metrik bazında günlük serilerde (satır sayısı, null oranı, gelir) tek seferlik sıçramadan farklı olarak kalıcı seviye değişimini arar: seriyi iki parçaya bölen ve kare hata toplamını en çok düşüren günü bulur, iki parçanın ortalamasını Welch t-testiyle karşılaştırır. Değişim tarihi, önce/sonra ortalama ve yüzde değişimi verir; kaynak sistem değişikliği, filtre hatası veya kayıp entegrasyonu tespit etmek için.',
+    input='Günlük metrik (seri, tarih, değer)', output='sonuc.csv (seri bazında değişim noktası)', command='python main.py --input table_row_counts.csv --table table_name --value row_count --min-change 20',
+    expect={'seri': 2, 'degisen': 1, 'degisim_tarihi': '2026-09-19'})
+def change_point(columns, rows, args):
+    tc, dc = need(args.table, columns, '--table'), need(args.date, columns, '--date')
+    series = defaultdict(list)
+    for r, v in zip(rows, numbers(rows, need(args.value, columns, '--value'))):
+        d = tabular.parse_date(r[dc])
+        if d and v is not None:
+            series[r[tc].strip()].append((d[0], v))
+    out = []
+    for name, pts in sorted(series.items()):
+        pts.sort()
+        vals = [v for _, v in pts]
+        n = len(vals)
+        if n < 2 * args.min_segment:
+            continue
+        best, cut = None, None
+        for k in range(args.min_segment, n - args.min_segment + 1):
+            a, b = vals[:k], vals[k:]
+            ma, mb = sum(a) / len(a), sum(b) / len(b)
+            sse = sum((x - ma) ** 2 for x in a) + sum((x - mb) ** 2 for x in b)
+            if best is None or sse < best:
+                best, cut = sse, k
+        a, b = vals[:cut], vals[cut:]
+        ma, mb = sum(a) / len(a), sum(b) / len(b)
+        va, vb = sum((x - ma) ** 2 for x in a) / (len(a) - 1), sum((x - mb) ** 2 for x in b) / (len(b) - 1)
+        se = math.sqrt(va / len(a) + vb / len(b))
+        t = (mb - ma) / se if se else float('inf') if mb != ma else 0.0
+        p = 2 * (1 - NormalDist().cdf(abs(t))) if math.isfinite(t) else 0.0
+        pct = 100 * (mb - ma) / ma if ma else None
+        changed = pct is not None and abs(pct) >= args.min_change and p < 0.01
+        out.append({'seri': name, 'gun': n, 'degisim_tarihi': pts[cut][0].strftime('%Y-%m-%d') if changed else '', 'onceki_ortalama': round(ma, 2), 'sonraki_ortalama': round(mb, 2),
+                    'degisim_%': round(pct, 1) if pct is not None else '', 't': round(t, 2) if math.isfinite(t) else '', 'durum': 'kalıcı değişim' if changed else 'değişim yok'})
+    if not out:
+        raise ValueError(f'En az {2 * args.min_segment} günlük seri yok.')
+    out.sort(key=lambda o: (o['durum'] != 'kalıcı değişim', o['seri']))
+    changed = [o for o in out if o['durum'] == 'kalıcı değişim']
+    return Result(f'{len(out)} seri; {len(changed)} seride kalıcı seviye değişimi', list(out[0]), out,
+                  {'seri': len(out), 'degisen': len(changed), 'degisim_tarihi': changed[0]['degisim_tarihi'] if changed else ''},
+                  notes=['Değişim tarihi, yeni seviyenin ilk günüdür. Tek bir değişim noktası aranır; serideki birden çok kırılım için seriyi tarihten bölerek yeniden çalıştırın. Hafta içi/sonu döngüsü güçlü serilerde haftalık toplamla çalışın.'])

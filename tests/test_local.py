@@ -59,8 +59,8 @@ class LocalTestCase(unittest.TestCase):
 
 class PackageShape(LocalTestCase):
     def test_every_local_package_is_self_contained_and_has_no_network_code(self):
-        self.assertEqual(len([i for i in LOCAL if not i.get('op')]), 35)
-        self.assertEqual(sum(i['kind'] == 'agent' for i in LOCAL), 23)
+        self.assertEqual(len([i for i in LOCAL if not i.get('op')]), 40)
+        self.assertEqual(sum(i['kind'] == 'agent' for i in LOCAL), 28)
         self.assertEqual(len({i['id'] for i in LOCAL}), len(LOCAL))
         for item in LOCAL:
             names = local_package.files(item)
@@ -502,6 +502,13 @@ GOOD['kalite-kok-neden'] = {'ozet': 'Boş e-postalar çağrı merkezinden, negat
 GOOD['ab-test-karari'] = {'karar': 'fark yok: testi uzat veya sonlandır', 'ozet': 'B dönüşümü %5,30, A %5,00; fark istatistiksel olarak anlamlı değil (p 0,6677).', 'gerekceler': [{'metin': 'Güven aralığı -1,07 ile 1,67 puan arası; sıfırı içeriyor.', 'kanit': ['F3']}, {'metin': 'Gelir farkı da anlamlı değil (p 0,3441).', 'kanit': ['F5']}], 'riskler': ['Test erken sonlandırılırsa küçük etkiler kaçabilir.'], 'sonraki_adimlar': ['Gerekli örneklemi hesaplayıp testi uzatın.']}
 OUTPUTS.update({'sql-optimizasyon': 'optimizasyon.md', 'avro-sema-tasarimci': 'sema.avsc', 'rag-test-seti': 'test_seti.csv', 'kalite-kok-neden': 'kok-neden.md',
                 'ab-test-karari': 'ab-karar.md'})
+GOOD['veri-sozlesmesi-yazari'] = {'sozlesme': {'name': 'satis.siparis', 'owner': 'Satış Veri Ekibi', 'version': '1.0', 'min_rows': 1, 'columns': [{'name': 'siparis_id', 'type': 'integer', 'required': True, 'unique': True}, {'name': 'musteri_no', 'type': 'string', 'required': True, 'pattern': '^M[0-9]{3}$'}, {'name': 'tarih', 'type': 'date', 'required': True}, {'name': 'tutar', 'type': 'number', 'required': True, 'min': 0}, {'name': 'para_birimi', 'type': 'string', 'allowed': ['TRY', 'USD', 'EUR']}, {'name': 'durum', 'type': 'string', 'required': True, 'allowed': ['yeni', 'onaylandi', 'iptal']}, {'name': 'kanal', 'type': 'string', 'required': True, 'allowed': ['web', 'magaza']}]}, 'bilinen_ihlaller': [{'sutun': 'siparis_id', 'kural': 'tekil', 'gerekce': 'Üretici aynı siparişi iki kez gönderiyor; düzeltmeli.'}, {'sutun': 'musteri_no', 'kural': 'zorunlu', 'gerekce': 'Mağaza satışında müşteri no boş geliyor.'}, {'sutun': 'musteri_no', 'kural': 'desen', 'gerekce': 'M05 hatalı biçimli.'}, {'sutun': 'tarih', 'kural': 'tip', 'gerekce': 'Geçersiz tarih (13. ay).'}, {'sutun': 'tutar', 'kural': 'tip', 'gerekce': 'Sayı olmayan tutar.'}, {'sutun': 'tutar', 'kural': 'aralık', 'gerekce': 'Negatif tutar; iadeler ayrı akışta gelmeli.'}, {'sutun': 'para_birimi', 'kural': 'izin verilen değerler', 'gerekce': 'GBP desteklenmiyor.'}, {'sutun': 'durum', 'kural': 'izin verilen değerler', 'gerekce': 'Büyük harfli Onaylandi.'}], 'notlar': ['Tarih biçimi ISO 8601 olmalı.']}
+GOOD['butce-sapma-yorumu'] = {'ozet': 'Pazarlama giderleri YTD bütçeyi %15,6 aştı; diğer kalemler eşik içinde.', 'kalemler': [{'kalem': '760 / Merkez', 'degerlendirme': 'olumsuz', 'yorum': 'YTD sapma 99.748,00; son ayda %34,1 aşım.', 'olasi_neden': 'Olası kampanya harcaması.', 'aksiyon': 'Pazarlama bütçe sahibinden açıklama isteyin.', 'kanit': ['F5', 'F6']}, {'kalem': '600 / Merkez', 'degerlendirme': 'nötr', 'yorum': 'YTD %3,2 üzerinde ama son ay %-12,1 geride.', 'olasi_neden': 'Belirsiz.', 'aksiyon': 'Ekim satışlarını izleyin.', 'kanit': ['F1', 'F2']}]}
+GOOD['hesap-plani-esleyici'] = {'eslemeler': [{'yerel_kod': '1000', 'tdhp': '100', 'guven': 'yüksek', 'gerekce': ''}, {'yerel_kod': '1010', 'tdhp': '102', 'guven': 'yüksek', 'gerekce': ''}, {'yerel_kod': '1011', 'tdhp': '102', 'guven': 'yüksek', 'gerekce': ''}, {'yerel_kod': '1200', 'tdhp': '120', 'guven': 'yüksek', 'gerekce': ''}, {'yerel_kod': '1210', 'tdhp': '121', 'guven': 'yüksek', 'gerekce': ''}, {'yerel_kod': '1530', 'tdhp': '153', 'guven': 'yüksek', 'gerekce': ''}, {'yerel_kod': '1910', 'tdhp': '191', 'guven': 'yüksek', 'gerekce': ''}, {'yerel_kod': '2550', 'tdhp': '255', 'guven': 'yüksek', 'gerekce': ''}, {'yerel_kod': '2570', 'tdhp': '257', 'guven': 'yüksek', 'gerekce': ''}, {'yerel_kod': '3200', 'tdhp': '320', 'guven': 'yüksek', 'gerekce': ''}, {'yerel_kod': '3600', 'tdhp': '360', 'guven': 'yüksek', 'gerekce': ''}, {'yerel_kod': '3610', 'tdhp': '361', 'guven': 'yüksek', 'gerekce': ''}, {'yerel_kod': '3910', 'tdhp': '391', 'guven': 'yüksek', 'gerekce': ''}, {'yerel_kod': '6000', 'tdhp': '600', 'guven': 'yüksek', 'gerekce': ''}, {'yerel_kod': '6100', 'tdhp': '610', 'guven': 'yüksek', 'gerekce': ''}, {'yerel_kod': '7600', 'tdhp': '760', 'guven': 'yüksek', 'gerekce': ''}, {'yerel_kod': '7700', 'tdhp': '770', 'guven': 'yüksek', 'gerekce': ''}, {'yerel_kod': '9999', 'tdhp': 'eşlenemez', 'gerekce': 'Geçici aktarım hesabı; dönem sonunda sıfırlanmalı.'}], 'sorular': ['9999 hesabı dönem sonunda bakiye veriyor mu?']}
+GOOD['json-esleme-yazari'] = {'kayit_yolu': 'veri', 'acilim': 'kalemler', 'sutunlar': [{'sutun': 'siparis_id', 'yol': 'id', 'tip': 'metin', 'zorunlu': True}, {'sutun': 'siparis_tarihi', 'yol': 'tarih', 'tip': 'tarih', 'zorunlu': True}, {'sutun': 'musteri_no', 'yol': 'musteri.no', 'tip': 'metin', 'zorunlu': True}, {'sutun': 'musteri_sehir', 'yol': 'musteri.sehir', 'tip': 'metin'}, {'sutun': 'urun_kodu', 'yol': 'kalemler[].urun', 'tip': 'metin', 'zorunlu': True}, {'sutun': 'adet', 'yol': 'kalemler[].adet', 'tip': 'tam sayı', 'zorunlu': True}, {'sutun': 'birim_fiyat', 'yol': 'kalemler[].fiyat', 'tip': 'ondalık', 'zorunlu': True}, {'sutun': 'iptal', 'yol': 'iptal', 'tip': 'mantıksal'}], 'notlar': ['etiketler dizisi ayrı tabloya alınmalı.']}
+GOOD['bolumleme-danismani'] = {'bolum_sutunu': 'siparis_tarihi', 'ayrinti': 'ay', 'kume_sutunlari': ['bolge', 'urun_kodu'], 'gerekce': 'Sorguların çoğu tarih aralığı filtreliyor.', 'riskler': ['Ay içi dengesiz hacim.']}
+OUTPUTS.update({'veri-sozlesmesi-yazari': 'veri_sozlesmesi.json', 'butce-sapma-yorumu': 'butce-yorumu.md', 'hesap-plani-esleyici': 'hesap-eslemesi.csv',
+                'json-esleme-yazari': 'duz_tablo.csv', 'bolumleme-danismani': 'bolumleme.md'})
 KPI_ARGS = ('--data', 'ornek/satislar.csv')
 
 
@@ -660,6 +667,32 @@ class Agents(LocalTestCase):
         self.assertFalse(p.json('ab-karar.json')['anlamli'])
         self.assertIn('F4: İki oran z-testi p-değeri 0,6677', self.model.requests[-1]['body']['messages'][-1]['content'])
 
+    def test_sixth_batch_agents_validate_locally(self):
+        good = GOOD['veri-sozlesmesi-yazari']
+        p, done = self.run_agent('veri-sozlesmesi-yazari', '--yes', answers=[{**good, 'bilinen_ihlaller': good['bilinen_ihlaller'][:3]}, good])
+        self.ok(done)
+        self.assertIn('tutar / aralık [0, ]: 1 satır', self.model.requests[-1]['body']['messages'][-1]['content'])
+        self.assertEqual(len(p.json('veri_sozlesmesi.json')['columns']), 7)
+        p, done = self.run_agent('butce-sapma-yorumu', '--yes', answers=[GOOD['butce-sapma-yorumu']])
+        self.ok(done)
+        self.assertIn('F5: 760 / Merkez (Pazarlama Giderleri): gider; YTD bütçe 637.500,00', self.model.requests[-1]['body']['messages'][-1]['content'])
+        wrong = {'eslemeler': [{**i, 'tdhp': '320'} if i['yerel_kod'] == '1910' else i for i in GOOD['hesap-plani-esleyici']['eslemeler']]}
+        p, done = self.run_agent('hesap-plani-esleyici', '--yes', answers=[wrong, GOOD['hesap-plani-esleyici']])
+        self.ok(done)
+        self.assertIn('indirilecek/devreden KDV 190 veya 191 olmalı', self.model.requests[-1]['body']['messages'][-1]['content'])
+        rows = {r['kod']: r for r in p.csv('hesap-eslemesi.csv')}
+        self.assertEqual((rows['1910']['tdhp'], rows['9999']['guven']), ('191', 'eşlenemedi'))
+        p, done = self.run_agent('json-esleme-yazari', '--yes', answers=[GOOD['json-esleme-yazari']])
+        self.ok(done)
+        rows = p.csv('duz_tablo.csv')
+        self.assertEqual(len(rows), 8)  # 5 orders exploded into 8 order lines
+        self.assertEqual((rows[0]['urun_kodu'], rows[0]['iptal'], rows[-1]['musteri_sehir']), ('P-300', 'false', ''))
+        p, done = self.run_agent('bolumleme-danismani', '--yes', '--size-gb', '20', answers=[{**GOOD['bolumleme-danismani'], 'ayrinti': 'gün'}, GOOD['bolumleme-danismani']])
+        self.ok(done)
+        self.assertIn('küçük dosya sorunu', self.model.requests[-1]['body']['messages'][-1]['content'])  # 20 GB / 37 days < 1 GB per partition
+        self.assertEqual(p.json('bolumleme.json')['partitions'], 9)
+        self.assertIn('PARTITIONED BY (siparis_tarihi_ay)', p.out('ddl.sql').read_text(encoding='utf-8'))
+
     def test_invalid_answer_gets_one_corrective_retry(self):
         bad = {'sql': 'SELECT s.KalemlerToplamCiro FROM dbo.Siparisler s'}
         p, done = self.run_agent('sql-yazari', '--yes', answers=[bad, GOOD['sql-yazari']])
@@ -689,7 +722,12 @@ class Agents(LocalTestCase):
                              ('avro-sema-tasarimci', {'sema': {'type': 'record', 'name': 'X', 'fields': [{'name': 'olay_id', 'type': 'string'}]}}),
                              ('rag-test-seti', {'sorular': GOOD['rag-test-seti']['sorular'][:-1]}),
                              ('kalite-kok-neden', {**GOOD['kalite-kok-neden'], 'kurallar': GOOD['kalite-kok-neden']['kurallar'][:1]}),
-                             ('ab-test-karari', {**GOOD['ab-test-karari'], 'karar': 'deneyi yayına al'})]:
+                             ('ab-test-karari', {**GOOD['ab-test-karari'], 'karar': 'deneyi yayına al'}),
+                             ('veri-sozlesmesi-yazari', {**GOOD['veri-sozlesmesi-yazari'], 'bilinen_ihlaller': []}),
+                             ('butce-sapma-yorumu', {**GOOD['butce-sapma-yorumu'], 'kalemler': GOOD['butce-sapma-yorumu']['kalemler'][1:]}),
+                             ('hesap-plani-esleyici', {'eslemeler': GOOD['hesap-plani-esleyici']['eslemeler'][:-1]}),
+                             ('json-esleme-yazari', {**GOOD['json-esleme-yazari'], 'kayit_yolu': 'sayfa'}),
+                             ('bolumleme-danismani', {**GOOD['bolumleme-danismani'], 'ayrinti': 'gün', 'bolum_sutunu': 'durum'})]:
             with self.subTest(item_id):
                 p, done = self.run_agent(item_id, '--yes', answers=[bad, bad])
                 self.assertEqual(done.returncode, 1)

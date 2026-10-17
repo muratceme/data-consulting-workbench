@@ -593,3 +593,44 @@ def long_tx(columns, rows, args):
                    'sorunlu_oturum': len(out)},
                   files={'sonlandir.sql': '-- İNCELEME İÇİN: komutlar yorum satırıdır; uygulama sahibine sormadan çalıştırmayın.\n' + '\n\n'.join(kill) + '\n'},
                   notes=['idle in transaction oturumlar satır kilitlerini ve VACUUM’un temizleyebileceği en eski işlemi tutar; uygulama tarafında idle_in_transaction_session_timeout ayarlayın.'])
+
+
+IDXDEF = re.compile(r'CREATE\s+(UNIQUE\s+)?INDEX\s+(?:CONCURRENTLY\s+)?(?:IF\s+NOT\s+EXISTS\s+)?("?[\w.]+"?)\s+ON\s+(?:ONLY\s+)?([\w."]+)\s*(?:USING\s+(\w+)\s*)?\((.*?)\)\s*(?:INCLUDE\s*\((.*?)\))?\s*(?:WHERE\s+(.*))?$', re.I | re.S)
+
+
+@op('indeks-tekrari', title='Tekrarlanan ve başka bir indeksin kapsadığı (gereksiz) indeksler', domain='database', product=PG, tag='gereksiz indeks',
+    samples={'pg_indexes.csv': 'pg_indexes.csv'}, args=[arg('--def', dest='def_col', default='indexdef', help='CREATE INDEX tanımı sütunu')],
+    description='pg_indexes (veya başka bir veritabanının indeks tanımı) dökümündeki CREATE INDEX ifadelerini çözümler; aynı tablo, aynı sütun sırası, aynı yöntem ve aynı koşulla tanımlanmış tekrar indeksleri ve sütunları başka bir indeksin baş kısmında aynen bulunan (sol önek) kapsanan indeksleri bulur. Benzersiz ve kısmi (WHERE) indeksler kapsanan sayılmaz. Gereksiz indeksler yazma maliyetini ve disk kullanımını artırır.',
+    input='İndeks tanımları (pg_indexes: tablename, indexname, indexdef)', output='sonuc.csv (gereksiz indeks adayları) + kaldir.sql (inceleme için)', command='python main.py --input pg_indexes.csv',
+    expect={'indeks': 6, 'tekrar': 1, 'kapsanan': 1})
+def duplicate_indexes(columns, rows, args):
+    dc = need(args.def_col, columns, '--def')
+    idx = []
+    for r in rows:
+        m = IDXDEF.match(r[dc].strip().rstrip(';'))
+        if not m:
+            continue
+        cols = tuple(re.sub(r'\s+', ' ', c.strip().strip('"')).lower() for c in m.group(5).split(','))
+        idx.append({'ad': m.group(2).strip('"'), 'tablo': m.group(3).strip('"').lower(), 'unique': bool(m.group(1)), 'yontem': (m.group(4) or 'btree').lower(),
+                    'cols': cols, 'include': (m.group(6) or '').lower().replace(' ', ''), 'where': re.sub(r'\s+', ' ', (m.group(7) or '').strip().lower())})
+    if not idx:
+        raise ValueError('CREATE INDEX tanımı okunamadı.')
+    out, flagged = [], set()
+    for i, a in enumerate(idx):
+        for b in idx[:i]:
+            if (a['tablo'], a['yontem'], a['cols'], a['where']) == (b['tablo'], b['yontem'], b['cols'], b['where']) and not a['unique']:
+                out.append({'indeks': a['ad'], 'tablo': a['tablo'], 'sutunlar': ', '.join(a['cols']), 'bulgu': 'tekrar', 'karsilik': b['ad']})
+                flagged.add(a['ad'])
+                break
+    for a in idx:
+        if a['ad'] in flagged or a['unique'] or a['where']:
+            continue
+        for b in idx:
+            if b is not a and b['tablo'] == a['tablo'] and b['yontem'] == a['yontem'] == 'btree' and not b['where'] and len(b['cols']) > len(a['cols']) and b['cols'][:len(a['cols'])] == a['cols']:
+                out.append({'indeks': a['ad'], 'tablo': a['tablo'], 'sutunlar': ', '.join(a['cols']), 'bulgu': 'kapsanan (sol önek)', 'karsilik': b['ad']})
+                break
+    sql = '\n'.join(f"-- {o['bulgu']}: {o['karsilik']} aynı işi görüyor\n-- DROP INDEX CONCURRENTLY {o['indeks']};" for o in out)
+    return Result(f'{len(idx)} indeks; {sum(o["bulgu"] == "tekrar" for o in out)} tekrar, {sum(o["bulgu"] != "tekrar" for o in out)} kapsanan indeks', ['indeks', 'tablo', 'sutunlar', 'bulgu', 'karsilik'], out,
+                  {'indeks': len(idx), 'tekrar': sum(o['bulgu'] == 'tekrar' for o in out), 'kapsanan': sum(o['bulgu'] != 'tekrar' for o in out)},
+                  files={'kaldir.sql': '-- İNCELEME İÇİN: komutlar yorum satırıdır. Kaldırmadan önce indeks-kullanim-analizi ile kullanılmadığını ve kısıt (constraint) desteklemediğini doğrulayın.\n' + sql + '\n'},
+                  notes=['Kapsanan indeks, daha küçük olduğu için bazı sorgularda tercih ediliyor olabilir; kullanım istatistiğiyle birlikte karar verin. Yabancı anahtar sütunlarındaki indeksleri kaldırmak silme işlemlerini yavaşlatabilir.'])

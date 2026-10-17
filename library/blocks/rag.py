@@ -513,3 +513,32 @@ def coverage(columns, rows, args):
                   {'parca': len(ids), 'sorgu': len(queries), 'getirilen_parca': sum(1 for i in ids if hits[i]), 'hic_getirilmeyen': never, 'baskin_parca': lead['parca'],
                    'baskin_pay_%': lead['ilk_sira_pay_%'], 'bilinmeyen_parca': len(unknown)},
                   notes=['Hiç getirilmeyen parça, kimsenin sormadığı konu da olabilir; kullanıcı sorularında geçip geçmediğini kontrol edin. Baskın parça genelde fazla genel (her soruya benzeyen) bir metindir.'])
+
+
+@op('prompt-surum-karsilastirma', title='İki prompt/model sürümünü aynı sorularda karşılaştır (kazanma oranı, işaret testi)', domain=D, product=P, tag='prompt A/B',
+    samples={'prompt_degerlendirme.csv': 'prompt_degerlendirme.csv'},
+    args=[arg('--question', default='soru_id'), arg('--version', default='surum'), arg('--score', default='puan'), arg('--base', default='v1', help='Mevcut sürüm'),
+          arg('--candidate', default='v2', help='Aday sürüm'), arg('--alpha', type=float, default=0.05)],
+    description='Aynı değerlendirme sorularında iki prompt, model veya RAG ayarı sürümünün puanlarını soru bazında eşleştirir; adayın kazandığı, kaybettiği ve berabere kaldığı soru sayısını, ortalama puan farkını ve kesin iki yönlü işaret testi p-değerini verir; adayın gerilediği soruları listeler. Prompt değişikliğini yayına almadan önce şans eseri iyileşmeyi ayırt etmek için.',
+    input='Değerlendirme puanları (soru, sürüm, puan)', output='sonuc.csv (soru bazında fark) + özet', command='python main.py --input eval_scores.csv --base prompt_v3 --candidate prompt_v4',
+    expect={'soru': 12, 'kazanan': 9, 'kaybeden': 1, 'berabere': 2, 'p_degeri': 0.0215})
+def prompt_compare(columns, rows, args):
+    qc, vc = need(args.question, columns, '--question'), need(args.version, columns, '--version')
+    scores = defaultdict(dict)
+    for r, s in zip(rows, numbers(rows, need(args.score, columns, '--score'))):
+        if s is not None:
+            scores[r[qc].strip()][r[vc].strip()] = s
+    pairs = [(q, v[args.base], v[args.candidate]) for q, v in scores.items() if args.base in v and args.candidate in v]
+    if not pairs:
+        raise ValueError(f'"{args.base}" ve "{args.candidate}" sürümlerinin ikisinin de puanlandığı soru yok.')
+    out = [{'soru': q, args.base: a, args.candidate: b, 'fark': round(b - a, 4), 'sonuc': 'kazandı' if b > a else 'kaybetti' if b < a else 'berabere'} for q, a, b in pairs]
+    out.sort(key=lambda o: (o['fark'], o['soru']))
+    win, loss = sum(o['sonuc'] == 'kazandı' for o in out), sum(o['sonuc'] == 'kaybetti' for o in out)
+    n = win + loss
+    k = max(win, loss)
+    p = min(1.0, 2 * sum(math.comb(n, i) for i in range(k, n + 1)) / 2 ** n) if n else 1.0
+    diff = sum(o['fark'] for o in out) / len(out)
+    verdict = ('aday daha iyi' if win > loss else 'aday daha kötü') if p < args.alpha else 'fark kanıtlanamadı'
+    return Result(f'{args.candidate} vs {args.base}: {win} kazanç, {loss} kayıp, {len(out) - n} beraberlik; işaret testi p={p:.4f} → {verdict}', list(out[0]), out,
+                  {'soru': len(out), 'kazanan': win, 'kaybeden': loss, 'berabere': len(out) - n, 'ortalama_fark': round(diff, 4), 'p_degeri': round(p, 4), 'karar': verdict},
+                  notes=['İşaret testi yalnızca hangi sürümün daha iyi olduğuna bakar; puan farkının büyüklüğünü ortalama_fark gösterir. Kaybedilen soruları (tablonun başı) gerileme olarak inceleyin.'])

@@ -1,0 +1,7 @@
+tablename;indexname;indexdef
+siparis;siparis_pkey;CREATE UNIQUE INDEX siparis_pkey ON public.siparis USING btree (id)
+siparis;ix_siparis_musteri;CREATE INDEX ix_siparis_musteri ON public.siparis USING btree (musteri_id)
+siparis;ix_siparis_musteri_tarih;CREATE INDEX ix_siparis_musteri_tarih ON public.siparis USING btree (musteri_id, tarih)
+siparis;ix_siparis_musteri2;CREATE INDEX ix_siparis_musteri2 ON public.siparis USING btree (musteri_id)
+siparis;ix_siparis_acik;CREATE INDEX ix_siparis_acik ON public.siparis USING btree (durum) WHERE ((durum)::text = 'açık'::text)
+urun;ix_urun_kod;CREATE INDEX ix_urun_kod ON public.urun USING btree (kod)

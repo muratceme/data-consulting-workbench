@@ -285,3 +285,81 @@ def grid(columns, rows, args):
                   {'nokta': n, 'hucre': len(out), 'en_yogun_hucre': out[0]['hucre'], 'en_yogun_pay_%': out[0]['pay_%'], 'gecersiz': bad},
                   notes=['Geohash hücreleri dikdörtgendir ve kutuplara doğru daralır. Az noktalı hücreler kişiyi tanımlatabilir; paylaşmadan önce küçük hücreleri birleştirin veya kesinliği düşürün.',
                          '(0,0) ve aralık dışı koordinatlar geçersiz sayılır.'])
+
+
+@op('kapsama-alani', title='Müşterilerin en yakın mağaza/depoya uzaklığı ve hizmet alanı kapsaması', domain=D, product=P, tag='kapsama alanı',
+    samples={'musteri_konumlari.csv': 'musteri_konumlari.csv', 'magazalar.csv': 'magazalar.csv'},
+    args=[arg('--sites', default='@ornek/magazalar.csv', help='Mağaza/depo listesi (kimlik, enlem, boylam)'), arg('--id', default='musteri'), arg('--site-id', default='magaza'),
+          arg('--lat', default='enlem'), arg('--lon', default='boylam'), arg('--radius', type=float, default=10, help='Kapsama yarıçapı (km)')],
+    description='Her müşteri (veya adres) için kuş uçuşu en yakın mağaza/depoyu ve uzaklığını bulur; verilen yarıçap içinde kalan müşteri oranını (kapsama), ortalama ve en uzak mesafeyi, mağaza başına düşen müşteri sayısını ve kapsama dışındaki müşterileri listeler. Yeni şube yeri, teslimat bölgesi ve “X km içinde mağaza” hedefleri için.',
+    input='Müşteri konumları + mağaza konumları (enlem, boylam)', output='sonuc.csv (müşteri bazında en yakın mağaza) + mağaza tablosu', command='python main.py --input musteriler.csv --sites depolar.csv --site-id depo --radius 10',
+    expect={'musteri': 6, 'kapsanan': 4, 'kapsama_%': 66.67, 'en_uzak_km': 388.61})
+def coverage(columns, rows, args):
+    ic = args.id if args.id in columns else columns[0]
+    lat, lon = numbers(rows, need(args.lat, columns, '--lat')), numbers(rows, need(args.lon, columns, '--lon'))
+    scols, srows = tabular.read(args.sites)
+    sid = args.site_id if args.site_id in scols else scols[0]
+    slat, slon = numbers(srows, need(args.lat, scols, '--sites --lat')), numbers(srows, need(args.lon, scols, '--sites --lon'))
+    sites = [(r[sid].strip(), a, b) for r, a, b in zip(srows, slat, slon) if a is not None and b is not None]
+    if not sites:
+        raise ValueError('Koordinatı okunabilen mağaza yok.')
+    out, per_site = [], Counter()
+    for r, a, b in zip(rows, lat, lon):
+        if a is None or b is None:
+            continue
+        best = min(((haversine((a, b), (sa, sb)), s) for s, sa, sb in sites))
+        per_site[best[1]] += 1
+        out.append({'kimlik': r[ic].strip(), 'en_yakin': best[1], 'mesafe_km': round(best[0], 2), 'kapsamda': 'evet' if best[0] <= args.radius else 'hayır'})
+    if not out:
+        raise ValueError('Koordinatı okunabilen müşteri yok.')
+    out.sort(key=lambda o: -o['mesafe_km'])
+    covered = sum(o['kapsamda'] == 'evet' for o in out)
+    return Result(f'{len(out)} müşterinin {covered} tanesi {fmt(args.radius)} km içinde (%{fmt(round(100 * covered / len(out), 2))}); en uzak {fmt(out[0]["mesafe_km"])} km',
+                  ['kimlik', 'en_yakin', 'mesafe_km', 'kapsamda'], out,
+                  {'musteri': len(out), 'kapsanan': covered, 'kapsama_%': round(100 * covered / len(out), 2), 'ortalama_km': round(sum(o['mesafe_km'] for o in out) / len(out), 2),
+                   'en_uzak_km': out[0]['mesafe_km']},
+                  tables=[('Mağaza başına müşteri', ['Mağaza', 'Müşteri'], [[s, per_site[s]] for s, _, _ in sites])],
+                  notes=['Mesafe kuş uçuşudur (haversine); yol mesafesi şehir içinde genelde 1,3–1,5 katıdır. Hiç müşteri düşmeyen mağazalar tabloda 0 görünür.'])
+
+
+@op('konum-kumeleme', title='Nokta yoğunluğuna göre konum kümeleri (DBSCAN) ve gürültü noktaları', domain=D, product=P, tag='DBSCAN', samples={'olay_noktalari.csv': 'olay_noktalari.csv'},
+    args=[arg('--id', default='nokta'), arg('--lat', default='enlem'), arg('--lon', default='boylam'), arg('--eps', type=float, default=0.5, help='Komşuluk yarıçapı (km)'),
+          arg('--min-points', type=int, default=3, help='Küme çekirdeği için en az komşu sayısı (kendisi dahil)')],
+    description='Teslimat, arıza, kaza veya müşteri noktalarını yoğunluk temelli DBSCAN algoritmasıyla kümeler: birbirine eps km’den yakın en az N noktanın oluşturduğu bölgeleri küme, hiçbir kümeye girmeyenleri gürültü olarak işaretler; her küme için nokta sayısı, merkez ve yarıçapı verir. Sıcak bölge tespiti ve saha ekibi planlaması için; küme sayısını önceden vermek gerekmez.',
+    input='Noktalar (kimlik, enlem, boylam)', output='sonuc.csv (nokta bazında küme no) + küme özeti', command='python main.py --input ariza_noktalari.csv --eps 0.3 --min-points 5',
+    expect={'nokta': 14, 'kume': 3, 'gurultu': 2})
+def dbscan(columns, rows, args):
+    ic = args.id if args.id in columns else columns[0]
+    lat, lon = numbers(rows, need(args.lat, columns, '--lat')), numbers(rows, need(args.lon, columns, '--lon'))
+    pts = [(r[ic].strip(), a, b) for r, a, b in zip(rows, lat, lon) if a is not None and b is not None]
+    if len(pts) > 5000:
+        raise ValueError('En fazla 5000 nokta desteklenir (ikili mesafe hesabı); önce örnekleyin veya izgara-yogunluk bloğunu kullanın.')
+    near = [[j for j, q in enumerate(pts) if haversine(p[1:], q[1:]) <= args.eps] for p in pts]
+    label, cid = [None] * len(pts), 0
+    for i in range(len(pts)):
+        if label[i] is not None:
+            continue
+        if len(near[i]) < args.min_points:
+            label[i] = -1
+            continue
+        cid += 1
+        label[i], queue = cid, list(near[i])
+        while queue:
+            j = queue.pop()
+            if label[j] == -1:
+                label[j] = cid
+            if label[j] is not None:
+                continue
+            label[j] = cid
+            if len(near[j]) >= args.min_points:
+                queue.extend(near[j])
+    out = [{'kimlik': p[0], 'enlem': p[1], 'boylam': p[2], 'kume': f'K{label[i]}' if label[i] > 0 else 'gürültü'} for i, p in enumerate(pts)]
+    summary = []
+    for k in range(1, cid + 1):
+        members = [p for i, p in enumerate(pts) if label[i] == k]
+        c = (sum(p[1] for p in members) / len(members), sum(p[2] for p in members) / len(members))
+        summary.append([f'K{k}', len(members), round(c[0], 5), round(c[1], 5), round(max(haversine(c, p[1:]) for p in members), 3)])
+    noise = sum(l == -1 for l in label)
+    return Result(f'{len(pts)} nokta {cid} kümede; {noise} gürültü noktası', ['kimlik', 'enlem', 'boylam', 'kume'], out, {'nokta': len(pts), 'kume': cid, 'gurultu': noise},
+                  tables=[('Kümeler', ['Küme', 'Nokta', 'Merkez enlem', 'Merkez boylam', 'Yarıçap (km)'], summary)],
+                  notes=['eps küçüldükçe daha çok ve daha küçük küme, min-points büyüdükçe daha çok gürültü çıkar. Mesafe kuş uçuşudur.'])

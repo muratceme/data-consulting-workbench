@@ -616,3 +616,39 @@ def null_mapping(columns, rows, args):
     return Result(f'{len(pairs)} eşleşen satır, {len(cols)} sütun; {sum(o["toplam_degisim"] for o in out)} boş/NULL dönüşümü, {totals["veri_kaybi"]} veri kaybı', list(out[0]), out,
                   {'eslesen': len(pairs), 'sutun': len(cols), **{x: totals[x] for x in ('bos_null', 'null_bos', 'kirpma', 'veri_kaybi', 'varsayilan')}},
                   notes=['Dolu değerin boşa dönmesi (veri kaybı) her zaman incelenmelidir. Boş ↔ NULL dönüşümü raporlarda COUNT ve WHERE sonuçlarını değiştirir; hedef sistemin kuralını belirleyip tek tipe çevirin.'])
+
+
+MOJIBAKE = re.compile(r'Ã[\x80-\xbf¡-¿]|Ä[±°\x9f\x9e]|Å[\x9f\x9eŸŠžŽ]|Ã¶|Ã§|Ã¼|Ä±|Ä°|ÅŸ|Åž|ÄŸ|Äž|[ÝÞðýþ]|�')
+
+
+def repair(v):
+    """Undo the two common Turkish mis-decodings; return '' when no clean repair exists."""
+    for wrong, right in (('cp1252', 'utf-8'), ('latin-1', 'utf-8'), ('latin-1', 'cp1254')):
+        try:
+            fixed = v.encode(wrong).decode(right)
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            continue
+        if fixed != v and not MOJIBAKE.search(fixed):
+            return fixed
+    return ''
+
+
+@op('mojibake-tespiti', title='Geçiş sonrası bozuk Türkçe karakterleri (mojibake) bul ve onarım öner', domain=D, product=P, tag='karakter bozulması',
+    samples={'hedef_musteri_kodlama.csv': 'hedef_musteri_kodlama.csv'}, args=[arg('--columns', default='', help='Taranacak sütunlar (boşsa tüm metin sütunları)')],
+    description='Hedef sistemden alınan dışa aktarımda UTF-8 metnin Windows-1252/Latin-1 sanılarak okunmasıyla oluşan (AyÅŸe, YÄ±lmaz) ve Windows-1254 metnin Latin-1 sanılmasıyla oluşan (ÞÝ, ýð) bozulmaları ve değiştirme karakterini (�) bulur; sütun bazında etkilenen satır sayısını ve geri çevrilebilen değerler için onarılmış hâlini verir. Karakter kümesi ayarı yanlış yapılmış ETL/geçişleri yakalamak için.',
+    input='Hedef dışa aktarım (CSV/XLSX)', output='sonuc.csv (bozuk değerler ve onarım önerisi) + sütun özeti', command='python main.py --input hedef_musteri.csv --columns ad_soyad,adres',
+    expect={'satir': 8, 'bozuk_deger': 4, 'onarilabilen': 3, 'sutun': 2})
+def mojibake(columns, rows, args):
+    cols = col_list(args.columns, columns, '--columns') if args.columns else columns
+    out, per_col = [], Counter()
+    for i, r in enumerate(rows, start=2):
+        for c in cols:
+            v = r[c]
+            if v and MOJIBAKE.search(v):
+                fixed = repair(v)
+                per_col[c] += 1
+                out.append({'satir': i, 'sutun': c, 'deger': v[:60], 'onarim': fixed[:60], 'durum': 'onarılabilir' if fixed else 'elle düzeltilmeli'})
+    return Result(f'{len(rows)} satırda {len(out)} bozuk değer ({sum(bool(o["onarim"]) for o in out)} tanesi otomatik onarılabilir)', ['satir', 'sutun', 'deger', 'onarim', 'durum'], out,
+                  {'satir': len(rows), 'bozuk_deger': len(out), 'onarilabilen': sum(bool(o['onarim']) for o in out), 'sutun': len(per_col)},
+                  tables=[('Sütun bazında', ['Sütun', 'Bozuk değer'], per_col.most_common())],
+                  notes=['Onarım önerisi yalnızca tahmindir: ÃŸ gibi diziler UTF-8 metnin yanlış okunduğunu gösterir; asıl çözüm, aktarımın karakter kümesi ayarını (UTF-8) düzeltip veriyi yeniden yüklemektir. “�” içeren değerlerde bilgi kaybolmuştur, kaynaktan yeniden alınmalıdır.'])

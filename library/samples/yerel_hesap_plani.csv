@@ -1,0 +1,19 @@
+hesap_kodu;hesap_adi
+1000;Merkez Kasa
+1010;Garanti TL Vadesiz
+1011;İş Bankası USD Vadesiz
+1200;Yurtiçi Müşteriler
+1210;Müşteri Senetleri
+1530;Ticari Mal Stoku
+1910;İndirilecek KDV
+2550;Ofis Mobilyaları
+2570;Birikmiş Amortisman Demirbaş
+3200;Yurtiçi Tedarikçiler
+3600;Ödenecek Stopaj
+3610;SGK Primleri
+3910;Hesaplanan KDV
+6000;Yurtiçi Ürün Satışı
+6100;Satış İadeleri
+7600;Reklam Giderleri
+7700;Kira Gideri Merkez
+9999;Geçici Aktarım Hesabı
