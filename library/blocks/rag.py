@@ -356,3 +356,53 @@ def citations(columns, rows, args):
     return Result(f'{len(out)} cevap; {sum(o["durum"] == "UYDURMA ATIF" for o in out)} cevapta uydurma atıf, {sum(o["durum"] == "atıfsız" for o in out)} atıfsız', list(out[0]), out,
                   {'cevap': len(out), 'atifli': sum(bool(o['atif']) for o in out), 'uydurma_atif': total - good, 'atifsiz': sum(o['durum'] == 'atıfsız' for o in out),
                    'dogru_atif_%': round(100 * good / total, 1) if total else 0})
+
+
+POSITIVE = {'1', 'up', 'yes', 'evet', 'olumlu', 'iyi', 'like', '👍', 'true', '+1', '+'}
+NEGATIVE = {'0', 'down', 'no', 'hayir', 'olumsuz', 'kotu', 'dislike', '👎', 'false', '-1', '-'}
+
+
+def wilson_low(pos, n, z=1.96):
+    if not n:
+        return None
+    p = pos / n
+    return (p + z * z / (2 * n) - z * math.sqrt(p * (1 - p) / n + z * z / (4 * n * n))) / (1 + z * z / n)
+
+
+@op('geri-bildirim-analizi', title='Asistan/chatbot kullanıcı geri bildirimini konu bazında güven aralığıyla değerlendir', domain=D, product=P, tag='kullanıcı geri bildirimi',
+    samples={'llm_geri_bildirim.csv': 'llm_geri_bildirim.csv'},
+    args=[arg('--by', default='niyet', help='Gruplama sütunu (niyet, model, prompt sürümü…)'), arg('--rating', default='puan', help='Olumlu/olumsuz (1/0, up/down, 👍/👎)'),
+          arg('--second', default='model', help='İkinci kırılım (isteğe bağlı, boş bırakılabilir)'), arg('--min-n', type=int, default=5), arg('--min-score', type=float, default=0.5, help='Wilson alt sınırı bu değerin altındaysa sorunlu')],
+    description='LLM asistanına verilen beğendim/beğenmedim geri bildirimlerini konu (niyet), model veya prompt sürümüne göre gruplar; olumlu oranı ve az örnekli grupların yanıltmaması için Wilson %95 alt sınırını hesaplar. Alt sınırı eşiğin altında kalan konuları “sorunlu”, örneği az olanları “az veri” olarak ayırır; ikinci kırılımla (ör. model) karşılaştırma tablosu verir.',
+    input='Geri bildirim kayıtları (konu, puan; isteğe bağlı model)', output='sonuc.csv (konu bazında olumlu oran ve alt sınır)', command='python main.py --input feedback.csv --by intent --rating thumbs --second prompt_version',
+    expect={'geri_bildirim': 33, 'olumlu_%': 72.73, 'sorunlu_grup': 1, 'az_veri': 1})
+def feedback(columns, rows, args):
+    b, rc = need(args.by, columns, '--by'), need(args.rating, columns, '--rating')
+    sc = need(args.second, columns, '--second') if args.second else None
+    groups, second, skipped = defaultdict(lambda: [0, 0]), defaultdict(lambda: [0, 0]), 0
+    for r in rows:
+        v = fold(r[rc]).strip().lower()
+        if v not in POSITIVE and v not in NEGATIVE:
+            skipped += 1
+            continue
+        good = v in POSITIVE
+        for bucket, key in ((groups, r[b].strip() or '(boş)'), *(((second, (r[b].strip() or '(boş)', r[sc].strip() or '(boş)')),) if sc else ())):
+            bucket[key][0] += good
+            bucket[key][1] += 1
+    if not groups:
+        raise ValueError('Olumlu/olumsuz olarak okunabilen puan yok.')
+    out = []
+    for name, (pos, n) in groups.items():
+        low = wilson_low(pos, n)
+        status = 'az veri' if n < args.min_n else 'sorunlu' if low < args.min_score else 'iyi'
+        out.append({args.by: name, 'geri_bildirim': n, 'olumlu': pos, 'olumlu_%': round(100 * pos / n, 2), 'wilson_alt_%': round(100 * low, 2), 'durum': status})
+    order = {'sorunlu': 0, 'az veri': 1, 'iyi': 2}
+    out.sort(key=lambda o: (order[o['durum']], o['wilson_alt_%']))
+    total, pos = sum(o['geri_bildirim'] for o in out), sum(o['olumlu'] for o in out)
+    tables = [(f'{args.by} × {args.second}', [args.by, args.second, 'Geri bildirim', 'Olumlu %'],
+               [[k[0], k[1], n, round(100 * p / n, 1)] for k, (p, n) in sorted(second.items())])] if sc else []
+    return Result(f'{total} geri bildirim, olumlu %{fmt(round(100 * pos / total, 2))}; {sum(o["durum"] == "sorunlu" for o in out)} konu sorunlu', list(out[0]), out,
+                  {'geri_bildirim': total, 'olumlu_%': round(100 * pos / total, 2), 'sorunlu_grup': sum(o['durum'] == 'sorunlu' for o in out),
+                   'az_veri': sum(o['durum'] == 'az veri' for o in out), 'okunamayan_puan': skipped}, tables=tables,
+                  notes=['Wilson alt sınırı, olumlu oranın %95 güvenle en az bu kadar olduğunu söyler; 3/3 olumlu bir konu 90/100’den daha iyi sayılmaz.',
+                         'Geri bildirim veren kullanıcılar tüm kullanıcıları temsil etmez; olumsuz deneyimler genelde daha çok bildirilir.'])

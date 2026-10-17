@@ -1,0 +1,6 @@
+tedarikci_no;unvan;vergi_no;iban;eposta;telefon;sehir;guncelleme_tarihi
+T001;Anadolu Ambalaj A.Ş.;1234567890;TR12 0001 0000 0000 0000 0000 01;muhasebe@anadoluambalaj.test;0212 555 10 10;İstanbul;2026-10-15
+T002;Ege Lojistik Ltd.;2345678901;TR12 0001 0000 0000 0000 0000 02;finans@egelojistik.test;0232 555 20 20;Manisa;2026-10-15
+T003;Karadeniz Gıda A.Ş.;3456789012;TR98 0006 4000 0000 1111 2222 33;odeme@karadenizgida.test;0462 555 30 30;Trabzon;2026-10-15
+T004;Marmara Kimya A.Ş.;4567890123;TR55 0011 1000 0000 9999 8888 77;marmarakimya.odeme@posta.test;0262 555 40 40;Kocaeli;2026-10-15
+T006;Yeni Tedarik A.Ş.;6789012345;TR12 0001 0000 0000 0000 0000 06;info@yenitedarik.test;0216 555 60 60;İstanbul;2026-10-15

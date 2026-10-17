@@ -351,3 +351,104 @@ def report_usage(columns, rows, args):
                   {'rapor': len(out), 'emekliye_ayir': kinds['emekliye ayır'], 'sahipsiz': kinds['sahipsiz'], 'bosa_yenilenen': kinds['boşa yenileniyor'],
                    'az_kullanilan': kinds['az kullanılan'], 'sorunlu': sum(bool(o['oneri']) for o in out)},
                   notes=['Emekliye ayırmadan önce rapor sahibine haber verin ve raporu arşivleyin; dönemsel (yıl sonu) raporlar uzun süre açılmayabilir.'])
+
+
+@op('siniflandirma-yayilimi', title='Sınıflandırmayı soy ağacı boyunca yay; aşağı akışta düşük sınıflı tabloları bul', domain=D, product=P, tag='sınıf yayılımı',
+    samples={'soy_kenarlari.csv': 'soy_kenarlari.csv', 'tablo_siniflari.csv': 'tablo_siniflari.csv'},
+    args=[arg('--source', default='kaynak'), arg('--target', default='hedef'), arg('--classes', default='@ornek/tablo_siniflari.csv', help='Tablo sınıfları (tablo, sinif)'),
+          arg('--levels', default='genel,iç,gizli,kişisel', help='Düşükten yükseğe sınıf düzeyleri'),
+          arg('--exempt', default='', help='Bilinçli olarak sınıfı düşürülen tablolar (toplulaştırma, anonimleştirme); virgülle')],
+    description='Tablo düzeyindeki soy ağacı kenarlarını (kaynak → hedef) ve beyan edilen sınıfları okur; her tablonun yukarı akıştan devraldığı en yüksek sınıfı hesaplar. Beyan edilen sınıfı devraldığından düşük olan tabloları (ör. kişisel veriden beslenen ama “iç” etiketli mart), sınıfsız tabloları ve sınıfın hangi yukarı akış tablosundan geldiğini listeler. Anonimleştirme noktaları --exempt ile bariyer yapılır.',
+    input='Soy ağacı kenarları (kaynak, hedef) + tablo sınıfları', output='sonuc.csv (tablo bazında beyan / devralınan sınıf)',
+    command='python main.py --input lineage_edges.csv --classes siniflar.csv --exempt mart.musteri_ozet',
+    expect={'tablo': 10, 'dusuk_sinif': 4, 'siniflandirilmamis': 1, 'uygun': 5})
+def class_propagation(columns, rows, args):
+    s, t = need(args.source, columns, '--source'), need(args.target, columns, '--target')
+    ccols, crows = tabular.read(args.classes)
+    if len(ccols) < 2:
+        raise ValueError('--classes dosyası en az iki sütun (tablo, sinif) içermeli.')
+    levels_raw = [x.strip() for x in args.levels.split(',') if x.strip()]
+    levels = [fold(x) for x in levels_raw]
+    declared = {}
+    for r in crows:
+        name, cls = r[ccols[0]].strip().lower(), fold(r[ccols[1]])
+        if name and cls:
+            if cls not in levels:
+                raise ValueError(f'"{r[ccols[1]]}" sınıfı --levels içinde yok ({args.levels}).')
+            declared[name] = levels.index(cls)
+    exempt = {x.strip().lower() for x in args.exempt.split(',') if x.strip()}
+    edges = [(r[s].strip().lower(), r[t].strip().lower()) for r in rows if r[s].strip() and r[t].strip()]
+    nodes = list(dict.fromkeys([n for e in edges for n in e] + list(declared)))
+    eff = {n: declared.get(n, -1) for n in nodes}
+    origin = {n: n if n in declared else '' for n in nodes}
+    for _ in range(len(nodes)):  # relaxation also terminates on cycles
+        changed = False
+        for a, b in edges:
+            if b not in exempt and eff[a] > eff[b]:
+                eff[b], origin[b], changed = eff[a], origin[a], True
+        if not changed:
+            break
+    parents = defaultdict(set)
+    for a, b in edges:
+        parents[b].add(a)
+    out = []
+    for n in nodes:
+        d, e = declared.get(n, -1), eff[n]
+        if d < 0:
+            status = 'sınıfsız' + (f' (öneri: {levels_raw[e]})' if e >= 0 else '')
+        elif d < e:
+            status = 'düşük sınıf'
+        else:
+            status = 'uygun' + (' (bariyer)' if n in exempt else '')
+        out.append({'tablo': n, 'beyan': levels_raw[d] if d >= 0 else '', 'devralinan': levels_raw[e] if e >= 0 else '',
+                    'sinif_kaynagi': origin[n] if origin[n] != n else '', 'ust_tablo': len(parents[n]), 'durum': status})
+    order = {'düşük sınıf': 0, 'sınıfsız': 1}
+    out.sort(key=lambda o: (order.get(o['durum'].split(' (')[0], 2), o['tablo']))
+    low = sum(o['durum'] == 'düşük sınıf' for o in out)
+    unc = sum(o['durum'].startswith('sınıfsız') for o in out)
+    return Result(f'{len(nodes)} tablo; {low} tablo devraldığı sınıftan düşük etiketli, {unc} tablo sınıfsız', list(out[0]), out,
+                  {'tablo': len(nodes), 'dusuk_sinif': low, 'siniflandirilmamis': unc, 'uygun': len(nodes) - low - unc},
+                  notes=['Devralınan sınıf, yukarı akıştaki tabloların en yükseğidir. Toplulaştırma veya anonimleştirme ile sınıfı bilinçli düşürülen tabloları --exempt ile belirtin; bu tablolar kendi beyanını aşağı aktarır.',
+                         'sinif_kaynagi, en yüksek sınıfın geldiği en yakın beyanlı tablodur.'])
+
+
+PRIVILEGED = 'ALL,OWNER,OWNERSHIP,ADMIN,DELETE,DROP,ALTER,GRANT,TRUNCATE,CONTROL,UPDATE,SYSADMIN,DB_OWNER'
+
+
+@op('yetki-degisim-denetimi', title='İki yetki listesi arasındaki değişiklikleri ve yeni ayrıcalıklı yetkileri bul', domain=D, product=P, tag='yetki farkı',
+    samples={'yetki_simdi.csv': 'yetki_simdi.csv', 'yetki_onceki.csv': 'yetki_onceki.csv'},
+    args=[arg('--old', default='@ornek/yetki_onceki.csv', help='Önceki dönemin yetki listesi'), arg('--user', default='kullanici'), arg('--object', default='nesne'),
+          arg('--privilege', default='yetki'), arg('--privileged', default=PRIVILEGED, help='Ayrıcalıklı sayılan yetki sözcükleri (virgülle)')],
+    description='Veritabanı, ambar veya uygulama yetki dışa aktarımının iki anlık görüntüsünü (ör. geçen ay ↔ bu ay) kullanıcı + nesne + yetki üçlüsüyle karşılaştırır; eklenen ve kaldırılan yetkileri, yeni gelen ve tamamen çıkan kullanıcıları, yeni verilen ayrıcalıklı yetkileri (ALL, OWNER, DELETE, DROP, GRANT…) listeler. Dönemsel erişim gözden geçirmesi ve denetim kanıtı için.',
+    input='Güncel yetki listesi + önceki yetki listesi (kullanici, nesne, yetki)', output='sonuc.csv (değişiklikler)', command='python main.py --input grants_2026_10.csv --old grants_2026_09.csv',
+    expect={'onceki': 8, 'simdi': 11, 'eklenen': 4, 'kaldirilan': 1, 'ayricalikli_eklenen': 2, 'yeni_kullanici': 1, 'cikan_kullanici': 1})
+def grant_diff(columns, rows, args):
+    u, o, p = need(args.user, columns, '--user'), need(args.object, columns, '--object'), need(args.privilege, columns, '--privilege')
+    ocols, orows = tabular.read(args.old)
+    for c, flag in ((u, '--user'), (o, '--object'), (p, '--privilege')):
+        need(c, ocols, f'--old {flag}')
+    priv = {x.strip().upper() for x in args.privileged.split(',') if x.strip()}
+
+    def key(r):
+        return (r[u].strip().lower(), r[o].strip().lower(), re.sub(r'\s+', ' ', r[p].strip().upper()))
+
+    def grants(rs):
+        return {key(r): (r[u].strip(), r[o].strip(), r[p].strip()) for r in rs if r[u].strip() and r[o].strip()}
+
+    new, old = grants(rows), grants(orows)
+    new_users, old_users = {k[0] for k in new}, {k[0] for k in old}
+    out = []
+    for kind, keys, src, users in (('eklendi', new.keys() - old.keys(), new, old_users), ('kaldırıldı', old.keys() - new.keys(), old, new_users)):
+        for k in keys:
+            user, obj, pr = src[k]
+            privileged = bool(set(re.findall(r'[A-Z_]+', k[2])) & priv)
+            note = ('yeni kullanıcı' if kind == 'eklendi' else 'kullanıcının tüm yetkileri kalktı') if k[0] not in users else ''
+            out.append({'degisim': kind, 'kullanici': user, 'nesne': obj, 'yetki': pr, 'ayricalikli': 'evet' if privileged else '', 'not': note})
+    out.sort(key=lambda r: (r['degisim'] != 'eklendi', r['ayricalikli'] != 'evet', r['kullanici'].lower(), r['nesne'].lower(), r['yetki']))
+    added = [r for r in out if r['degisim'] == 'eklendi']
+    return Result(f'{len(added)} yetki eklendi ({sum(r["ayricalikli"] == "evet" for r in added)} ayrıcalıklı), {len(out) - len(added)} yetki kaldırıldı',
+                  ['degisim', 'kullanici', 'nesne', 'yetki', 'ayricalikli', 'not'], out,
+                  {'onceki': len(old), 'simdi': len(new), 'eklenen': len(added), 'kaldirilan': len(out) - len(added),
+                   'ayricalikli_eklenen': sum(r['ayricalikli'] == 'evet' for r in added), 'yeni_kullanici': len(new_users - old_users), 'cikan_kullanici': len(old_users - new_users)},
+                  notes=['Yetki adları büyük/küçük harf ve boşluk farkı gözetilmeden karşılaştırılır. Rol üyelikleriyle gelen dolaylı yetkiler, dışa aktarım rolleri açmıyorsa görünmez.',
+                         'Her ayrıcalıklı ekleme için onaylı talep kaydı (erisim-talep-denetimi bloğu) bulunmalıdır.'])

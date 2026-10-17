@@ -4,7 +4,8 @@ import json, math, re
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
-from islem import op, arg, Result, fmt
+import tabular
+from islem import op, arg, Result, need, fmt
 
 GENEL = 'Olay şemaları ve örnekleri'
 
@@ -475,3 +476,108 @@ def key_skew(args):
                   {'olay': n, 'anahtar': len(keys), 'en_sik_anahtar': top['anahtar'], 'en_sik_pay_%': top['pay_%'], 'sicak_anahtar': sum(o['durum'] == 'SICAK' for o in out),
                    'gini': round(gini, 3), 'anahtarsiz': len(events) - n},
                   notes=[f'Bir anahtarın payı 1/{args.partitions} (%{100 * fair:.1f}) üstündeyse o anahtarın partition’ı diğerlerinden fazla yük alır; anahtar sayısı partition sayısından azsa bazı partition’lar boş kalır.'])
+
+
+DLQ_CLASS = ('__connect.errors.exception.class.name', 'error.class', 'exception', 'error_type', 'hata_turu')
+DLQ_MSG = ('__connect.errors.exception.message', 'error.message', 'message', 'hata_mesaji')
+DLQ_TOPIC = ('__connect.errors.topic', 'original.topic', 'kaynak_topic', 'topic')
+DLQ_RETRY = ('retry.count', 'deneme', '__connect.errors.retry.count')
+TRANSIENT = re.compile(r'timeout|timedout|retriable|retryable|connection|throttl|unavailable|notleader|broker', re.I)
+
+
+def first(obj, keys):
+    for scope in (obj.get('headers') if isinstance(obj.get('headers'), dict) else {}, obj):
+        for k in keys:
+            if scope.get(k) not in (None, ''):
+                return scope[k]
+    return None
+
+
+def dlq_signature(msg):
+    msg = re.sub(r'"[^"]*"|\'[^\']*\'', '<METİN>', str(msg))
+    return re.sub(r'\s+', ' ', re.sub(r'\d+', '<N>', msg)).strip()[:160]
+
+
+@op('dlq-analizi', title='Dead letter queue (DLQ) mesajlarını hata türüne göre grupla', domain='stream', product='Kafka', tag='DLQ', kind='file', samples={'dlq.jsonl': 'dlq.jsonl'},
+    args=[arg('--time', default='timestamp', help='Mesaj zamanı alanı')],
+    description='Kafka Connect veya uygulama DLQ dökümünü (JSON Lines) okur; hata sınıfını, mesajını ve orijinal topic’i başlıklardan (__connect.errors.* dahil) çıkarır, sayıları ve tırnak içini yer tutucuya çevirerek aynı hatayı tek grupta toplar. Grup başına mesaj sayısı, ilk/son zaman, en yüksek deneme sayısı ve hatanın geçici (yeniden oynatılabilir) mi kalıcı (veri/şema düzeltmesi gerekir) mi olduğunu verir.',
+    input='DLQ mesajları (JSON Lines; headers nesnesi veya düz alanlar)', output='sonuc.csv (hata grupları)', command='python main.py --input connect-dlq.jsonl --time ts',
+    expect={'mesaj': 10, 'grup': 5, 'tekrar_denenebilir': 3, 'kalici': 7, 'konu': 3})
+def dlq(args):
+    events, bad = load_events(args.input)
+    groups = {}
+    for e in events:
+        cls = str(first(e, DLQ_CLASS) or 'bilinmiyor').split('.')[-1]
+        topic = str(first(e, DLQ_TOPIC) or '-')
+        sig = dlq_signature(first(e, DLQ_MSG) or '')
+        g = groups.setdefault((topic, cls, sig), {'topic': topic, 'hata_sinifi': cls, 'imza': sig, 'mesaj': 0, 'ilk': '', 'son': '', 'en_cok_deneme': 0})
+        g['mesaj'] += 1
+        t = str(get_path(e, args.time) or '')
+        if t:
+            g['ilk'] = min(g['ilk'] or t, t)
+            g['son'] = max(g['son'], t)
+        try:
+            g['en_cok_deneme'] = max(g['en_cok_deneme'], int(first(e, DLQ_RETRY) or 0))
+        except (TypeError, ValueError):
+            pass
+    out = sorted(groups.values(), key=lambda g: (-g['mesaj'], g['topic'], g['hata_sinifi']))
+    for g in out:
+        g['tur'] = 'geçici: yeniden oynatılabilir' if TRANSIENT.search(g['hata_sinifi'] + ' ' + g['imza']) else 'kalıcı: veri/şema düzeltilmeli'
+    retry = sum(g['mesaj'] for g in out if g['tur'].startswith('geçici'))
+    return Result(f'{len(events)} DLQ mesajı {len(out)} hata grubunda; {retry} mesaj yeniden oynatılabilir', ['topic', 'hata_sinifi', 'imza', 'mesaj', 'ilk', 'son', 'en_cok_deneme', 'tur'], out,
+                  {'mesaj': len(events), 'grup': len(out), 'tekrar_denenebilir': retry, 'kalici': len(events) - retry, 'konu': len({g['topic'] for g in out}), 'bozuk_satir': bad},
+                  notes=['Geçici/kalıcı ayrımı hata sınıfı ve mesajdaki sözcüklere göre yapılan bir tahmindir. Kalıcı hatalı mesajları düzeltmeden yeniden oynatmak DLQ’ya geri döner.'])
+
+
+@op('outbox-mutabakati', title='Outbox tablosu ile yayınlanan olayları mutabık et (eksik, yetim, tekrar, gecikme)', domain='stream', product=GENEL, tag='outbox',
+    samples={'outbox.csv': 'outbox.csv', 'yayinlanan_olaylar.jsonl': 'yayinlanan_olaylar.jsonl'},
+    args=[arg('--events', default='@ornek/yayinlanan_olaylar.jsonl', help='Yayınlanan olaylar (JSON Lines)'), arg('--id', default='olay_id', help='Outbox kimlik sütunu'),
+          arg('--created', default='olusturma', help='Outbox oluşturma zamanı sütunu'), arg('--event-id', default='id', help='Olaydaki kimlik alanı (iç içe: a.b)'),
+          arg('--event-time', default='yayin_zamani', help='Olaydaki yayın zamanı alanı'), arg('--max-delay', type=int, default=60, help='Bu kadar saniyeden geç yayın geç sayılır'),
+          arg('--grace', type=int, default=120, help='Son yayından bu kadar saniye önce oluşturulan kayıtlar henüz eksik sayılmaz')],
+    description='Transactional outbox deseninde veritabanındaki outbox dışa aktarımını broker’a yayınlanan olaylarla kimlik üzerinden karşılaştırır: hiç yayınlanmayan (kayıp), outbox’ta karşılığı olmayan (yetim), birden çok yayınlanan olayları ve oluşturma → yayın gecikmesinin p50/p95 değerlerini verir. Debezium/outbox relay doğrulaması için.',
+    input='Outbox dışa aktarımı (CSV/XLSX) + yayınlanan olaylar (JSON Lines)', output='sonuc.csv (bulgular)', command='python main.py --input outbox.csv --events topic_dump.jsonl --event-id payload.event_id --event-time ts',
+    expect={'outbox': 8, 'yayinlanan': 6, 'eksik': 1, 'bekleyen': 1, 'yetim': 1, 'tekrar': 1, 'gec': 1, 'p50_sn': 3.0, 'p95_sn': 300.0})
+def outbox(columns, rows, args):
+    ic, cc = need(args.id, columns, '--id'), need(args.created, columns, '--created')
+    created = {}
+    for r in rows:
+        d = tabular.parse_date(r[cc])
+        if r[ic].strip():
+            created[r[ic].strip()] = d[0].replace(tzinfo=None) if d else None
+    events, bad = load_events(args.events)
+    pubs = defaultdict(list)
+    for e in events:
+        eid, t = get_path(e, args.event_id), ts(get_path(e, args.event_time))
+        if eid is not None and t:
+            pubs[str(eid)].append(t.replace(tzinfo=None))
+    if not pubs:
+        raise ValueError(f'Olaylarda "{args.event_id}" ve "{args.event_time}" alanları okunamadı.')
+    as_of = max(t for ts_ in pubs.values() for t in ts_)
+    out, delays = [], []
+    for k, c in created.items():
+        if k not in pubs:
+            pending = c is not None and (as_of - c).total_seconds() < args.grace
+            out.append({'olay_id': k, 'bulgu': 'bekliyor (yeni)' if pending else 'yayınlanmamış', 'olusturma': c.strftime('%Y-%m-%d %H:%M:%S') if c else '', 'yayin': '', 'gecikme_sn': '', 'yayin_sayisi': 0})
+            continue
+        first_pub = min(pubs[k])
+        delay = (first_pub - c).total_seconds() if c else None
+        if delay is not None:
+            delays.append(delay)
+        if len(pubs[k]) > 1:
+            out.append({'olay_id': k, 'bulgu': 'tekrar yayın', 'olusturma': c.strftime('%Y-%m-%d %H:%M:%S') if c else '', 'yayin': first_pub.strftime('%Y-%m-%d %H:%M:%S'), 'gecikme_sn': fmt(delay), 'yayin_sayisi': len(pubs[k])})
+        if delay is not None and delay > args.max_delay:
+            out.append({'olay_id': k, 'bulgu': 'geç yayın', 'olusturma': c.strftime('%Y-%m-%d %H:%M:%S'), 'yayin': first_pub.strftime('%Y-%m-%d %H:%M:%S'), 'gecikme_sn': fmt(delay), 'yayin_sayisi': len(pubs[k])})
+    for k in pubs.keys() - created.keys():
+        out.append({'olay_id': k, 'bulgu': 'yetim (outbox’ta yok)', 'olusturma': '', 'yayin': min(pubs[k]).strftime('%Y-%m-%d %H:%M:%S'), 'gecikme_sn': '', 'yayin_sayisi': len(pubs[k])})
+    order = {'yayınlanmamış': 0, 'yetim (outbox’ta yok)': 1, 'tekrar yayın': 2, 'geç yayın': 3}
+    out.sort(key=lambda o: (order.get(o['bulgu'], 4), o['olay_id']))
+    count = Counter(o['bulgu'] for o in out)
+    p50, p95 = nearest_rank(delays, 0.5), nearest_rank(delays, 0.95)
+    return Result(f'{len(created)} outbox kaydı; {count["yayınlanmamış"]} yayınlanmamış, {count["yetim (outbox’ta yok)"]} yetim, {count["tekrar yayın"]} tekrar; gecikme p95 {fmt(p95)} sn',
+                  ['olay_id', 'bulgu', 'olusturma', 'yayin', 'gecikme_sn', 'yayin_sayisi'], out,
+                  {'outbox': len(created), 'yayinlanan': sum(1 for k in created if k in pubs), 'eksik': count['yayınlanmamış'], 'bekleyen': count['bekliyor (yeni)'],
+                   'yetim': count['yetim (outbox’ta yok)'], 'tekrar': count['tekrar yayın'], 'gec': count['geç yayın'],
+                   'p50_sn': float(p50) if p50 is not None else None, 'p95_sn': float(p95) if p95 is not None else None, 'bozuk_satir': bad},
+                  notes=['Zaman dilimi bilgisi yok sayılır; outbox ve olay zamanlarının aynı saat diliminde (tercihen UTC) olduğundan emin olun.',
+                         'Tekrar yayın at-least-once teslimatta beklenir; tüketiciler olay kimliğiyle idempotent olmalıdır.'])

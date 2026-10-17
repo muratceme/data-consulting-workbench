@@ -59,8 +59,8 @@ class LocalTestCase(unittest.TestCase):
 
 class PackageShape(LocalTestCase):
     def test_every_local_package_is_self_contained_and_has_no_network_code(self):
-        self.assertEqual(len([i for i in LOCAL if not i.get('op')]), 20)
-        self.assertEqual(sum(i['kind'] == 'agent' for i in LOCAL), 8)
+        self.assertEqual(len([i for i in LOCAL if not i.get('op')]), 25)
+        self.assertEqual(sum(i['kind'] == 'agent' for i in LOCAL), 13)
         self.assertEqual(len({i['id'] for i in LOCAL}), len(LOCAL))
         for item in LOCAL:
             names = local_package.files(item)
@@ -481,6 +481,13 @@ GOOD['donem-yorumu'] = {'baslik': 'Eylülde ciro %3,8 geriledi', 'ozet': 'Toplam
                         'aksiyonlar': ['Ege mağazalarını inceleyin.'], 'sorular': ['Ege’de mağaza kapanışı oldu mu?']}
 OUTPUTS = {'sql-aciklayici': 'sql-aciklama.md', 'donem-yorumu': 'donem-yorumu.md', 'sql-yazari': 'sorgu.sql', 'dax-yazari': 'olculer.dax', 'veri-sozlugu': 'veri-sozlugu.md', 'kalite-kurali': 'rules.json',
            'qlik-powerbi': 'gecis-plani.md', 'kpi-tanimlayici': 'kpi-katalogu.md'}
+GOOD['kvkk-envanteri'] = {'kayitlar': [{'sutun': 'ad_soyad', 'veri_kategorisi': 'kimlik', 'amac': 'Sipariş ve fatura işlemleri', 'hukuki_sebep': ['5/2-c'], 'saklama_suresi': 'İlişki bitiminden itibaren 10 yıl', 'erisim': ['çağrı merkezi', 'fatura'], 'aktarim': 'yurt dışı', 'onlem': 'rol bazlı erişim'}, {'sutun': 'tckn', 'veri_kategorisi': 'kimlik', 'amac': 'Sipariş ve fatura işlemleri', 'hukuki_sebep': ['5/2-ç'], 'saklama_suresi': 'İlişki bitiminden itibaren 10 yıl', 'erisim': ['çağrı merkezi', 'fatura'], 'aktarim': 'yurt dışı', 'onlem': 'rol bazlı erişim'}, {'sutun': 'telefon', 'veri_kategorisi': 'iletişim', 'amac': 'Sipariş ve fatura işlemleri', 'hukuki_sebep': ['5/2-c'], 'saklama_suresi': 'İlişki bitiminden itibaren 10 yıl', 'erisim': ['çağrı merkezi', 'fatura'], 'aktarim': 'yurt dışı', 'onlem': 'rol bazlı erişim'}, {'sutun': 'eposta', 'veri_kategorisi': 'iletişim', 'amac': 'Sipariş ve fatura işlemleri', 'hukuki_sebep': ['md. 5/2-c'], 'saklama_suresi': 'İlişki bitiminden itibaren 10 yıl', 'erisim': ['çağrı merkezi', 'fatura'], 'aktarim': 'yurt dışı', 'onlem': 'rol bazlı erişim'}, {'sutun': 'iban', 'veri_kategorisi': 'finans', 'amac': 'Sipariş ve fatura işlemleri', 'hukuki_sebep': ['5/2-c'], 'saklama_suresi': 'İlişki bitiminden itibaren 10 yıl', 'erisim': ['çağrı merkezi', 'fatura'], 'aktarim': 'yurt dışı', 'onlem': 'rol bazlı erişim'}, {'sutun': 'dogum_tarihi', 'veri_kategorisi': 'kimlik', 'amac': 'Sipariş ve fatura işlemleri', 'hukuki_sebep': ['5/1'], 'saklama_suresi': 'İlişki bitiminden itibaren 10 yıl', 'erisim': ['çağrı merkezi', 'fatura'], 'aktarim': 'yurt dışı', 'onlem': 'rol bazlı erişim'}, {'sutun': 'notlar', 'veri_kategorisi': 'müşteri işlem', 'amac': 'Sipariş ve fatura işlemleri', 'hukuki_sebep': ['5/2-f'], 'saklama_suresi': 'İlişki bitiminden itibaren 10 yıl', 'erisim': ['çağrı merkezi', 'fatura'], 'aktarim': 'yurt dışı', 'onlem': 'rol bazlı erişim'}], 'sorular': ['Doğum tarihi hangi amaçla tutuluyor?']}
+GOOD['olay-analisti'] = {'ozet': 'Zaman aşımları ve disk doluluğu.', 'imzalar': [{'id': 'S1', 'kategori': 'kaynak sistem', 'oncelik': 'P2', 'olasi_neden': 'Sipariş servisi yavaş', 'aksiyonlar': ['Servis gecikmesini inceleyin']}, {'id': 'S2', 'kategori': 'yetki', 'oncelik': 'P3', 'olasi_neden': 'Süresi dolmuş oturum', 'aksiyonlar': ['Token süresini kontrol edin']}, {'id': 'S3', 'kategori': 'kapasite', 'oncelik': 'P2', 'olasi_neden': 'Havuz boyutu yetersiz', 'aksiyonlar': ['Havuz boyutunu artırın']}, {'id': 'S4', 'kategori': 'altyapı', 'oncelik': 'P2', 'olasi_neden': 'Log rotasyonu yok', 'aksiyonlar': ['Disk alanı açın']}], 'sorular': ['Disk ne zamandır dolu?']}
+GOOD['boyutsal-model'] = {'olgu': {'ad': 'fct_satis', 'tane': 'bir satır = bir sipariş satırı', 'olculer': ['adet', 'birim_fiyat', 'tutar'], 'dejenere': ['siparis_no', 'durum'], 'tarih_sutunlari': ['siparis_tarihi']}, 'boyutlar': [{'ad': 'dim_musteri', 'dogal_anahtar': ['musteri_no'], 'nitelikler': ['musteri_eposta', 'bolge'], 'scd': '1'}, {'ad': 'dim_urun', 'dogal_anahtar': ['urun_kodu'], 'nitelikler': ['urun_adi'], 'scd': '1'}], 'notlar': ['birim_fiyat ürün boyutunda da tutulabilir']}
+GOOD['regex-yazari'] = {'desen': '^(0[1-9]|[1-7]\\d|8[01]) ([A-Z] \\d{4,5}|[A-Z]{2} \\d{3,4}|[A-Z]{3} \\d{2,3})$', 'aciklama': 'İl kodu + harf/rakam grupları', 'parcalar': [{'parca': '(0[1-9]|[1-7]\\d|8[01])', 'anlam': 'il kodu 01–81'}], 'sinirlar': ['Türkçe harf kontrolü yok']}
+GOOD['migrasyon-esleme'] = {'eslemeler': [{'hedef_tablo': 'crm.musteri', 'hedef_sutun': 'musteri_id', 'kaynak_tablo': 'dbo.Musteriler', 'kaynak_sutunlar': ['MusteriNo'], 'ifade': 'MusteriNo'}, {'hedef_tablo': 'crm.musteri', 'hedef_sutun': 'ad_soyad', 'kaynak_tablo': 'dbo.Musteriler', 'kaynak_sutunlar': ['MusteriAdi'], 'ifade': 'MusteriAdi'}, {'hedef_tablo': 'crm.musteri', 'hedef_sutun': 'sehir', 'kaynak_tablo': 'dbo.Musteriler', 'kaynak_sutunlar': ['Sehir'], 'ifade': 'Sehir'}, {'hedef_tablo': 'crm.musteri', 'hedef_sutun': 'telefon', 'kaynak_tablo': 'dbo.Musteriler', 'kaynak_sutunlar': ['Telefon'], 'ifade': 'Telefon'}, {'hedef_tablo': 'crm.musteri', 'hedef_sutun': 'kayit_tarihi', 'kaynak_tablo': 'dbo.Musteriler', 'kaynak_sutunlar': ['KayitTarihi'], 'ifade': 'KayitTarihi'}, {'hedef_tablo': 'crm.musteri', 'hedef_sutun': 'kaynak_sistem', 'kaynak_tablo': 'dbo.Musteriler', 'kaynak_sutunlar': [], 'ifade': "'ERP'"}, {'hedef_tablo': 'satis.siparis', 'hedef_sutun': 'siparis_id', 'kaynak_tablo': 'dbo.Siparisler', 'kaynak_sutunlar': ['SiparisNo'], 'ifade': 'SiparisNo'}, {'hedef_tablo': 'satis.siparis', 'hedef_sutun': 'musteri_id', 'kaynak_tablo': 'dbo.Siparisler', 'kaynak_sutunlar': ['MusteriNo'], 'ifade': 'MusteriNo'}, {'hedef_tablo': 'satis.siparis', 'hedef_sutun': 'siparis_tarihi', 'kaynak_tablo': 'dbo.Siparisler', 'kaynak_sutunlar': ['SiparisTarihi'], 'ifade': 'SiparisTarihi'}, {'hedef_tablo': 'satis.siparis', 'hedef_sutun': 'tutar', 'kaynak_tablo': 'dbo.Siparisler', 'kaynak_sutunlar': ['Tutar'], 'ifade': 'Tutar'}, {'hedef_tablo': 'satis.siparis', 'hedef_sutun': 'durum', 'kaynak_tablo': 'dbo.Siparisler', 'kaynak_sutunlar': ['Durum'], 'ifade': 'CAST(Durum AS VARCHAR(20))'}, {'hedef_tablo': 'satis.siparis', 'hedef_sutun': 'yukleme_zamani', 'kaynak_tablo': 'dbo.Siparisler', 'kaynak_sutunlar': [], 'ifade': 'CURRENT_TIMESTAMP'}], 'sorular': ['Kayıt tarihi boş müşteriler nasıl yüklenecek?']}
+OUTPUTS.update({'kvkk-envanteri': 'kvkk-envanteri.md', 'olay-analisti': 'olay-raporu.md', 'boyutsal-model': 'boyutsal-model.md', 'regex-yazari': 'desen.md',
+                'migrasyon-esleme': 'yukleme.sql'})
 KPI_ARGS = ('--data', 'ornek/satislar.csv')
 
 
@@ -546,6 +553,37 @@ class Agents(LocalTestCase):
         self.assertNotIn('01.09.2026', sent)  # rows never leave, only computed facts
         self.assertEqual(p.csv('olgular.csv')[1]['grup'], 'bolge')
 
+    def test_third_batch_agents_validate_locally(self):
+        p, done = self.run_agent('kvkk-envanteri', '--yes', answers=[{'kayitlar': [{**k, 'hukuki_sebep': ['5/2-z']} if k['sutun'] == 'tckn' else k
+                                                                                  for k in GOOD['kvkk-envanteri']['kayitlar']]}, GOOD['kvkk-envanteri']])
+        self.ok(done)
+        self.assertIn('"tckn" hukuki sebep kodu geçersiz', self.model.requests[1]['body']['messages'][-1]['content'])
+        sent = self.model.requests[0]['body']['messages'][-1]['content']
+        self.assertIn('notlar: serbest metin, 2 satırda', sent)
+        self.assertNotIn('10000791952', sent)  # only column names and kinds leave, never values
+        rows = {r['sutun']: r for r in p.csv('kvkk-envanteri.csv')}
+        self.assertEqual(rows['tckn']['hukuki_sebep'], '5/2-ç hukuki yükümlülük')
+        self.assertIn('md. 9', rows['iban']['kod_notu'])
+        p, done = self.run_agent('olay-analisti', '--yes', answers=[GOOD['olay-analisti']])
+        self.ok(done)
+        rows = p.csv('olay-imzalari.csv')
+        self.assertEqual((rows[0]['id'], rows[0]['oncelik'], rows[0]['seviye']), ('S4', 'P1', 'FATAL'))  # model said P2; FATAL forces P1
+        self.assertNotIn('ayse@ornek.test', json.dumps(self.model.requests[-1]['body'], ensure_ascii=False))
+        p, done = self.run_agent('boyutsal-model', '--yes', answers=[GOOD['boyutsal-model']])
+        self.ok(done)
+        checks = {c['boyut']: c for c in p.json('model.json')['bagimlilik_kontrolu']}
+        self.assertEqual((checks['dim_musteri']['celisen_anahtar'], checks['dim_urun']['celisen_anahtar']), (10, 0))
+        self.assertIn('siparis_tarihi_key INT NOT NULL REFERENCES dwh.dim_tarih,', p.out('model.sql').read_text(encoding='utf-8'))
+        p, done = self.run_agent('regex-yazari', '--yes', answers=[{'desen': r'^(\d+ ?)+[A-Z]+$'}, GOOD['regex-yazari']])
+        self.ok(done)
+        self.assertIn('İç içe niceleyici', self.model.requests[-1]['body']['messages'][-1]['content'])
+        self.assertEqual(p.json('rules.json')['rules'][0]['check'], 'regex')
+        p, done = self.run_agent('migrasyon-esleme', '--yes', answers=[GOOD['migrasyon-esleme']])
+        self.ok(done)
+        sql = p.out('yukleme.sql').read_text(encoding='utf-8')
+        self.assertIn('Tutar,  -- UYARI: tip daralması DECIMAL(18,2) → DECIMAL(12,2)', sql)
+        self.assertEqual(p.json('esleme.json')['tasinmayan_sutunlar'], ['dbo.Siparisler.Aciklama'])
+
     def test_invalid_answer_gets_one_corrective_retry(self):
         bad = {'sql': 'SELECT s.KalemlerToplamCiro FROM dbo.Siparisler s'}
         p, done = self.run_agent('sql-yazari', '--yes', answers=[bad, GOOD['sql-yazari']])
@@ -560,7 +598,12 @@ class Agents(LocalTestCase):
                              ('qlik-powerbi', {'tablolar': []}), ('veri-sozlugu', {'sutunlar': [{'ad': 'siparis_no', 'aciklama': 'x'}]}),
                              ('kalite-kurali', {'rules': [{'column': 'olmayan', 'check': 'not_null'}]}), ('kpi-tanimlayici', 'bu json değil'),
                              ('sql-aciklayici', {**GOOD['sql-aciklayici'], 'ifadeler': GOOD['sql-aciklayici']['ifadeler'][:-1]}),
-                             ('donem-yorumu', {**GOOD['donem-yorumu'], 'ozet': 'Ciro %9 düştü.'})]:
+                             ('donem-yorumu', {**GOOD['donem-yorumu'], 'ozet': 'Ciro %9 düştü.'}),
+                             ('kvkk-envanteri', {'kayitlar': GOOD['kvkk-envanteri']['kayitlar'][:-1]}),
+                             ('olay-analisti', {'imzalar': GOOD['olay-analisti']['imzalar'][:2]}),
+                             ('boyutsal-model', {**GOOD['boyutsal-model'], 'olgu': {**GOOD['boyutsal-model']['olgu'], 'olculer': ['adet', 'durum']}}),
+                             ('regex-yazari', {'desen': r'^\d{2} [A-Z]+ \d+$'}),
+                             ('migrasyon-esleme', {'eslemeler': GOOD['migrasyon-esleme']['eslemeler'][:-1]})]:
             with self.subTest(item_id):
                 p, done = self.run_agent(item_id, '--yes', answers=[bad, bad])
                 self.assertEqual(done.returncode, 1)

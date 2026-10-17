@@ -4,9 +4,12 @@ import re
 from collections import Counter, defaultdict
 from datetime import timedelta
 import tabular
+import turkiye as tr
+from pathlib import Path
 from islem import op, arg, Result, need, numbers, col_list, fold, fmt
 
 D, P = 'privacy', 'Hassas veri envanteri'
+REQUIRES = ['turkiye']
 
 
 def classes(rows, qi):
@@ -270,3 +273,138 @@ def cookies(columns, rows, args):
                   {'cerez': len(out), 'sorunlu': sum(bool(o['bulgu']) for o in out), 'onaysiz_yerlesen': sum('onaydan önce' in o['bulgu'] for o in out),
                    'ucuncu_taraf': sum(o['taraf'] == 'üçüncü taraf' for o in out)},
                   notes=['Kategori adları zorunlu, analitik, tercih, pazarlama gibi yazılmalıdır; süre eşiğini kurumunuzun çerez politikasına göre verin.'])
+
+
+def search_norm(v):
+    """(kind, normalized) for exact comparison: e-mail, IBAN, digits (phone/TCKN/no) or folded text."""
+    v = v.strip()
+    if '@' in v:
+        return 'e', v.casefold()
+    compact = re.sub(r'\s', '', v).upper()
+    if re.fullmatch(r'TR\d{24}', compact):
+        return 'i', compact
+    d = re.sub(r'\D', '', v)
+    if len(d) >= 10 and not re.search(r'[^\d\s()+\-.]', v):
+        return 'd', d[-10:] if len(d) in (10, 11, 12) and d[-10] == '5' else d  # mobile numbers: last 10 digits
+    return 't', fold(v).casefold()
+
+
+def contains(kind, target, cell):
+    if kind == 'e':
+        return target in cell.casefold()
+    if kind == 'i':
+        return target in re.sub(r'\s', '', cell).upper()
+    if kind == 'd':
+        return target in re.sub(r'\D', '', cell)
+    return bool(re.search(r'(?<!\w)' + re.escape(target) + r'(?!\w)', fold(cell).casefold()))
+
+
+@op('ilgili-kisi-arama', title='İlgili kişi başvurusu için bir kişinin verisini klasördeki tüm dosyalarda ara', domain=D, product=P, tag='başvuru araması', kind='file',
+    samples={f'kvkk_arama/{n}': f'kvkk_arama/{n}' for n in ('crm_musteri.csv', 'siparisler.csv', 'destek_talepleri.csv', 'urunler.csv')}, sample_input='kvkk_arama',
+    args=[arg('--value', default='zeynep.demir@ornek.test', help='Aranan tanımlayıcı: e-posta, telefon, TCKN, IBAN veya müşteri no'),
+          arg('--pattern', default='*', help='Dosya adı deseni (ör. *.csv)')],
+    description='KVKK md. 11 ilgili kişi başvurusunda “hangi verilerim, nerede?” sorusunu cevaplamak için bir e-posta, telefon, TCKN, IBAN veya müşteri numarasını klasördeki tüm CSV/XLSX dışa aktarımlarında arar. Telefonları biçimden bağımsız (son 10 hane), e-postaları büyük/küçük harften bağımsız eşler; hücrenin tamamı olan eşleşmeyi ve serbest metin içindeki geçişi ayırır. Rapora aranan değer ve bulunan değerler yazılmaz; yalnızca dosya, sütun ve satır numaraları.',
+    input='CSV/XLSX dışa aktarımlarının bulunduğu klasör + aranan değer', output='sonuc.csv (dosya, sütun, satır numaraları)', command='python main.py --input C:\\disaaktarim --value 05324182790',
+    expect={'dosya': 4, 'eslesen_dosya': 3, 'eslesme': 4, 'tam': 3, 'metin_icinde': 1})
+def subject_search(args):
+    root = Path(args.input)
+    files = sorted(f for f in (root.rglob(args.pattern) if root.is_dir() else [root]) if f.is_file() and f.suffix.lower() in ('.csv', '.txt', '.xlsx', '.tsv'))
+    if not files:
+        raise ValueError(f'{root}: CSV/XLSX dosyası bulunamadı.')
+    kind, target = search_norm(args.value)
+    if len(target) < 4:
+        raise ValueError('--value en az 4 anlamlı karakter içermeli.')
+    out, errors = [], []
+    for f in files:
+        try:
+            columns, rows = tabular.read(str(f))
+        except (ValueError, OSError) as exc:
+            errors.append(f'{f.name}: {exc}')
+            continue
+        for c in columns:
+            exact, inside = [], []
+            for i, r in enumerate(rows, start=2):
+                cell = r[c]
+                if not cell.strip():
+                    continue
+                k, v = search_norm(cell)
+                if k == kind and v == target:
+                    exact.append(i)
+                elif contains(kind, target, cell):
+                    inside.append(i)
+            for label, hits in (('tam', exact), ('metin içinde', inside)):
+                if hits:
+                    out.append({'dosya': str(f.relative_to(root)) if root.is_dir() else f.name, 'sutun': c, 'eslesme_turu': label, 'satir_sayisi': len(hits),
+                                'satirlar': ', '.join(map(str, hits[:20])) + (' …' if len(hits) > 20 else '')})
+    shown = args.value.strip()
+    masked = shown[:2] + '***' + shown[-2:] if len(shown) > 6 else '***'
+    return Result(f'"{masked}" {len(files)} dosyada arandı; {len({o["dosya"] for o in out})} dosyada {sum(o["satir_sayisi"] for o in out)} satırda bulundu',
+                  ['dosya', 'sutun', 'eslesme_turu', 'satir_sayisi', 'satirlar'], out,
+                  {'dosya': len(files), 'eslesen_dosya': len({o['dosya'] for o in out}), 'eslesme': sum(o['satir_sayisi'] for o in out),
+                   'tam': sum(o['satir_sayisi'] for o in out if o['eslesme_turu'] == 'tam'), 'metin_icinde': sum(o['satir_sayisi'] for o in out if o['eslesme_turu'] != 'tam'),
+                   'okunamayan': len(errors)},
+                  notes=['Satır numaraları Excel’deki satırdır (başlık 1. satır). Aranan değer rapora yazılmaz; cevap yazısını bu listeyle hazırlayın.',
+                         'Yalnızca verilen dosyalar taranır; veritabanları, e-posta kutuları ve yedekler ayrıca aranmalıdır.'] + errors)
+
+
+TEST_DOMAINS = ('example.com', 'example.org', 'example.net', 'test.com', 'mailinator.com', 'localhost')
+TEST_CARDS = {'4111111111111111', '4242424242424242', '5555555555554444', '5105105105105100', '378282246310005', '4000056655665556', '4012888888881881'}
+TEST_TCKN = {'11111111110', '12345678950'}
+
+
+def value_kind(v):
+    s = v.strip()
+    d = re.sub(r'\D', '', s)
+    if re.fullmatch(r'[\w.+-]+@[\w-]+(\.[\w-]+)+', s):
+        return 'e-posta'
+    if re.fullmatch(r'TR\d{24}', s.upper().replace(' ', '')):
+        return 'IBAN'
+    if re.fullmatch(r'[1-9]\d{10}', s):
+        return 'TCKN'
+    if re.fullmatch(r'(\+?90[ -]?)?0?5\d{2}[ -]?\d{3}[ -]?\d{2}[ -]?\d{2}', s):
+        return 'telefon'
+    if 13 <= len(d) <= 19 and re.fullmatch(r'[\d -]+', s):
+        return 'kart no'
+    return None
+
+
+def real_looking(kind, v):
+    s, d = v.strip(), re.sub(r'\D', '', v)
+    if kind == 'e-posta':
+        domain = s.rsplit('@', 1)[1].lower()
+        return not (domain in TEST_DOMAINS or domain.endswith(('.test', '.example', '.invalid', '.localhost')) or domain.startswith('test.'))
+    if kind == 'IBAN':
+        return tr.iban(s) == ''
+    if kind == 'TCKN':
+        return tr.tckn(d) == '' and d not in TEST_TCKN
+    if kind == 'telefon':
+        return not re.search(r'(\d)\1{5}', d[-10:]) and '1234567' not in d
+    return tr.luhn(d) == '' and d not in TEST_CARDS
+
+
+@op('test-ortami-gercek-veri', title='Test/geliştirme verisinde gerçek görünümlü kişisel veri ara', domain=D, product=P, tag='test verisi',
+    samples={'test_ortami_musteri.csv': 'test_ortami_musteri.csv'}, args=[arg('--min-share', type=float, default=50.0, help='Sütun tipini belirlemek için gereken asgari kalıp oranı (yüzde)')],
+    description='Test, geliştirme veya eğitim ortamına kopyalanan bir dosyada kişisel veri kalıbı taşıyan sütunları bulur ve her değerin gerçek mi sentetik mi göründüğünü ayırır: kontrol hanesi tutan TCKN, mod 97’si tutan IBAN, Luhn’u tutan ve bilinen test kartı olmayan kart numarası, test alanı (example.com, .test) dışındaki e-posta ve tekrar eden rakamlardan oluşmayan telefon “gerçek görünümlü” sayılır. Maskelenmeden taşınmış üretim verisini yakalamak için.',
+    input='Test ortamı dışa aktarımı (CSV/XLSX)', output='sonuc.csv (sütun bazında gerçek görünümlü değer sayısı ve satırlar)', command='python main.py --input test_db_musteri.csv',
+    expect={'kisisel_sutun': 5, 'gercek_gorunumlu': 7, 'riskli_sutun': 4})
+def real_in_test(columns, rows, args):
+    out = []
+    for c in columns:
+        values = [(i, r[c]) for i, r in enumerate(rows, start=2) if r[c].strip()]
+        kinds = Counter(k for k in (value_kind(v) for _, v in values) if k)
+        if not kinds:
+            continue
+        kind, n = kinds.most_common(1)[0]
+        if 100 * n / len(values) < args.min_share:
+            continue
+        real = [i for i, v in values if value_kind(v) == kind and real_looking(kind, v)]
+        out.append({'sutun': c, 'tur': kind, 'dolu': len(values), 'gercek_gorunumlu': len(real), 'sentetik': n - len(real),
+                    'gercek_%': round(100 * len(real) / n, 1), 'satirlar': ', '.join(map(str, real[:15])) + (' …' if len(real) > 15 else ''),
+                    'durum': 'maskelenmemiş olabilir' if real else 'sentetik'})
+    out.sort(key=lambda o: (-o['gercek_gorunumlu'], o['sutun']))
+    risky = sum(o['gercek_gorunumlu'] > 0 for o in out)
+    return Result(f'{len(out)} kişisel veri sütunu; {risky} sütunda toplam {sum(o["gercek_gorunumlu"] for o in out)} gerçek görünümlü değer',
+                  ['sutun', 'tur', 'dolu', 'gercek_gorunumlu', 'sentetik', 'gercek_%', 'satirlar', 'durum'], out,
+                  {'kisisel_sutun': len(out), 'gercek_gorunumlu': sum(o['gercek_gorunumlu'] for o in out), 'riskli_sutun': risky},
+                  notes=['“Gerçek görünümlü” bir değerin gerçek kişiye ait olduğunu kanıtlamaz; kontrol hanesi tutan değerleri sentetik veri üreteçleri de üretebilir. Kaynağını doğrulayın.',
+                         'Değerler rapora yazılmaz; satır numaraları Excel’deki satırdır. Üretimden kopyalanan veriyi kvkk-maskeleme bloğuyla maskeleyin.'])

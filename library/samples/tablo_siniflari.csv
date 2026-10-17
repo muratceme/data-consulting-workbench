@@ -1,0 +1,10 @@
+tablo;sinif
+crm.musteri;kişisel
+stg.musteri;kişisel
+dwh.dim_musteri;gizli
+mart.musteri_ozet;iç
+erp.siparis;gizli
+stg.siparis;gizli
+dwh.fct_siparis;gizli
+mart.satis_ozet;genel
+erp.urun;genel

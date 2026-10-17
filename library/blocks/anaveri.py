@@ -2,6 +2,7 @@
 import difflib, re
 from collections import Counter, defaultdict
 import tabular
+from common import pii_kind
 import turkiye as tr
 from islem import op, arg, Result, need, col_list, fold, fmt, tr_title, tr_sort_key
 
@@ -448,3 +449,53 @@ def flatten(columns, rows, args):
     return Result(f'{len(out)} kayıt, en derin {depth} seviye; {c["yetim"]} yetim, {c["döngü"]} döngüde', list(out[0]), out,
                   {'kayit': len(out), 'maks_seviye': depth, 'yaprak': sum(o['yaprak'] == 'evet' for o in out), 'yetim': c['yetim'], 'dongu': c['döngü']},
                   notes=['Yetim ve döngüdeki kayıtların yolu boş bırakılır; hiyerarsi-kontrol bloğu bu kayıtların ayrıntısını verir.'])
+
+
+def masked(v):
+    v = v.strip()
+    if pii_kind(v) and len(v) > 6:
+        return '*' * (len(v) - 4) + v[-4:]
+    return v
+
+
+@op('ana-veri-degisiklik', title='Ana veri anlık görüntüleri arasında değişen alanlar ve riskli değişiklikler', domain=D, product=P, tag='değişiklik denetimi',
+    samples={'tedarikci_simdi.csv': 'tedarikci_simdi.csv', 'tedarikci_onceki.csv': 'tedarikci_onceki.csv'},
+    args=[arg('--old', default='@ornek/tedarikci_onceki.csv', help='Önceki anlık görüntü'), arg('--key', default='tedarikci_no'),
+          arg('--critical', default='iban,vergi_no', help='Değişmesi yüksek risk sayılan alanlar'), arg('--contact', default='eposta,telefon', help='İletişim alanları'),
+          arg('--ignore', default='guncelleme_tarihi', help='Karşılaştırılmayacak alanlar')],
+    description='Müşteri, tedarikçi veya ürün ana verisinin iki dışa aktarımını anahtarla karşılaştırır; eklenen, silinen kayıtları ve değişen her alanı eski/yeni değeriyle listeler. Banka hesabı veya vergi no gibi kritik alan değişikliklerini yüksek risk, kritik alanla birlikte iletişim bilgisinin de değiştiği kayıtları (tipik tedarikçi dolandırıcılığı) çok yüksek risk olarak işaretler. Kişisel veri görünümlü değerler son 4 hanesi dışında maskelenir.',
+    input='Güncel ve önceki ana veri dışa aktarımı (aynı sütunlar)', output='sonuc.csv (alan bazında değişiklikler)', command='python main.py --input vendors_today.csv --old vendors_yesterday.csv --key LIFNR --critical BANKN,STCD2',
+    expect={'kayit_onceki': 5, 'kayit_simdi': 5, 'degisen_kayit': 3, 'eklenen': 1, 'silinen': 1, 'yuksek_risk': 2, 'cok_yuksek_risk': 1})
+def master_changes(columns, rows, args):
+    k = need(args.key, columns, '--key')
+    ocols, orows = tabular.read(args.old)
+    need(args.key, ocols, '--old --key')
+    lower = lambda s: {x.strip().lower() for x in s.split(',') if x.strip()}
+    crit, contact, ignore = lower(args.critical), lower(args.contact), lower(args.ignore)
+    fields = [c for c in columns if c in ocols and c != k and c.lower() not in ignore]
+    new, old = {r[k].strip(): r for r in rows if r[k].strip()}, {r[k].strip(): r for r in orows if r[k].strip()}
+    out, high, very = [], set(), set()
+    for key in sorted(new.keys() | old.keys()):
+        if key not in old:
+            out.append({'anahtar': key, 'degisim': 'eklendi', 'alan': '', 'eski': '', 'yeni': '', 'risk': 'normal'})
+            continue
+        if key not in new:
+            out.append({'anahtar': key, 'degisim': 'silindi', 'alan': '', 'eski': '', 'yeni': '', 'risk': 'normal'})
+            continue
+        changed = [f for f in fields if re.sub(r'\s+', ' ', new[key][f].strip()) != re.sub(r'\s+', ' ', old[key][f].strip())]
+        names = {f.lower() for f in changed}
+        level = 'çok yüksek' if names & crit and names & contact else 'yüksek' if names & crit else 'normal'
+        if level != 'normal':
+            (very if level == 'çok yüksek' else high).add(key)
+        for f in changed:
+            out.append({'anahtar': key, 'degisim': 'değişti', 'alan': f, 'eski': masked(old[key][f]), 'yeni': masked(new[key][f]),
+                        'risk': level if f.lower() in crit or level == 'çok yüksek' and f.lower() in contact else 'normal'})
+    rank = {'çok yüksek': 0, 'yüksek': 1, 'normal': 2}
+    out.sort(key=lambda o: (rank[o['risk']], o['anahtar'], o['alan']))
+    changed_keys = {o['anahtar'] for o in out if o['degisim'] == 'değişti'}
+    return Result(f'{len(changed_keys)} kayıt değişti, {sum(o["degisim"] == "eklendi" for o in out)} eklendi, {sum(o["degisim"] == "silindi" for o in out)} silindi; {len(high | very)} kayıtta kritik alan değişikliği',
+                  ['anahtar', 'degisim', 'alan', 'eski', 'yeni', 'risk'], out,
+                  {'kayit_onceki': len(old), 'kayit_simdi': len(new), 'degisen_kayit': len(changed_keys), 'eklenen': sum(o['degisim'] == 'eklendi' for o in out),
+                   'silinen': sum(o['degisim'] == 'silindi' for o in out), 'yuksek_risk': len(high | very), 'cok_yuksek_risk': len(very)},
+                  notes=['Banka hesabı değişikliği, ödeme yapılmadan önce kayıtlı (eski) iletişim kanalından geri aranarak doğrulanmalıdır; yeni e-posta/telefonla doğrulama dolandırıcılığa açıktır.',
+                         'Boşluk farkları değişiklik sayılmaz; --ignore ile zaman damgası gibi her gün değişen alanları dışlayın.'])

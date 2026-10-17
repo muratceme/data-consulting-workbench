@@ -73,7 +73,7 @@ def hours(c):
 @op('dbt-kaynak-tazeligi', title='dbt source freshness sonuçlarını özetle', domain=D, product='dbt Core', tag='source freshness', kind='file', samples={'sources.json': 'sources.json'},
     description='dbt source freshness komutunun ürettiği sources.json’dan her kaynak tablonun son yükleme zamanını, kaç saat önce yüklendiğini, uyarı/hata eşiklerini ve durumunu (pass, warn, error) çıkarır; eşiği tanımlanmamış kaynakları ayrıca listeler. Sabah kontrolünü ve kaynak sistem gecikmelerini takip etmek için.',
     input='target/sources.json', output='sonuc.csv (kaynak bazında tazelik)', command='python main.py --input target/sources.json',
-    expect={'kaynak': 5, 'pass': 3, 'warn': 1, 'error': 1, 'esiksiz': 1})
+    expect={'kaynak_sayisi': 5, 'pass': 3, 'warn': 1, 'error': 1, 'esiksiz': 1})
 def freshness(args):
     data = load_json(args.input, 'sources.json')
     res = data.get('results') or []
@@ -92,5 +92,5 @@ def freshness(args):
     out.sort(key=lambda o: (order.get(o['durum'], 3), o['kaynak']))
     c = Counter(o['durum'] for o in out)
     return Result(f'{len(out)} kaynak; {c["pass"]} güncel, {c["warn"]} uyarı, {c["error"] + c["runtime error"]} hata', list(out[0]), out,
-                  {'kaynak': len(out), 'pass': c['pass'], 'warn': c['warn'], 'error': c['error'] + c['runtime error'], 'esiksiz': sum(bool(o['not']) for o in out),
+                  {'kaynak_sayisi': len(out), 'pass': c['pass'], 'warn': c['warn'], 'error': c['error'] + c['runtime error'], 'esiksiz': sum(bool(o['not']) for o in out),
                    'olusturma': (data.get('metadata') or {}).get('generated_at', '')})

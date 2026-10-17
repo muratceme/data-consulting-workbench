@@ -417,3 +417,39 @@ def lift(columns, rows, args):
                     'lift': round(e / len(chunk) / base, 2), 'kumulatif_kazanc_%': round(100 * cum_e / events, 1), 'kumulatif_lift': round(cum_e / ((g + 1) * n // args.groups) / base, 2)})
     return Result(f'İlk dilim lift {out[0]["lift"]}; ilk %{100 * 2 // args.groups} kayıtta olayların %{out[1]["kumulatif_kazanc_%"]}’i; KS {ks:.3f}', list(out[0]), out,
                   {'kayit': n, 'dilim': len(out), 'ilk_dilim_lift': out[0]['lift'], 'ks': round(ks, 4), 'ilk_iki_dilim_kazanc_%': out[1]['kumulatif_kazanc_%']})
+
+
+@op('adalet-analizi', title='Model kararlarında grup adaleti: seçilme oranı, 4/5 kuralı, TPR ve FPR farkı', domain=D, product=P, tag='fairness', samples={'kredi_kararlari.csv': 'kredi_kararlari.csv'},
+    args=[arg('--group', default='cinsiyet', help='Korunan özellik sütunu'), arg('--label', default='gercek'), arg('--prediction', default='tahmin', help='0/1 karar sütunu veya skor'),
+          arg('--threshold', type=float, default=0.5, help='Tahmin skor ise karar eşiği'), arg('--min-ratio', type=float, default=0.8, help='Seçilme oranı / en yüksek oran bu değerin altındaysa ihlal')],
+    description='Sınıflandırma modelinin kararlarını korunan bir özelliğe (cinsiyet, yaş grubu, bölge…) göre gruplar; her grup için olumlu karar (seçilme) oranını, gerçek pozitif oranını (TPR, fırsat eşitliği), yanlış pozitif oranını ve kesinliği hesaplar. En yüksek orana göre etkiyi (disparate impact) ve 4/5 kuralı ihlallerini, TPR/FPR farklarını (equalized odds) raporlar.',
+    input='Kayıt bazında grup, gerçek etiket ve model kararı/skoru', output='sonuc.csv (grup bazında adalet ölçüleri)', command='python main.py --input skorlar.csv --group yas_grubu --prediction skor --threshold 0.42',
+    expect={'kayit': 100, 'grup': 2, 'min_etki_orani': 0.6, 'ihlal_grup': 1, 'max_tpr_farki': 0.32, 'max_fpr_farki': 0.08})
+def fairness(columns, rows, args):
+    g = need(args.group, columns, '--group')
+    y, p = numbers(rows, need(args.label, columns, '--label')), numbers(rows, need(args.prediction, columns, '--prediction'))
+    stats = defaultdict(lambda: Counter())
+    for r, a, b in zip(rows, y, p):
+        if a is None or b is None:
+            continue
+        pos, pred = a >= 0.5, b >= args.threshold
+        stats[r[g].strip() or '(boş)'][('tp' if pos else 'fp') if pred else ('fn' if pos else 'tn')] += 1
+    if len(stats) < 2:
+        raise ValueError('En az iki grup gerekli.')
+    out = []
+    for name, c in stats.items():
+        n = sum(c.values())
+        out.append({'grup': name, 'kayit': n, 'secilme_orani': round((c['tp'] + c['fp']) / n, 4), 'tpr': round(c['tp'] / (c['tp'] + c['fn']), 4) if c['tp'] + c['fn'] else None,
+                    'fpr': round(c['fp'] / (c['fp'] + c['tn']), 4) if c['fp'] + c['tn'] else None, 'kesinlik': round(c['tp'] / (c['tp'] + c['fp']), 4) if c['tp'] + c['fp'] else None})
+    best = max(o['secilme_orani'] for o in out)
+    tprs, fprs = [o['tpr'] for o in out if o['tpr'] is not None], [o['fpr'] for o in out if o['fpr'] is not None]
+    for o in out:
+        o['etki_orani'] = round(o['secilme_orani'] / best, 4) if best else None
+        o['durum'] = f'4/5 kuralı ihlali (< {fmt(args.min_ratio)})' if o['etki_orani'] is not None and o['etki_orani'] < args.min_ratio else 'uygun'
+    out.sort(key=lambda o: (o['etki_orani'] or 0, o['grup']))
+    violations = sum(o['durum'] != 'uygun' for o in out)
+    return Result(f'{len(out)} grup; en düşük etki oranı {fmt(out[0]["etki_orani"], 4)}, {violations} grupta 4/5 ihlali', ['grup', 'kayit', 'secilme_orani', 'etki_orani', 'tpr', 'fpr', 'kesinlik', 'durum'], out,
+                  {'kayit': sum(o['kayit'] for o in out), 'grup': len(out), 'min_etki_orani': out[0]['etki_orani'], 'ihlal_grup': violations,
+                   'max_tpr_farki': round(max(tprs) - min(tprs), 4) if tprs else None, 'max_fpr_farki': round(max(fprs) - min(fprs), 4) if fprs else None},
+                  notes=['Etki oranı = grubun seçilme oranı / en yüksek grup seçilme oranı; 0,8 altı ABD 4/5 kuralında olumsuz etki işaretidir. Tek bir ölçüt adaleti kanıtlamaz; TPR (fırsat eşitliği) ve FPR farklarına birlikte bakın.',
+                         'Az kayıtlı gruplarda oranlar oynaktır; korunan özelliği modelde kullanmamak dolaylı ayrımcılığı önlemez.'])

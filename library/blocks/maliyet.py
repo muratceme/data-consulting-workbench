@@ -397,3 +397,38 @@ def tiering(columns, rows, args):
     return Result(f'{len(out)} önek; {sum(o["aylik_tasarruf"] > 0 for o in out)} taşıma önerisi, aylık tasarruf {money(total)}', list(out[0]), out,
                   {'onek': len(out), 'oneri': sum(o['aylik_tasarruf'] > 0 for o in out), 'aylik_tasarruf': round(total, 2), 'toplam_gb': round(sum(s or 0 for s in size), 2)},
                   notes=['Seyrek erişim ve arşiv sınıflarında asgari saklama süresi ve okuma ücreti vardır; sık okunan önekleri taşımayın.'])
+
+
+@op('atil-kaynaklar', title='Son günlerde kullanılmadığı hâlde ücret yazan (atıl) bulut kaynaklarını bul', domain='finops', product=GENEL, tag='atıl kaynak',
+    samples={'kaynak_gunluk.csv': 'kaynak_gunluk.csv'},
+    args=[arg('--resource', default='kaynak'), arg('--date', default='tarih'), arg('--cost', default='maliyet'), arg('--usage', default='kullanim', help='CPU yüzdesi, istek sayısı, okuma vb.'),
+          arg('--days', type=int, default=7, help='Dosyadaki son tarihten geriye bakılacak gün'), arg('--max-usage', type=float, default=2.0, help='Bu değere kadar kullanım atıl sayılır')],
+    description='Kaynak bazında günlük maliyet ve kullanım dökümünde son N günde kullanımı hiç eşiği geçmeyen ama maliyet yazan kaynakları (kapatılmamış test makineleri, bağlı olmayan diskler, boşta yük dengeleyiciler) bulur; pencere içindeki maliyeti ve günlük ortalamadan aylık tasarruf tahminini verir.',
+    input='Günlük kaynak maliyeti ve kullanımı (kaynak, tarih, maliyet, kullanım)', output='sonuc.csv (kaynak bazında durum)', command='python main.py --input cur_daily.csv --days 14 --max-usage 1',
+    expect={'kaynak_sayisi': 5, 'atil_kaynak': 3, 'aylik_tasarruf': 1410.0})
+def idle(columns, rows, args):
+    rc, dc = need(args.resource, columns, '--resource'), need(args.date, columns, '--date')
+    cost, use = numbers(rows, need(args.cost, columns, '--cost')), numbers(rows, need(args.usage, columns, '--usage'))
+    pts = [(r[rc].strip(), when(r, dc), c or 0.0, u) for r, c, u in zip(rows, cost, use) if r[rc].strip() and when(r, dc)]
+    if not pts:
+        raise ValueError('Tarihi okunabilen satır yok.')
+    last = max(p[1] for p in pts)
+    start = last - timedelta(days=args.days - 1)
+    win = defaultdict(list)
+    for name, d, c, u in pts:
+        if d >= start:
+            win[name].append((d, c, u))
+    out = []
+    for name, vals in win.items():
+        total = sum(c for _, c, _ in vals)
+        mx = max((u for _, _, u in vals if u is not None), default=None)
+        days = len({d for d, _, _ in vals})
+        is_idle = total > 0 and (mx is None or mx <= args.max_usage)
+        out.append({'kaynak': name, 'gun': days, 'pencere_maliyeti': round(total, 2), 'en_yuksek_kullanim': fmt(mx),
+                    'aylik_tahmin': round(total / days * 30, 2) if is_idle else 0.0, 'durum': 'atıl' if is_idle else 'kullanılıyor'})
+    out.sort(key=lambda o: (o['durum'] != 'atıl', -o['aylik_tahmin'], o['kaynak']))
+    idle_n = sum(o['durum'] == 'atıl' for o in out)
+    saving = round(sum(o['aylik_tahmin'] for o in out), 2)
+    return Result(f'{len(out)} kaynak; {idle_n} kaynak son {args.days} günde atıl, aylık tasarruf tahmini {money(saving)}', list(out[0]), out,
+                  {'kaynak_sayisi': len(out), 'atil_kaynak': idle_n, 'aylik_tasarruf': saving, 'pencere_baslangic': start.strftime('%Y-%m-%d'), 'pencere_bitis': last.strftime('%Y-%m-%d')},
+                  notes=['Aylık tahmin = penceredeki günlük ortalama maliyet × 30. Yedek, felaket kurtarma ve aylık çalışan işler düşük kullanımlı görünebilir; kapatmadan önce sahibine sorun.'])

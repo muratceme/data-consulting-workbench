@@ -424,3 +424,129 @@ def lock_tree(columns, rows, args):
                   {'oturum': len(info), 'bekleyen': len(waiting), 'kok_engelleyici': len(roots), 'idle_in_tx_kok': sum('idle in transaction' in o['durum'].lower() for o in out)},
                   tables=[('Bekleme ağacı', ['PID', 'Kullanıcı', 'Durum', 'Sorgu'], tree)],
                   notes=['Anlık görüntüdür; birkaç saniye arayla iki kez alıp aynı kök engelleyicinin sürdüğünü doğrulayın. idle_in_transaction_session_timeout ayarını değerlendirin.'])
+
+
+BACKUP_KIND = {'d': 'tam', 'full': 'tam', 'tam': 'tam', 'database': 'tam', 'i': 'fark', 'diff': 'fark', 'differential': 'fark', 'fark': 'fark', 'l': 'log', 'log': 'log'}
+
+
+@op('yedek-kontrolu', title='Veritabanı yedek geçmişinde eski, eksik ve şüpheli küçülen yedekleri bul', domain='database', product='SQL Server', tag='yedek denetimi',
+    samples={'yedek_gecmisi.csv': 'yedek_gecmisi.csv'},
+    args=[arg('--database', default='veritabani'), arg('--type', default='tur', help='Yedek türü: FULL/DIFF/LOG veya msdb kodu D/I/L'), arg('--finish', default='bitis'),
+          arg('--size', default='boyut_mb'), arg('--as-of', default='2026-10-16 12:00', help='Kontrol zamanı'), arg('--full-hours', type=float, default=168),
+          arg('--diff-hours', type=float, default=26), arg('--log-hours', type=float, default=1), arg('--size-change', type=float, default=50, help='Ardışık tam yedekler arasında yüzde bu kadar değişim uyarı verir')],
+    description='msdb.dbo.backupset, pgBackRest/Barman veya yedekleme aracı dışa aktarımından her veritabanının son tam, fark ve log yedeğini bulur; eşikten eski yedekleri, hiç tam yedeği olmayan veritabanlarını ve ardışık tam yedeklerde boyutu yüzde X’ten fazla değişen (veri kaybı ya da beklenmedik büyüme) yedekleri işaretler, yaklaşık RPO’yu (son yedekten geçen süre) verir.',
+    input='Yedek geçmişi (veritabanı, tür, bitiş zamanı, boyut)', output='sonuc.csv (veritabanı bazında son yedekler ve bulgular)',
+    command='python main.py --input backupset.csv --as-of "2026-10-16 08:00" --log-hours 0.25',
+    expect={'veritabani': 4, 'sorunlu': 3, 'eski_tam': 1, 'eski_log': 1, 'tam_yok': 1, 'boyut_uyarisi': 1})
+def backups(columns, rows, args):
+    dbc, tc, fc = need(args.database, columns, '--database'), need(args.type, columns, '--type'), need(args.finish, columns, '--finish')
+    sizes = numbers(rows, need(args.size, columns, '--size')) if args.size in columns else [None] * len(rows)
+    as_of = (tabular.parse_date(args.as_of) or (None,))[0]
+    if not as_of:
+        raise ValueError(f'--as-of "{args.as_of}" tarih olarak okunamadı.')
+    hist = defaultdict(lambda: defaultdict(list))
+    for r, s in zip(rows, sizes):
+        kind, d = BACKUP_KIND.get(r[tc].strip().lower()), tabular.parse_date(r[fc])
+        if kind and d and r[dbc].strip():
+            hist[r[dbc].strip()][kind].append((d[0], s))
+    out = []
+    for db, kinds in sorted(hist.items(), key=lambda kv: kv[0].lower()):
+        last = {k: max(v) for k, v in kinds.items()}
+        age = {k: round((as_of - t).total_seconds() / 3600, 1) for k, (t, _) in last.items()}
+        issues = []
+        if 'tam' not in last:
+            issues.append('tam yedek yok')
+        elif age['tam'] > args.full_hours:
+            issues.append(f'tam yedek {fmt(age["tam"])} saat önce')
+        if 'fark' in last and 'tam' in last and age['tam'] > args.diff_hours and age['fark'] > args.diff_hours:
+            issues.append(f'fark yedeği {fmt(age["fark"])} saat önce')
+        if 'log' in last and age['log'] > args.log_hours:
+            issues.append(f'log yedeği {fmt(age["log"])} saat önce')
+        fulls = sorted(kinds.get('tam', []))
+        if len(fulls) >= 2 and fulls[-1][1] and fulls[-2][1]:
+            change = 100 * (fulls[-1][1] - fulls[-2][1]) / fulls[-2][1]
+            if abs(change) > args.size_change:
+                issues.append(f'tam yedek boyutu %{fmt(round(change, 1))} değişti')
+        out.append({'veritabani': db, 'son_tam': last['tam'][0].strftime('%Y-%m-%d %H:%M') if 'tam' in last else '', 'son_fark': last['fark'][0].strftime('%Y-%m-%d %H:%M') if 'fark' in last else '',
+                    'son_log': last['log'][0].strftime('%Y-%m-%d %H:%M') if 'log' in last else '', 'rpo_saat': min(age.values()) if 'tam' in last else '',
+                    'bulgu': '; '.join(issues) or 'uygun'})
+    out.sort(key=lambda o: (o['bulgu'] == 'uygun', o['veritabani'].lower()))
+    flags = [o['bulgu'] for o in out]
+    return Result(f'{len(out)} veritabanı; {sum(f != "uygun" for f in flags)} veritabanında yedek bulgusu', list(out[0]), out,
+                  {'veritabani': len(out), 'sorunlu': sum(f != 'uygun' for f in flags), 'eski_tam': sum('tam yedek' in f and 'saat önce' in f for f in flags),
+                   'eski_log': sum('log yedeği' in f for f in flags), 'tam_yok': sum('tam yedek yok' in f for f in flags), 'boyut_uyarisi': sum('boyutu' in f for f in flags)},
+                  notes=['Log yedeği kontrolü yalnızca log yedeği alınan (FULL recovery) veritabanlarına uygulanır. RPO, en yeni yedekten geçen süredir; log zincirinin kopuk olmadığını ve yedeğin geri yüklenebildiğini ayrıca test edin.'])
+
+
+def shape(v):
+    if isinstance(v, dict):
+        if any(k.startswith('$') for k in v) and not any(isinstance(x, (dict, list)) for x in v.values()):
+            return '{' + ','.join(sorted(v)) + '}'
+        return '{' + ','.join(f'{k}:{shape(x)}' for k, x in sorted(v.items())) + '}'
+    if isinstance(v, list):
+        return '[' + ','.join(sorted({shape(x) for x in v})) + ']' if v and all(isinstance(x, dict) for x in v) else '?'
+    return '?'
+
+
+def mongo_query(cmd):
+    cmd = cmd or {}
+    if 'pipeline' in cmd:
+        stages = []
+        for st in cmd['pipeline'] if isinstance(cmd['pipeline'], list) else []:
+            name = next(iter(st), '?') if isinstance(st, dict) else '?'
+            stages.append(name + (shape(st[name]) if name == '$match' else ''))
+        return ' | '.join(stages)
+    for k in ('filter', 'q', 'query'):
+        if isinstance(cmd.get(k), dict):
+            return shape(cmd[k])
+    return '{}'
+
+
+@op('mongodb-profil-analizi', title='MongoDB profiler kayıtlarından yavaş sorgu şekilleri ve COLLSCAN', domain='database', product='Atlas', tag='profiler', kind='file',
+    samples={'mongo_profil.jsonl': 'mongo_profil.jsonl'},
+    args=[arg('--ratio', type=float, default=100, help='İncelenen / dönen belge oranı bu değerin üstündeyse verimsiz'), arg('--min-docs', type=int, default=1000)],
+    description='system.profile koleksiyonunun (mongoexport ile JSON Lines) kayıtlarını koleksiyon, işlem ve sorgu şekline (değerler ? ile, aggregate için aşama listesi) göre gruplar; şekil başına çalışma sayısı, toplam/ortalama/en yüksek süre, plan özeti (COLLSCAN, IXSCAN, IDHACK) ve incelenen / dönen belge oranını verir. İndeks eksikliği olan, en çok süre harcayan sorgu şekillerini öne çıkarır.',
+    input='system.profile dökümü (JSON Lines)', output='sonuc.csv (sorgu şekli bazında)', command='mongoexport -d shop -c system.profile -o profil.jsonl; python main.py --input profil.jsonl',
+    expect={'kayit': 8, 'sekil': 5, 'collscan_sekil': 2, 'toplam_ms': 3325, 'verimsiz': 2})
+def mongo_profile(args):
+    groups, n, bad = {}, 0, 0
+    for line in Path(args.input).read_text(encoding='utf-8-sig', errors='replace').splitlines():
+        if not line.strip():
+            continue
+        try:
+            d = json.loads(line)
+        except json.JSONDecodeError:
+            bad += 1
+            continue
+        if not isinstance(d, dict) or 'millis' not in d:
+            continue
+        n += 1
+        key = (d.get('ns', ''), d.get('op', ''), mongo_query(d.get('command') or {'filter': d.get('query')}))
+        g = groups.setdefault(key, {'ns': key[0], 'islem': key[1], 'sekil': key[2], 'calisma': 0, 'toplam_ms': 0, 'en_yuksek_ms': 0, 'plan': set(), 'incelenen': 0, 'donen': 0, 'donen_var': False})
+        g['calisma'] += 1
+        g['toplam_ms'] += int(d.get('millis') or 0)
+        g['en_yuksek_ms'] = max(g['en_yuksek_ms'], int(d.get('millis') or 0))
+        g['plan'].add(str(d.get('planSummary', '')).split(' ')[0] or '-')
+        g['incelenen'] += int(d.get('docsExamined') or 0)
+        if 'nreturned' in d:
+            g['donen'] += int(d.get('nreturned') or 0)
+            g['donen_var'] = True
+    if not groups:
+        raise ValueError('millis alanı olan profiler kaydı yok (db.setProfilingLevel ile profiler açık mı?).')
+    out = []
+    for g in groups.values():
+        ratio = round(g['incelenen'] / max(g['donen'], 1), 1) if g['donen_var'] else None
+        issues = []
+        if 'COLLSCAN' in g['plan']:
+            issues.append('koleksiyon taraması (indeks yok)')
+        if ratio is not None and ratio > args.ratio and g['incelenen'] >= args.min_docs:
+            issues.append(f'{fmt(ratio)} belge incelenip 1 döndü')
+        out.append({'ns': g['ns'], 'islem': g['islem'], 'sekil': g['sekil'], 'calisma': g['calisma'], 'toplam_ms': g['toplam_ms'], 'ortalama_ms': round(g['toplam_ms'] / g['calisma'], 1),
+                    'en_yuksek_ms': g['en_yuksek_ms'], 'plan': ', '.join(sorted(g['plan'])), 'incelenen_donen_orani': fmt(ratio), 'bulgu': '; '.join(issues)})
+    out.sort(key=lambda o: -o['toplam_ms'])
+    total = sum(o['toplam_ms'] for o in out)
+    return Result(f'{n} profiler kaydı {len(out)} sorgu şeklinde; {sum("COLLSCAN" in o["plan"] for o in out)} şekil koleksiyon taraması yapıyor', list(out[0]), out,
+                  {'kayit': n, 'sekil': len(out), 'collscan_sekil': sum('COLLSCAN' in o['plan'] for o in out), 'toplam_ms': total,
+                   'verimsiz': sum('incelenip' in o['bulgu'] for o in out), 'bozuk_satir': bad},
+                  notes=['Profiler yalnızca slowms eşiğini aşan işlemleri kaydeder (varsayılan 100 ms); toplam süre tüm yükü değil, yavaş kısmı gösterir.',
+                         'COLLSCAN yapan şekil için sorgudaki eşitlik alanları önce, aralık/sıralama alanları sonra gelecek şekilde (ESR kuralı) bileşik indeks düşünün.'])

@@ -1,0 +1,17 @@
+deger;gecerli
+34 A 1234;evet
+06 AB 123;evet
+35 ABC 12;evet
+81 XY 4567;evet
+01 B 23456;evet
+16 KLM 987;evet
+07 DE 1234;evet
+00 AB 123;hayır
+82 AB 123;hayır
+34 AB 12345;hayır
+34AB123;hayır
+34 ab 123;hayır
+34 ABCD 12;hayır
+34 A 123;hayır
+3 AB 123;hayır
+34 ABC 1234;hayır

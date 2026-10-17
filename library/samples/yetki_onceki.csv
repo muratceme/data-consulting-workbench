@@ -1,0 +1,9 @@
+kullanici;nesne;yetki
+ayse;dwh.fct_satis;SELECT
+ayse;dwh.dim_musteri;SELECT
+mehmet;dwh.fct_satis;SELECT
+mehmet;dwh.fct_satis;INSERT
+etl_svc;dwh.fct_satis;INSERT
+etl_svc;dwh.fct_satis;DELETE
+zeynep;crm.musteri;SELECT
+ali;dwh.dim_musteri;SELECT

@@ -1,0 +1,11 @@
+kaynak;hedef
+crm.musteri;stg.musteri
+stg.musteri;dwh.dim_musteri
+dwh.dim_musteri;mart.musteri_ozet
+erp.siparis;stg.siparis
+stg.siparis;dwh.fct_siparis
+dwh.dim_musteri;dwh.fct_siparis
+dwh.fct_siparis;mart.satis_ozet
+dwh.fct_siparis;mart.musteri_ozet
+erp.urun;dwh.dim_urun
+dwh.dim_urun;mart.satis_ozet

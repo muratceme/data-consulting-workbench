@@ -190,3 +190,98 @@ def geofence(columns, rows, args):
                   {'ziyaret': len(out), 'toplam_kalis_dk': round(sum(o['kalis_dk'] for o in out), 1), 'bolge': len(zones)},
                   tables=[('Bölge bazında ziyaret', ['Bölge', 'Ziyaret'], [[z[0], per[z[0]]] for z in zones])],
                   notes=['Giriş ve çıkış, bölge içindeki ilk ve dışındaki ilk GPS kaydının zamanıdır; seyrek örneklenmiş izlerde süre örnekleme aralığı kadar sapabilir.'])
+
+
+@op('durak-tespiti', title='GPS izlerinden durakları (belirli yarıçapta en az N dakika kalınan yerler) çıkar', domain=D, product=P, tag='durak tespiti',
+    samples={'gps_izleri.csv': 'gps_izleri.csv'},
+    args=[arg('--id', default='arac'), arg('--time', default='zaman'), arg('--lat', default='enlem'), arg('--lon', default='boylam'),
+          arg('--radius', type=float, default=200, help='Durak yarıçapı (metre)'), arg('--min-minutes', type=float, default=10, help='Durak sayılması için en kısa süre (dakika)')],
+    description='Araç, kurye veya saha personelinin GPS izinde, ilk noktadan belirli yarıçap içinde en az N dakika kalınan bölümleri durak olarak çıkarır (stay-point algoritması); her durağın başlangıç/bitiş zamanını, süresini, merkez koordinatını ve nokta sayısını verir. Teslimat noktası süresi, mola ve rota dışı bekleme analizi için.',
+    input='GPS noktaları (kimlik, zaman, enlem, boylam)', output='sonuc.csv (duraklar)', command='python main.py --input gps.csv --radius 150 --min-minutes 5',
+    expect={'arac': 2, 'durak': 3, 'toplam_durak_dk': 70.0})
+def stay_points(columns, rows, args):
+    ic, tc = need(args.id, columns, '--id'), need(args.time, columns, '--time')
+    lat, lon = numbers(rows, need(args.lat, columns, '--lat')), numbers(rows, need(args.lon, columns, '--lon'))
+    tracks = defaultdict(list)
+    for r, a, b in zip(rows, lat, lon):
+        d = tabular.parse_date(r[tc])
+        if d and a is not None and b is not None:
+            tracks[r[ic].strip()].append((d[0], a, b))
+    if not tracks:
+        raise ValueError('Zamanı ve koordinatı okunabilen nokta yok.')
+    out = []
+    for vid, pts in sorted(tracks.items()):
+        pts.sort()
+        i = 0
+        while i < len(pts):
+            j = i + 1
+            while j < len(pts) and haversine(pts[i][1:], pts[j][1:]) * 1000 <= args.radius:
+                j += 1
+            minutes = (pts[j - 1][0] - pts[i][0]).total_seconds() / 60
+            if j - i > 1 and minutes >= args.min_minutes:
+                seg = pts[i:j]
+                out.append({'arac': vid, 'baslangic': seg[0][0].strftime('%Y-%m-%d %H:%M'), 'bitis': seg[-1][0].strftime('%Y-%m-%d %H:%M'), 'sure_dk': round(minutes, 1),
+                            'enlem': round(sum(p[1] for p in seg) / len(seg), 6), 'boylam': round(sum(p[2] for p in seg) / len(seg), 6), 'nokta': len(seg)})
+                i = j
+            else:
+                i += 1
+    total = round(sum(o['sure_dk'] for o in out), 1)
+    return Result(f'{len(tracks)} araç; {len(out)} durak, toplam {fmt(total)} dakika', ['arac', 'baslangic', 'bitis', 'sure_dk', 'enlem', 'boylam', 'nokta'], out,
+                  {'arac': len(tracks), 'durak': len(out), 'toplam_durak_dk': total},
+                  tables=[('Araç bazında', ['Araç', 'Durak', 'Toplam dk'], [[v, sum(o['arac'] == v for o in out), round(sum(o['sure_dk'] for o in out if o['arac'] == v), 1)] for v in sorted(tracks)])],
+                  notes=['Süre, durak içindeki ilk ve son nokta arasındadır; GPS örnekleme aralığı uzunsa gerçek süre biraz daha uzundur. Kapalı alanlarda sinyal sıçramaları durağı bölebilir; yarıçapı büyütün.'])
+
+
+GEOHASH = '0123456789bcdefghjkmnpqrstuvwxyz'
+
+
+def geohash(lat, lon, precision):
+    lat_r, lon_r, bits, bit, ch, even, out = [-90.0, 90.0], [-180.0, 180.0], [16, 8, 4, 2, 1], 0, 0, True, []
+    while len(out) < precision:
+        rng, val = (lon_r, lon) if even else (lat_r, lat)
+        mid = (rng[0] + rng[1]) / 2
+        if val >= mid:
+            ch |= bits[bit]
+            rng[0] = mid
+        else:
+            rng[1] = mid
+        even = not even
+        if bit < 4:
+            bit += 1
+        else:
+            out.append(GEOHASH[ch])
+            bit, ch = 0, 0
+    return ''.join(out), (lat_r[0] + lat_r[1]) / 2, (lon_r[0] + lon_r[1]) / 2
+
+
+@op('izgara-yogunluk', title='Konumları geohash ızgarasında topla (ısı haritası verisi)', domain=D, product=P, tag='geohash', samples={'teslimat_noktalari.csv': 'teslimat_noktalari.csv'},
+    args=[arg('--lat', default='enlem'), arg('--lon', default='boylam'), arg('--value', default='', help='Toplanacak sayı sütunu (isteğe bağlı; boşsa adet)'),
+          arg('--precision', type=int, default=6, help='Geohash uzunluğu: 5 ≈ 4,9 km, 6 ≈ 1,2 km, 7 ≈ 150 m')],
+    description='Nokta verisini (müşteri, teslimat, olay, sensör) geohash hücrelerine atar; hücre başına nokta sayısını, isteğe bağlı değer toplamını, payını ve hücre merkez koordinatını verir. Kişisel konumu paylaşmadan ısı haritası üretmek, bölge yoğunluğunu karşılaştırmak ve BI aracına hafif bir konum katmanı vermek için.',
+    input='Noktalar (enlem, boylam; isteğe bağlı değer)', output='sonuc.csv (hücre bazında yoğunluk)', command='python main.py --input siparis_konum.csv --precision 5 --value tutar',
+    expect={'nokta': 12, 'hucre': 4, 'en_yogun_hucre': 'sxk97w', 'en_yogun_pay_%': 50.0, 'gecersiz': 1})
+def grid(columns, rows, args):
+    if not 1 <= args.precision <= 12:
+        raise ValueError('--precision 1 ile 12 arasında olmalı.')
+    lat, lon = numbers(rows, need(args.lat, columns, '--lat')), numbers(rows, need(args.lon, columns, '--lon'))
+    val = numbers(rows, need(args.value, columns, '--value')) if args.value else [None] * len(rows)
+    cells, bad = {}, 0
+    for a, b, v in zip(lat, lon, val):
+        if a is None or b is None or not (-90 <= a <= 90 and -180 <= b <= 180) or (a == 0 and b == 0):
+            bad += 1
+            continue
+        h, clat, clon = geohash(a, b, args.precision)
+        c = cells.setdefault(h, {'hucre': h, 'merkez_enlem': round(clat, 6), 'merkez_boylam': round(clon, 6), 'nokta': 0, 'deger': 0.0})
+        c['nokta'] += 1
+        c['deger'] += v or 0.0
+    if not cells:
+        raise ValueError('Geçerli koordinat yok.')
+    n = sum(c['nokta'] for c in cells.values())
+    out = sorted(cells.values(), key=lambda c: (-c['nokta'], c['hucre']))
+    for c in out:
+        c['pay_%'] = round(100 * c['nokta'] / n, 2)
+        c['deger'] = round(c['deger'], 2) if args.value else ''
+    return Result(f'{n} nokta {len(out)} hücrede; en yoğun hücre {out[0]["hucre"]} (%{fmt(out[0]["pay_%"])})', ['hucre', 'merkez_enlem', 'merkez_boylam', 'nokta', 'deger', 'pay_%'], out,
+                  {'nokta': n, 'hucre': len(out), 'en_yogun_hucre': out[0]['hucre'], 'en_yogun_pay_%': out[0]['pay_%'], 'gecersiz': bad},
+                  notes=['Geohash hücreleri dikdörtgendir ve kutuplara doğru daralır. Az noktalı hücreler kişiyi tanımlatabilir; paylaşmadan önce küçük hücreleri birleştirin veya kesinliği düşürün.',
+                         '(0,0) ve aralık dışı koordinatlar geçersiz sayılır.'])

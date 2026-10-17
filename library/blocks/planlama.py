@@ -349,3 +349,96 @@ def tornado(columns, rows, args):
     return Result(f'Baz sonuç {tr_money(b)}; en etkili sürücü {out[0]["surucu"]} (aralık {tr_money(out[0]["aralik"])})', list(out[0]), out,
                   {'baz': round(b, 2), 'surucu': len(out), 'en_etkili': out[0]['surucu'], 'en_etkili_aralik': out[0]['aralik']},
                   notes=['Her sürücü diğerleri sabitken değiştirilir; sürücüler arası ilişki (fiyat artınca adedin düşmesi) için senaryo-analizi bloğunu kullanın.'])
+
+
+@op('personel-maliyet-plani', title='Kadro planından aylık personel maliyeti (zam ayı, giriş/çıkış ve işveren payıyla)', domain=D, product=P, tag='personel bütçesi',
+    samples={'personel_plani.csv': 'personel_plani.csv'},
+    args=[arg('--person', default='personel'), arg('--unit', default='birim'), arg('--salary', default='brut_maas', help='Aylık brüt ücret'),
+          arg('--start', default='baslangic_ay', help='İşe başlama ayı (1-12; boşsa 1)'), arg('--end', default='bitis_ay', help='Ayrılış ayı (boşsa 12)'),
+          arg('--raise-month', default='zam_ay'), arg('--raise-pct', default='zam_orani', help='Zam oranı (yüzde)'),
+          arg('--employer-rate', type=float, default=22.75, help='İşveren SGK + işsizlik payı, yüzde (dönemin oranını girin)')],
+    description='Kişi bazında kadro planından (brüt ücret, giriş/çıkış ayı, zam ayı ve oranı) 12 aylık brüt ücret ve işveren maliyetini hesaplar; birim × ay maliyet tablosunu, aylık kadro (FTE) sayısını ve en yüksek maliyetli ayı verir. Bütçe döneminde İK ve finansın aynı rakamla çalışması için.',
+    input='Kadro planı (personel, birim, brüt ücret, başlangıç/bitiş ayı, zam ayı, zam oranı)', output='sonuc.csv (kişi bazında yıllık maliyet) + birim × ay tablosu',
+    command='python main.py --input kadro_2027.xlsx --employer-rate 22.75',
+    expect={'personel': 6, 'yillik_brut': 4062000.0, 'toplam_maliyet': 4986105.0, 'ortalama_kadro': 4.5, 'en_yuksek_ay': 10})
+def headcount_cost(columns, rows, args):
+    pc, uc, sc = need(args.person, columns, '--person'), need(args.unit, columns, '--unit'), need(args.salary, columns, '--salary')
+    st, en = need(args.start, columns, '--start'), need(args.end, columns, '--end')
+    rm, rp = need(args.raise_month, columns, '--raise-month'), need(args.raise_pct, columns, '--raise-pct')
+    sal, pct = numbers(rows, sc), numbers(rows, rp)
+    factor = 1 + args.employer_rate / 100
+    out, unit_month, month_total, month_fte = [], defaultdict(lambda: [0.0] * 12), [0.0] * 12, [0] * 12
+
+    def month(v, default, label, i):
+        if not v.strip():
+            return default
+        m = int(v) if v.strip().isdigit() and 1 <= int(v) <= 12 else month_no(v)
+        if not m:
+            raise ValueError(f'{i}. satır: {label} "{v}" ay olarak okunamadı (1-12 veya ay adı).')
+        return m
+    for i, (r, s, p) in enumerate(zip(rows, sal, pct), start=2):
+        if s is None:
+            raise ValueError(f'{i}. satır: brüt ücret sayı değil.')
+        a, b = month(r[st], 1, 'başlangıç ayı', i), month(r[en], 12, 'bitiş ayı', i)
+        rmo = month(r[rm], 13, 'zam ayı', i)
+        gross = 0.0
+        for m in range(a, b + 1):
+            g = s * (1 + (p or 0) / 100) if m >= rmo else s
+            gross += g
+            unit_month[r[uc].strip()][m - 1] += g * factor
+            month_total[m - 1] += g * factor
+            month_fte[m - 1] += 1
+        out.append({'personel': r[pc].strip(), 'birim': r[uc].strip(), 'aktif_ay': max(0, b - a + 1), 'yillik_brut': round(gross, 2), 'isveren_payi': round(gross * (factor - 1), 2),
+                    'toplam_maliyet': round(gross * factor, 2)})
+    out.sort(key=lambda o: (tr_sort_key(o['birim']), -o['toplam_maliyet']))
+    peak = max(range(12), key=lambda m: month_total[m]) + 1
+    total = round(sum(o['toplam_maliyet'] for o in out), 2)
+    table = [[u] + [tr_money(v) for v in vals] + [tr_money(sum(vals))] for u, vals in sorted(unit_month.items(), key=lambda kv: tr_sort_key(kv[0]))]
+    table.append(['Kadro (kişi)'] + month_fte + [round(sum(month_fte) / 12, 2)])
+    return Result(f'{len(out)} kişi; yıllık maliyet {tr_money(total)}, ortalama kadro {round(sum(month_fte) / 12, 2)}, en yüksek ay {peak}',
+                  ['personel', 'birim', 'aktif_ay', 'yillik_brut', 'isveren_payi', 'toplam_maliyet'], out,
+                  {'personel': len(out), 'yillik_brut': round(sum(o['yillik_brut'] for o in out), 2), 'toplam_maliyet': total,
+                   'ortalama_kadro': round(sum(month_fte) / 12, 2), 'en_yuksek_ay': peak, 'en_yuksek_ay_maliyet': round(month_total[peak - 1], 2)},
+                  tables=[('Birim × ay işveren maliyeti', ['Birim'] + [str(m) for m in range(1, 13)] + ['Yıl'], table)],
+                  notes=[f'İşveren maliyeti = brüt × (1 + %{fmt(args.employer_rate)}). Teşvik, SGK tavanı, ikramiye ve yan haklar dahil değildir; dönemin oranlarını --employer-rate ile girin.',
+                         'Zam, zam ayından itibaren uygulanır; zam ayı boşsa zam yok sayılır.'])
+
+
+@op('tahmin-dogrulugu', title='Satış/talep tahmini doğruluğu: WAPE, sapma ve naif tahmine göre katkı (FVA)', domain=D, product=P, tag='tahmin doğruluğu',
+    samples={'tahmin_gercek.csv': 'tahmin_gercek.csv'},
+    args=[arg('--item', default='urun'), arg('--period', default='donem'), arg('--forecast', default='tahmin'), arg('--actual', default='gercek')],
+    description='Ürün/dönem bazında tahmin ile gerçekleşeni karşılaştırır: WAPE (ağırlıklı mutlak yüzde hata), MAPE, sapma (bias: sistematik fazla/eksik tahmin) ve tahminin “geçen dönem ne olduysa o olur” naif tahminine göre katkısını (FVA) hesaplar. Naif tahminden kötü olan ürünleri işaretler; S&OP toplantısı ve planlama sürecini iyileştirmek için.',
+    input='Tahmin ve gerçekleşen (ürün, dönem, tahmin, gerçek)', output='sonuc.csv (ürün bazında hata ölçüleri)', command='python main.py --input talep_tahmini.xlsx --item sku --period ay',
+    expect={'urun': 3, 'wape_%': 9.12, 'bias_%': 4.08, 'naif_daha_iyi': 1})
+def forecast_accuracy(columns, rows, args):
+    ic, pc = need(args.item, columns, '--item'), need(args.period, columns, '--period')
+    fc, ac = need(args.forecast, columns, '--forecast'), need(args.actual, columns, '--actual')
+    series = defaultdict(list)
+    for r, f, a in zip(rows, numbers(rows, fc), numbers(rows, ac)):
+        if f is not None and a is not None and r[ic].strip():
+            series[r[ic].strip()].append((r[pc].strip(), f, a))
+    if not series:
+        raise ValueError('Tahmini ve gerçekleşeni sayı olan satır yok.')
+    out, tot_err, tot_act, tot_bias = [], 0.0, 0.0, 0.0
+    for item, pts in series.items():
+        pts.sort(key=lambda p: (0, tabular.parse_date(p[0])[0], '') if tabular.parse_date(p[0]) else (1, None, p[0]))
+        err = sum(abs(f - a) for _, f, a in pts)
+        act = sum(a for _, _, a in pts)
+        bias = sum(f - a for _, f, a in pts)
+        mape = [abs(f - a) / a for _, f, a in pts if a]
+        tail = pts[1:]
+        tail_act = sum(a for _, _, a in tail)
+        naive = round(100 * sum(abs(pts[i][2] - pts[i + 1][2]) for i in range(len(tail))) / tail_act, 2) if tail_act else None
+        model = round(100 * sum(abs(f - a) for _, f, a in tail) / tail_act, 2) if tail_act else None
+        fva = round(naive - model, 2) if naive is not None else None
+        tot_err, tot_act, tot_bias = tot_err + err, tot_act + act, tot_bias + bias
+        out.append({'urun': item, 'donem': len(pts), 'gercek_toplam': round(act, 2), 'wape_%': round(100 * err / act, 2) if act else None,
+                    'mape_%': round(100 * sum(mape) / len(mape), 2) if mape else None, 'bias_%': round(100 * bias / act, 2) if act else None,
+                    'naif_wape_%': naive, 'fva_puan': fva,
+                    'yorum': 'naif tahminden kötü' if fva is not None and fva < 0 else ('sistematik fazla tahmin' if act and bias / act > 0.1 else 'sistematik eksik tahmin' if act and bias / act < -0.1 else '')})
+    out.sort(key=lambda o: -(o['wape_%'] or 0))
+    worse = sum(o['fva_puan'] is not None and o['fva_puan'] < 0 for o in out)
+    return Result(f'{len(out)} ürün; genel WAPE %{fmt(round(100 * tot_err / tot_act, 2))}, sapma %{fmt(round(100 * tot_bias / tot_act, 2))}; {worse} üründe naif tahmin daha iyi',
+                  list(out[0]), out,
+                  {'urun': len(out), 'wape_%': round(100 * tot_err / tot_act, 2), 'bias_%': round(100 * tot_bias / tot_act, 2), 'naif_daha_iyi': worse},
+                  notes=['WAPE = Σ|tahmin − gerçek| / Σ gerçek. Sapma pozitifse tahmin sistematik olarak yüksektir. FVA, naif tahminin (bir önceki dönemin gerçekleşeni) WAPE’sinden modelin WAPE’si çıkarılarak ikinci dönemden itibaren hesaplanır; negatifse tahmin süreci değer katmıyor.'])
