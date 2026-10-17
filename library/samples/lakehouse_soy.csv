@@ -1,0 +1,10 @@
+kaynak;hedef
+bronze.siparis;silver.siparis
+bronze.musteri;silver.musteri
+silver.siparis;gold.satis_ozet
+silver.musteri;gold.satis_ozet
+bronze.kampanya;gold.kampanya_ozet
+gold.satis_ozet;silver.satis_duzeltme
+silver.siparis;silver.siparis_kalem
+silver.siparis_kalem;gold.satis_ozet
+tmp_yukleme;silver.siparis

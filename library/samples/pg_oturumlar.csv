@@ -1,0 +1,8 @@
+pid;usename;application_name;state;xact_start;query_start;state_change;query
+201;app;siparis-api;active;2026-10-16 09:59:58;2026-10-16 09:59:58;2026-10-16 09:59:58;SELECT * FROM siparis WHERE id = $1
+202;rapor;metabase;active;2026-10-16 09:40:00;2026-10-16 09:40:00;2026-10-16 09:40:00;SELECT bolge, sum(tutar) FROM satis GROUP BY 1
+203;app;siparis-api;idle in transaction;2026-10-16 09:20:00;2026-10-16 09:20:05;2026-10-16 09:20:05;UPDATE stok SET adet = adet - 1 WHERE urun_id = 7
+204;etl;airflow;idle in transaction;2026-10-16 09:58:00;2026-10-16 09:58:30;2026-10-16 09:58:40;INSERT INTO stg.olay VALUES ($1, $2)
+205;app;siparis-api;idle;;2026-10-16 09:00:00;2026-10-16 09:00:01;SELECT 1
+206;etl;airflow;active;2026-10-16 09:59:00;2026-10-16 09:59:30;2026-10-16 09:59:30;COPY stg.olay FROM STDIN
+207;admin;psql;idle in transaction (aborted);2026-10-16 08:30:00;2026-10-16 08:31:00;2026-10-16 08:31:00;DELETE FROM log WHERE tarih < now() - interval '1 year'

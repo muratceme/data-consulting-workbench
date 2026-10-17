@@ -408,3 +408,43 @@ def real_in_test(columns, rows, args):
                   {'kisisel_sutun': len(out), 'gercek_gorunumlu': sum(o['gercek_gorunumlu'] for o in out), 'riskli_sutun': risky},
                   notes=['“Gerçek görünümlü” bir değerin gerçek kişiye ait olduğunu kanıtlamaz; kontrol hanesi tutan değerleri sentetik veri üreteçleri de üretebilir. Kaynağını doğrulayın.',
                          'Değerler rapora yazılmaz; satır numaraları Excel’deki satırdır. Üretimden kopyalanan veriyi kvkk-maskeleme bloğuyla maskeleyin.'])
+
+
+@op('maskeleme-dogrulama', title='Maskelenmiş kopyayı orijinaliyle karşılaştır: sızıntı, tutarlılık, çakışma', domain=D, product=P, tag='maskeleme doğrulama',
+    samples={'musteri_orijinal.csv': 'musteri_orijinal.csv', 'musteri_maskeli.csv': 'musteri_maskeli.csv'},
+    args=[arg('--masked', default='@ornek/musteri_maskeli.csv', help='Maskelenmiş kopya'), arg('--key', default='musteri_no', help='Satırları eşleştiren anahtar (maskelenmemiş olmalı)'),
+          arg('--columns', default='', help='Maskelenmiş sütunlar; boşsa satırların yarısından fazlasında değişen sütunlar')],
+    description='Test ortamına veya iş ortağına gidecek maskelenmiş dosyayı orijinaliyle anahtar üzerinden karşılaştırır: maskelenmeden kalan değerleri (sızıntı), orijinal değerin maskeli metin içinde aynen geçtiği satırları, aynı orijinalin farklı maskelere dönüştüğü tutarsızlıkları (birleştirmeleri bozar) ve farklı orijinallerin aynı maskeye düştüğü çakışmaları sayar; eksik/fazla satırları raporlar. Değerler rapora yazılmaz.',
+    input='Orijinal dosya + maskelenmiş kopya (aynı anahtar)', output='sonuc.csv (sütun bazında doğrulama)', command='python main.py --input prod_musteri.csv --masked test_musteri.csv --key id',
+    expect={'satir': 6, 'maskeli_sutun': 3, 'sizinti': 1, 'tutarsiz': 1, 'cakisma': 1, 'eksik_satir': 0})
+def mask_check(columns, rows, args):
+    k = need(args.key, columns, '--key')
+    mcols, mrows = tabular.read(args.masked)
+    need(args.key, mcols, '--masked --key')
+    masked = {r[k].strip(): r for r in mrows if r[k].strip()}
+    pairs = [(r, masked[r[k].strip()]) for r in rows if r[k].strip() in masked]
+    common = [c for c in columns if c != k and c in mcols]
+    if args.columns:
+        cols = col_list(args.columns, columns, '--columns')
+    else:
+        cols = [c for c in common if sum(a[c] != b[c] for a, b in pairs) > len(pairs) / 2]
+    out = []
+    for c in cols:
+        leak = sum(1 for a, b in pairs if a[c].strip() and a[c].strip() == b[c].strip())
+        inside = sum(1 for a, b in pairs if len(a[c].strip()) >= 4 and a[c].strip() != b[c].strip() and a[c].strip().casefold() in b[c].casefold())
+        by_orig, by_mask = defaultdict(set), defaultdict(set)
+        for a, b in pairs:
+            if a[c].strip():
+                by_orig[a[c].strip().casefold()].add(b[c].strip())
+                by_mask[b[c].strip()].add(a[c].strip().casefold())
+        incons = sum(len(v) > 1 for v in by_orig.values())
+        coll = sum(len(v) > 1 for m, v in by_mask.items() if m)
+        issues = [f'{leak} satır maskelenmemiş' if leak else '', f'{inside} satırda orijinal maskeli metnin içinde' if inside else '',
+                  f'{incons} değer tutarsız maskelenmiş' if incons else '', f'{coll} maske birden çok değere ait' if coll else '']
+        out.append({'sutun': c, 'satir': len(pairs), 'sizinti': leak + inside, 'tutarsiz': incons, 'cakisma': coll, 'bulgu': '; '.join(x for x in issues if x) or 'uygun'})
+    out.sort(key=lambda o: (-o['sizinti'], -o['tutarsiz'], o['sutun']))
+    missing = len({r[k].strip() for r in rows if r[k].strip()} - set(masked))
+    return Result(f'{len(pairs)} satır, {len(cols)} maskeli sütun; {sum(o["sizinti"] for o in out)} sızıntı, {sum(o["tutarsiz"] for o in out)} tutarsızlık', ['sutun', 'satir', 'sizinti', 'tutarsiz', 'cakisma', 'bulgu'], out,
+                  {'satir': len(pairs), 'maskeli_sutun': len(cols), 'sizinti': sum(o['sizinti'] for o in out), 'tutarsiz': sum(o['tutarsiz'] for o in out),
+                   'cakisma': sum(o['cakisma'] for o in out), 'eksik_satir': missing, 'fazla_satir': len(set(masked) - {r[k].strip() for r in rows})},
+                  notes=['Kısmi maskelemede (son 4 hane) çakışma beklenir; takma ad (pseudonym) yönteminde çakışma ve tutarsızlık sıfır olmalıdır. Rapora değer yazılmaz.'])

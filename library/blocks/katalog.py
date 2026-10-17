@@ -2,6 +2,7 @@
 Katalog aracına bağlanmaz; dışa aktarılmış listeler ve betikler üzerinde çalışır."""
 import json, re
 from collections import Counter, defaultdict
+from datetime import timedelta
 from pathlib import Path
 import tabular
 from islem import op, arg, Result, need, numbers, fold, fmt
@@ -498,3 +499,49 @@ def exceptions(columns, rows, args):
                   {'istisna': len(rows), 'aktif': n_active, 'sorunlu': len({o['istisna'] for o in out}), 'suresi_gecmis': kinds['süresi geçti'], 'yaklasan': kinds['yaklaşıyor'],
                    'onaysiz': kinds['onaysız'], 'kendi_onayi': kinds['kendi onayı'], 'suresiz': kinds['süresiz'], 'uzun': kinds['çok uzun']},
                   notes=['Yalnızca aktif durumdaki istisnalar denetlenir. Süresi geçmiş istisnaya dayanan erişim veya maskeleme muafiyetini kapatın ya da yeniden onaya gönderin.'])
+
+
+@op('kullanilmayan-yetkiler', title='Verilmiş ama kullanılmayan yetkileri erişim günlüğüyle bul (en az yetki)', domain=D, product=P, tag='en az yetki',
+    samples={'yetki_simdi.csv': 'yetki_simdi.csv', 'nesne_erisim.csv': 'nesne_erisim.csv'},
+    args=[arg('--access', default='@ornek/nesne_erisim.csv', help='Erişim günlüğü (kullanici, nesne, zaman)'), arg('--user', default='kullanici'), arg('--object', default='nesne'),
+          arg('--privilege', default='yetki'), arg('--as-of', default='2026-10-16'), arg('--days', type=int, default=90)],
+    description='Yetki listesindeki her kullanıcı + nesne çiftini erişim/sorgu günlüğüyle (Snowflake ACCESS_HISTORY, BigQuery INFORMATION_SCHEMA.JOBS, audit log) karşılaştırır; son N günde hiç kullanılmayan yetkileri, hiç erişimi olmayan kullanıcıları ve yalnızca okuma yapıldığı hâlde yazma/sahip yetkisi taşıyan çiftleri listeler. Dönemsel erişim gözden geçirmesinde geri alınacak yetkileri seçmek için.',
+    input='Yetki listesi (kullanıcı, nesne, yetki) + erişim günlüğü (kullanıcı, nesne, zaman, isteğe bağlı işlem)', output='sonuc.csv (geri alma adayları)',
+    command='python main.py --input grants.csv --access access_history.csv --days 60',
+    expect={'yetki': 11, 'kullanilmayan': 2, 'hic_erisimi_olmayan_kullanici': 1, 'fazla_yetki': 1})
+def unused_grants(columns, rows, args):
+    u, o, p = need(args.user, columns, '--user'), need(args.object, columns, '--object'), need(args.privilege, columns, '--privilege')
+    acols, arows = tabular.read(args.access)
+    au, ao = need(args.user, acols, '--access --user'), need(args.object, acols, '--access --object')
+    tcol = next((c for c in ('zaman', 'tarih', 'query_start_time', 'timestamp') if c in acols), None)
+    op_col = next((c for c in ('islem', 'operation', 'query_type') if c in acols), None)
+    if not tcol:
+        raise ValueError('Erişim günlüğünde zaman sütunu (zaman, tarih, timestamp) yok.')
+    as_of = (tabular.parse_date(args.as_of) or (None,))[0]
+    since = as_of - timedelta(days=args.days)
+    used, writes, users_seen = defaultdict(lambda: None), set(), set()
+    for r in arows:
+        d = tabular.parse_date(r[tcol])
+        if not d or d[0] < since:
+            continue
+        key = (r[au].strip().lower(), r[ao].strip().lower())
+        users_seen.add(key[0])
+        used[key] = max(filter(None, [used[key], d[0]]))
+        if op_col and re.search(r'insert|update|delete|merge|write|yaz', r[op_col], re.I):
+            writes.add(key)
+    priv = set(PRIVILEGED.split(',')) | {'INSERT'}
+    out, users = [], {r[u].strip().lower() for r in rows if r[u].strip()}
+    for r in rows:
+        key = (r[u].strip().lower(), r[o].strip().lower())
+        if not key[0]:
+            continue
+        words = set(re.findall(r'[A-Z_]+', r[p].upper()))
+        if used[key] is None:
+            out.append({'kullanici': r[u].strip(), 'nesne': r[o].strip(), 'yetki': r[p].strip(), 'son_erisim': '', 'bulgu': f'{args.days} gündür kullanılmıyor' + (' (kullanıcının hiç erişimi yok)' if key[0] not in users_seen else '')})
+        elif words & priv and key not in writes and op_col:
+            out.append({'kullanici': r[u].strip(), 'nesne': r[o].strip(), 'yetki': r[p].strip(), 'son_erisim': used[key].strftime('%Y-%m-%d'), 'bulgu': 'yalnızca okuma yapılmış; yazma/sahip yetkisi fazla'})
+    out.sort(key=lambda o: (o['bulgu'].startswith('yalnızca'), o['kullanici'].lower(), o['nesne']))
+    return Result(f'{len(rows)} yetkiden {sum(not o["bulgu"].startswith("yalnızca") for o in out)} tanesi {args.days} gündür kullanılmıyor', ['kullanici', 'nesne', 'yetki', 'son_erisim', 'bulgu'], out,
+                  {'yetki': len(rows), 'kullanilmayan': sum(not o['bulgu'].startswith('yalnızca') for o in out), 'hic_erisimi_olmayan_kullanici': len(users - users_seen),
+                   'fazla_yetki': sum(o['bulgu'].startswith('yalnızca') for o in out)},
+                  notes=['Erişim günlüğünün saklama süresi --days’ten kısaysa kullanılmıyor görünen yetkiler aslında kullanılmış olabilir. Yıllık/çeyreklik raporları besleyen hizmet hesaplarını geri almadan önce sorun.'])

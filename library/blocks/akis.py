@@ -581,3 +581,40 @@ def outbox(columns, rows, args):
                    'p50_sn': float(p50) if p50 is not None else None, 'p95_sn': float(p95) if p95 is not None else None, 'bozuk_satir': bad},
                   notes=['Zaman dilimi bilgisi yok sayılır; outbox ve olay zamanlarının aynı saat diliminde (tercihen UTC) olduğundan emin olun.',
                          'Tekrar yayın at-least-once teslimatta beklenir; tüketiciler olay kimliğiyle idempotent olmalıdır.'])
+
+
+@op('schema-registry-denetimi', title='Schema Registry konularında uyumluluk ayarı ve sürüm sağlığı', domain='stream', product='Kafka', tag='schema registry', kind='file',
+    samples={'schema_registry.json': 'schema_registry.json'},
+    args=[arg('--max-versions', type=int, default=20, help='Bu sayıdan fazla sürümü olan konu işaretlenir'), arg('--required', default='BACKWARD,BACKWARD_TRANSITIVE,FULL,FULL_TRANSITIVE', help='Kabul edilen uyumluluk düzeyleri')],
+    description='Schema Registry dışa aktarımını (global uyumluluk + konu başına uyumluluk, sürümler, şema tipi) okur; uyumluluğu NONE veya kabul listesi dışında olan konuları, global ayardan sapanları, çok fazla sürümü olan konuları, yalnızca silinmiş sürümleri kalan konuları ve topic adlandırma kuralına (<topic>-value/-key) uymayan konuları raporlar.',
+    input='Schema Registry dışa aktarımı (JSON: config, subjects)', output='sonuc.csv (konu bazında bulgular)', command='python main.py --input sr_export.json --max-versions 30',
+    expect={'konu': 6, 'sorunlu': 4, 'uyumsuz_ayar': 2, 'cok_surum': 1, 'adlandirma': 1})
+def registry(args):
+    data = json.loads(Path(args.input).read_text(encoding='utf-8-sig'))
+    glob = str((data.get('config') or {}).get('compatibilityLevel') or data.get('compatibility') or 'BACKWARD').upper()
+    allowed = {x.strip().upper() for x in args.required.split(',') if x.strip()}
+    subjects = data.get('subjects') or []
+    if not subjects:
+        raise ValueError('JSON’da "subjects" listesi yok.')
+    out = []
+    for sb in subjects:
+        name = str(sb.get('subject', ''))
+        comp = str(sb.get('compatibility') or glob).upper()
+        versions = sb.get('versions') or []
+        live = [v for v in versions if not (isinstance(v, dict) and v.get('deleted'))]
+        issues = []
+        if comp not in allowed:
+            issues.append(f'uyumluluk {comp}' + (' (global ayar)' if not sb.get('compatibility') else ''))
+        if len(versions) > args.max_versions:
+            issues.append(f'{len(versions)} sürüm')
+        if versions and not live:
+            issues.append('tüm sürümler silinmiş')
+        if not re.search(r'-(key|value)$', name) and '.' not in name:
+            issues.append('adlandırma: <topic>-key / <topic>-value bekleniyor')
+        out.append({'konu': name, 'uyumluluk': comp, 'global_farkli': 'evet' if comp != glob else '', 'surum': len(versions), 'aktif_surum': len(live),
+                    'tip': (live[-1].get('schemaType') if live and isinstance(live[-1], dict) else '') or 'AVRO', 'bulgu': '; '.join(issues)})
+    out.sort(key=lambda o: (not o['bulgu'], o['konu']))
+    return Result(f'{len(out)} konu (global uyumluluk {glob}); {sum(bool(o["bulgu"]) for o in out)} konuda bulgu', list(out[0]), out,
+                  {'konu': len(out), 'global': glob, 'sorunlu': sum(bool(o['bulgu']) for o in out), 'uyumsuz_ayar': sum('uyumluluk' in o['bulgu'] for o in out),
+                   'cok_surum': sum('sürüm' in o['bulgu'] and 'silinmiş' not in o['bulgu'] for o in out), 'adlandirma': sum('adlandırma' in o['bulgu'] for o in out)},
+                  notes=['NONE uyumluluğu üreticinin tüketicileri kıran şema yayımlamasına izin verir. Çok sürüm genelde şemanın her dağıtımda yeniden kaydedilmesinden gelir; sema-uyumlulugu bloğuyla değişiklikleri inceleyin.'])

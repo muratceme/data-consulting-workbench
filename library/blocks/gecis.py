@@ -5,7 +5,7 @@ from pathlib import Path
 from collections import Counter, defaultdict
 import tabular
 from sema_farki import load as load_ddl, narrowing, base_type
-from islem import op, arg, Result, need, numbers, fmt, fold
+from islem import op, arg, Result, need, numbers, fmt, fold, col_list
 
 REQUIRES = ['sema_farki']
 D, P = 'migration', 'Geçiş eşleme dosyaları'
@@ -531,3 +531,88 @@ def duration(columns, rows, args):
     return Result(f'{len(out)} dalga, toplam ≈{sum(o["tahmini_saat"] for o in out):.1f} saat; {sum(o["durum"] != "sığıyor" for o in out)} dalga {fmt(args.window)} saatlik pencereyi aşıyor', list(out[0]), out,
                   {'dalga': len(out), 'toplam_saat': round(sum(o['tahmini_saat'] for o in out), 2), 'pencere_asan': sum(o['durum'] != 'sığıyor' for o in out)},
                   notes=['Hız, gerçek ortamda örnek bir tabloyla ölçülmelidir; indeks/kısıt oluşturma ve doğrulama süreleri bu tahmine dahil değildir. En büyük tablo belirleyiciyse bölümlü (paralel) taşımayı değerlendirin.'])
+
+
+@op('saat-dilimi-kaymasi', title='Kaynak ve hedef zaman damgalarında saat dilimi / sabit kayma tespiti', domain=D, product=P, tag='saat dilimi',
+    samples={'kaynak_zaman.csv': 'kaynak_zaman.csv', 'hedef_zaman.csv': 'hedef_zaman.csv'},
+    args=[arg('--target', default='@ornek/hedef_zaman.csv', help='Hedef dışa aktarım'), arg('--key', default='siparis_no'), arg('--columns', default='olusturma,guncelleme', help='Karşılaştırılacak zaman sütunları'),
+          arg('--tolerance', type=float, default=1, help='Bu kadar saniyelik fark eşit sayılır')],
+    description='Geçiş sonrası kaynak ve hedefteki zaman damgası sütunlarını anahtarla eşleştirip her satırda farkı saniye cinsinden hesaplar; farkların çoğunun aynı sabit değer olduğunu (ör. +3 saat: UTC ↔ Türkiye saati, ya da tam gün kayması) tespit eder, bu kaymaya uymayan satırları ve yaz/kış saati geçişine denk gelenleri ayrı listeler. Sütun bazında baskın kaymayı ve etkilenen satır oranını verir.',
+    input='Kaynak ve hedef dışa aktarım (anahtar + zaman sütunları)', output='sonuc.csv (sütun bazında kayma) + farklı satırlar', command='python main.py --input erp.csv --target dwh.csv --key id --columns created_at,updated_at',
+    expect={'eslesen': 10, 'sutun': 2, 'kaymali_sutun': 1, 'baskin_kayma_saat': 3.0, 'kaymaya_uymayan': 1})
+def tz_shift(columns, rows, args):
+    k = need(args.key, columns, '--key')
+    cols = col_list(args.columns, columns, '--columns') if args.columns else []
+    tcols, trows = tabular.read(args.target)
+    need(args.key, tcols, '--target --key')
+    for c in cols:
+        need(c, tcols, f'--target {c}')
+    target = {r[k].strip(): r for r in trows if r[k].strip()}
+    pairs = [(r, target[r[k].strip()]) for r in rows if r[k].strip() in target]
+    if not pairs:
+        raise ValueError('Kaynak ve hedefte ortak anahtar yok.')
+    out, odd, worst = [], [], 0.0
+    for c in cols:
+        diffs = []
+        for a, b in pairs:
+            da, db = tabular.parse_date(a[c]), tabular.parse_date(b[c])
+            if da and db:
+                diffs.append((a[k].strip(), round((db[0] - da[0]).total_seconds())))
+        if not diffs:
+            continue
+        mode, n = Counter(d for _, d in diffs).most_common(1)[0]
+        same = sum(abs(d) <= args.tolerance for _, d in diffs)
+        shifted = abs(mode) > args.tolerance
+        for key, d in diffs:
+            if abs(d - mode) > args.tolerance and abs(d) > args.tolerance:
+                odd.append({'sutun': c, 'anahtar': key, 'fark_sn': d, 'not': f'baskın kayma {mode} sn' if shifted else 'tekil fark'})
+        out.append({'sutun': c, 'eslesen': len(diffs), 'esit': same, 'baskin_kayma_sn': mode, 'baskin_kayma_saat': round(mode / 3600, 2), 'kaymali_satir': n if shifted else len(diffs) - same,
+                    'durum': f'sabit kayma: {fmt(round(mode / 3600, 2))} saat — saat dilimi dönüşümünü kontrol edin' if shifted else ('uygun' if same == len(diffs) else 'tekil farklar var')})
+        if shifted:
+            worst = mode / 3600
+    out.sort(key=lambda o: -abs(o['baskin_kayma_sn']))
+    return Result(f'{len(pairs)} eşleşen satır, {len(out)} zaman sütunu; {sum(o["durum"].startswith("sabit") for o in out)} sütunda sabit kayma', list(out[0]), out,
+                  {'eslesen': len(pairs), 'sutun': len(out), 'kaymali_sutun': sum(o['durum'].startswith('sabit') for o in out), 'baskin_kayma_saat': round(worst, 2),
+                   'kaymaya_uymayan': len(odd)},
+                  files={'farkli_satirlar.csv': (['sutun', 'anahtar', 'fark_sn', 'not'], odd)},
+                  notes=['+3 saat genelde kaynağın Türkiye saatiyle, hedefin UTC ile yazılmasından (veya tersi) gelir; tam gün kaymaları DATE ↔ TIMESTAMP dönüşümüne işaret eder.'])
+
+
+@op('bos-deger-donusumu', title='Geçişte boş metin, NULL ve boşluk değerlerinin dönüşümünü sütun bazında say', domain=D, product=P, tag='NULL dönüşümü',
+    samples={'kaynak_bosluk.csv': 'kaynak_bosluk.csv', 'hedef_bosluk.csv': 'hedef_bosluk.csv'},
+    args=[arg('--target', default='@ornek/hedef_bosluk.csv'), arg('--key', default='musteri_no'),
+          arg('--null-tokens', default='NULL,null,\\N,None', help='NULL olarak dışa aktarılan metinler (virgülle)')],
+    description='Kaynak ve hedef dışa aktarımını anahtarla eşleştirip her sütunda boş metin (\'\'), NULL ve yalnızca boşluk değerlerinin nasıl dönüştüğünü sayar: boş → NULL, NULL → boş, boşluk → boş (kırpma), dolu → boş (veri kaybı) ve boş → dolu (varsayılan değer). Oracle’ın boş metni NULL sayması, CSV aktarımında NULL’un “NULL” metnine dönmesi gibi sorunları erken yakalamak için.',
+    input='Kaynak ve hedef dışa aktarım (aynı sütunlar)', output='sonuc.csv (sütun bazında dönüşüm sayıları)', command='python main.py --input oracle.csv --target postgres.csv --key id',
+    expect={'eslesen': 8, 'sutun': 3, 'bos_null': 2, 'null_bos': 1, 'kirpma': 1, 'veri_kaybi': 1, 'varsayilan': 1})
+def null_mapping(columns, rows, args):
+    k = need(args.key, columns, '--key')
+    tcols, trows = tabular.read(args.target)
+    need(args.key, tcols, '--target --key')
+    tokens = {t.strip() for t in args.null_tokens.split(',') if t.strip()}
+    target = {r[k].strip(): r for r in trows if r[k].strip()}
+    pairs = [(r, target[r[k].strip()]) for r in rows if r[k].strip() in target]
+    cols = [c for c in columns if c != k and c in tcols]
+
+    def kind(v):
+        return 'null' if v in tokens else 'bos' if v == '' else 'bosluk' if not v.strip() else 'dolu'
+    out, totals = [], Counter()
+    names = {('bos', 'null'): 'bos_null', ('null', 'bos'): 'null_bos', ('bosluk', 'bos'): 'kirpma', ('bosluk', 'null'): 'kirpma'}
+    for c in cols:
+        cnt = Counter()
+        for a, b in pairs:
+            ka, kb = kind(a[c]), kind(b[c])
+            if ka == kb:
+                continue
+            if ka == 'dolu':
+                cnt['veri_kaybi'] += kb != 'dolu'
+            elif kb == 'dolu':
+                cnt['varsayilan'] += 1
+            else:
+                cnt[names.get((ka, kb), f'{ka}_{kb}')] += 1
+        totals.update(cnt)
+        out.append({'sutun': c, **{x: cnt[x] for x in ('bos_null', 'null_bos', 'kirpma', 'veri_kaybi', 'varsayilan')}, 'toplam_degisim': sum(cnt.values())})
+    out.sort(key=lambda o: (-o['veri_kaybi'], -o['toplam_degisim'], o['sutun']))
+    return Result(f'{len(pairs)} eşleşen satır, {len(cols)} sütun; {sum(o["toplam_degisim"] for o in out)} boş/NULL dönüşümü, {totals["veri_kaybi"]} veri kaybı', list(out[0]), out,
+                  {'eslesen': len(pairs), 'sutun': len(cols), **{x: totals[x] for x in ('bos_null', 'null_bos', 'kirpma', 'veri_kaybi', 'varsayilan')}},
+                  notes=['Dolu değerin boşa dönmesi (veri kaybı) her zaman incelenmelidir. Boş ↔ NULL dönüşümü raporlarda COUNT ve WHERE sonuçlarını değiştirir; hedef sistemin kuralını belirleyip tek tipe çevirin.'])

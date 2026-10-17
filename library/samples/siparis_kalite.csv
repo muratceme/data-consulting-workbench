@@ -1,0 +1,41 @@
+siparis_no;siparis_tarihi;kaynak;musteri_eposta;durum;tutar
+S001;2026-08-02;web;musteri1@ornek.test;Teslim edildi;107,00
+S002;2026-09-03;web;musteri2@ornek.test;Teslim edildi;114,00
+S003;2026-07-04;web;musteri3@ornek.test;Teslim edildi;121,00
+S004;2026-08-05;web;musteri4@ornek.test;Teslim edildi;128,00
+S005;2026-09-06;web;;Teslim edildi;135,00
+S006;2026-07-07;web;musteri6@ornek.test;Teslim edildi;142,00
+S007;2026-08-08;web;musteri7@ornek.test;Teslim edildi;149,00
+S008;2026-09-09;web;musteri8@ornek.test;İade;-156,00
+S009;2026-07-10;web;musteri9@ornek.test;Teslim edildi;163,00
+S010;2026-08-11;web;musteri10@ornek.test;Teslim edildi;170,00
+S011;2026-09-12;web;musteri11@ornek.test;Teslim edildi;177,00
+S012;2026-07-13;web;musteri12@ornek.test;Teslim edildi;184,00
+S013;2026-08-14;web;musteri13@ornek.test;Teslim edildi;191,00
+S014;2026-09-15;web;musteri14@ornek.test;Teslim edildi;198,00
+S015;2026-07-16;web;musteri15@ornek.test;İade;-205,00
+S016;2026-08-17;web;musteri16@ornek.test;Teslim edildi;212,00
+S017;2026-09-18;web;musteri17@ornek.test;Teslim edildi;219,00
+S018;2026-07-19;web;musteri18@ornek.test;Teslim edildi;226,00
+S019;2026-08-20;web;musteri19@ornek.test;Teslim edildi;233,00
+S020;2026-09-21;web;musteri20@ornek.test;Teslim edildi;240,00
+S021;2026-07-22;magaza_pos;musteri21@ornek.test;Teslim edildi ;247,00
+S022;2026-08-23;magaza_pos;musteri22@ornek.test;İade;-254,00
+S023;2026-09-24;magaza_pos;musteri23@ornek.test;Teslim edildi;261,00
+S024;2026-07-25;magaza_pos;musteri24@ornek.test;Teslim edildi ;268,00
+S025;2026-08-26;magaza_pos;musteri25@ornek.test;Teslim edildi;275,00
+S026;2026-09-27;magaza_pos;musteri26@ornek.test;Teslim edildi;282,00
+S027;2026-07-01;magaza_pos;musteri27@ornek.test;Teslim edildi ;289,00
+S028;2026-08-02;magaza_pos;musteri28@ornek.test;Teslim edildi;296,00
+S029;2026-09-03;magaza_pos;musteri29@ornek.test;İade;-303,00
+S030;2026-07-04;magaza_pos;musteri30@ornek.test;Teslim edildi;310,00
+S031;2026-08-05;magaza_pos;musteri31@ornek.test;Teslim edildi;317,00
+S032;2026-09-06;magaza_pos;musteri32@ornek.test;Teslim edildi;324,00
+S033;2026-07-07;cagri_merkezi;;Teslim edildi;331,00
+S034;2026-08-08;cagri_merkezi;;Teslim edildi;338,00
+S035;2026-09-09;cagri_merkezi;;Teslim edildi;345,00
+S036;2026-07-10;cagri_merkezi;;Teslim edildi;352,00
+S037;2026-08-11;cagri_merkezi;;Teslim edildi;359,00
+S038;2026-09-12;cagri_merkezi;musteri38@ornek.test;Teslim edildi;366,00
+S039;2026-07-13;cagri_merkezi;musteri39@ornek.test;Teslim edildi;373,00
+S040;2026-08-14;cagri_merkezi;musteri40@ornek.test;Teslim edildi;380,00

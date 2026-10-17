@@ -1,0 +1,8 @@
+{
+  "rules": [
+    {"column": "siparis_no", "check": "unique"},
+    {"column": "musteri_eposta", "check": "not_null", "severity": "uyarı"},
+    {"column": "tutar", "check": "min", "value": 0},
+    {"column": "durum", "check": "allowed", "value": ["Teslim edildi", "Kargoda", "İptal", "İade"]}
+  ]
+}

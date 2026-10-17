@@ -550,3 +550,46 @@ def mongo_profile(args):
                    'verimsiz': sum('incelenip' in o['bulgu'] for o in out), 'bozuk_satir': bad},
                   notes=['Profiler yalnızca slowms eşiğini aşan işlemleri kaydeder (varsayılan 100 ms); toplam süre tüm yükü değil, yavaş kısmı gösterir.',
                          'COLLSCAN yapan şekil için sorgudaki eşitlik alanları önce, aralık/sıralama alanları sonra gelecek şekilde (ESR kuralı) bileşik indeks düşünün.'])
+
+
+@op('pg-uzun-islemler', title='pg_stat_activity: uzun süren sorgular ve “idle in transaction” oturumlar', domain='database', product=PG, tag='uzun işlem',
+    samples={'pg_oturumlar.csv': 'pg_oturumlar.csv'},
+    args=[arg('--as-of', default='2026-10-16 10:00:00', help='Dökümün alındığı an (now())'), arg('--query-min', type=float, default=5, help='Bu kadar dakikadan uzun aktif sorgu'),
+          arg('--idle-min', type=float, default=1, help='Bu kadar dakikadan uzun idle in transaction'), arg('--xact-min', type=float, default=30, help='Bu kadar dakikadan uzun açık işlem')],
+    description='pg_stat_activity dökümünden (pid, kullanıcı, uygulama, durum, xact_start, query_start, state_change, sorgu) uzun süren aktif sorguları, işlem açık bırakılıp beklenen “idle in transaction” oturumları (VACUUM’u ve kilitleri tutar) ve çok uzun açık işlemleri dakika cinsinden listeler; kullanıcı/uygulama bazında özetler ve gözden geçirilecek pg_terminate_backend komutlarını üretir (çalıştırmaz).',
+    input='pg_stat_activity dışa aktarımı', output='sonuc.csv (bulgular) + sonlandir.sql (inceleme için)', command="python main.py --input activity.csv --as-of \"2026-10-16 10:00\" --idle-min 5",
+    expect={'oturum': 7, 'uzun_sorgu': 1, 'idle_islem': 3, 'uzun_islem': 2, 'sorunlu_oturum': 4})
+def long_tx(columns, rows, args):
+    for c in ('pid', 'state', 'xact_start', 'query_start'):
+        need(c, columns, c)
+    as_of = (tabular.parse_date(args.as_of) or (None,))[0]
+    if not as_of:
+        raise ValueError(f'--as-of "{args.as_of}" tarih olarak okunamadı.')
+
+    def mins(v):
+        d = tabular.parse_date(v) if v.strip() else None
+        return round((as_of - d[0]).total_seconds() / 60, 1) if d else None
+    out, kill = [], []
+    for r in rows:
+        state = r['state'].strip().lower()
+        q, x = mins(r['query_start']), mins(r['xact_start'])
+        issues = []
+        if state == 'active' and q is not None and q > args.query_min:
+            issues.append(f'sorgu {fmt(q)} dk sürüyor')
+        if state.startswith('idle in transaction'):
+            idle = mins(r.get('state_change', '')) if r.get('state_change', '').strip() else q
+            if idle is not None and idle > args.idle_min:
+                issues.append(f'{fmt(idle)} dk idle in transaction')
+        if x is not None and x > args.xact_min:
+            issues.append(f'işlem {fmt(x)} dk açık')
+        if issues:
+            out.append({'pid': r['pid'].strip(), 'kullanici': r.get('usename', '').strip(), 'uygulama': r.get('application_name', '').strip(), 'durum': state,
+                        'islem_dk': x if x is not None else '', 'sorgu_dk': q if q is not None else '', 'bulgu': '; '.join(issues), 'sorgu': re.sub(r'\s+', ' ', r.get('query', ''))[:120]})
+            kill.append(f"-- {r.get('usename', '')} / {state} / {'; '.join(issues)}\n-- SELECT pg_terminate_backend({r['pid'].strip()});")
+    out.sort(key=lambda o: -(o['islem_dk'] or 0))
+    flags = ' '.join(o['bulgu'] for o in out)
+    return Result(f'{len(rows)} oturum; {len(out)} oturumda uzun sorgu/işlem', ['pid', 'kullanici', 'uygulama', 'durum', 'islem_dk', 'sorgu_dk', 'bulgu', 'sorgu'], out,
+                  {'oturum': len(rows), 'uzun_sorgu': flags.count('sorgu '), 'idle_islem': flags.count('idle in transaction'), 'uzun_islem': flags.count('işlem '),
+                   'sorunlu_oturum': len(out)},
+                  files={'sonlandir.sql': '-- İNCELEME İÇİN: komutlar yorum satırıdır; uygulama sahibine sormadan çalıştırmayın.\n' + '\n\n'.join(kill) + '\n'},
+                  notes=['idle in transaction oturumlar satır kilitlerini ve VACUUM’un temizleyebileceği en eski işlemi tutar; uygulama tarafında idle_in_transaction_session_timeout ayarlayın.'])

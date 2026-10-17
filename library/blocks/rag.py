@@ -1,6 +1,6 @@
 """GenAI / RAG veri hazırlığı blokları: doküman parçalama, tekrar eden içerik, token ve maliyet tahmini, prompt enjeksiyon taraması, geri getirme değerlendirmesi.
 Hiçbir model veya embedding servisine bağlanmaz."""
-import hashlib, json, math, re, unicodedata
+import argparse, hashlib, json, math, re, unicodedata
 from collections import Counter, defaultdict
 from pathlib import Path
 from common import mask_text
@@ -469,3 +469,47 @@ def embeddings(args):
                    'normalize_disi': c['normalize değil'], 'tekrar': c['tekrar vektör'], 'model_sayisi': len(models), 'bozuk_satir': bad_lines},
                   notes=['Aynı indekste farklı modellerin veya boyutların vektörleri karşılaştırılamaz; sorgu tarafındaki modelle aynı model ve sürümle yeniden üretin.',
                          'Tekrar vektörler genelde aynı metnin iki kez parçalanmasından gelir; dokuman-tekrar bloğuyla metin tarafını da kontrol edin.'])
+
+
+@op('rag-kaynak-kapsama', title='Geri getirme günlüğünde hiç getirilmeyen ve baskın doküman parçaları', domain=D, product=P, tag='kaynak kapsama',
+    samples={'getirme_gunlugu.csv': 'getirme_gunlugu.csv', **DOCS},
+    args=[arg('--corpus', default='@ornek/dokumanlar', help='Doküman klasörü (parça kimlikleri dokuman-parcala kurallarıyla üretilir) veya id sütunlu parça listesi'),
+          arg('--query', default='sorgu_id'), arg('--rank', default='sira'), arg('--chunk', default='parca'), arg('--max-tokens', type=int, default=200),
+          arg('--dominance', type=float, default=50, help='İlk sıradaki getirmelerin yüzde kaçını alan parça baskın sayılır')],
+    description='RAG uygulamasının geri getirme günlüğünü (sorgu, sıra, parça kimliği) doküman parçalarıyla karşılaştırır; hiç getirilmeyen parçaları (ölü içerik veya erişilemeyen bilgi), getirilme sayısı ve ilk sıra payını, sorguların çoğunda ilk sırayı alan baskın parçaları ve günlükte olup bilgi tabanında olmayan (silinmiş) parçaları raporlar. İçerik temizliği ve indeks ayarı için.',
+    input='Geri getirme günlüğü (sorgu, sıra, parça) + doküman klasörü veya parça listesi', output='sonuc.csv (parça bazında kapsama)', command='python main.py --input retrieval_log.csv --corpus belgeler/',
+    expect={'parca': 8, 'sorgu': 10, 'getirilen_parca': 7, 'hic_getirilmeyen': 1, 'baskin_parca': 'kargo.md#2', 'baskin_pay_%': 60.0, 'bilinmeyen_parca': 0})
+def coverage(columns, rows, args):
+    qc, rc, cc = need(args.query, columns, '--query'), need(args.rank, columns, '--rank'), need(args.chunk, columns, '--chunk')
+    corpus = Path(args.corpus)
+    if corpus.is_dir():
+        res = chunk(argparse.Namespace(input=str(corpus), max_tokens=args.max_tokens, overlap=0))
+        ids = [json.loads(l)['id'] for l in res.files['parcalar.jsonl'].splitlines() if l.strip()]
+    else:
+        ccols, crows = tabular.read(str(corpus))
+        idc = 'id' if 'id' in ccols else ccols[0]
+        ids = [r[idc].strip() for r in crows if r[idc].strip()]
+    ranks = numbers(rows, rc)
+    hits, top, queries = Counter(), Counter(), set()
+    for r, n in zip(rows, ranks):
+        cid = r[cc].strip()
+        if not cid:
+            continue
+        queries.add(r[qc].strip())
+        hits[cid] += 1
+        if n == 1:
+            top[cid] += 1
+    nq = len(queries) or 1
+    out = [{'parca': i, 'getirilme': hits[i], 'ilk_sira': top[i], 'ilk_sira_pay_%': round(100 * top[i] / nq, 1),
+            'durum': 'hiç getirilmedi' if not hits[i] else 'baskın' if 100 * top[i] / nq > args.dominance else ''} for i in ids]
+    unknown = sorted(set(hits) - set(ids))
+    out += [{'parca': i, 'getirilme': hits[i], 'ilk_sira': top[i], 'ilk_sira_pay_%': round(100 * top[i] / nq, 1), 'durum': 'bilgi tabanında yok'} for i in unknown]
+    order = {'hiç getirilmedi': 0, 'baskın': 1, 'bilgi tabanında yok': 2, '': 3}
+    out.sort(key=lambda o: (order[o['durum']], -o['getirilme'], o['parca']))
+    lead = max(out, key=lambda o: o['ilk_sira'])
+    never = sum(o['durum'] == 'hiç getirilmedi' for o in out)
+    return Result(f'{len(ids)} parça, {len(queries)} sorgu; {never} parça hiç getirilmedi, en baskın parça {lead["parca"]} (ilk sıranın %{fmt(lead["ilk_sira_pay_%"])})',
+                  ['parca', 'getirilme', 'ilk_sira', 'ilk_sira_pay_%', 'durum'], out,
+                  {'parca': len(ids), 'sorgu': len(queries), 'getirilen_parca': sum(1 for i in ids if hits[i]), 'hic_getirilmeyen': never, 'baskin_parca': lead['parca'],
+                   'baskin_pay_%': lead['ilk_sira_pay_%'], 'bilinmeyen_parca': len(unknown)},
+                  notes=['Hiç getirilmeyen parça, kimsenin sormadığı konu da olabilir; kullanıcı sorularında geçip geçmediğini kontrol edin. Baskın parça genelde fazla genel (her soruya benzeyen) bir metindir.'])

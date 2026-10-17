@@ -1,0 +1,141 @@
+{
+  "config": {
+    "compatibilityLevel": "BACKWARD"
+  },
+  "subjects": [
+    {
+      "subject": "siparis-value",
+      "versions": [
+        {
+          "version": 1,
+          "schemaType": "AVRO"
+        },
+        {
+          "version": 2,
+          "schemaType": "AVRO"
+        },
+        {
+          "version": 3,
+          "schemaType": "AVRO"
+        }
+      ]
+    },
+    {
+      "subject": "urun-key",
+      "versions": [
+        {
+          "version": 1
+        }
+      ]
+    },
+    {
+      "subject": "odeme-value",
+      "compatibility": "NONE",
+      "versions": [
+        {
+          "version": 1
+        },
+        {
+          "version": 2
+        }
+      ]
+    },
+    {
+      "subject": "musteri-value",
+      "compatibility": "FORWARD",
+      "versions": [
+        {
+          "version": 1
+        }
+      ]
+    },
+    {
+      "subject": "stok-value",
+      "versions": [
+        {
+          "version": 1
+        },
+        {
+          "version": 2
+        },
+        {
+          "version": 3
+        },
+        {
+          "version": 4
+        },
+        {
+          "version": 5
+        },
+        {
+          "version": 6
+        },
+        {
+          "version": 7
+        },
+        {
+          "version": 8
+        },
+        {
+          "version": 9
+        },
+        {
+          "version": 10
+        },
+        {
+          "version": 11
+        },
+        {
+          "version": 12
+        },
+        {
+          "version": 13
+        },
+        {
+          "version": 14
+        },
+        {
+          "version": 15
+        },
+        {
+          "version": 16
+        },
+        {
+          "version": 17
+        },
+        {
+          "version": 18
+        },
+        {
+          "version": 19
+        },
+        {
+          "version": 20
+        },
+        {
+          "version": 21
+        },
+        {
+          "version": 22
+        },
+        {
+          "version": 23
+        },
+        {
+          "version": 24
+        },
+        {
+          "version": 25
+        }
+      ]
+    },
+    {
+      "subject": "kargo_olaylari",
+      "versions": [
+        {
+          "version": 1
+        }
+      ]
+    }
+  ]
+}

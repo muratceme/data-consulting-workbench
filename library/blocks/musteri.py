@@ -406,3 +406,78 @@ def rop(columns, rows, args):
                     'emniyet_stoku': math.ceil(safety), 'yeniden_siparis_noktasi': math.ceil(mean * args.lead_time + safety)})
     return Result(f'{len(out)} ürün için politika (hizmet düzeyi %{args.service:g}, tedarik {args.lead_time:g} gün, z={z:.2f})', list(out[0]), out, {'urun': len(out), 'z': round(z, 3)},
                   notes=['Talep dağılımının normal ve tedarik süresinin sabit olduğu varsayılır; kampanya dönemlerini ayrıca değerlendirin.'])
+
+
+@op('ozellik-benimseme', title='Ürün özelliklerinin benimsenme oranı ve tekrar kullanımı', domain=D, product=P, tag='özellik benimseme',
+    samples={'kullanim_olaylari.csv': 'kullanim_olaylari.csv'},
+    args=[arg('--user', default='kullanici'), arg('--date', default='tarih'), arg('--feature', default='ozellik'),
+          arg('--ignore', default='giris', help='Özellik sayılmayan olaylar (giriş, sayfa görüntüleme…), virgülle'), arg('--low', type=float, default=25, help='Bu yüzdenin altı düşük benimseme')],
+    description='Kullanıcı-olay dökümünden her özelliği kullanan kullanıcı oranını (tüm aktif kullanıcılara göre), son haftadaki benimsemeyi ve en az iki farklı haftada kullananların payını (tekrar kullanım) hesaplar; düşük benimsenen ve bir kez denenip bırakılan özellikleri işaretler. Yol haritası ve özellik kaldırma kararları için.',
+    input='Kullanım olayları (kullanıcı, tarih, özellik/olay adı)', output='sonuc.csv (özellik bazında benimseme)', command='python main.py --input events.csv --user user_id --date ts --feature event_name --ignore login,page_view',
+    expect={'aktif_kullanici': 10, 'ozellik': 3, 'son_hafta_aktif': 8, 'en_cok_benimsenen': 'rapor', 'dusuk_benimseme': 1})
+def adoption(columns, rows, args):
+    uc, dc, fc = need(args.user, columns, '--user'), need(args.date, columns, '--date'), need(args.feature, columns, '--feature')
+    ignore = {x.strip().lower() for x in args.ignore.split(',') if x.strip()}
+    events = []
+    for r in rows:
+        d = tabular.parse_date(r[dc])
+        if d and r[uc].strip():
+            events.append((r[uc].strip(), d[0], r[fc].strip()))
+    if not events:
+        raise ValueError('Tarihi okunabilen olay yok.')
+    week = lambda d: d.isocalendar()[:2]
+    last = max(week(d) for _, d, _ in events)
+    active = {u for u, _, _ in events}
+    last_active = {u for u, d, _ in events if week(d) == last}
+    users, weeks, last_users = defaultdict(set), defaultdict(lambda: defaultdict(set)), defaultdict(set)
+    for u, d, f in events:
+        if f.lower() in ignore or not f:
+            continue
+        users[f].add(u)
+        weeks[f][u].add(week(d))
+        if week(d) == last:
+            last_users[f].add(u)
+    out = []
+    for f, us in users.items():
+        repeat = sum(len(w) >= 2 for w in weeks[f].values())
+        rate = round(100 * len(us) / len(active), 1)
+        out.append({'ozellik': f, 'kullanici': len(us), 'benimseme_%': rate, 'son_hafta_%': round(100 * len(last_users[f]) / len(last_active), 1) if last_active else 0,
+                    'tekrar_kullanan_%': round(100 * repeat / len(us), 1),
+                    'durum': 'düşük benimseme' if rate < args.low else 'denenip bırakılıyor' if repeat / len(us) < 0.3 else ''})
+    out.sort(key=lambda o: -o['benimseme_%'])
+    return Result(f'{len(active)} aktif kullanıcı, {len(out)} özellik; en çok benimsenen {out[0]["ozellik"]} (%{fmt(out[0]["benimseme_%"])})', list(out[0]), out,
+                  {'aktif_kullanici': len(active), 'ozellik': len(out), 'son_hafta_aktif': len(last_active), 'en_cok_benimsenen': out[0]['ozellik'],
+                   'dusuk_benimseme': sum(o['durum'] == 'düşük benimseme' for o in out)},
+                  notes=['Hafta ISO haftasıdır. Benimseme oranı dönem içinde en az bir olayı olan tüm kullanıcılara göredir; özelliğe erişimi olmayan kullanıcı grubu varsa paydayı daraltın.'])
+
+
+@op('nps-analizi', title='NPS: tavsiye eden / kötüleyen oranı, segment kırılımı ve hata payı', domain=D, product=P, tag='NPS', samples={'nps_anketi.csv': 'nps_anketi.csv'},
+    args=[arg('--score', default='puan'), arg('--segment', default='segment', help='Kırılım (boş bırakılabilir)')],
+    description='0–10 tavsiye puanlarından Net Promoter Score’u (tavsiye eden 9–10 yüzdesi − kötüleyen 0–6 yüzdesi) hesaplar; segment bazında NPS, yanıt sayısı ve %95 hata payını verir, aralık dışı puanları ayıklar. İki segment arasındaki farkın hata payları içinde kalıp kalmadığını görmek için.',
+    input='Anket yanıtları (puan 0–10; isteğe bağlı segment)', output='sonuc.csv (segment bazında NPS)', command='python main.py --input nps_q3.xlsx --score skor --segment kanal',
+    expect={'yanit': 30, 'nps': 16.67, 'tesvikci_%': 43.33, 'kotuleyen_%': 26.67, 'hata_payi': 29.34, 'gecersiz': 1})
+def nps(columns, rows, args):
+    scores = numbers(rows, need(args.score, columns, '--score'))
+    seg = need(args.segment, columns, '--segment') if args.segment else None
+    groups, bad = defaultdict(list), 0
+    for r, s in zip(rows, scores):
+        if s is None or not 0 <= s <= 10 or s != int(s):
+            bad += 1
+            continue
+        groups['(tümü)'].append(s)
+        if seg:
+            groups[r[seg].strip() or '(boş)'].append(s)
+    if not groups:
+        raise ValueError('0–10 arası geçerli puan yok.')
+
+    def stats(v):
+        n = len(v)
+        p, d = sum(x >= 9 for x in v) / n, sum(x <= 6 for x in v) / n
+        moe = 1.96 * math.sqrt(max(0.0, p + d - (p - d) ** 2) / n) * 100
+        return {'yanit': n, 'tesvikci_%': round(100 * p, 2), 'pasif_%': round(100 * (1 - p - d), 2), 'kotuleyen_%': round(100 * d, 2), 'nps': round(100 * (p - d), 2), 'hata_payi': round(moe, 2)}
+    out = [{'segment': g, **stats(v)} for g, v in groups.items()]
+    out.sort(key=lambda o: (o['segment'] != '(tümü)', -o['nps']))
+    t = out[0]
+    return Result(f'NPS {fmt(t["nps"])} (±{fmt(t["hata_payi"])}), {t["yanit"]} yanıt', ['segment', 'yanit', 'nps', 'hata_payi', 'tesvikci_%', 'pasif_%', 'kotuleyen_%'], out,
+                  {'yanit': t['yanit'], 'nps': t['nps'], 'tesvikci_%': t['tesvikci_%'], 'kotuleyen_%': t['kotuleyen_%'], 'hata_payi': t['hata_payi'], 'gecersiz': bad},
+                  notes=['Hata payı %95 güvenle NPS’in ± kaç puan oynayabileceğidir; iki segmentin farkı hata paylarından küçükse fark kanıtlanmış sayılmaz. Az yanıtlı segmentleri yorumlarken dikkatli olun.'])

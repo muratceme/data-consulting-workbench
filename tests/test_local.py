@@ -59,8 +59,8 @@ class LocalTestCase(unittest.TestCase):
 
 class PackageShape(LocalTestCase):
     def test_every_local_package_is_self_contained_and_has_no_network_code(self):
-        self.assertEqual(len([i for i in LOCAL if not i.get('op')]), 30)
-        self.assertEqual(sum(i['kind'] == 'agent' for i in LOCAL), 18)
+        self.assertEqual(len([i for i in LOCAL if not i.get('op')]), 35)
+        self.assertEqual(sum(i['kind'] == 'agent' for i in LOCAL), 23)
         self.assertEqual(len({i['id'] for i in LOCAL}), len(LOCAL))
         for item in LOCAL:
             names = local_package.files(item)
@@ -495,6 +495,13 @@ GOOD['model-karti'] = {'model_adi': 'Churn modeli', 'amac': ['Ayrılma riski yü
 GOOD['eslestirme-hakemi'] = {'kararlar': [{'id': 'C1', 'karar': 'aynı', 'gerekce': 'Aynı VKN, aynı adres; yalnızca yazım farkı.'}, {'id': 'C2', 'karar': 'emin değil', 'gerekce': 'Pazarlama şirketi ayrı tüzel kişi olabilir; il ve VKN farklı.'}, {'id': 'C3', 'karar': 'emin değil', 'gerekce': 'C2 ile aynı durum.'}, {'id': 'C4', 'karar': 'farklı', 'gerekce': 'Aynı ad, farklı il, VKN ve telefon.'}, {'id': 'C5', 'karar': 'aynı', 'gerekce': 'Aynı telefon ve adres.'}]}
 OUTPUTS.update({'dbt-model-yazari': 'dbt-model.md', 'zamanlama-planlayici': 'zamanlama-plani.md', 'tasarruf-plani': 'tasarruf-plani.md', 'model-karti': 'model-karti.md',
                 'eslestirme-hakemi': 'eslesme.md'})
+GOOD['sql-optimizasyon'] = {'ozet': 'Sıralı tarama ve diske taşan sıralama asıl maliyet; durum + tutar indeksi ikisini de çözer.', 'sorgu': "SELECT s.siparis_id, s.tarih, s.tutar, m.ad, m.sehir\nFROM siparisler s\nJOIN musteriler m ON m.musteri_id = s.musteri_id\nWHERE s.durum = 'Teslim'\nORDER BY s.tutar DESC", 'indeksler': ['CREATE INDEX CONCURRENTLY ix_siparisler_durum_tutar ON siparisler (durum, tutar DESC) INCLUDE (siparis_id, tarih, musteri_id);'], 'degisiklikler': ['Sorgu metni değişmedi; iyileştirme indeksle.'], 'riskler': ['Yazma yükü artar.']}
+GOOD['avro-sema-tasarimci'] = {'sema': {'type': 'record', 'name': 'SiparisOlayi', 'namespace': 'com.ornek.siparis', 'doc': 'Sipariş yaşam döngüsü olayı', 'fields': [{'name': 'olay_id', 'type': 'string', 'doc': 'Olay kimliği'}, {'name': 'tur', 'type': {'type': 'enum', 'name': 'OlayTuru', 'symbols': ['siparis_olustu', 'odeme_alindi', 'kargoya_verildi']}, 'doc': 'Olay türü'}, {'name': 'olay_zamani', 'type': 'string', 'doc': 'ISO 8601 olay zamanı'}, {'name': 'alinma_zamani', 'type': 'string', 'doc': 'ISO 8601 alınma zamanı'}, {'name': 'musteri', 'type': {'type': 'record', 'name': 'Musteri', 'fields': [{'name': 'id', 'type': 'string'}, {'name': 'segment', 'type': ['null', {'type': 'enum', 'name': 'Segment', 'symbols': ['A', 'B']}], 'default': None}]}}, {'name': 'tutar', 'type': ['double', 'string'], 'doc': 'Tutar; bazı üreticiler metin gönderiyor (düzeltilmeli)'}]}, 'notlar': ['tutar alanında 4 olay metin; üretici düzeltilince yalnızca double yapın.']}
+GOOD['rag-test-seti'] = {'sorular': [{'parca': 'iade_politikasi.md#1', 'soru': 'Ürünler kaç gün içinde iade edilebilir?', 'cevap': '14 gün', 'dayanak': 'Ürünler teslimattan itibaren 14 gün içinde iade edilebilir.', 'zorluk': 'kolay'}, {'parca': 'iade_politikasi.md#2', 'soru': 'Onaylanan iadede ödeme ne zaman geri yapılır?', 'cevap': '7 iş günü içinde', 'dayanak': 'Onaylanan iadelerde ödeme, kullanılan ödeme yöntemine 7 iş günü içinde geri yapılır.', 'zorluk': 'kolay'}, {'parca': 'iade_politikasi.md#3', 'soru': 'Hasarlı gelen ürün için ne yapılmalı?', 'cevap': 'Kargo görevlisine tutanak tutturulmalı', 'dayanak': 'Teslimatta hasarlı gelen ürünler için kargo görevlisine tutanak tutturulmalıdır.', 'zorluk': 'kolay'}, {'parca': 'kargo.md#1', 'soru': 'İstanbul içi teslimat kaç iş günü sürer?', 'cevap': '1 iş günü', 'dayanak': 'İstanbul içi teslimat 1 iş günü, diğer iller 2-3 iş günüdür.', 'zorluk': 'kolay'}, {'parca': 'kargo.md#2', 'soru': 'Kargo hangi tutardan itibaren ücretsiz?', 'cevap': '750 TL', 'dayanak': '750 TL ve üzeri siparişlerde kargo ücretsizdir.', 'zorluk': 'kolay'}, {'parca': 'kargo_kopya.md#1', 'soru': 'Aynı gün kargo için sipariş saat kaça kadar verilmeli?', 'cevap': 'Hafta içi 15:00', 'dayanak': 'Siparişler hafta içi saat 15:00’e kadar verilirse aynı gün kargoya teslim edilir.', 'zorluk': 'kolay'}, {'parca': 'kargo_kopya.md#2', 'soru': 'Ücretsiz kargo limitinin altında kargo ücreti ne kadar?', 'cevap': '59,90 TL', 'dayanak': 'Altındaki siparişlerde sabit 59,90 TL kargo ücreti alınır.', 'zorluk': 'kolay'}, {'parca': 'tedarikci_notu.txt#1', 'soru': 'Yeni fiyat listesi ne zaman yürürlüğe girer?', 'cevap': 'Ekim ayında', 'dayanak': 'Yeni fiyat listesi Ekim ayında yürürlüğe girer.', 'zorluk': 'kolay'}]}
+GOOD['kalite-kok-neden'] = {'ozet': 'Boş e-postalar çağrı merkezinden, negatif tutarlar iadelerden, hatalı durum mağaza kasasından geliyor.', 'kurallar': [{'kural': 2, 'olasi_neden': 'Çağrı merkezi ekranında e-posta zorunlu değil.', 'kanit': ['F2'], 'sahip': 'kaynak sistem', 'aksiyon': 'Çağrı merkezi formunda e-postayı zorunlu yapın.', 'guven': 'yüksek'}, {'kural': 3, 'olasi_neden': 'İadeler negatif tutarla aynı tabloya yazılıyor; kural iadeleri dışlamıyor.', 'kanit': ['F4'], 'sahip': 'kural tanımı', 'aksiyon': 'Kuralı durum İade dışındaki satırlara uygulayın.', 'guven': 'yüksek'}, {'kural': 4, 'olasi_neden': 'Mağaza kasası durum metnine sonda boşluk ekliyor.', 'kanit': ['F6'], 'sahip': 'entegrasyon/ETL', 'aksiyon': 'Yüklemede TRIM uygulayın.', 'guven': 'orta'}]}
+GOOD['ab-test-karari'] = {'karar': 'fark yok: testi uzat veya sonlandır', 'ozet': 'B dönüşümü %5,30, A %5,00; fark istatistiksel olarak anlamlı değil (p 0,6677).', 'gerekceler': [{'metin': 'Güven aralığı -1,07 ile 1,67 puan arası; sıfırı içeriyor.', 'kanit': ['F3']}, {'metin': 'Gelir farkı da anlamlı değil (p 0,3441).', 'kanit': ['F5']}], 'riskler': ['Test erken sonlandırılırsa küçük etkiler kaçabilir.'], 'sonraki_adimlar': ['Gerekli örneklemi hesaplayıp testi uzatın.']}
+OUTPUTS.update({'sql-optimizasyon': 'optimizasyon.md', 'avro-sema-tasarimci': 'sema.avsc', 'rag-test-seti': 'test_seti.csv', 'kalite-kok-neden': 'kok-neden.md',
+                'ab-test-karari': 'ab-karar.md'})
 KPI_ARGS = ('--data', 'ornek/satislar.csv')
 
 
@@ -625,6 +632,34 @@ class Agents(LocalTestCase):
         self.assertIn('insan incelemesi', rows['C4']['kod_notu'])
         self.assertEqual([r['kayit'] for r in p.csv('gruplar.csv') if r['grup'] == 'G2'], ['K04', 'K05'])
 
+    def test_fifth_batch_agents_validate_locally(self):
+        bad_idx = {**GOOD['sql-optimizasyon'], 'indeksler': ['CREATE INDEX ix_x ON siparisler (kargo_firmasi);']}
+        p, done = self.run_agent('sql-optimizasyon', '--yes', answers=[bad_idx, GOOD['sql-optimizasyon']])
+        self.ok(done)
+        self.assertIn('sorguda geçmeyen sütun içeriyor: kargo_firmasi', self.model.requests[-1]['body']['messages'][-1]['content'])
+        self.assertIn('filtreyle atılan: 3916000', self.model.requests[-2]['body']['messages'][-1]['content'])
+        self.assertIn('INCLUDE (siparis_id, tarih, musteri_id);', p.out('indeksler.sql').read_text(encoding='utf-8'))
+        narrow = json.loads(json.dumps(GOOD['avro-sema-tasarimci']))
+        narrow['sema']['fields'][5]['type'] = 'double'
+        p, done = self.run_agent('avro-sema-tasarimci', '--yes', answers=[narrow, GOOD['avro-sema-tasarimci']])
+        self.ok(done)
+        self.assertIn('4/200 örnek olay şemaya uymuyor', self.model.requests[-1]['body']['messages'][-1]['content'])
+        self.assertEqual(p.json('sema.avsc')['fields'][4]['type']['fields'][1]['default'], None)
+        p, done = self.run_agent('rag-test-seti', '--yes', answers=[GOOD['rag-test-seti']])
+        self.ok(done)
+        rows = p.csv('test_seti.csv')
+        self.assertEqual(len(rows), 8)
+        self.assertEqual(rows[0]['beklenen'], 'iade_politikasi.md#1')  # ready for rag-geri-getirme-degerlendirme
+        p, done = self.run_agent('kalite-kok-neden', '--yes', answers=[GOOD['kalite-kok-neden']])
+        self.ok(done)
+        sent = self.model.requests[-1]['body']['messages'][-1]['content']
+        self.assertIn('F2: Kural 2 hatalarının %83,3’i (5 satır) kaynak = cagri_merkezi', sent)
+        self.assertNotIn('S033', sent)  # rows never leave
+        p, done = self.run_agent('ab-test-karari', '--yes', answers=[GOOD['ab-test-karari']])
+        self.ok(done)
+        self.assertFalse(p.json('ab-karar.json')['anlamli'])
+        self.assertIn('F4: İki oran z-testi p-değeri 0,6677', self.model.requests[-1]['body']['messages'][-1]['content'])
+
     def test_invalid_answer_gets_one_corrective_retry(self):
         bad = {'sql': 'SELECT s.KalemlerToplamCiro FROM dbo.Siparisler s'}
         p, done = self.run_agent('sql-yazari', '--yes', answers=[bad, GOOD['sql-yazari']])
@@ -649,7 +684,12 @@ class Agents(LocalTestCase):
                              ('zamanlama-planlayici', {'plan': GOOD['zamanlama-planlayici']['plan'][:-1]}),
                              ('tasarruf-plani', {**GOOD['tasarruf-plani'], 'ozet': 'Yüzde 45 indirim mümkün.'}),
                              ('model-karti', {**GOOD['model-karti'], 'riskler': []}),
-                             ('eslestirme-hakemi', {'kararlar': GOOD['eslestirme-hakemi']['kararlar'][:-1]})]:
+                             ('eslestirme-hakemi', {'kararlar': GOOD['eslestirme-hakemi']['kararlar'][:-1]}),
+                             ('sql-optimizasyon', {**GOOD['sql-optimizasyon'], 'sorgu': 'DELETE FROM siparisler'}),
+                             ('avro-sema-tasarimci', {'sema': {'type': 'record', 'name': 'X', 'fields': [{'name': 'olay_id', 'type': 'string'}]}}),
+                             ('rag-test-seti', {'sorular': GOOD['rag-test-seti']['sorular'][:-1]}),
+                             ('kalite-kok-neden', {**GOOD['kalite-kok-neden'], 'kurallar': GOOD['kalite-kok-neden']['kurallar'][:1]}),
+                             ('ab-test-karari', {**GOOD['ab-test-karari'], 'karar': 'deneyi yayına al'})]:
             with self.subTest(item_id):
                 p, done = self.run_agent(item_id, '--yes', answers=[bad, bad])
                 self.assertEqual(done.returncode, 1)

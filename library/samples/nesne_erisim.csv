@@ -1,0 +1,8 @@
+kullanici;nesne;zaman;islem
+ayse;dwh.fct_satis;2026-10-10;SELECT
+ayse;dwh.dim_musteri;2026-09-01;SELECT
+ayse;crm.musteri;2026-05-01;SELECT
+mehmet;dwh.fct_satis;2026-10-12;INSERT
+mehmet;dwh.fct_satis;2026-10-13;SELECT
+etl_svc;dwh.fct_satis;2026-10-15;INSERT
+zeynep;crm.musteri;2026-10-01;SELECT

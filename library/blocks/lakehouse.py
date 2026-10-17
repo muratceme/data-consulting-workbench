@@ -212,3 +212,92 @@ def partitions(columns, rows, args):
                   {'veri_dosyasi': data, 'bolum': len(parts), 'eksik_gun': len(missing), 'bos_dosya': kinds['boş dosya'], 'tutarsiz_anahtar': kinds['tutarsız anahtar'],
                    'bolum_disi': kinds['bölüm dışında']},
                   tables=[('Bulgular', ['Tür', 'Ayrıntı'], findings)])
+
+
+LAYERS = {'bronze': 0, 'raw': 0, 'ham': 0, 'silver': 1, 'clean': 1, 'temiz': 1, 'gold': 2, 'mart': 2, 'sunum': 2}
+
+
+def layer_of(name):
+    parts = re.split(r'[._/]', name.lower())
+    for p in parts:
+        if p in LAYERS:
+            return p, LAYERS[p]
+    return '', None
+
+
+@op('medallion-katman-kurallari', title='Bronze / Silver / Gold katman kurallarını soy ağacında denetle', domain='lakehouse', product='Databricks Lakehouse', tag='medallion',
+    samples={'lakehouse_soy.csv': 'lakehouse_soy.csv'},
+    args=[arg('--source', default='kaynak'), arg('--target', default='hedef')],
+    description='Tablo düzeyindeki soy ağacı kenarlarında (kaynak → hedef) her tablonun katmanını adından (bronze/raw/ham, silver/clean/temiz, gold/mart/sunum; şema veya önek olarak) çıkarır ve kuralları denetler: gold tablonun bronze’u doğrudan okuması (silver atlanmış), alt katmanın üst katmandan beslenmesi (ters akış), katmanı belirlenemeyen tablolar ve aynı katman içinde zincirleme bağımlılık. Unity Catalog / lineage dışa aktarımı için.',
+    input='Soy ağacı kenarları (kaynak tablo, hedef tablo)', output='sonuc.csv (kural ihlalleri)', command='python main.py --input system_access_table_lineage.csv --source source_table_full_name --target target_table_full_name',
+    expect={'kenar': 9, 'tablo': 10, 'katman_atlama': 1, 'ters_akis': 1, 'katmansiz': 1, 'uygun_kenar': 6})
+def medallion(columns, rows, args):
+    s, t = need(args.source, columns, '--source'), need(args.target, columns, '--target')
+    edges = list(dict.fromkeys((r[s].strip(), r[t].strip()) for r in rows if r[s].strip() and r[t].strip()))
+    tables = list(dict.fromkeys(x for e in edges for x in e))
+    out, ok = [], 0
+    for a, b in edges:
+        (la, ra), (lb, rb) = layer_of(a), layer_of(b)
+        if ra is None or rb is None:
+            out.append({'kaynak': a, 'hedef': b, 'kaynak_katman': la, 'hedef_katman': lb, 'bulgu': 'katmanı belirlenemeyen tablo', 'detay': ', '.join(x for x, r in ((a, ra), (b, rb)) if r is None)})
+        elif rb < ra:
+            out.append({'kaynak': a, 'hedef': b, 'kaynak_katman': la, 'hedef_katman': lb, 'bulgu': 'ters akış', 'detay': f'{lb} katmanı {la} katmanından besleniyor'})
+        elif rb - ra > 1:
+            out.append({'kaynak': a, 'hedef': b, 'kaynak_katman': la, 'hedef_katman': lb, 'bulgu': 'katman atlama', 'detay': 'gold doğrudan bronze okuyor; temizlik kuralları atlanıyor'})
+        else:
+            ok += 1
+    c = Counter(o['bulgu'] for o in out)
+    return Result(f'{len(edges)} kenar, {len(tables)} tablo; {len(out)} kural ihlali', ['kaynak', 'hedef', 'kaynak_katman', 'hedef_katman', 'bulgu', 'detay'], out,
+                  {'kenar': len(edges), 'tablo': len(tables), 'katman_atlama': c['katman atlama'], 'ters_akis': c['ters akış'],
+                   'katmansiz': len({x for o in out if o['bulgu'] == 'katmanı belirlenemeyen tablo' for x in o['detay'].split(', ')}), 'uygun_kenar': ok},
+                  notes=['Katman, tablo adının herhangi bir parçasından (katalog, şema, önek) okunur. Gold içinde gold’dan beslenme (ör. özet → daha üst özet) serbesttir.'])
+
+
+@op('tablo-bakim-plani', title='Delta/Iceberg tabloları için OPTIMIZE, VACUUM ve istatistik bakım planı', domain='lakehouse', product='Delta Lake', tag='tablo bakımı',
+    samples={'lakehouse_tablolar.csv': 'lakehouse_tablolar.csv'},
+    args=[arg('--table', default='tablo'), arg('--files', default='dosya_sayisi'), arg('--size', default='boyut_gb'), arg('--last-optimize', default='son_optimize'),
+          arg('--last-vacuum', default='son_vacuum'), arg('--deleted', default='silinmis_oran', help='Silme vektörü / silinmiş satır oranı (yüzde)'),
+          arg('--as-of', default='2026-10-16'), arg('--target-mb', type=float, default=128, help='Hedef ortalama dosya boyutu (MB)'),
+          arg('--vacuum-days', type=int, default=7), arg('--deleted-max', type=float, default=10)],
+    description='Tablo bazında dosya sayısı, toplam boyut, son OPTIMIZE ve VACUUM tarihi ile silinmiş satır oranından bakım ihtiyacını çıkarır: ortalama dosya boyutu hedefin çok altındaysa OPTIMIZE (küçük dosya sorunu), VACUUM uzun süredir yapılmadıysa VACUUM, silinmiş satır oranı yüksekse REORG/yeniden yazma önerir; işleri tahmini etkiye göre sıralar ve SQL komutlarını üretir.',
+    input='Tablo istatistikleri (DESCRIBE DETAIL / sistem tablolarından)', output='sonuc.csv (tablo bazında öneriler) + bakim.sql', command='python main.py --input table_stats.csv --target-mb 256',
+    expect={'tablo': 5, 'optimize': 2, 'vacuum': 2, 'reorg': 1, 'bakim_gerekmez': 1})
+def maintenance(columns, rows, args):
+    tc = need(args.table, columns, '--table')
+    files, size, deleted = (numbers(rows, need(c, columns, f)) for c, f in ((args.files, '--files'), (args.size, '--size'), (args.deleted, '--deleted')))
+    lo, lv = need(args.last_optimize, columns, '--last-optimize'), need(args.last_vacuum, columns, '--last-vacuum')
+    as_of = (tabular.parse_date(args.as_of) or (None,))[0]
+    if not as_of:
+        raise ValueError(f'--as-of "{args.as_of}" tarih olarak okunamadı.')
+    out, cmds = [], {}
+    for r, f, g, d in zip(rows, files, size, deleted):
+        name = r[tc].strip()
+        sql = cmds.setdefault(name, [])
+        avg_mb = round(g * 1024 / f, 1) if f and g is not None else None
+        actions, prio = [], 0.0
+        if avg_mb is not None and f >= 100 and avg_mb < args.target_mb / 4:
+            actions.append(f'OPTIMIZE (ortalama dosya {fmt(avg_mb)} MB, {int(f)} dosya)')
+            sql.append(f'OPTIMIZE {name};')
+            prio += f / 1000
+        vac = tabular.parse_date(r[lv]) if r[lv].strip() else None
+        vdays = (as_of - vac[0]).days if vac else None
+        if vdays is None or vdays > args.vacuum_days:
+            actions.append('VACUUM (' + ('hiç yapılmamış' if vdays is None else f'{vdays} gündür yapılmamış') + ')')
+            sql.append(f'VACUUM {name};')
+            prio += (g or 0) / 100
+        if d is not None and d > args.deleted_max:
+            actions.append(f'REORG / yeniden yazma (silinmiş satır %{fmt(d)})')
+            sql.append(f'REORG TABLE {name} APPLY (PURGE);')
+            prio += d / 10
+        opt = tabular.parse_date(r[lo]) if r[lo].strip() else None
+        out.append({'tablo': name, 'dosya': int(f) if f is not None else '', 'boyut_gb': g, 'ortalama_dosya_mb': avg_mb if avg_mb is not None else '',
+                    'son_optimize': opt[0].strftime('%Y-%m-%d') if opt else '', 'vacuum_gun': vdays if vdays is not None else '', 'oneri': '; '.join(actions) or 'bakım gerekmez',
+                    'oncelik': round(prio, 2)})
+    out.sort(key=lambda o: -o['oncelik'])
+    joined = ' '.join(o['oneri'] for o in out)
+    sql = [c for o in out for c in cmds[o['tablo']]]
+    return Result(f'{len(out)} tablo; {sum(o["oneri"] != "bakım gerekmez" for o in out)} tabloda bakım önerisi', list(out[0]), out,
+                  {'tablo': len(out), 'optimize': joined.count('OPTIMIZE'), 'vacuum': joined.count('VACUUM'), 'reorg': joined.count('REORG'),
+                   'bakim_gerekmez': sum(o['oneri'] == 'bakım gerekmez' for o in out)},
+                  files={'bakim.sql': '-- Öncelik sırasıyla; VACUUM saklama süresini (delta.deletedFileRetentionDuration) kontrol edin.\n' + '\n'.join(sql) + '\n'},
+                  notes=['Komutlar Databricks/Delta Lake sözdizimindedir; Iceberg için rewrite_data_files ve expire_snapshots prosedürlerini kullanın. Öncelik puanı göreli bir sıralamadır.'])

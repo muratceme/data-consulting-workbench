@@ -1,0 +1,6 @@
+tablo;dosya_sayisi;boyut_gb;son_optimize;son_vacuum;silinmis_oran
+main.silver.siparis;4200;120;2026-08-01;2026-10-14;2
+main.bronze.olay;12000;60;;2026-09-01;0
+main.gold.satis_ozet;40;12;2026-10-10;2026-10-12;1
+main.silver.musteri;150;9;2026-10-01;2026-10-15;25
+main.gold.kampanya;20;2;2026-10-01;;0

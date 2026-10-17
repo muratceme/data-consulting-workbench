@@ -1,6 +1,6 @@
 """Bütçe ve planlama blokları: bütçe–gerçekleşen, bütçe dağıtımı, yıl sonu tahmini, senaryo analizi, konsolidasyon ve grup içi eliminasyon."""
-import math, re
-from collections import defaultdict
+import calendar, math, re
+from collections import Counter, defaultdict
 from pathlib import Path
 import tabular
 from islem import op, arg, Result, need, col_list, numbers, fmt, tr_money, tr_sort_key
@@ -497,3 +497,56 @@ def capacity(columns, rows, args):
                    'atil_donem': sum(o['atil_donem'] for o in out), 'ortalama_doluluk_%': round(100 * total_d / total_c, 1) if total_c else None},
                   tables=[('Kaynak × dönem doluluk', ['Kaynak'] + periods, matrix)],
                   notes=['Ek kapasite, kapasiteyi aşan dönemlerde talep − kapasite toplamıdır. Dönemler arasında iş kaydırılabiliyorsa (stok, birikmiş iş) gerçek ihtiyaç daha düşük olabilir.'])
+
+
+@op('satis-hedef-takip', title='Ay içi satış hedef takibi: gerçekleşen, gidişat tahmini ve kalan günlük ihtiyaç', domain=D, product=P, tag='hedef takibi',
+    samples={'gunluk_bolge_satis.csv': 'gunluk_bolge_satis.csv', 'aylik_bolge_hedef.csv': 'aylik_bolge_hedef.csv'},
+    args=[arg('--target', default='@ornek/aylik_bolge_hedef.csv', help='Ay hedefi (kırılım, hedef)'), arg('--date', default='tarih'), arg('--dim', default='bolge'),
+          arg('--amount', default='tutar'), arg('--as-of', default='2026-10-16', help='Bu tarih dahil gerçekleşen'), arg('--business', action='store_true', help='Gün yerine iş günü (Pzt–Cum) say'),
+          arg('--risk', type=float, default=90, help='Gidişat hedefin bu yüzdesinin altındaysa geride')],
+    description='Ayın başından bugüne gerçekleşen satışı kırılım (bölge, kanal, temsilci) bazında hedefle karşılaştırır; geçen gün oranına göre ay sonu gidişat tahminini (run-rate), hedefe kalan tutarı ve kalan her gün için gereken günlük satışı hesaplar; hedefte, riskte ve geride olanları ayırır. Takvim günü veya iş günü kullanılabilir.',
+    input='Günlük satış (tarih, kırılım, tutar) + ay hedefi (kırılım, hedef)', output='sonuc.csv (kırılım bazında hedef takibi)', command='python main.py --input satis.csv --target hedef.csv --dim temsilci --as-of 2026-10-20 --business',
+    expect={'kirilim': 3, 'hedef': 660000.0, 'gerceklesen': 330000.0, 'tahmin': 639375.0, 'hedefte': 1, 'riskte': 1, 'geride': 1, 'gecen_gun': 16, 'ay_gun': 31})
+def target_tracking(columns, rows, args):
+    dc, kc = need(args.date, columns, '--date'), need(args.dim, columns, '--dim')
+    amounts = numbers(rows, need(args.amount, columns, '--amount'))
+    as_of = (tabular.parse_date(args.as_of) or (None,))[0]
+    if not as_of:
+        raise ValueError(f'--as-of "{args.as_of}" tarih olarak okunamadı.')
+    tcols, trows = tabular.read(args.target)
+    need(args.dim, tcols, '--target --dim')
+    hcol = next((c for c in tcols if c != args.dim), None)
+    style = tabular.number_style([r[hcol] for r in trows if r[hcol].strip()])
+    targets = {r[args.dim].strip(): tabular.parse_number(r[hcol], style) for r in trows if r[args.dim].strip()}
+    first = as_of.replace(day=1)
+    days_in_month = calendar.monthrange(as_of.year, as_of.month)[1]
+    counted = lambda d: not args.business or d.weekday() < 5
+    all_days = [first.replace(day=i) for i in range(1, days_in_month + 1)]
+    total = sum(map(counted, all_days))
+    elapsed = sum(counted(d) for d in all_days if d.date() <= as_of.date())
+    mtd = defaultdict(float)
+    for r, a in zip(rows, amounts):
+        d = tabular.parse_date(r[dc])
+        if d and a is not None and first.date() <= d[0].date() <= as_of.date():
+            mtd[r[kc].strip()] += a
+    out = []
+    for k in sorted(set(targets) | set(mtd), key=tr_sort_key):
+        t, a = targets.get(k), mtd.get(k, 0.0)
+        proj = a / elapsed * total if elapsed else 0.0
+        remaining = total - elapsed
+        need_daily = (t - a) / remaining if t is not None and remaining > 0 else None
+        ratio = 100 * proj / t if t else None
+        status = 'hedef yok' if t is None else 'hedefte' if ratio >= 100 else 'riskte' if ratio >= args.risk else 'geride'
+        out.append({'kirilim': k, 'hedef': t if t is not None else '', 'gerceklesen': round(a, 2), 'gerceklesme_%': round(100 * a / t, 1) if t else '',
+                    'tahmin': round(proj, 2), 'tahmin_hedef_%': round(ratio, 1) if ratio is not None else '', 'kalan_gunluk_gereken': round(need_daily, 2) if need_daily is not None else '',
+                    'durum': status})
+    order = {'geride': 0, 'riskte': 1, 'hedefte': 2, 'hedef yok': 3}
+    out.sort(key=lambda o: (order[o['durum']], o['kirilim']))
+    c = Counter(o['durum'] for o in out)
+    tot_t = sum(t for t in targets.values() if t is not None)
+    tot_a, tot_p = sum(o['gerceklesen'] for o in out), sum(o['tahmin'] for o in out)
+    return Result(f'{elapsed}/{total} {"iş günü" if args.business else "gün"}: gerçekleşen {tr_money(tot_a)} / hedef {tr_money(tot_t)}; gidişat {tr_money(tot_p)}; {c["geride"]} kırılım geride',
+                  list(out[0]), out,
+                  {'kirilim': len(out), 'hedef': round(tot_t, 2), 'gerceklesen': round(tot_a, 2), 'tahmin': round(tot_p, 2), 'hedefte': c['hedefte'], 'riskte': c['riskte'],
+                   'geride': c['geride'], 'gecen_gun': elapsed, 'ay_gun': total},
+                  notes=['Gidişat = gerçekleşen / geçen gün × ayın gün sayısı; ay sonu yükleme etkisi, kampanya ve tatiller hesaba katılmaz. İş günü modunda resmî tatiller ayrıca düşülmez.'])
