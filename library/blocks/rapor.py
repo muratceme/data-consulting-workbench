@@ -75,9 +75,11 @@ def design(columns, rows, args):
     vals = {c: numbers(rows, c) for c in mcols}
     measures = []
     for c in mcols:
-        agg = 'avg' if AVG.search(c) else 'sum'
+        averages = getattr(args, 'averages', None)  # set by the rapor-tasarimcisi agent; blocks infer from the column name
+        agg = ('avg' if c in averages else 'sum') if averages is not None else ('avg' if AVG.search(c) else 'sum')
         measures.append(dict(col=c, agg=agg, name=f'{"Ortalama" if agg == "avg" else "Toplam"} {label(c)}', dec=2 if kinds[c] == 'decimal' else 0))
-    measures.sort(key=lambda m: (m['agg'] != 'sum', not PRIMARY.search(m['col'])))
+    if getattr(args, 'averages', None) is None:  # the agent passes its own order (first = main measure)
+        measures.sort(key=lambda m: (m['agg'] != 'sum', not PRIMARY.search(m['col'])))
     if key:
         base = re.sub(r'\s+(No|Id|Kod|Kodu|Numara|Numarasi|Key)$', '', label(key))
         count = dict(col=key, agg='countd', name=f'{base} Sayısı', dec=0)
@@ -596,6 +598,37 @@ def col_letter(i):
     return s
 
 
+def chart_space(kind, title, series, cats, vals, cat=None, val=None):
+    """DrawingML chart part. cat/val are sheet references with cached values (Excel) or None for literal data (PowerPoint)."""
+    pts = ''.join(f'<c:pt idx="{i}"><c:v>{escape(str(x))}</c:v></c:pt>' for i, x in enumerate(cats))
+    npts = ''.join(f'<c:pt idx="{i}"><c:v>{x}</c:v></c:pt>' for i, x in enumerate(vals) if x is not None)
+    if cat:
+        data = (f'<c:cat><c:strRef><c:f>{escape(cat)}</c:f><c:strCache><c:ptCount val="{len(cats)}"/>{pts}</c:strCache></c:strRef></c:cat>'
+                f'<c:val><c:numRef><c:f>{escape(val)}</c:f><c:numCache><c:formatCode>General</c:formatCode><c:ptCount val="{len(vals)}"/>{npts}</c:numCache></c:numRef></c:val>')
+    else:
+        data = (f'<c:cat><c:strLit><c:ptCount val="{len(cats)}"/>{pts}</c:strLit></c:cat>'
+                f'<c:val><c:numLit><c:formatCode>General</c:formatCode><c:ptCount val="{len(vals)}"/>{npts}</c:numLit></c:val>')
+    ser = (f'<c:ser><c:idx val="0"/><c:order val="0"/><c:tx><c:v>{escape(series)}</c:v></c:tx>'
+           + ('<c:spPr><a:ln w="28575"><a:solidFill><a:srgbClr val="2F6FDE"/></a:solidFill></a:ln></c:spPr><c:marker><c:symbol val="circle"/><c:size val="5"/></c:marker>'
+              if kind == 'line' else '<c:spPr><a:solidFill><a:srgbClr val="2F6FDE"/></a:solidFill></c:spPr><c:invertIfNegative val="0"/>')
+           + data + ('<c:smooth val="0"/>' if kind == 'line' else '') + '</c:ser>')
+    if kind == 'bar':
+        plot = f'<c:barChart><c:barDir val="bar"/><c:grouping val="clustered"/><c:varyColors val="0"/>{ser}<c:gapWidth val="60"/><c:axId val="1001"/><c:axId val="1002"/></c:barChart>'
+    else:
+        plot = f'<c:lineChart><c:grouping val="standard"/><c:varyColors val="0"/>{ser}<c:marker val="1"/><c:axId val="1001"/><c:axId val="1002"/></c:lineChart>'
+    axes = ('<c:catAx><c:axId val="1001"/><c:scaling><c:orientation val="' + ('maxMin' if kind == 'bar' else 'minMax') + '"/></c:scaling><c:delete val="0"/>'
+            '<c:axPos val="' + ('l' if kind == 'bar' else 'b') + '"/><c:numFmt formatCode="General" sourceLinked="0"/><c:majorTickMark val="none"/><c:minorTickMark val="none"/>'
+            '<c:tickLblPos val="nextTo"/><c:crossAx val="1002"/><c:crosses val="autoZero"/><c:auto val="1"/><c:lblAlgn val="ctr"/><c:lblOffset val="100"/><c:noMultiLvlLbl val="0"/></c:catAx>'
+            '<c:valAx><c:axId val="1002"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="0"/><c:axPos val="' + ('t' if kind == 'bar' else 'l') + '"/>'
+            '<c:majorGridlines/><c:numFmt formatCode="#,##0" sourceLinked="0"/><c:majorTickMark val="none"/><c:minorTickMark val="none"/><c:tickLblPos val="nextTo"/>'
+            '<c:crossAx val="1001"/><c:crosses val="' + ('max' if kind == 'bar' else 'autoZero') + '"/><c:crossBetween val="between"/></c:valAx>')
+    return ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<c:chartSpace xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" '
+            'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+            '<c:roundedCorners val="0"/><c:chart><c:title><c:tx><c:rich><a:bodyPr/><a:p><a:pPr><a:defRPr sz="1200" b="1"/></a:pPr><a:r><a:rPr lang="tr-TR" sz="1200" b="1"/>'
+            f'<a:t>{escape(title)}</a:t></a:r></a:p></c:rich></c:tx><c:overlay val="0"/></c:title><c:autoTitleDeleted val="0"/><c:plotArea><c:layout/>{plot}{axes}</c:plotArea>'
+            '<c:plotVisOnly val="1"/><c:dispBlanksAs val="gap"/></c:chart></c:chartSpace>')
+
+
 def xlsx_bytes(columns, rows, ds):
     n = len(rows)
     letters = {c: col_letter(i) for i, c in enumerate(columns)}
@@ -690,30 +723,7 @@ def xlsx_bytes(columns, rows, ds):
     sum_cols = '<col min="1" max="1" width="24" customWidth="1"/><col min="2" max="6" width="18" customWidth="1"/>'
     summary_xml = sheet_xml(s, sum_cols, '<drawing r:id="rId1"/>')
 
-    def chart_xml(kind, title, cat, val, cats, vals):
-        pts = ''.join(f'<c:pt idx="{i}"><c:v>{escape(str(x))}</c:v></c:pt>' for i, x in enumerate(cats))
-        npts = ''.join(f'<c:pt idx="{i}"><c:v>{x}</c:v></c:pt>' for i, x in enumerate(vals) if x is not None)
-        ser = (f'<c:ser><c:idx val="0"/><c:order val="0"/><c:tx><c:v>{escape(pm["name"])}</c:v></c:tx>'
-               + ('<c:spPr><a:ln w="28575"><a:solidFill><a:srgbClr val="2F6FDE"/></a:solidFill></a:ln></c:spPr><c:marker><c:symbol val="circle"/><c:size val="5"/></c:marker>'
-                  if kind == 'line' else '<c:spPr><a:solidFill><a:srgbClr val="2F6FDE"/></a:solidFill></c:spPr><c:invertIfNegative val="0"/>')
-               + f'<c:cat><c:strRef><c:f>{escape(cat)}</c:f><c:strCache><c:ptCount val="{len(cats)}"/>{pts}</c:strCache></c:strRef></c:cat>'
-               f'<c:val><c:numRef><c:f>{escape(val)}</c:f><c:numCache><c:formatCode>General</c:formatCode><c:ptCount val="{len(vals)}"/>{npts}</c:numCache></c:numRef></c:val>'
-               + ('<c:smooth val="0"/>' if kind == 'line' else '') + '</c:ser>')
-        if kind == 'bar':
-            plot = f'<c:barChart><c:barDir val="bar"/><c:grouping val="clustered"/><c:varyColors val="0"/>{ser}<c:gapWidth val="60"/><c:axId val="1001"/><c:axId val="1002"/></c:barChart>'
-        else:
-            plot = f'<c:lineChart><c:grouping val="standard"/><c:varyColors val="0"/>{ser}<c:marker val="1"/><c:axId val="1001"/><c:axId val="1002"/></c:lineChart>'
-        axes = ('<c:catAx><c:axId val="1001"/><c:scaling><c:orientation val="' + ('maxMin' if kind == 'bar' else 'minMax') + '"/></c:scaling><c:delete val="0"/>'
-                '<c:axPos val="' + ('l' if kind == 'bar' else 'b') + '"/><c:numFmt formatCode="General" sourceLinked="0"/><c:majorTickMark val="none"/><c:minorTickMark val="none"/>'
-                '<c:tickLblPos val="nextTo"/><c:crossAx val="1002"/><c:crosses val="autoZero"/><c:auto val="1"/><c:lblAlgn val="ctr"/><c:lblOffset val="100"/><c:noMultiLvlLbl val="0"/></c:catAx>'
-                '<c:valAx><c:axId val="1002"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="0"/><c:axPos val="' + ('t' if kind == 'bar' else 'l') + '"/>'
-                '<c:majorGridlines/><c:numFmt formatCode="#,##0" sourceLinked="0"/><c:majorTickMark val="none"/><c:minorTickMark val="none"/><c:tickLblPos val="nextTo"/>'
-                '<c:crossAx val="1001"/><c:crosses val="' + ('max' if kind == 'bar' else 'autoZero') + '"/><c:crossBetween val="between"/></c:valAx>')
-        return ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<c:chartSpace xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" '
-                'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
-                '<c:roundedCorners val="0"/><c:chart><c:title><c:tx><c:rich><a:bodyPr/><a:p><a:pPr><a:defRPr sz="1200" b="1"/></a:pPr><a:r><a:rPr lang="tr-TR" sz="1200" b="1"/>'
-                f'<a:t>{escape(title)}</a:t></a:r></a:p></c:rich></c:tx><c:overlay val="0"/></c:title><c:autoTitleDeleted val="0"/><c:plotArea><c:layout/>{plot}{axes}</c:plotArea>'
-                '<c:plotVisOnly val="1"/><c:dispBlanksAs val="gap"/></c:chart></c:chartSpace>')
+    chart_xml = lambda kind, title, cat, val, cats, vals: chart_space(kind, title, pm['name'], cats, vals, cat, val)
 
     anchors, chart_files = [], {}
     for i, ch in enumerate(charts):
@@ -1020,3 +1030,146 @@ def lookml_report(columns, rows, args):
     return Result(f'LookML: 1 view, 1 explore ve {n} elemanlı pano', ['oge', 'ad', 'tanim', 'deger'], plan_rows(ds), summary(ds, eleman=n), files=files,
                   notes=['Dosyaları Looker projesine (Geliştirme modunda) kopyalayın, bağlantı adını ve sql_table_name’i kontrol edip “Validate LookML” çalıştırın.',
                          'View ve model dosyaları lkml ayrıştırıcısından, pano YAML’ı alan referans kontrolünden geçirildi; Looker örneğinde açılarak test edilmedi.'] + ds.warnings)
+
+
+# ---------- PowerPoint (.pptx) ----------
+NS_P = ('xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" '
+        'xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"')
+EMU = 914400  # per inch
+THEME = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" name="Rapor">'
+         '<a:themeElements><a:clrScheme name="Rapor"><a:dk1><a:srgbClr val="1D2433"/></a:dk1><a:lt1><a:srgbClr val="FFFFFF"/></a:lt1><a:dk2><a:srgbClr val="2B3240"/></a:dk2>'
+         '<a:lt2><a:srgbClr val="F6F7F9"/></a:lt2><a:accent1><a:srgbClr val="2F6FDE"/></a:accent1><a:accent2><a:srgbClr val="18A57B"/></a:accent2><a:accent3><a:srgbClr val="E38B2C"/></a:accent3>'
+         '<a:accent4><a:srgbClr val="9B59D0"/></a:accent4><a:accent5><a:srgbClr val="D9534F"/></a:accent5><a:accent6><a:srgbClr val="5D6779"/></a:accent6>'
+         '<a:hlink><a:srgbClr val="2F6FDE"/></a:hlink><a:folHlink><a:srgbClr val="9B59D0"/></a:folHlink></a:clrScheme>'
+         '<a:fontScheme name="Rapor"><a:majorFont><a:latin typeface="Calibri"/><a:ea typeface=""/><a:cs typeface=""/></a:majorFont>'
+         '<a:minorFont><a:latin typeface="Calibri"/><a:ea typeface=""/><a:cs typeface=""/></a:minorFont></a:fontScheme>'
+         '<a:fmtScheme name="Rapor"><a:fillStyleLst><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"/></a:solidFill>'
+         '<a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:fillStyleLst><a:lnStyleLst><a:ln w="6350"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:ln>'
+         '<a:ln w="12700"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:ln><a:ln w="19050"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:ln></a:lnStyleLst>'
+         '<a:effectStyleLst><a:effectStyle><a:effectLst/></a:effectStyle><a:effectStyle><a:effectLst/></a:effectStyle><a:effectStyle><a:effectLst/></a:effectStyle></a:effectStyleLst>'
+         '<a:bgFillStyleLst><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"/></a:solidFill>'
+         '</a:bgFillStyleLst></a:fmtScheme></a:themeElements><a:objectDefaults/><a:extraClrSchemeLst/></a:theme>')
+
+
+def pptx_bytes(ds, period=''):
+    W, H = 12192000, 6858000
+    slides, charts = [], []
+
+    def text(sid, name, x, y, w, h, paras, fill=None, shape='rect'):
+        body = ''.join(f'<a:p><a:pPr algn="{al}"/><a:r><a:rPr lang="tr-TR" sz="{sz}"{" b=" + chr(34) + "1" + chr(34) if b else ""} dirty="0">'
+                       f'<a:solidFill><a:srgbClr val="{col}"/></a:solidFill></a:rPr><a:t>{escape(t)}</a:t></a:r></a:p>' for t, sz, b, col, al in paras)
+        fill_xml = f'<a:solidFill><a:srgbClr val="{fill}"/></a:solidFill>' if fill else '<a:noFill/>'
+        return (f'<p:sp><p:nvSpPr><p:cNvPr id="{sid}" name="{escape(name)}"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="{x}" y="{y}"/>'
+                f'<a:ext cx="{w}" cy="{h}"/></a:xfrm><a:prstGeom prst="{shape}"><a:avLst/></a:prstGeom>{fill_xml}</p:spPr><p:txBody><a:bodyPr wrap="square" lIns="182880" '
+                f'tIns="91440" rIns="182880" bIns="91440" anchor="ctr"/><a:lstStyle/>{body}</p:txBody></p:sp>')
+
+    def chart_frame(sid, rid, x, y, w, h):
+        return (f'<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="{sid}" name="Grafik {sid}"/><p:cNvGraphicFramePr/><p:nvPr/></p:nvGraphicFramePr>'
+                f'<p:xfrm><a:off x="{x}" y="{y}"/><a:ext cx="{w}" cy="{h}"/></p:xfrm><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/chart">'
+                f'<c:chart xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" r:id="{rid}"/></a:graphicData></a:graphic></p:graphicFrame>')
+
+    def table_frame(sid, x, y, widths, header, body):
+        def cell(v, bold=False, right=False):
+            return (f'<a:tc><a:txBody><a:bodyPr/><a:lstStyle/><a:p><a:pPr algn="{"r" if right else "l"}"/><a:r><a:rPr lang="tr-TR" sz="1400"{" b=" + chr(34) + "1" + chr(34) if bold else ""} dirty="0"/>'
+                    f'<a:t>{escape(str(v))}</a:t></a:r></a:p></a:txBody><a:tcPr>' + ('<a:solidFill><a:srgbClr val="DCE6F7"/></a:solidFill>' if bold else '') + '</a:tcPr></a:tc>')
+        rh = 370840
+        rows_xml = f'<a:tr h="{rh}">' + ''.join(cell(h, True, i > 0) for i, h in enumerate(header)) + '</a:tr>'
+        rows_xml += ''.join(f'<a:tr h="{rh}">' + ''.join(cell(v, False, i > 0) for i, v in enumerate(r)) + '</a:tr>' for r in body)
+        return (f'<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="{sid}" name="Tablo {sid}"/><p:cNvGraphicFramePr><a:graphicFrameLocks noGrp="1"/></p:cNvGraphicFramePr><p:nvPr/></p:nvGraphicFramePr>'
+                f'<p:xfrm><a:off x="{x}" y="{y}"/><a:ext cx="{sum(widths)}" cy="{rh * (len(body) + 1)}"/></p:xfrm><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/table">'
+                f'<a:tbl><a:tblPr firstRow="1" bandRow="1"/><a:tblGrid>' + ''.join(f'<a:gridCol w="{w}"/>' for w in widths) + f'</a:tblGrid>{rows_xml}</a:tbl></a:graphicData></a:graphic></p:graphicFrame>')
+
+    def slide(title, shapes, chart=None):
+        head = text(2, 'Başlık', EMU // 2, EMU // 3, W - EMU, EMU * 3 // 4, [(title, 2800, True, '1D2433', 'l')])
+        foot = text(90, 'Kaynak', EMU // 2, H - EMU // 2, W - EMU, EMU // 3, [(f'{ds.source} · {ds.rows} satır · {ds.title}', 1000, False, '5D6779', 'l')])
+        slides.append((head + ''.join(shapes) + foot, chart))
+
+    dec = ds.primary['dec']
+    slides.append((text(2, 'Başlık', EMU, H // 3, W - 2 * EMU, EMU * 3 // 2, [(ds.title, 4000, True, '1D2433', 'l')])
+                   + text(3, 'Alt başlık', EMU, H // 3 + EMU * 3 // 2, W - 2 * EMU, EMU, [(f'{ds.source} · {ds.rows} satır' + (f' · {period}' if period else ''), 1800, False, '5D6779', 'l')]), None))
+    n = len(ds.kpis)
+    gap = EMU // 4
+    cw = (W - EMU - gap * (n - 1)) // n
+    cards = [text(10 + i, f'KPI {i + 1}', EMU // 2 + i * (cw + gap), EMU * 2, cw, EMU * 3 // 2,
+                  [(name, 1400, False, '5D6779', 'ctr'), (tr_num(v, d), 2800, True, '1D2433', 'ctr')], fill='F1F4F9', shape='roundRect') for i, (name, v, d) in enumerate(ds.kpis)]
+    slide('Özet göstergeler', cards)
+    if len(ds.trend) > 1:
+        charts.append(('line', f'Aylık {ds.primary["name"]}', ds.primary['name'], [k for k, _ in ds.trend], [v for _, v in ds.trend]))
+        slide(f'Aylık {ds.primary["name"]}', [chart_frame(20, 'rId2', EMU // 2, EMU * 5 // 4, W - EMU, H - EMU * 2)], len(charts))
+    for d in ds.dims:
+        items = ds.breakdown[d][:10]
+        charts.append(('bar', f'{label(d)} bazında {ds.primary["name"]}', ds.primary['name'], [k for k, _ in items], [v for _, v in items]))
+        total = sum(v or 0 for _, v in ds.breakdown[d])
+        body = [[k, tr_num(v, dec), f'%{tr_num(100 * (v or 0) / total, 1)}' if total and ds.primary['agg'] == 'sum' else ''] for k, v in items]
+        slide(f'{label(d)} kırılımı', [chart_frame(20, 'rId2', EMU // 2, EMU * 5 // 4, W * 11 // 20, H - EMU * 2),
+                                       table_frame(21, W * 11 // 20 + EMU * 3 // 4, EMU * 5 // 4, [EMU * 2, EMU * 3 // 2, EMU], [label(d), ds.primary['name'], 'Pay'], body)], len(charts))
+    if ds.warnings:
+        slide('Veri notları', [text(30, 'Notlar', EMU // 2, EMU * 5 // 4, W - EMU, H - EMU * 2, [(w, 1400, False, '1D2433', 'l') for w in ds.warnings])])
+
+    rel = lambda items: ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                         + ''.join(f'<Relationship Id="{i}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/{t}" Target="{g}"/>' for i, t, g in items) + '</Relationships>')
+    empty_tree = '<p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>'
+    parts = {}
+    for i, (shapes, chart) in enumerate(slides):
+        parts[f'ppt/slides/slide{i + 1}.xml'] = (f'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<p:sld {NS_P}><p:cSld><p:spTree>{empty_tree}{shapes}</p:spTree></p:cSld>'
+                                                 '<p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>')
+        parts[f'ppt/slides/_rels/slide{i + 1}.xml.rels'] = rel([('rId1', 'slideLayout', '../slideLayouts/slideLayout1.xml')]
+                                                               + ([('rId2', 'chart', f'../charts/chart{chart}.xml')] if chart else []))
+    for i, (kind, title, series, cats, vals) in enumerate(charts):
+        parts[f'ppt/charts/chart{i + 1}.xml'] = chart_space(kind, title, series, cats, vals)
+    parts['ppt/slideMasters/slideMaster1.xml'] = (f'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<p:sldMaster {NS_P}><p:cSld><p:bg><p:bgPr><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill>'
+                                                  f'<a:effectLst/></p:bgPr></p:bg><p:spTree>{empty_tree}</p:spTree></p:cSld><p:clrMap bg1="lt1" tx1="dk1" bg2="lt2" tx2="dk2" accent1="accent1" '
+                                                  'accent2="accent2" accent3="accent3" accent4="accent4" accent5="accent5" accent6="accent6" hlink="hlink" folHlink="folHlink"/>'
+                                                  '<p:sldLayoutIdLst><p:sldLayoutId id="2147483649" r:id="rId1"/></p:sldLayoutIdLst></p:sldMaster>')
+    parts['ppt/slideMasters/_rels/slideMaster1.xml.rels'] = rel([('rId1', 'slideLayout', '../slideLayouts/slideLayout1.xml'), ('rId2', 'theme', '../theme/theme1.xml')])
+    parts['ppt/slideLayouts/slideLayout1.xml'] = (f'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<p:sldLayout {NS_P} type="blank" preserve="1"><p:cSld name="Boş">'
+                                                  f'<p:spTree>{empty_tree}</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sldLayout>')
+    parts['ppt/slideLayouts/_rels/slideLayout1.xml.rels'] = rel([('rId1', 'slideMaster', '../slideMasters/slideMaster1.xml')])
+    parts['ppt/theme/theme1.xml'] = THEME
+    n_s = len(slides)
+    parts['ppt/presentation.xml'] = (f'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<p:presentation {NS_P} saveSubsetFonts="1">'
+                                     '<p:sldMasterIdLst><p:sldMasterId id="2147483648" r:id="rId1"/></p:sldMasterIdLst><p:sldIdLst>'
+                                     + ''.join(f'<p:sldId id="{256 + i}" r:id="rId{10 + i}"/>' for i in range(n_s))
+                                     + f'</p:sldIdLst><p:sldSz cx="{W}" cy="{H}"/><p:notesSz cx="6858000" cy="9144000"/></p:presentation>')
+    parts['ppt/_rels/presentation.xml.rels'] = rel([('rId1', 'slideMaster', 'slideMasters/slideMaster1.xml'), ('rId2', 'theme', 'theme/theme1.xml'),
+                                                    ('rId3', 'presProps', 'presProps.xml'), ('rId4', 'viewProps', 'viewProps.xml'), ('rId5', 'tableStyles', 'tableStyles.xml')]
+                                                   + [(f'rId{10 + i}', 'slide', f'slides/slide{i + 1}.xml') for i in range(n_s)])
+    parts['ppt/presProps.xml'] = f'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<p:presentationPr {NS_P}/>'
+    parts['ppt/viewProps.xml'] = f'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<p:viewPr {NS_P}><p:gridSpacing cx="76200" cy="76200"/></p:viewPr>'
+    parts['ppt/tableStyles.xml'] = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<a:tblStyleLst xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" '
+                                    'def="{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}"/>')
+    parts['docProps/core.xml'] = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" '
+                                  'xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>' + escape(ds.title) + '</dc:title><dc:creator>agency-codeblocks</dc:creator></cp:coreProperties>')
+    pm = 'application/vnd.openxmlformats-officedocument.presentationml.'
+    over = {'ppt/presentation.xml': pm + 'presentation.main+xml', 'ppt/slideMasters/slideMaster1.xml': pm + 'slideMaster+xml',
+            'ppt/slideLayouts/slideLayout1.xml': pm + 'slideLayout+xml', 'ppt/theme/theme1.xml': 'application/vnd.openxmlformats-officedocument.theme+xml',
+            'ppt/presProps.xml': pm + 'presProps+xml', 'ppt/viewProps.xml': pm + 'viewProps+xml', 'ppt/tableStyles.xml': pm + 'tableStyles+xml',
+            'docProps/core.xml': 'application/vnd.openxmlformats-package.core-properties+xml'}
+    over.update({f'ppt/slides/slide{i + 1}.xml': pm + 'slide+xml' for i in range(n_s)})
+    over.update({f'ppt/charts/chart{i + 1}.xml': 'application/vnd.openxmlformats-officedocument.drawingml.chart+xml' for i in range(len(charts))})
+    parts['[Content_Types].xml'] = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+                                    '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>'
+                                    + ''.join(f'<Override PartName="/{k}" ContentType="{v}"/>' for k, v in over.items()) + '</Types>')
+    parts['_rels/.rels'] = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                            '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="ppt/presentation.xml"/>'
+                            '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/></Relationships>')
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as z:
+        for name in ['[Content_Types].xml'] + [k for k in parts if k != '[Content_Types].xml']:
+            z.writestr(zipfile.ZipInfo(name, (2026, 1, 1, 0, 0, 0)), parts[name].encode('utf-8'), zipfile.ZIP_DEFLATED)
+    return buf.getvalue(), n_s, len(charts)
+
+
+@op('pptx-rapor-sablonu', title='CSV/Excel’den hazır PowerPoint rapor sunumu (.pptx)', domain=D, product='Rapor gereksinimleri', tag='PowerPoint rapor', samples=SATIS, args=DESIGN_ARGS,
+    description='Yönetim toplantısı için açılmaya hazır bir sunum üretir: kapak, KPI kartları, aylık trend grafiği, her boyut için çubuk grafik ve pay tablosu, kirli veri varsa notlar sayfası. '
+                'Grafikler PowerPoint’in kendi grafikleridir (biçimlendirilebilir); rakamlar dosyadan Python ile hesaplanır ve HTML önizlemeyle aynıdır. Dosya Open XML SDK doğrulayıcısından geçer.',
+    input='CSV/XLSX (satır bazında işlem verisi)', output='rapor.pptx + rapor-onizleme.html', command='python main.py --input satislar.csv --title "Eylül Satış Sunumu" --dimensions bolge',
+    expect={'olcu': 3, 'boyut': 3, 'ay': 21, 'slayt': 6, 'grafik': 4, 'ana_olcu_toplam': 5912910.0})
+def pptx_report(columns, rows, args):
+    ds = design(columns, rows, args)
+    period = f'{ds.trend[0][0]} – {ds.trend[-1][0]}' if ds.trend else ''
+    data, n_slides, n_charts = pptx_bytes(ds, period)
+    return Result(f'rapor.pptx: {n_slides} slayt, {n_charts} grafik', ['oge', 'ad', 'tanim', 'deger'], plan_rows(ds), summary(ds, slayt=n_slides, grafik=n_charts),
+                  files={'rapor.pptx': data, 'rapor-onizleme.html': preview_html(ds, 'PowerPoint')},
+                  notes=['Grafik verisi sunumun içindedir (Excel bağlantısı yok); sayıları güncellemek için bloğu yeni dosyayla yeniden çalıştırın. '
+                         'Dosya Open XML SDK ile doğrulandı; PowerPoint’te açılarak test edilmedi.'] + ds.warnings)

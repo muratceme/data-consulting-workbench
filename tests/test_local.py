@@ -59,8 +59,8 @@ class LocalTestCase(unittest.TestCase):
 
 class PackageShape(LocalTestCase):
     def test_every_local_package_is_self_contained_and_has_no_network_code(self):
-        self.assertEqual(len([i for i in LOCAL if not i.get('op')]), 40)
-        self.assertEqual(sum(i['kind'] == 'agent' for i in LOCAL), 28)
+        self.assertEqual(len([i for i in LOCAL if not i.get('op')]), 43)
+        self.assertEqual(sum(i['kind'] == 'agent' for i in LOCAL), 31)
         self.assertEqual(len({i['id'] for i in LOCAL}), len(LOCAL))
         for item in LOCAL:
             names = local_package.files(item)
@@ -435,6 +435,32 @@ class SinglePurposeBlocks(LocalTestCase):
         self.assertEqual(float(plan['Durum bazında Toplam Tutar']['deger']), 113860.0)
         self.assertIn('büyük/küçük harfle', dirty.out('rapor.md').read_text(encoding='utf-8'))
 
+    def test_pptx_report_template_parts_and_numbers(self):
+        import xml.dom.minidom
+        p = self.package('pptx-rapor-sablonu')
+        self.ok(p.run())
+        with zipfile.ZipFile(p.out('rapor.pptx')) as z:
+            names = set(z.namelist())
+            types = z.read('[Content_Types].xml').decode('utf-8')
+            for name in names:
+                if name.endswith(('.xml', '.rels')):
+                    xml.dom.minidom.parseString(z.read(name))
+                    if not name.endswith('.rels') and name != '[Content_Types].xml':
+                        self.assertIn(f'PartName="/{name}"', types, name)
+            for rels in [n for n in names if n.endswith('.rels') and n != '_rels/.rels']:
+                base = rels.replace('_rels/', '').rsplit('/', 1)[0]
+                for target in re.findall(r'Target="([^"]+)"', z.read(rels).decode('utf-8')):
+                    resolved = '/'.join(x for x in (base + '/' + target).split('/') if x != '.')
+                    while '/../' in resolved:
+                        resolved = re.sub(r'[^/]+/\.\./', '', resolved, count=1)
+                    self.assertIn(resolved, names, f'{rels} -> {target}')
+            kpis = z.read('ppt/slides/slide2.xml').decode('utf-8')
+            chart = z.read('ppt/charts/chart2.xml').decode('utf-8')
+        self.assertEqual(len([n for n in names if re.fullmatch(r'ppt/slides/slide\d+\.xml', n)]), 6)
+        self.assertIn('<a:t>5.912.910,00</a:t>', kpis)
+        self.assertIn('<c:v>Karadeniz</c:v>', chart)
+        self.assertIn('<c:v>1776520.0</c:v>', chart)
+
     def test_dbt_and_lookml_templates_are_wired_together(self):
         p = self.package('dbt-proje-sablonu')
         self.ok(p.run())
@@ -640,6 +666,10 @@ GOOD['butce-sapma-yorumu'] = {'ozet': 'Pazarlama giderleri YTD bütçeyi %15,6 a
 GOOD['hesap-plani-esleyici'] = {'eslemeler': [{'yerel_kod': '1000', 'tdhp': '100', 'guven': 'yüksek', 'gerekce': ''}, {'yerel_kod': '1010', 'tdhp': '102', 'guven': 'yüksek', 'gerekce': ''}, {'yerel_kod': '1011', 'tdhp': '102', 'guven': 'yüksek', 'gerekce': ''}, {'yerel_kod': '1200', 'tdhp': '120', 'guven': 'yüksek', 'gerekce': ''}, {'yerel_kod': '1210', 'tdhp': '121', 'guven': 'yüksek', 'gerekce': ''}, {'yerel_kod': '1530', 'tdhp': '153', 'guven': 'yüksek', 'gerekce': ''}, {'yerel_kod': '1910', 'tdhp': '191', 'guven': 'yüksek', 'gerekce': ''}, {'yerel_kod': '2550', 'tdhp': '255', 'guven': 'yüksek', 'gerekce': ''}, {'yerel_kod': '2570', 'tdhp': '257', 'guven': 'yüksek', 'gerekce': ''}, {'yerel_kod': '3200', 'tdhp': '320', 'guven': 'yüksek', 'gerekce': ''}, {'yerel_kod': '3600', 'tdhp': '360', 'guven': 'yüksek', 'gerekce': ''}, {'yerel_kod': '3610', 'tdhp': '361', 'guven': 'yüksek', 'gerekce': ''}, {'yerel_kod': '3910', 'tdhp': '391', 'guven': 'yüksek', 'gerekce': ''}, {'yerel_kod': '6000', 'tdhp': '600', 'guven': 'yüksek', 'gerekce': ''}, {'yerel_kod': '6100', 'tdhp': '610', 'guven': 'yüksek', 'gerekce': ''}, {'yerel_kod': '7600', 'tdhp': '760', 'guven': 'yüksek', 'gerekce': ''}, {'yerel_kod': '7700', 'tdhp': '770', 'guven': 'yüksek', 'gerekce': ''}, {'yerel_kod': '9999', 'tdhp': 'eşlenemez', 'gerekce': 'Geçici aktarım hesabı; dönem sonunda sıfırlanmalı.'}], 'sorular': ['9999 hesabı dönem sonunda bakiye veriyor mu?']}
 GOOD['json-esleme-yazari'] = {'kayit_yolu': 'veri', 'acilim': 'kalemler', 'sutunlar': [{'sutun': 'siparis_id', 'yol': 'id', 'tip': 'metin', 'zorunlu': True}, {'sutun': 'siparis_tarihi', 'yol': 'tarih', 'tip': 'tarih', 'zorunlu': True}, {'sutun': 'musteri_no', 'yol': 'musteri.no', 'tip': 'metin', 'zorunlu': True}, {'sutun': 'musteri_sehir', 'yol': 'musteri.sehir', 'tip': 'metin'}, {'sutun': 'urun_kodu', 'yol': 'kalemler[].urun', 'tip': 'metin', 'zorunlu': True}, {'sutun': 'adet', 'yol': 'kalemler[].adet', 'tip': 'tam sayı', 'zorunlu': True}, {'sutun': 'birim_fiyat', 'yol': 'kalemler[].fiyat', 'tip': 'ondalık', 'zorunlu': True}, {'sutun': 'iptal', 'yol': 'iptal', 'tip': 'mantıksal'}], 'notlar': ['etiketler dizisi ayrı tabloya alınmalı.']}
 GOOD['bolumleme-danismani'] = {'bolum_sutunu': 'siparis_tarihi', 'ayrinti': 'ay', 'kume_sutunlari': ['bolge', 'urun_kodu'], 'gerekce': 'Sorguların çoğu tarih aralığı filtreliyor.', 'riskler': ['Ay içi dengesiz hacim.']}
+GOOD['deney-analisti'] = {'test': 'mann-whitney', 'sonuc': 'anlamlı fark var', 'yuksek_grup': 'A', 'yorum': 'A grubunun medyanı 62,45, B grubunun 47,85 saniye; Mann-Whitney p-değeri 0,0166. Yeni ekran (B) görevi daha kısa sürede tamamlatıyor; etki küçük-orta (r 0,27).', 'uyarilar': ['A grubu normal değil; t-testi yerine Mann-Whitney kullanıldı.'], 'kanit': ['F1', 'F2', 'F4']}
+GOOD['sube-planlayici'] = {'ozet': 'En büyük iki kapsama dışı küme için şube önerilir.', 'oneriler': [{'kume': 'K3', 'gerekce': 'En büyük küme (18 müşteri); en yakın şube 88,9 km uzakta.', 'kanit': ['F4']}, {'kume': 'K2', 'gerekce': '12 müşteri; en yakın şube 358,9 km.', 'kanit': ['F3']}], 'riskler': ['Kira, rakip ve trafik bilgisi olgularda yok; saha ziyaretiyle doğrulanmalı.']}
+GOOD['rapor-tasarimcisi'] = {'baslik': 'Bölge Satış Raporu', 'olculer': [{'sutun': 'tutar', 'toplama': 'toplam'}, {'sutun': 'adet', 'toplama': 'toplam'}], 'boyutlar': ['bolge', 'kanal'], 'tarih': 'siparis_tarihi', 'araclar': ['qlik', 'powerbi'], 'gerekce': 'Ciro tutar sütunundan; sipariş adedi için farklı sipariş sayısı eklenir.', 'sorular': ['Ciro KDV dahil mi?']}
+OUTPUTS.update({'deney-analisti': 'deney-raporu.md', 'sube-planlayici': 'sube-plani.md', 'rapor-tasarimcisi': 'tasarim.md'})
 OUTPUTS.update({'veri-sozlesmesi-yazari': 'veri_sozlesmesi.json', 'butce-sapma-yorumu': 'butce-yorumu.md', 'hesap-plani-esleyici': 'hesap-eslemesi.csv',
                 'json-esleme-yazari': 'duz_tablo.csv', 'bolumleme-danismani': 'bolumleme.md'})
 KPI_ARGS = ('--data', 'ornek/satislar.csv')
@@ -826,6 +856,28 @@ class Agents(LocalTestCase):
         self.assertEqual(p.json('bolumleme.json')['partitions'], 9)
         self.assertIn('PARTITIONED BY (siparis_tarihi_ay)', p.out('ddl.sql').read_text(encoding='utf-8'))
 
+    def test_seventh_batch_agents_validate_locally(self):
+        p, done = self.run_agent('deney-analisti', '--yes', answers=[{**GOOD['deney-analisti'], 'test': 'welch-t'}, GOOD['deney-analisti']])
+        self.ok(done)
+        self.assertIn('t-testi seçilemez', self.model.requests[-1]['body']['messages'][-1]['content'])  # group A fails Jarque-Bera (p 0,0364)
+        self.assertIn('F4: Mann-Whitney U (A vs B): U=1.049,5, p-değeri 0,0166', self.model.requests[-2]['body']['messages'][-1]['content'])
+        self.assertEqual(p.json('deney-raporu.json')['test'], 'mann-whitney')
+        p, done = self.run_agent('sube-planlayici', '--yes', answers=[{**GOOD['sube-planlayici'], 'ozet': 'Kapsama %90 olur.'}, GOOD['sube-planlayici']])
+        self.ok(done)
+        self.assertIn('Olgularda olmayan sayı: 90', self.model.requests[-1]['body']['messages'][-1]['content'])
+        self.assertNotIn('40.19', self.model.requests[-2]['body']['messages'][-1]['content'])  # coordinates never leave the machine
+        self.assertEqual(p.json('sube-plani.json')['etki'], {'kapsanan_once': 63, 'kapsanan_sonra': 93, 'kapsama_once_%': 60.0, 'kapsama_sonra_%': 88.57})
+        bad = {**GOOD['rapor-tasarimcisi'], 'olculer': [{'sutun': 'siparis_no', 'toplama': 'toplam'}], 'boyutlar': ['musteri_eposta']}
+        p, done = self.run_agent('rapor-tasarimcisi', '--yes', answers=[bad, GOOD['rapor-tasarimcisi']])
+        self.ok(done)
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        self.assertIn('musteri_eposta kişisel veri', retry)
+        self.assertIn('siparis_no sayısal değil', retry)
+        self.assertNotIn('S00001', self.model.requests[-2]['body']['messages'][-1]['content'])  # only the column profile is sent
+        self.assertTrue((p.out('qlik-uygulama') / 'objects' / 'rapor-sayfasi.json').is_file())
+        self.assertTrue(list(p.out('pbip').glob('*.pbip')))
+        self.assertEqual(p.json('tasarim.json')['kpi'][0], {'ad': 'Toplam Tutar', 'deger': 5912910.0})
+
     def test_invalid_answer_gets_one_corrective_retry(self):
         bad = {'sql': 'SELECT s.KalemlerToplamCiro FROM dbo.Siparisler s'}
         p, done = self.run_agent('sql-yazari', '--yes', answers=[bad, GOOD['sql-yazari']])
@@ -860,7 +912,10 @@ class Agents(LocalTestCase):
                              ('butce-sapma-yorumu', {**GOOD['butce-sapma-yorumu'], 'kalemler': GOOD['butce-sapma-yorumu']['kalemler'][1:]}),
                              ('hesap-plani-esleyici', {'eslemeler': GOOD['hesap-plani-esleyici']['eslemeler'][:-1]}),
                              ('json-esleme-yazari', {**GOOD['json-esleme-yazari'], 'kayit_yolu': 'sayfa'}),
-                             ('bolumleme-danismani', {**GOOD['bolumleme-danismani'], 'ayrinti': 'gün', 'bolum_sutunu': 'durum'})]:
+                             ('bolumleme-danismani', {**GOOD['bolumleme-danismani'], 'ayrinti': 'gün', 'bolum_sutunu': 'durum'}),
+                             ('deney-analisti', {**GOOD['deney-analisti'], 'test': 'welch-t'}),
+                             ('sube-planlayici', {**GOOD['sube-planlayici'], 'oneriler': []}),
+                             ('rapor-tasarimcisi', {**GOOD['rapor-tasarimcisi'], 'boyutlar': ['musteri_eposta']})]:
             with self.subTest(item_id):
                 p, done = self.run_agent(item_id, '--yes', answers=[bad, bad])
                 self.assertEqual(done.returncode, 1)

@@ -207,6 +207,23 @@ LOCAL = [
          description='Tablonun örnek profilini, toplam boyutunu ve sorgu filtrelerinde sütun kullanımını okur; model bölüm sütunu, ayrıntı (gün/ay/yıl/değer/yok) ve kümeleme sütunları önerir. Bölüm sayısı ve bölüm başına boyut örnekte ölçülür; küçük dosya sorunu yaratan, tarih olmayan sütunda tarih ayrıntısı kullanan veya olmayan sütun seçen öneri reddedilir.',
          input='Örnek dışa aktarım + toplam boyut + filtre kullanımı; satırlar gönderilmez', output='bolumleme.md + bolumleme.json + ddl.sql',
          command='python main.py --input ornek.csv --size-gb 800 --filters filtreler.csv --table lake.olaylar'),
+    # Seventh agent batch.
+    dict(id='rapor-tasarimcisi', kind='agent', domain='bi', product='Rapor gereksinimleri', title='İsteğe göre rapor tasarlayıp Qlik, Power BI, Tableau, Looker, Excel, PowerPoint ve dbt şablonlarını üreten agent',
+         main='agents/rapor_tasarimcisi.py', modules=['common', 'tabular', 'islem', 'sema_farki', 'sqlgen', 'bigen', 'rapor', 'llm'], samples={'satis_detay.csv': 'satis_detay.csv'},
+         description='Dosyanın sütun profilini yerelde çıkarır; model kullanıcının isteğine göre başlık, ölçüler (toplam/ortalama), kırılım boyutları, tarih ve hedef araçları seçer. Seçim kodla denetlenir (sayısal ve kimlik olmayan ölçü, kişisel veri içermeyen az değerli boyut, gerçek tarih); onaylanan tasarımla rapor şablonu blokları Qlik Sense uygulaması, Power BI projesi, Tableau, LookML, Excel, PowerPoint, dbt ve HTML çıktısını kodla üretir.',
+         input='CSV/XLSX + rapor isteği; satırlar ve örnek değerler gönderilmez', output='tasarim.md + seçilen araçların proje klasörleri + rapor-onizleme.html',
+         command='python main.py --input satislar.xlsx --request "Kanal yöneticileri için haftalık ciro raporu, Power BI ve Excel"'),
+    dict(id='deney-analisti', kind='agent', domain='science', product='İstatistiksel analiz', title='İki grubu doğru testle karşılaştırıp yorumlayan deney analisti agent',
+         main='agents/deney_analisti.py', modules=['common', 'tabular', 'islem', 'analiz', 'llm', 'donem_yorumu'], samples={'deney_sonuclari.csv': 'deney_sonuclari.csv'},
+         description='Her grup için normallik (Jarque-Bera), Welch t-testi ve Mann-Whitney U testini yerelde hesaplar; model testi seçer, sonucu ve pratik anlamını yazar. Normal olmayan veride t-testi seçmek, p-değeriyle çelişen “anlamlı/anlamsız” kararı, yanlış grubu yüksek göstermek ve olgularda olmayan sayı reddedilir.',
+         input='Grup ve ölçüm sütunu olan CSV/XLSX + deneyin amacı; satırlar gönderilmez', output='deney-raporu.md + olgular.csv + deney-raporu.json',
+         command='python main.py --input test.csv --group kanal --value sepet --context "Yeni öneri motorunun sepet tutarına etkisi"'),
+    dict(id='sube-planlayici', kind='agent', domain='spatial', product='Konum ve sensör dosyaları', title='Kapsama dışındaki müşteri kümelerinden yeni şube yeri öneren agent',
+         main='agents/sube_planlayici.py', modules=['common', 'tabular', 'islem', 'konum', 'llm', 'donem_yorumu'],
+         samples={'musteri_noktalari.csv': 'musteri_noktalari.csv', 'subeler.csv': 'subeler.csv'},
+         description='Mevcut şubelerin kapsamasını ve kapsama dışındaki müşterilerin yoğunluk kümelerini (DBSCAN) yerelde hesaplar; model en çok N yeni şube için küme seçer ve gerekçe yazar. Olmayan küme, tekrar ve sınır aşımı reddedilir; yeni kapsama oranını ve kazanılan müşteriyi kod hesaplar. Koordinatlar ve müşteri kimlikleri modele gönderilmez.',
+         input='Müşteri ve şube konumları (enlem, boylam); yalnızca küme özetleri gönderilir', output='sube-plani.md + oneriler.csv + olgular.csv + sube-plani.json',
+         command='python main.py --input musteriler.csv --sites depolar.csv --site-id depo --radius 15 --max-sites 3'),
 ]
 
 # Single-purpose blocks registered with islem.op in category modules (library/blocks/*.py).
