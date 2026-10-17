@@ -4,7 +4,7 @@ Veri işleri için iki tür paket: **kod blokları** (aynı girdiden hep aynı s
 
 ## Güncel durum
 
-17 Ekim 2026: 23 alan / 206 ürün bağlamı. **380 indirilebilir paket**: 37 platform API paketi (36 kod bloğu + BigQuery agent) ve 343 yerel paket (315 kod bloğu + 28 agent). Toplam **351 kod bloğu, 29 agent**; 23 alanın hepsinde en az bir indirilebilir paket var. Diğer 372 görev **planlanan entegrasyon**; indirme bağlantıları yok.
+17 Ekim 2026: 23 alan / 206 ürün bağlamı. **387 indirilebilir paket**: 37 platform API paketi (36 kod bloğu + BigQuery agent) ve 350 yerel paket (322 kod bloğu + 28 agent). Toplam **358 kod bloğu, 29 agent**; 23 alanın hepsinde en az bir indirilebilir paket var. Diğer 372 görev **planlanan entegrasyon**; indirme bağlantıları yok.
 
 ### Yerel kod blokları (internet yok, Python standart kütüphanesi)
 
@@ -23,7 +23,7 @@ Veri işleri için iki tür paket: **kod blokları** (aynı girdiden hep aynı s
 | Tarih tablosu | Tarih aralığı + tatil dosyası | Türkçe takvim boyutu, resmî tatil, iş günü sırası, mali yıl; CSV + SQL |
 | Dosya birleştirme | CSV/XLSX klasörü | Tek tablo + kaynak dosya; şema kayması, ondalık ayırıcı farkı, mükerrer satır |
 
-### Tek amaçlı yerel kod blokları (303)
+### Tek amaçlı yerel kod blokları (310)
 
 Her blok tek bir işi yapar; `library/blocks/<kategori>.py` içinde `islem.op(...)` ile kaydedilir. Kayıt; katalog metnini, komut satırı seçeneklerini, örnek veriyi ve örnek veride **elle doğrulanmış beklenen sonucu** birlikte taşır. Paketteki `main.py` iki satırlık bir başlatıcıdır; ortak çalıştırıcı (`islem.py`) girdiyi okur, hiçbir dosyayı değiştirmez, ağa çıkmaz ve `output/` altına `sonuc.csv`, `rapor.md`, `ozet.json` yazar.
 
@@ -38,6 +38,7 @@ Her blok tek bir işi yapar; `library/blocks/<kategori>.py` içinde `islem.op(..
 | SQL (`sqlgen.py`) | 10 | CSV→CREATE TABLE/INSERT (6 lehçe), MERGE/UPSERT, SCD2, güvenli biçimlendirici, lint, DDL→veri sözlüğü/ER (Mermaid), lehçe çevirisi, veri testleri |
 | Dosya biçimleri (`bicim.py`) | 9 | iç içe JSON, JSON Lines, XML, sabit genişlik, Excel sayfaları, CSV→XLSX, erişim logu, HTML rapor |
 | BI üreticileri (`bigen.py`) | 7 | DAX zaman zekâsı, Power Query M, BigQuery şeması, Qlik LOAD, Power BI RLS, KPI trafik ışığı, dbt iskeleti |
+| Hazır rapor şablonları (`rapor.py`) | 7 | tek CSV/Excel dosyasından Qlik Sense uygulaması (script, ana öğeler, rapor sayfası), Power BI projesi (PBIP: TMDL model + PBIR rapor), Tableau çalışma kitabı (.twb), Looker projesi (view, explore, pano), formüllü ve grafikli Excel raporu, çalışır dbt projesi, tek dosyalık HTML pano |
 | Konum ve sensör (`zaman.py`) | 6 | koordinat kontrolü, en yakın nokta, eşik ihlali, veri boşluğu, yeniden örnekleme, iş saati SLA |
 | Konum (`konum.py`) | 8 | GeoJSON bölgelerine nokta atama (delikli/çoklu çokgen), araç GPS rota, durak ve sıçrama özeti, mesafe matrisi ve en yakın komşu, geofence giriş/çıkış, GPS durak tespiti, geohash ızgara yoğunluğu, mağaza kapsama alanı, DBSCAN konum kümeleme |
 | Bütçe ve planlama (`planlama.py`) | 13 | bütçe–gerçekleşen, bütçe dağıtımı, yıl sonu tahmini, senaryo, konsolidasyon + grup içi eliminasyon, çağrı merkezi personel ihtiyacı (Erlang C), fiyat–hacim–karma sapması, çok ürünlü başa baş noktası, formül tabanlı duyarlılık (tornado), personel maliyet planı, tahmin doğruluğu (WAPE, bias, FVA), kapasite planlama (doluluk, ek kapasite), ay içi satış hedef takibi |
@@ -57,6 +58,8 @@ Her blok tek bir işi yapar; `library/blocks/<kategori>.py` içinde `islem.op(..
 | Yönetişim (`katalog.py`) | 11 | iş sözlüğü kalitesi, SQL betiklerinden soy ağacı ve etki analizi, görevler ayrılığı (SoD), sınıflandırma tutarlılığı, veri sözleşmesi (data contract), erişim talebi denetimi (kendi onayı, süresi dolan erişim), BI rapor kullanım envanteri, sınıflandırmanın soy ağacı boyunca yayılımı, iki yetki listesi farkı, politika istisna kaydı, kullanılmayan yetkiler (en az yetki) |
 | Gözlemlenebilirlik (`gozlem.py`) | 12 | tazelik SLA, hacim anomalisi, şema değişikliği, NULL oranı sıçraması, iş çalışma geçmişi (başarı, p95, yavaşlama), log hata imzaları, kalite testi skor kartı (yeni/kararsız/kronik), teslim SLA uyumu, katmanlar arası satır kaybı, alarm gürültüsü (MTTA/MTTR), uçtan uca veri gecikmesi (p50/p95, SLA), kalıcı seviye değişimi (değişim noktası) |
 | BI ve dbt çeviri/analiz (`bi_ceviri.py`) | 6 | dbt run_results ve DAG, LookML envanteri, Power BI ölçü bağımlılığı, Tableau→DAX, Qlik→DAX |
+
+**Hazır rapor şablonları.** Yedi şablon aynı rapor tasarımını kullanır: ölçüler (toplam/ortalama), farklı sayı KPI’ı, en çok üç kırılım boyutu, takvim ve aylık trend, filtreler ve detay tablo. Sütunlar veriden seçilir, `--measures`, `--dimensions`, `--date` ile değiştirilir. Her şablon aynı rakamları gösteren bir HTML önizleme de yazar. Geliştirme sırasında biçimler resmî doğrulayıcılardan geçirildi: Power BI rapor JSON’ları Microsoft’un PBIR JSON şemalarından, TMDL modeli Microsoft’un TMDL ayrıştırıcısından (Analysis Services kütüphanesi), Tableau çalışma kitabı Tableau’nun resmî TWB XSD’sinden (2026.1), Excel dosyası Open XML SDK doğrulayıcısından geçti; Excel formülleri bağımsız bir formül motoruyla yeniden hesaplanıp önbellek değerleriyle karşılaştırıldı. dbt projesi dbt-core 1.12 + DuckDB ile `dbt build` çalıştırılarak denendi (tüm modeller ve testler geçti, sonuç tabloları Python hesabıyla aynı). Qlik nesneleri corectl’in açık kaynak build biçimine, LookML lkml ayrıştırıcısına göre denetlendi. **Hiçbiri Qlik, Power BI Desktop, Tableau veya Looker’ın kendisinde açılarak test edilmedi.** Kirli veride (aynı değerin farklı büyük/küçük harfle yazılması, boş boyut) şablonlar uyarı yazar; Excel ve Power BI bu değerleri tek, Qlik ve Tableau ayrı sayar.
 
 İstatistik bloklarındaki dağılım fonksiyonları (normal, t, ki-kare) standart kütüphaneyle yazıldı ve tablo değerleriyle karşılaştırıldı. Finans blokları kontrol amaçlıdır; muhasebe kaydı veya beyan yerine geçmez.
 
@@ -95,7 +98,7 @@ SQL yazarı, DAX ölçü yazarı, veri sözlüğü, kalite kuralı önerici, Qli
 
 **Canlı vendor/tenant testi: 0. Uygulamada dosya açılışı testi: 0.** Testler yerel HTTP sözleşme sunucusunu kullanır; gerçek QVF/PBIX üretildiğini kanıtlamaz. Agent model yanıtı testte taklit edilir. Bu paketler henüz üretim onaylı değildir.
 
-SAP/Oracle keşif paketleri rapor otomasyonu olarak etiketlenmez. SAP satış teklifi taslağı ayrı bir yazma işlemidir; kesin belge oluşturmaz. Qlik şablon akışı mevcut grafik ve load script'ini kullanır; sıfırdan dashboard tasarlamaz. Logo entegrasyonu henüz uygulanmadı; doğrulanmamış endpoint üretilmez.
+SAP/Oracle keşif paketleri rapor otomasyonu olarak etiketlenmez. SAP satış teklifi taslağı ayrı bir yazma işlemidir; kesin belge oluşturmaz. Qlik şablon akışı (platform paketi) mevcut grafik ve load script'ini kullanır; sıfırdan rapor kurmak için yerel `qlik-rapor-sablonu` bloğu kullanılır. Logo entegrasyonu henüz uygulanmadı; doğrulanmamış endpoint üretilmez.
 
 ## Yerelde çalıştırma
 
@@ -123,7 +126,7 @@ Platform paketi:
 
 Yeni/boş çıktı klasörü gerekir. Yazma ve LLM maliyeti olabilen işlemler README'de belirtilir. Şema ve proje bağlamı seçilen modele gönderilir; agent satır verisi çekmez. Kısmi çalışma kimlikleri `run-state.json`, dosya özeti `manifest.json` içindedir. Otomatik rollback veya üretimde otomatik model-kodu yürütme yoktur.
 
-Toplam **207 test** geçiyor (303 tek amaçlı blok, bir testin alt testleri olarak tek tek); tek amaçlı blokların her biri paketlenmiş kopyasıyla kendi örnek verisinde çalıştırılıp beklenen sonuçla karşılaştırılır. Yerel paket testleri (`tests/test_local.py`) paketlenmiş kopyayı örnek veriyle çalıştırır; agent’lar OpenAI/Anthropic/Ollama biçiminde konuşan sahte model sunucusuyla test edilir (maskeleme, onay, dry-run, düzeltme denemesi, HTTP hatası). İlk sekiz agent ayrıca yerel bir Ollama modeliyle (qwen3 14B) elle denendi; son yirmi agent yalnızca sahte model sunucusuyla test edildi. Test sayısı canlı tenant doğrulaması değildir.
+Toplam **213 test** geçiyor (310 tek amaçlı blok, bir testin alt testleri olarak tek tek); tek amaçlı blokların her biri paketlenmiş kopyasıyla kendi örnek verisinde çalıştırılıp beklenen sonuçla karşılaştırılır. Yerel paket testleri (`tests/test_local.py`) paketlenmiş kopyayı örnek veriyle çalıştırır; agent’lar OpenAI/Anthropic/Ollama biçiminde konuşan sahte model sunucusuyla test edilir (maskeleme, onay, dry-run, düzeltme denemesi, HTTP hatası). İlk sekiz agent ayrıca yerel bir Ollama modeliyle (qwen3 14B) elle denendi; son yirmi agent yalnızca sahte model sunucusuyla test edildi. Test sayısı canlı tenant doğrulaması değildir.
 
 ## Test katmanları
 

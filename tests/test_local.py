@@ -1,5 +1,5 @@
 """End-to-end tests of local code blocks and agents. Every test runs the *packaged* copy (as a user would after unzipping)."""
-import csv, io, json, os, subprocess, sys, tempfile, threading, unittest, zipfile
+import csv, io, json, os, re, subprocess, sys, tempfile, threading, unittest, zipfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -74,6 +74,11 @@ class PackageShape(LocalTestCase):
                 self.assertNotIn(forbidden, code, f"{item['id']} code block must stay offline")
             manifest = json.loads(names['task.json'])
             self.assertEqual(manifest['id'], item['id'])
+
+    def test_every_local_package_reaches_the_site_catalog(self):
+        from catalog import catalog
+        listed = {task.get('local_id') for domain in catalog() for tool in domain['tools'] for product in tool['products'] for task in product['tasks']}
+        self.assertEqual([i['id'] for i in LOCAL if i['id'] not in listed], [])  # an unknown domain/product name silently drops a package
 
 
 class CodeBlocks(LocalTestCase):
@@ -329,6 +334,134 @@ class SinglePurposeBlocks(LocalTestCase):
         src_cols, src_rows = tabular.read(p.dir / 'ornek' / 'satislar.csv')
         self.assertEqual((cols, len(rows)), (src_cols, len(src_rows)))
         self.assertEqual((rows[0]['tutar'], rows[0]['siparis_no']), ('1900.0', 'S1001'))  # stored as a number, read back as one
+
+    def test_qlik_report_template_references_resolve(self):
+        p = self.package('qlik-rapor-sablonu')
+        self.ok(p.run())
+        app = p.out('qlik-uygulama')
+        script = (app / 'script.qvs').read_text(encoding='utf-8')
+        fields = set(re.findall(r'\bas\s+\[([^\]]+)\]', script, re.I)) | set(re.findall(r'^\s+\[([^\]]+)\],?$', script, re.M))
+        self.assertIn('SatisDetay', [t['name'] for t in qlik_parse(script)['tables']])
+        dims, meas = json.loads((app / 'dimensions.json').read_text(encoding='utf-8')), json.loads((app / 'measures.json').read_text(encoding='utf-8'))
+        library = {o['qInfo']['qId'] for o in dims + meas}
+        for d in dims:
+            self.assertLessEqual(set(d['qDim']['qFieldDefs']), fields)
+        for m in meas:
+            self.assertLessEqual(set(re.findall(r'\[([^\]]+)\]', m['qMeasure']['qDef'])), fields, m['qMeasure']['qDef'])
+        sheet = json.loads((app / 'objects' / 'rapor-sayfasi.json').read_text(encoding='utf-8'))
+        children = sheet['qChildren']
+        self.assertEqual([c['qProperty']['qInfo']['qId'] for c in children], [c['name'] for c in sheet['qProperty']['cells']])
+        cells = set()
+        for c in sheet['qProperty']['cells']:
+            area = {(x, y) for x in range(c['col'], c['col'] + c['colspan']) for y in range(c['row'], c['row'] + c['rowspan'])}
+            self.assertFalse(area & cells, c['name'])
+            cells |= area
+        self.assertEqual(len(cells), 24 * 12)  # the whole grid is used, nothing overlaps or overflows
+
+        def walk(o):
+            prop = o['qProperty']
+            self.assertTrue(prop['qInfo']['qId'] and prop['qInfo']['qType'])  # corectl's rule for GenericObjectEntry files
+            cube = prop.get('qHyperCubeDef', {})
+            for ref in [x['qLibraryId'] for x in cube.get('qDimensions', []) + cube.get('qMeasures', [])] + ([prop['qListObjectDef']['qLibraryId']] if 'qListObjectDef' in prop else []):
+                self.assertIn(ref, library)
+            for c in o['qChildren']:
+                walk(c)
+        walk(sheet)
+        self.assertIn('qlik app build', (app / 'build.cmd').read_text(encoding='utf-8'))
+
+    def test_pbip_report_template_matches_its_model(self):
+        p = self.package('pbi-rapor-sablonu')
+        self.ok(p.run())
+        root = p.out('pbip')
+        pbip = next(root.glob('*.pbip'))
+        report = root / json.loads(pbip.read_text(encoding='utf-8'))['artifacts'][0]['report']['path']
+        model = (report / json.loads((report / 'definition.pbir').read_text(encoding='utf-8'))['datasetReference']['byPath']['path']).resolve()
+        self.assertTrue((model / 'definition' / 'model.tmdl').is_file())
+        names = {}
+        for tmdl in (model / 'definition' / 'tables').glob('*.tmdl'):
+            text = tmdl.read_text(encoding='utf-8')
+            table = re.match(r'table (\S+)', text).group(1)
+            names[table] = {n.strip("'") for n in re.findall(r"^\t(?:measure|column) ('[^']+'|[^\s=]+)", text, re.M)}
+        self.assertEqual(set(names), {'SatisDetay', 'Takvim'})
+        rel = (model / 'definition' / 'relationships.tmdl').read_text(encoding='utf-8')
+        self.assertIn("fromColumn: SatisDetay.'Siparis Tarihi'", rel)
+        visuals = list(report.rglob('visual.json'))
+        self.assertEqual(len(visuals), 12)
+        for f in report.rglob('*.json'):
+            doc = json.loads(f.read_text(encoding='utf-8'))
+            self.assertTrue(doc['$schema'].startswith('https://developer.microsoft.com/json-schemas/fabric/item/report/'), f)
+        for f in visuals:
+            for field in re.findall(r'"Entity": "([^"]+)"\s*\}\s*\},\s*"Property": "([^"]+)"', f.read_text(encoding='utf-8')):
+                self.assertIn(field[1], names[field[0]], f'{f.parent.name}: {field}')
+
+    def test_tableau_report_template_is_consistent(self):
+        import xml.etree.ElementTree as ET
+        p = self.package('tableau-rapor-sablonu')
+        self.ok(p.run())
+        wb = ET.parse(p.out('rapor.twb')).getroot()
+        self.assertEqual(wb.get('version'), '26.1')
+        sheets = {w.get('name') for w in wb.iter('worksheet')}
+        zones = {z.get('name') for z in wb.iter('zone') if z.get('name')}
+        self.assertEqual(zones, sheets)
+        source_cols = {c.get('name') for c in wb.find('datasources/datasource').findall('column')}
+        for inst in wb.iter('column-instance'):
+            self.assertIn(inst.get('column'), source_cols)
+        for shelf in list(wb.iter('rows')) + list(wb.iter('cols')):
+            for ref in re.findall(r'\]\.(\[[^\]]+\])', shelf.text or ''):
+                self.assertTrue(any(i.get('name') == ref for i in wb.iter('column-instance')), ref)
+
+    def test_excel_report_template_formulas_and_dirty_input(self):
+        p = self.package('excel-rapor-sablonu')
+        self.ok(p.run())
+        with zipfile.ZipFile(p.out('rapor.xlsx')) as z:
+            parts = set(z.namelist())
+            types = z.read('[Content_Types].xml').decode('utf-8')
+            for name in parts:
+                if name.endswith(('.xml', '.rels')):
+                    import xml.dom.minidom
+                    xml.dom.minidom.parseString(z.read(name))
+                    if not name.endswith('.rels') and name != '[Content_Types].xml':
+                        self.assertIn(f'PartName="/{name}"', types, name)
+            summary = z.read('xl/worksheets/sheet1.xml').decode('utf-8')
+        self.assertIn('<c r="A5" s="4"><f>SUM(Veri!$J$2:$J$241)</f><v>5912910.0</v></c>', summary)
+        self.assertIn('SUMPRODUCT((Veri!$A$2:$A$241&lt;&gt;"")/COUNTIF(Veri!$A$2:$A$241,Veri!$A$2:$A$241&amp;""))', summary)
+        cols, rows = tabular.read(p.out('rapor.xlsx'), 'Veri')
+        self.assertEqual((len(cols), len(rows)), (10, 240))
+        # Dirty file: "Teslim edildi" and "teslim edildi " are one value for SUMIFS, so the cached value must be their sum and the user is warned.
+        dirty = self.package('excel-rapor-sablonu')
+        self.ok(dirty.run('--input', str(ROOT / 'library' / 'samples' / 'satislar.csv')))
+        plan = {r['ad']: r for r in dirty.csv('sonuc.csv')}
+        self.assertEqual(plan['Durum bazında Toplam Tutar']['tanim'], '3 değer; en yüksek Teslim edildi')
+        self.assertEqual(float(plan['Durum bazında Toplam Tutar']['deger']), 113860.0)
+        self.assertIn('büyük/küçük harfle', dirty.out('rapor.md').read_text(encoding='utf-8'))
+
+    def test_dbt_and_lookml_templates_are_wired_together(self):
+        p = self.package('dbt-proje-sablonu')
+        self.ok(p.run())
+        proj = p.out('dbt-proje')
+        models = {f.stem for f in proj.rglob('models/**/*.sql')}
+        seeds = {f.stem for f in (proj / 'seeds').glob('*.csv')}
+        for f in list(proj.rglob('*.sql')):
+            for ref in re.findall(r"ref\('([^']+)'\)", f.read_text(encoding='utf-8')):
+                self.assertIn(ref, models | seeds, f'{f.name}: {ref}')
+        staging = (proj / 'models' / 'staging' / 'stg_satis_detay.sql').read_text(encoding='utf-8')
+        aliases = set(re.findall(r' as (\w+),?$', staging, re.M))
+        schema = (proj / 'models' / 'schema.yml').read_text(encoding='utf-8')
+        self.assertLessEqual(set(re.findall(r'^      - name: (\w+)$', schema, re.M)), aliases)
+        self.assertIn("{{ metin_tarih(\"siparis_tarihi\") }}", staging)
+        self.assertIn('macro duckdb__metin_tarih', (proj / 'macros' / 'metin_tarih.sql').read_text(encoding='utf-8'))
+        self.assertIn('+delimiter: ;', (proj / 'dbt_project.yml').read_text(encoding='utf-8'))
+        lk = self.package('lookml-rapor-sablonu')
+        self.ok(lk.run())
+        view = (lk.out('lookml') / 'views' / 'satis_detay.view.lkml').read_text(encoding='utf-8')
+        self.assertIn('sql_table_name: analytics.fct_satis_detay ;;', view)  # the table the dbt template builds
+        fields = set(re.findall(r'^  (?:dimension|measure): (\w+) \{', view, re.M))
+        for group in re.findall(r'^  dimension_group: (\w+) \{', view, re.M):
+            fields |= {f'{group}_{t}' for t in ('raw', 'date', 'week', 'month', 'quarter', 'year')}
+        dashboard = next((lk.out('lookml') / 'dashboards').glob('*.dashboard.lookml')).read_text(encoding='utf-8')
+        refs = set(re.findall(r'satis_detay\.(\w+)', dashboard))
+        self.assertTrue(refs)
+        self.assertLessEqual(refs, fields)
 
     def test_sql_formatter_never_turns_code_into_a_comment(self):
         p = self.package('sql-bicimlendir')

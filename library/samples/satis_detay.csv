@@ -1,0 +1,241 @@
+siparis_no;siparis_tarihi;bolge;kanal;kategori;urun;musteri_eposta;adet;birim_fiyat;tutar
+S00001;2025-05-02;Marmara;Mağaza;Görüntü;Projeksiyon;musteri58@ornek.test;2;15.610,00;31.220,00
+S00002;2026-09-08;Akdeniz;Bayi;Ses;Kulaklık;musteri29@ornek.test;2;1.950,00;3.900,00
+S00003;2025-09-03;Ege;Mağaza;Bilgisayar;Dizüstü Pro;musteri29@ornek.test;1;33.240,00;33.240,00
+S00004;2025-01-12;Akdeniz;Web;Ses;Hoparlör;musteri23@ornek.test;1;2.380,00;2.380,00
+S00005;2026-01-01;Marmara;Bayi;Ses;Kulaklık;musteri22@ornek.test;2;2.030,00;4.060,00
+S00006;2025-04-02;Karadeniz;Web;Görüntü;Monitör 27 inç;musteri2@ornek.test;1;8.040,00;8.040,00
+S00007;2026-01-13;Akdeniz;Bayi;Görüntü;Projeksiyon;musteri36@ornek.test;1;15.480,00;15.480,00
+S00008;2026-05-26;Karadeniz;Web;Bilgisayar;Masaüstü;musteri26@ornek.test;5;24.430,00;122.150,00
+S00009;2026-06-22;Akdeniz;Bayi;Görüntü;Monitör 27 inç;musteri34@ornek.test;2;8.980,00;17.960,00
+S00010;2025-01-26;Marmara;Bayi;Çevre Birimi;Fare;musteri34@ornek.test;5;440,00;2.200,00
+S00011;2025-04-16;İç Anadolu;Mağaza;Ses;Kulaklık;musteri41@ornek.test;2;1.840,00;3.680,00
+S00012;2026-04-13;Ege;Bayi;Ses;Hoparlör;musteri26@ornek.test;2;2.400,00;4.800,00
+S00013;2025-11-12;Akdeniz;Mağaza;Ses;Hoparlör;musteri19@ornek.test;2;2.440,00;4.880,00
+S00014;2025-10-03;Karadeniz;Web;Bilgisayar;Dizüstü Pro;musteri52@ornek.test;3;29.470,00;88.410,00
+S00015;2026-06-20;Ege;Bayi;Ses;Hoparlör;musteri32@ornek.test;1;2.240,00;2.240,00
+S00016;2026-04-23;Marmara;Web;Ses;Hoparlör;musteri21@ornek.test;2;2.440,00;4.880,00
+S00017;2026-04-14;Karadeniz;Web;Bilgisayar;Masaüstü;musteri29@ornek.test;3;24.490,00;73.470,00
+S00018;2025-07-07;Marmara;Bayi;Ses;Kulaklık;musteri18@ornek.test;2;1.980,00;3.960,00
+S00019;2026-05-26;Akdeniz;Mağaza;Görüntü;Projeksiyon;musteri29@ornek.test;3;14.340,00;43.020,00
+S00020;2025-01-15;Karadeniz;Mağaza;Bilgisayar;Masaüstü;musteri40@ornek.test;2;22.320,00;44.640,00
+S00021;2025-07-23;Karadeniz;Web;Çevre Birimi;Fare;musteri43@ornek.test;1;390,00;390,00
+S00022;2026-01-01;Karadeniz;Bayi;Çevre Birimi;Klavye;musteri50@ornek.test;3;860,00;2.580,00
+S00023;2026-05-19;Karadeniz;Mağaza;Çevre Birimi;Klavye;musteri39@ornek.test;2;960,00;1.920,00
+S00024;2026-06-01;İç Anadolu;Mağaza;Görüntü;Monitör 27 inç;musteri51@ornek.test;3;7.700,00;23.100,00
+S00025;2026-08-24;İç Anadolu;Bayi;Görüntü;Monitör 27 inç;musteri52@ornek.test;2;8.410,00;16.820,00
+S00026;2025-07-21;Akdeniz;Mağaza;Ses;Kulaklık;musteri4@ornek.test;1;1.670,00;1.670,00
+S00027;2025-12-22;Marmara;Bayi;Görüntü;Projeksiyon;musteri31@ornek.test;1;16.960,00;16.960,00
+S00028;2025-12-02;Akdeniz;Web;Görüntü;Monitör 27 inç;musteri37@ornek.test;1;8.320,00;8.320,00
+S00029;2026-09-26;İç Anadolu;Web;Çevre Birimi;Klavye;musteri40@ornek.test;2;880,00;1.760,00
+S00030;2025-12-11;Marmara;Bayi;Ses;Hoparlör;musteri26@ornek.test;3;2.350,00;7.050,00
+S00031;2025-02-04;Marmara;Bayi;Çevre Birimi;Fare;musteri35@ornek.test;1;430,00;430,00
+S00032;2025-02-19;İç Anadolu;Web;Ses;Hoparlör;musteri46@ornek.test;3;2.470,00;7.410,00
+S00033;2025-01-21;Karadeniz;Mağaza;Çevre Birimi;Klavye;musteri11@ornek.test;1;980,00;980,00
+S00034;2025-07-10;Akdeniz;Mağaza;Ses;Kulaklık;musteri25@ornek.test;2;1.770,00;3.540,00
+S00035;2025-11-09;Akdeniz;Web;Çevre Birimi;Klavye;musteri50@ornek.test;1;920,00;920,00
+S00036;2026-03-02;Karadeniz;Web;Görüntü;Monitör 27 inç;musteri29@ornek.test;1;8.350,00;8.350,00
+S00037;2025-05-03;İç Anadolu;Mağaza;Görüntü;Monitör 27 inç;musteri1@ornek.test;5;8.930,00;44.650,00
+S00038;2025-04-06;Karadeniz;Bayi;Ses;Hoparlör;musteri12@ornek.test;2;2.370,00;4.740,00
+S00039;2025-01-28;Karadeniz;Bayi;Görüntü;Projeksiyon;musteri37@ornek.test;1;16.680,00;16.680,00
+S00040;2026-07-06;Ege;Bayi;Çevre Birimi;Fare;musteri49@ornek.test;3;390,00;1.170,00
+S00041;2026-08-05;Ege;Bayi;Çevre Birimi;Fare;musteri36@ornek.test;2;430,00;860,00
+S00042;2025-05-16;Akdeniz;Mağaza;Bilgisayar;Masaüstü;musteri7@ornek.test;1;26.200,00;26.200,00
+S00043;2025-03-03;Marmara;Bayi;Görüntü;Projeksiyon;musteri21@ornek.test;1;16.290,00;16.290,00
+S00044;2025-10-11;İç Anadolu;Web;Bilgisayar;Masaüstü;musteri17@ornek.test;1;23.760,00;23.760,00
+S00045;2025-03-06;Ege;Web;Bilgisayar;Dizüstü Pro;musteri1@ornek.test;5;31.930,00;159.650,00
+S00046;2025-02-28;Marmara;Mağaza;Bilgisayar;Masaüstü;musteri44@ornek.test;1;23.490,00;23.490,00
+S00047;2026-07-29;Karadeniz;Bayi;Görüntü;Projeksiyon;musteri42@ornek.test;2;15.020,00;30.040,00
+S00048;2026-09-22;Karadeniz;Mağaza;Bilgisayar;Dizüstü Pro;musteri39@ornek.test;1;35.260,00;35.260,00
+S00049;2026-04-19;Ege;Bayi;Ses;Kulaklık;musteri44@ornek.test;1;2.030,00;2.030,00
+S00050;2025-09-15;Ege;Mağaza;Ses;Kulaklık;musteri48@ornek.test;5;1.770,00;8.850,00
+S00051;2026-03-24;Ege;Bayi;Bilgisayar;Dizüstü Pro;musteri50@ornek.test;1;31.080,00;31.080,00
+S00052;2025-05-06;Karadeniz;Mağaza;Görüntü;Monitör 27 inç;musteri35@ornek.test;1;8.850,00;8.850,00
+S00053;2025-12-17;Marmara;Mağaza;Çevre Birimi;Fare;musteri40@ornek.test;3;430,00;1.290,00
+S00054;2025-05-06;Ege;Bayi;Bilgisayar;Masaüstü;musteri42@ornek.test;2;22.510,00;45.020,00
+S00055;2025-11-06;Ege;Web;Bilgisayar;Dizüstü Pro;musteri25@ornek.test;1;32.010,00;32.010,00
+S00056;2026-01-22;İç Anadolu;Mağaza;Çevre Birimi;Fare;musteri12@ornek.test;3;440,00;1.320,00
+S00057;2026-07-10;Karadeniz;Web;Bilgisayar;Dizüstü Pro;musteri57@ornek.test;2;33.550,00;67.100,00
+S00058;2025-09-19;Ege;Bayi;Çevre Birimi;Klavye;musteri31@ornek.test;1;900,00;900,00
+S00059;2026-03-04;Karadeniz;Mağaza;Görüntü;Monitör 27 inç;musteri54@ornek.test;1;9.170,00;9.170,00
+S00060;2025-07-03;Karadeniz;Web;Bilgisayar;Dizüstü Pro;musteri22@ornek.test;5;33.480,00;167.400,00
+S00061;2026-06-17;Marmara;Bayi;Görüntü;Projeksiyon;musteri16@ornek.test;5;14.220,00;71.100,00
+S00062;2026-04-27;Karadeniz;Mağaza;Bilgisayar;Dizüstü Pro;musteri48@ornek.test;3;35.560,00;106.680,00
+S00063;2026-02-13;Karadeniz;Web;Görüntü;Projeksiyon;musteri22@ornek.test;1;17.010,00;17.010,00
+S00064;2025-07-25;Akdeniz;Bayi;Görüntü;Projeksiyon;musteri52@ornek.test;3;15.160,00;45.480,00
+S00065;2026-05-01;Akdeniz;Mağaza;Görüntü;Monitör 27 inç;musteri32@ornek.test;3;7.880,00;23.640,00
+S00066;2025-01-06;Karadeniz;Bayi;Görüntü;Projeksiyon;musteri27@ornek.test;5;16.580,00;82.900,00
+S00067;2025-02-08;Karadeniz;Bayi;Çevre Birimi;Klavye;musteri17@ornek.test;1;870,00;870,00
+S00068;2025-05-22;Karadeniz;Mağaza;Bilgisayar;Masaüstü;musteri55@ornek.test;1;27.270,00;27.270,00
+S00069;2026-08-20;Akdeniz;Bayi;Görüntü;Monitör 27 inç;musteri34@ornek.test;2;8.520,00;17.040,00
+S00070;2025-06-11;Akdeniz;Web;Bilgisayar;Masaüstü;musteri36@ornek.test;3;22.740,00;68.220,00
+S00071;2025-09-25;İç Anadolu;Mağaza;Görüntü;Monitör 27 inç;musteri58@ornek.test;2;7.630,00;15.260,00
+S00072;2025-10-27;İç Anadolu;Web;Görüntü;Monitör 27 inç;musteri13@ornek.test;1;8.470,00;8.470,00
+S00073;2025-01-10;Karadeniz;Mağaza;Ses;Hoparlör;musteri47@ornek.test;1;2.500,00;2.500,00
+S00074;2026-06-13;İç Anadolu;Mağaza;Bilgisayar;Dizüstü Pro;musteri2@ornek.test;2;30.420,00;60.840,00
+S00075;2025-04-30;Ege;Web;Bilgisayar;Dizüstü Pro;musteri14@ornek.test;1;34.720,00;34.720,00
+S00076;2026-06-29;İç Anadolu;Mağaza;Çevre Birimi;Klavye;musteri21@ornek.test;1;970,00;970,00
+S00077;2026-05-12;Marmara;Web;Bilgisayar;Masaüstü;musteri17@ornek.test;3;26.650,00;79.950,00
+S00078;2026-09-24;Akdeniz;Web;Görüntü;Monitör 27 inç;musteri8@ornek.test;1;8.650,00;8.650,00
+S00079;2026-07-23;Akdeniz;Bayi;Çevre Birimi;Fare;musteri23@ornek.test;3;450,00;1.350,00
+S00080;2025-03-26;Akdeniz;Web;Bilgisayar;Masaüstü;musteri17@ornek.test;1;26.180,00;26.180,00
+S00081;2025-08-20;Karadeniz;Web;Çevre Birimi;Klavye;musteri21@ornek.test;2;920,00;1.840,00
+S00082;2026-05-21;Akdeniz;Mağaza;Ses;Kulaklık;musteri56@ornek.test;1;1.780,00;1.780,00
+S00083;2025-12-23;Karadeniz;Web;Görüntü;Projeksiyon;musteri14@ornek.test;5;15.320,00;76.600,00
+S00084;2025-06-08;İç Anadolu;Web;Ses;Hoparlör;musteri18@ornek.test;3;2.410,00;7.230,00
+S00085;2025-12-03;Akdeniz;Web;Bilgisayar;Masaüstü;musteri10@ornek.test;5;23.910,00;119.550,00
+S00086;2026-07-13;Karadeniz;Mağaza;Görüntü;Monitör 27 inç;musteri18@ornek.test;1;7.950,00;7.950,00
+S00087;2025-10-28;Marmara;Bayi;Ses;Hoparlör;musteri46@ornek.test;2;2.360,00;4.720,00
+S00088;2025-12-04;Akdeniz;Bayi;Ses;Kulaklık;musteri55@ornek.test;3;1.790,00;5.370,00
+S00089;2026-07-14;Ege;Mağaza;Çevre Birimi;Fare;musteri26@ornek.test;3;410,00;1.230,00
+S00090;2025-06-27;Ege;Mağaza;Bilgisayar;Dizüstü Pro;musteri22@ornek.test;3;30.990,00;92.970,00
+S00091;2026-08-16;Akdeniz;Web;Ses;Kulaklık;musteri22@ornek.test;5;1.970,00;9.850,00
+S00092;2025-01-13;Marmara;Bayi;Bilgisayar;Dizüstü Pro;musteri55@ornek.test;3;34.170,00;102.510,00
+S00093;2025-10-03;Akdeniz;Bayi;Görüntü;Projeksiyon;musteri18@ornek.test;1;14.100,00;14.100,00
+S00094;2026-09-30;İç Anadolu;Bayi;Görüntü;Projeksiyon;musteri50@ornek.test;3;14.290,00;42.870,00
+S00095;2025-01-12;Akdeniz;Mağaza;Bilgisayar;Masaüstü;musteri39@ornek.test;1;23.090,00;23.090,00
+S00096;2025-06-24;Karadeniz;Bayi;Görüntü;Monitör 27 inç;musteri38@ornek.test;2;7.700,00;15.400,00
+S00097;2026-07-27;Akdeniz;Mağaza;Çevre Birimi;Klavye;musteri12@ornek.test;1;880,00;880,00
+S00098;2026-07-18;Ege;Web;Çevre Birimi;Fare;musteri23@ornek.test;2;460,00;920,00
+S00099;2025-11-22;Ege;Mağaza;Ses;Hoparlör;musteri42@ornek.test;1;2.190,00;2.190,00
+S00100;2026-05-17;Ege;Web;Çevre Birimi;Klavye;musteri54@ornek.test;5;860,00;4.300,00
+S00101;2026-04-23;Akdeniz;Web;Çevre Birimi;Fare;musteri14@ornek.test;2;410,00;820,00
+S00102;2026-08-19;Marmara;Bayi;Bilgisayar;Dizüstü Pro;musteri47@ornek.test;5;34.550,00;172.750,00
+S00103;2026-06-06;Marmara;Bayi;Görüntü;Monitör 27 inç;musteri34@ornek.test;2;9.210,00;18.420,00
+S00104;2026-09-03;Ege;Web;Görüntü;Projeksiyon;musteri12@ornek.test;3;15.570,00;46.710,00
+S00105;2025-03-21;Karadeniz;Bayi;Çevre Birimi;Klavye;musteri56@ornek.test;5;1.000,00;5.000,00
+S00106;2026-01-28;Marmara;Web;Bilgisayar;Masaüstü;musteri16@ornek.test;1;26.910,00;26.910,00
+S00107;2025-08-03;İç Anadolu;Bayi;Ses;Kulaklık;musteri14@ornek.test;2;1.850,00;3.700,00
+S00108;2025-10-05;Ege;Web;Ses;Hoparlör;musteri42@ornek.test;3;2.130,00;6.390,00
+S00109;2026-02-06;İç Anadolu;Bayi;Çevre Birimi;Fare;musteri10@ornek.test;2;390,00;780,00
+S00110;2025-05-15;Marmara;Web;Bilgisayar;Dizüstü Pro;musteri51@ornek.test;5;34.460,00;172.300,00
+S00111;2025-11-03;Ege;Mağaza;Çevre Birimi;Klavye;musteri30@ornek.test;2;880,00;1.760,00
+S00112;2025-06-22;İç Anadolu;Bayi;Çevre Birimi;Klavye;musteri10@ornek.test;5;990,00;4.950,00
+S00113;2026-02-28;Ege;Mağaza;Ses;Hoparlör;musteri33@ornek.test;1;2.490,00;2.490,00
+S00114;2026-01-08;Akdeniz;Mağaza;Bilgisayar;Masaüstü;musteri58@ornek.test;3;24.630,00;73.890,00
+S00115;2025-11-29;Akdeniz;Mağaza;Çevre Birimi;Klavye;musteri4@ornek.test;1;990,00;990,00
+S00116;2025-04-07;Ege;Web;Görüntü;Projeksiyon;musteri49@ornek.test;3;15.870,00;47.610,00
+S00117;2025-01-29;Marmara;Web;Çevre Birimi;Klavye;musteri43@ornek.test;5;950,00;4.750,00
+S00118;2026-03-20;İç Anadolu;Mağaza;Çevre Birimi;Fare;musteri43@ornek.test;1;450,00;450,00
+S00119;2026-05-22;Akdeniz;Bayi;Çevre Birimi;Fare;musteri28@ornek.test;2;410,00;820,00
+S00120;2026-04-16;Akdeniz;Bayi;Görüntü;Projeksiyon;musteri39@ornek.test;1;16.240,00;16.240,00
+S00121;2026-05-09;İç Anadolu;Mağaza;Bilgisayar;Masaüstü;musteri49@ornek.test;1;26.680,00;26.680,00
+S00122;2025-03-22;İç Anadolu;Mağaza;Görüntü;Projeksiyon;musteri12@ornek.test;2;16.270,00;32.540,00
+S00123;2025-07-28;Marmara;Bayi;Ses;Kulaklık;musteri10@ornek.test;2;1.740,00;3.480,00
+S00124;2025-10-03;Marmara;Web;Görüntü;Monitör 27 inç;musteri34@ornek.test;2;8.800,00;17.600,00
+S00125;2026-04-17;İç Anadolu;Mağaza;Görüntü;Monitör 27 inç;musteri51@ornek.test;2;8.970,00;17.940,00
+S00126;2025-05-28;Akdeniz;Bayi;Çevre Birimi;Fare;musteri41@ornek.test;2;460,00;920,00
+S00127;2026-08-31;Karadeniz;Web;Bilgisayar;Dizüstü Pro;musteri49@ornek.test;3;35.300,00;105.900,00
+S00128;2025-09-18;Karadeniz;Bayi;Bilgisayar;Masaüstü;musteri53@ornek.test;1;24.610,00;24.610,00
+S00129;2026-06-28;Marmara;Mağaza;Bilgisayar;Masaüstü;musteri38@ornek.test;1;26.360,00;26.360,00
+S00130;2025-02-12;Karadeniz;Mağaza;Bilgisayar;Masaüstü;musteri25@ornek.test;2;24.940,00;49.880,00
+S00131;2026-08-12;Marmara;Mağaza;Ses;Hoparlör;musteri58@ornek.test;2;2.350,00;4.700,00
+S00132;2025-11-23;Marmara;Mağaza;Çevre Birimi;Klavye;musteri35@ornek.test;2;860,00;1.720,00
+S00133;2025-09-19;Marmara;Bayi;Bilgisayar;Dizüstü Pro;musteri34@ornek.test;3;35.570,00;106.710,00
+S00134;2025-05-03;Akdeniz;Mağaza;Görüntü;Projeksiyon;musteri21@ornek.test;1;16.280,00;16.280,00
+S00135;2026-04-25;Ege;Web;Çevre Birimi;Fare;musteri3@ornek.test;2;410,00;820,00
+S00136;2026-05-16;İç Anadolu;Mağaza;Çevre Birimi;Fare;musteri38@ornek.test;2;430,00;860,00
+S00137;2026-05-03;Akdeniz;Mağaza;Ses;Kulaklık;musteri25@ornek.test;1;1.840,00;1.840,00
+S00138;2025-02-04;İç Anadolu;Bayi;Ses;Hoparlör;musteri21@ornek.test;1;2.430,00;2.430,00
+S00139;2025-10-01;Marmara;Web;Ses;Kulaklık;musteri39@ornek.test;2;1.980,00;3.960,00
+S00140;2026-06-17;Karadeniz;Web;Çevre Birimi;Klavye;musteri52@ornek.test;1;1.040,00;1.040,00
+S00141;2025-08-11;Akdeniz;Mağaza;Bilgisayar;Masaüstü;musteri52@ornek.test;2;25.070,00;50.140,00
+S00142;2025-04-19;İç Anadolu;Mağaza;Ses;Kulaklık;musteri4@ornek.test;1;1.810,00;1.810,00
+S00143;2025-09-26;Marmara;Web;Çevre Birimi;Klavye;musteri11@ornek.test;1;950,00;950,00
+S00144;2025-02-07;Karadeniz;Mağaza;Çevre Birimi;Fare;musteri58@ornek.test;3;440,00;1.320,00
+S00145;2026-04-04;Akdeniz;Bayi;Bilgisayar;Dizüstü Pro;musteri41@ornek.test;3;31.560,00;94.680,00
+S00146;2025-02-05;Marmara;Web;Çevre Birimi;Fare;musteri6@ornek.test;2;430,00;860,00
+S00147;2025-06-22;Ege;Bayi;Bilgisayar;Masaüstü;musteri42@ornek.test;1;23.700,00;23.700,00
+S00148;2025-02-14;Karadeniz;Mağaza;Ses;Hoparlör;musteri36@ornek.test;1;2.500,00;2.500,00
+S00149;2026-06-14;Karadeniz;Web;Çevre Birimi;Fare;musteri15@ornek.test;1;420,00;420,00
+S00150;2026-07-04;Marmara;Mağaza;Ses;Kulaklık;musteri27@ornek.test;1;1.840,00;1.840,00
+S00151;2026-01-31;İç Anadolu;Mağaza;Bilgisayar;Masaüstü;musteri16@ornek.test;2;24.510,00;49.020,00
+S00152;2025-06-18;Akdeniz;Web;Çevre Birimi;Fare;musteri42@ornek.test;1;420,00;420,00
+S00153;2025-06-22;Marmara;Bayi;Ses;Hoparlör;musteri49@ornek.test;1;2.110,00;2.110,00
+S00154;2025-05-14;İç Anadolu;Bayi;Çevre Birimi;Fare;musteri52@ornek.test;2;450,00;900,00
+S00155;2025-11-27;İç Anadolu;Mağaza;Çevre Birimi;Klavye;musteri53@ornek.test;1;950,00;950,00
+S00156;2026-01-24;Akdeniz;Bayi;Bilgisayar;Masaüstü;musteri37@ornek.test;2;27.110,00;54.220,00
+S00157;2025-12-13;Karadeniz;Mağaza;Görüntü;Projeksiyon;musteri42@ornek.test;3;14.300,00;42.900,00
+S00158;2025-09-16;Ege;Bayi;Çevre Birimi;Fare;musteri44@ornek.test;1;390,00;390,00
+S00159;2026-08-14;Marmara;Mağaza;Çevre Birimi;Klavye;musteri22@ornek.test;2;910,00;1.820,00
+S00160;2025-06-29;Akdeniz;Mağaza;Ses;Hoparlör;musteri39@ornek.test;1;2.340,00;2.340,00
+S00161;2026-05-30;Marmara;Bayi;Ses;Hoparlör;musteri34@ornek.test;1;2.120,00;2.120,00
+S00162;2025-11-15;Marmara;Web;Çevre Birimi;Klavye;musteri39@ornek.test;1;930,00;930,00
+S00163;2025-10-30;Marmara;Web;Çevre Birimi;Klavye;musteri38@ornek.test;3;930,00;2.790,00
+S00164;2025-05-05;Akdeniz;Mağaza;Bilgisayar;Masaüstü;musteri55@ornek.test;1;23.450,00;23.450,00
+S00165;2026-01-30;Ege;Web;Görüntü;Monitör 27 inç;musteri29@ornek.test;2;8.300,00;16.600,00
+S00166;2026-09-29;Ege;Mağaza;Ses;Kulaklık;musteri7@ornek.test;5;1.840,00;9.200,00
+S00167;2026-09-20;Ege;Bayi;Bilgisayar;Dizüstü Pro;musteri49@ornek.test;3;30.580,00;91.740,00
+S00168;2026-02-18;Ege;Mağaza;Çevre Birimi;Fare;musteri52@ornek.test;3;450,00;1.350,00
+S00169;2025-04-14;Ege;Bayi;Çevre Birimi;Fare;musteri35@ornek.test;2;410,00;820,00
+S00170;2026-02-09;Karadeniz;Bayi;Çevre Birimi;Fare;musteri25@ornek.test;1;430,00;430,00
+S00171;2025-09-27;İç Anadolu;Mağaza;Görüntü;Projeksiyon;musteri33@ornek.test;2;16.740,00;33.480,00
+S00172;2025-11-06;İç Anadolu;Web;Bilgisayar;Dizüstü Pro;musteri11@ornek.test;5;34.030,00;170.150,00
+S00173;2026-03-17;Akdeniz;Bayi;Çevre Birimi;Klavye;musteri4@ornek.test;2;940,00;1.880,00
+S00174;2026-09-19;Karadeniz;Bayi;Görüntü;Monitör 27 inç;musteri22@ornek.test;5;8.800,00;44.000,00
+S00175;2026-07-30;Karadeniz;Bayi;Görüntü;Monitör 27 inç;musteri19@ornek.test;1;8.970,00;8.970,00
+S00176;2026-09-22;Akdeniz;Bayi;Görüntü;Projeksiyon;musteri15@ornek.test;1;16.630,00;16.630,00
+S00177;2025-01-14;Karadeniz;Web;Ses;Kulaklık;musteri55@ornek.test;2;1.860,00;3.720,00
+S00178;2025-09-07;Marmara;Mağaza;Ses;Kulaklık;musteri16@ornek.test;3;1.800,00;5.400,00
+S00179;2025-08-09;Akdeniz;Mağaza;Çevre Birimi;Klavye;musteri28@ornek.test;2;950,00;1.900,00
+S00180;2026-06-10;Marmara;Mağaza;Çevre Birimi;Fare;musteri8@ornek.test;2;410,00;820,00
+S00181;2025-08-11;Ege;Bayi;Ses;Kulaklık;musteri34@ornek.test;2;1.710,00;3.420,00
+S00182;2025-04-11;Marmara;Mağaza;Ses;Kulaklık;musteri57@ornek.test;1;1.750,00;1.750,00
+S00183;2025-03-09;Akdeniz;Mağaza;Görüntü;Projeksiyon;musteri42@ornek.test;2;16.100,00;32.200,00
+S00184;2025-04-19;Akdeniz;Web;Çevre Birimi;Fare;musteri39@ornek.test;2;450,00;900,00
+S00185;2025-07-05;İç Anadolu;Web;Bilgisayar;Masaüstü;musteri30@ornek.test;1;22.750,00;22.750,00
+S00186;2025-04-12;Marmara;Mağaza;Ses;Kulaklık;musteri44@ornek.test;1;1.940,00;1.940,00
+S00187;2026-04-20;Akdeniz;Web;Ses;Kulaklık;musteri4@ornek.test;1;1.990,00;1.990,00
+S00188;2026-04-05;Marmara;Web;Ses;Hoparlör;musteri12@ornek.test;1;2.230,00;2.230,00
+S00189;2026-03-15;Karadeniz;Mağaza;Bilgisayar;Masaüstü;musteri28@ornek.test;2;23.590,00;47.180,00
+S00190;2025-04-22;İç Anadolu;Bayi;Görüntü;Projeksiyon;musteri39@ornek.test;1;17.010,00;17.010,00
+S00191;2025-11-11;Marmara;Bayi;Görüntü;Monitör 27 inç;musteri15@ornek.test;2;8.860,00;17.720,00
+S00192;2026-01-09;Marmara;Bayi;Bilgisayar;Masaüstü;musteri50@ornek.test;3;24.360,00;73.080,00
+S00193;2026-09-25;Karadeniz;Bayi;Görüntü;Monitör 27 inç;musteri20@ornek.test;5;8.100,00;40.500,00
+S00194;2025-08-28;Marmara;Bayi;Çevre Birimi;Klavye;musteri40@ornek.test;1;960,00;960,00
+S00195;2025-09-15;Ege;Mağaza;Ses;Hoparlör;musteri46@ornek.test;3;2.200,00;6.600,00
+S00196;2026-08-28;Karadeniz;Web;Ses;Hoparlör;musteri17@ornek.test;5;2.140,00;10.700,00
+S00197;2025-11-15;Marmara;Mağaza;Bilgisayar;Masaüstü;musteri39@ornek.test;1;26.650,00;26.650,00
+S00198;2026-09-02;Marmara;Bayi;Görüntü;Projeksiyon;musteri22@ornek.test;3;16.220,00;48.660,00
+S00199;2026-02-20;Akdeniz;Bayi;Ses;Kulaklık;musteri7@ornek.test;2;1.890,00;3.780,00
+S00200;2026-01-17;Karadeniz;Web;Ses;Kulaklık;musteri37@ornek.test;2;1.940,00;3.880,00
+S00201;2026-01-22;Akdeniz;Bayi;Görüntü;Projeksiyon;musteri23@ornek.test;1;14.090,00;14.090,00
+S00202;2025-09-15;Akdeniz;Mağaza;Ses;Hoparlör;musteri39@ornek.test;2;2.070,00;4.140,00
+S00203;2025-01-24;Marmara;Mağaza;Görüntü;Monitör 27 inç;musteri50@ornek.test;2;8.470,00;16.940,00
+S00204;2025-12-05;Ege;Mağaza;Ses;Kulaklık;musteri14@ornek.test;1;1.760,00;1.760,00
+S00205;2025-08-12;Marmara;Bayi;Bilgisayar;Dizüstü Pro;musteri24@ornek.test;1;29.760,00;29.760,00
+S00206;2026-09-26;Karadeniz;Bayi;Ses;Hoparlör;musteri41@ornek.test;2;2.120,00;4.240,00
+S00207;2026-09-25;Akdeniz;Mağaza;Bilgisayar;Dizüstü Pro;musteri8@ornek.test;1;31.130,00;31.130,00
+S00208;2025-03-10;Karadeniz;Bayi;Bilgisayar;Masaüstü;musteri47@ornek.test;1;26.260,00;26.260,00
+S00209;2026-02-02;Karadeniz;Bayi;Bilgisayar;Dizüstü Pro;musteri2@ornek.test;5;30.140,00;150.700,00
+S00210;2025-10-21;Akdeniz;Mağaza;Ses;Kulaklık;musteri4@ornek.test;2;2.010,00;4.020,00
+S00211;2026-03-01;Karadeniz;Mağaza;Görüntü;Monitör 27 inç;musteri39@ornek.test;3;7.810,00;23.430,00
+S00212;2026-02-11;Akdeniz;Web;Bilgisayar;Dizüstü Pro;musteri29@ornek.test;2;29.700,00;59.400,00
+S00213;2025-05-31;Marmara;Mağaza;Bilgisayar;Dizüstü Pro;musteri28@ornek.test;5;31.120,00;155.600,00
+S00214;2025-07-16;Karadeniz;Bayi;Görüntü;Monitör 27 inç;musteri10@ornek.test;2;9.180,00;18.360,00
+S00215;2025-07-30;Ege;Mağaza;Görüntü;Projeksiyon;musteri57@ornek.test;5;14.540,00;72.700,00
+S00216;2025-04-16;Ege;Web;Çevre Birimi;Fare;musteri5@ornek.test;1;420,00;420,00
+S00217;2025-01-11;Ege;Bayi;Görüntü;Projeksiyon;musteri15@ornek.test;1;15.840,00;15.840,00
+S00218;2025-07-19;Karadeniz;Bayi;Görüntü;Projeksiyon;musteri8@ornek.test;1;14.840,00;14.840,00
+S00219;2026-07-11;Karadeniz;Web;Bilgisayar;Masaüstü;musteri51@ornek.test;2;25.740,00;51.480,00
+S00220;2025-05-21;Ege;Bayi;Çevre Birimi;Klavye;musteri8@ornek.test;2;880,00;1.760,00
+S00221;2026-02-04;Ege;Mağaza;Görüntü;Monitör 27 inç;musteri13@ornek.test;2;8.550,00;17.100,00
+S00222;2025-07-02;Karadeniz;Mağaza;Görüntü;Projeksiyon;musteri40@ornek.test;3;15.520,00;46.560,00
+S00223;2025-10-21;İç Anadolu;Bayi;Bilgisayar;Dizüstü Pro;musteri18@ornek.test;1;35.680,00;35.680,00
+S00224;2026-05-01;Ege;Web;Bilgisayar;Dizüstü Pro;musteri26@ornek.test;1;35.210,00;35.210,00
+S00225;2025-04-16;Akdeniz;Mağaza;Çevre Birimi;Fare;musteri31@ornek.test;1;400,00;400,00
+S00226;2025-11-20;Marmara;Mağaza;Görüntü;Monitör 27 inç;musteri19@ornek.test;3;8.060,00;24.180,00
+S00227;2026-03-22;İç Anadolu;Bayi;Bilgisayar;Masaüstü;musteri1@ornek.test;3;26.670,00;80.010,00
+S00228;2025-01-31;Ege;Mağaza;Görüntü;Projeksiyon;musteri17@ornek.test;3;14.670,00;44.010,00
+S00229;2026-05-26;Karadeniz;Mağaza;Ses;Kulaklık;musteri3@ornek.test;2;1.920,00;3.840,00
+S00230;2026-01-02;Akdeniz;Mağaza;Ses;Hoparlör;musteri41@ornek.test;2;2.500,00;5.000,00
+S00231;2025-12-17;Karadeniz;Bayi;Görüntü;Projeksiyon;musteri34@ornek.test;1;14.670,00;14.670,00
+S00232;2025-12-19;Marmara;Bayi;Ses;Kulaklık;musteri42@ornek.test;5;1.860,00;9.300,00
+S00233;2025-01-22;Marmara;Bayi;Ses;Kulaklık;musteri39@ornek.test;3;1.840,00;5.520,00
+S00234;2025-02-10;Akdeniz;Web;Ses;Hoparlör;musteri8@ornek.test;3;2.140,00;6.420,00
+S00235;2025-12-31;Akdeniz;Mağaza;Bilgisayar;Masaüstü;musteri42@ornek.test;1;23.630,00;23.630,00
+S00236;2025-08-01;Marmara;Mağaza;Görüntü;Monitör 27 inç;musteri3@ornek.test;2;9.220,00;18.440,00
+S00237;2026-06-25;İç Anadolu;Mağaza;Ses;Hoparlör;musteri45@ornek.test;2;2.230,00;4.460,00
+S00238;2026-09-09;Akdeniz;Web;Görüntü;Monitör 27 inç;musteri28@ornek.test;5;7.860,00;39.300,00
+S00239;2026-03-23;Akdeniz;Web;Ses;Kulaklık;musteri56@ornek.test;2;1.740,00;3.480,00
+S00240;2025-08-09;İç Anadolu;Bayi;Ses;Hoparlör;musteri57@ornek.test;1;2.190,00;2.190,00

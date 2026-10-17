@@ -241,10 +241,13 @@ MODEL=qwen3:14b
   "live": "not-tested",
   "native_open": "not-tested"
 }`],
-  ['Yeni rapor ya da dashboard tasarlıyor mu?', 'Hayır. Kod blokları mevcut nesneleri dışa aktarır, çalıştırır, takip eder ya da belgeler. Agent’lar SQL, DAX, Power Query ve KPI tanımı gibi taslaklar yazar; hiçbirini senin sisteminde otomatik çalıştırmaz.',
-    'contract.json · Qlik export', `"output": "QVF",
-"effects": "Export isteği geçici sunucu içeriği üretir;
-            kaynak uygulama değiştirilmez."`],
+  ['Yeni rapor ya da dashboard kurabiliyor mu?', 'Evet, verinden başlangıç raporu kurar. Rapor şablonu blokları tek bir CSV ya da Excel dosyasından ölçü, boyut ve tarih sütunlarını seçer; KPI’lar, kırılım grafikleri, aylık trend, filtreler ve detay tablodan oluşan aynı tasarımı Qlik Sense uygulaması, Power BI projesi (PBIP), Tableau çalışma kitabı, Looker projesi, formüllü Excel raporu, çalışır dbt projesi ve HTML pano olarak üretir. Mevcut raporlarına dokunmaz, hiçbir platforma kendisi yüklemez; dosyaları sen açar ya da yüklersin.',
+    'PowerShell · Qlik rapor şablonu', `> python main.py --input satislar.csv --title "Satış Raporu"
+[OK] Satış Raporu: 4 ana ölçü, 5 ana boyut ve 9 nesneli rapor sayfası
+output/qlik-uygulama/  script.qvs · measures.json · objects/ · build.cmd`],
+  ['Rapor şablonları gerçekten açılıyor mu?', 'Biçimler resmî doğrulayıcılardan geçti: Power BI dosyaları Microsoft’un PBIR şemalarından ve TMDL ayrıştırıcısından, Tableau çalışma kitabı Tableau’nun resmî XSD’sinden, Excel dosyası Open XML SDK’dan; Excel formülleri bağımsız bir motorla yeniden hesaplandı, dbt projesi dbt build ile çalıştırıldı. Qlik, Power BI Desktop, Tableau ve Looker’ın kendisinde açılarak test edilmedi; ilk açılışta bir sorun görürsen GitHub’da bildir.',
+    'Terminal · dbt şablonu', `> dbt build --profiles-dir .
+Done. PASS=20 WARN=0 ERROR=0 SKIP=0 TOTAL=21`],
   ['İş yarıda kesilirse ne olur?', 'Çalışma kimlikleri run-state.json dosyasına yazılır. Job ve refresh paketleri --resume-from ile aynı işi yeni iş başlatmadan takip eder. Yazma çağrıları otomatik tekrarlanmaz.',
     'PowerShell · Databricks job', `> python native.py --execute --resume-from output/run-001/run-state.json --output output/continued-001
 # config ile eşleşen job_id ve run_id okunur; yeni iş başlatılmaz`],
