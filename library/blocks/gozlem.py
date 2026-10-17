@@ -301,3 +301,60 @@ def delivery_sla(columns, rows, args):
     return Result(f'{len(out)} veri seti, {total} teslim günü; genel uyum %{100 * ok / total:.1f}', list(out[0]), out,
                   {'veri_seti': len(out), 'uyum_%': round(100 * ok / total, 1), 'gec_gun': sum(o['gec_gun'] for o in out), 'teslim_yok': sum(o['teslim_yok'] for o in out)},
                   notes=['Teslim saati boş olan günler geç (teslim edilmedi) sayılır; SLA dışı günler (tatil) için satırları dosyadan çıkarın.'])
+
+
+@op('katman-sayim-kaybi', title='Medallion katmanları arasında satır kaybı ve çoğalması', domain=D, product=P, tag='katman mutabakatı', samples={'katman_sayimlari.csv': 'katman_sayimlari.csv'},
+    args=[arg('--date', default='tarih'), arg('--flow', default='akis'), arg('--layer', default='katman'), arg('--count', default='satir'),
+          arg('--order', default='bronz,gumus,altin', help='Katmanların akış sırası'), arg('--max-loss', type=float, default=5.0)],
+    description='Aynı akışın bronz → gümüş → altın (veya ham → staging → mart) katmanlarındaki günlük satır sayılarını yan yana koyar; ardışık katmanlar arasında eşikten fazla satır kaybını (filtre/join hatası) ve sonraki katmanda satırın çoğalmasını (çoklayan join) gün bazında işaretler.',
+    input='Katman sayımları (tarih, akış, katman, satır)', output='sonuc.csv (gün × akış × geçiş)', command='python main.py --order raw,staging,mart --max-loss 2',
+    expect={'gun': 4, 'kayip_uyari': 1, 'cogalma_uyari': 1})
+def layers(columns, rows, args):
+    d, f, l = need(args.date, columns, '--date'), need(args.flow, columns, '--flow'), need(args.layer, columns, '--layer')
+    order = [fold(x) for x in args.order.split(',') if x.strip()]
+    data = defaultdict(dict)
+    for r, n in zip(rows, numbers(rows, need(args.count, columns, '--count'))):
+        if n is not None:
+            data[(r[d].strip(), r[f].strip())][fold(r[l])] = n
+    out = []
+    for (day, flow), counts in sorted(data.items()):
+        for a, b in zip(order, order[1:]):
+            if a not in counts or b not in counts:
+                continue
+            ca, cb = counts[a], counts[b]
+            pct = 100 * (ca - cb) / ca if ca else 0.0
+            state = 'çoğaldı' if cb > ca else 'KAYIP' if pct > args.max_loss else 'normal'
+            out.append({'tarih': day, 'akis': flow, 'gecis': f'{a} → {b}', 'once': fmt(ca), 'sonra': fmt(cb), 'kayip_%': round(pct, 1), 'durum': state})
+    return Result(f'{len({o["tarih"] for o in out})} gün; {sum(o["durum"] == "KAYIP" for o in out)} kayıp, {sum(o["durum"] == "çoğaldı" for o in out)} çoğalma uyarısı',
+                  ['tarih', 'akis', 'gecis', 'once', 'sonra', 'kayip_%', 'durum'], out,
+                  {'gun': len({o['tarih'] for o in out}), 'kayip_uyari': sum(o['durum'] == 'KAYIP' for o in out), 'cogalma_uyari': sum(o['durum'] == 'çoğaldı' for o in out)},
+                  notes=['Bilinçli filtreler (iptal edilen siparişler, test kayıtları) normal kayıp oranını yükseltir; eşiği akış bazında belirleyin.'])
+
+
+@op('alarm-gurultu-analizi', title='Alarm geçmişinde gürültülü, kendiliğinden kapanan ve onaylanmayan alarmlar', domain=D, product=P, tag='alarm', samples={'alarm_gecmisi.csv': 'alarm_gecmisi.csv'},
+    args=[arg('--flap', type=float, default=5.0, help='Bu kadar dakikada onaysız kapanan alarm “kendiliğinden kapandı” sayılır'), arg('--noisy', type=int, default=5)],
+    description='İzleme aracının alarm geçmişinden alarm türü bazında adet, ortalama onaylama süresi (MTTA) ve çözüm süresi (MTTR), kimse onaylamadan dakikalar içinde kapanan (flapping) ve hiç onaylanmayan alarmları hesaplar; eşiği veya koşulu gözden geçirilmesi gereken gürültülü alarmları işaretler. Alarm yorgunluğunu azaltmak için.',
+    input='Alarm geçmişi (alarm, başlangıç, onay, çözüm zamanı)', output='sonuc.csv (alarm türü bazında)', command='python main.py --input pagerduty_incidents.csv --flap 10 --noisy 10',
+    expect={'alarm': 11, 'tur': 3, 'gurultulu': 1, 'onaysiz': 8})
+def alerts(columns, rows, args):
+    for c in ('alarm', 'baslangic', 'onay', 'cozum'):
+        need(c, columns, 'alarm geçmişi')
+    by = defaultdict(list)
+    for r in rows:
+        s = tabular.parse_date(r['baslangic'])
+        if not s:
+            continue
+        a, z = tabular.parse_date(r['onay']), tabular.parse_date(r['cozum'])
+        mins = lambda x: (x[0] - s[0]).total_seconds() / 60 if x else None
+        by[r['alarm'].strip()].append((mins(a), mins(z)))
+    out = []
+    for name, items in sorted(by.items()):
+        acks = [a for a, _ in items if a is not None]
+        res = [z for _, z in items if z is not None]
+        flap = sum(1 for a, z in items if a is None and z is not None and z <= args.flap)
+        noisy = len(items) >= args.noisy or flap / len(items) >= 0.5
+        out.append({'alarm': name, 'adet': len(items), 'mtta_dk': round(sum(acks) / len(acks), 1) if acks else '', 'mttr_dk': round(sum(res) / len(res), 1) if res else '',
+                    'kendiliginden_kapanan': flap, 'onaysiz': len(items) - len(acks), 'oneri': 'GÜRÜLTÜLÜ: eşik/süre koşulunu gözden geçirin' if noisy else ''})
+    out.sort(key=lambda o: -o['adet'])
+    return Result(f'{sum(o["adet"] for o in out)} alarm, {len(out)} tür; {sum(bool(o["oneri"]) for o in out)} gürültülü tür', list(out[0]), out,
+                  {'alarm': sum(o['adet'] for o in out), 'tur': len(out), 'gurultulu': sum(bool(o['oneri']) for o in out), 'onaysiz': sum(o['onaysiz'] for o in out)})

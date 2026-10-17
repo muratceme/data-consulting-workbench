@@ -442,3 +442,92 @@ def sequences(columns, rows, args):
                   {'tablo': len(out), 'cakisma': c['ÇAKIŞMA'], 'bilinmeyen': c['bilinmiyor']},
                   files={'duzeltme.sql': f'-- {args.dialect}: sequence/identity düzeltmeleri. Çalıştırmadan önce gözden geçirin.\n' + '\n'.join(sql) + '\n'} if sql else {},
                   notes=['SQL Server identity için RESEED değeri son kullanılan değerdir; sonraki kayıt bir fazlasını alır. Sequence nesnelerinde ALTER SEQUENCE … RESTART WITH kullanın.'])
+
+
+INT_RANGE = {'tinyint': (0, 255), 'smallint': (-32768, 32767), 'int': (-2 ** 31, 2 ** 31 - 1), 'integer': (-2 ** 31, 2 ** 31 - 1), 'bigint': (-2 ** 63, 2 ** 63 - 1)}
+
+
+def cast_issue(value, base, params, n=None):
+    """('hata'|'uyari', reason) when value cannot be stored in the target type, otherwise None."""
+    v = value.strip()
+    if base in INT_RANGE:
+        if not re.fullmatch(r'[+-]?\d+', v):
+            return 'hata', f'tam sayı değil ({base})'
+        lo, hi = INT_RANGE[base]
+        return ('hata', f'{base} aralığı dışında') if not lo <= int(v) <= hi else None
+    if base in ('decimal', 'numeric', 'number'):
+        n = n if n is not None else tabular.parse_number(v)
+        if n is None:
+            return 'hata', 'sayı değil'
+        p_, s_ = (int(params[0]), int(params[1]) if len(params) > 1 else 0) if params and params[0].isdigit() else (38, 0)
+        whole = len(str(int(abs(n)))) if abs(n) >= 1 else 0
+        if whole > p_ - s_:
+            return 'hata', f'{base}({p_},{s_}) için tam kısım çok büyük'
+        frac = re.split(r'[.,]', v)[-1] if re.search(r'[.,]\d+$', v) else ''
+        return ('uyari', f'{len(frac)} ondalık > {s_}: yuvarlanır') if len(frac) > s_ else None
+    if base in ('date', 'datetime', 'datetime2', 'timestamp', 'smalldatetime'):
+        return None if tabular.parse_date(v) else ('hata', 'geçersiz tarih')
+    if base in ('bit', 'boolean', 'bool'):
+        return None if v.lower() in ('0', '1', 'true', 'false') else ('hata', 'mantıksal değer değil (0/1/true/false)')
+    if base in ('varchar', 'nvarchar', 'char', 'nchar', 'varchar2', 'character varying') and params and params[0].isdigit():
+        return ('hata', f'{len(v)} karakter > {params[0]}') if len(v) > int(params[0]) else None
+    return None
+
+
+@op('veri-tipi-uyumu', title='Taşınacak değerlerin hedef sütun tiplerine sığıp sığmadığını kontrol et', domain=D, product=P, tag='tip uyumu',
+    samples={'gecis_siparis.csv': 'gecis_siparis.csv', 'hedef_siparis_ddl.sql': 'hedef_siparis_ddl.sql'},
+    args=[arg('--target-ddl', default='@ornek/hedef_siparis_ddl.sql'), arg('--table', default='satis.siparis')],
+    description='Yükleme öncesi her değeri hedef DDL’deki sütun tipine göre dener: tam sayı aralığı (tinyint/smallint/int/bigint taşması), DECIMAL(p,s) tam kısım taşması ve ondalık yuvarlama, geçersiz tarih, mantıksal değer, metin uzunluğu ve NOT NULL sütunda boş değer. Yükleme işini yarıda kesecek veya sessizce yuvarlanacak satırları satır numarasıyla bulur.',
+    input='Taşınacak veri (CSV/XLSX) + hedef DDL + tablo', output='sonuc.csv (sorunlu değerler)', command='python main.py --input siparis_extract.csv --target-ddl hedef.sql --table dbo.siparis',
+    expect={'hata': 6, 'uyari': 1, 'hatali_satir': 5, 'kontrol_edilen_sutun': 6})
+def type_fit(columns, rows, args):
+    ddl = load_ddl(args.target_ddl)
+    table = next((t for t in ddl if t.lower() == args.table.lower()), None)
+    if not table:
+        raise ValueError(f'"{args.table}" hedef DDL’de yok. Tablolar: {", ".join(ddl)}')
+    cols = {c['name'].lower(): c for c in ddl[table]}
+    checked = [c for c in columns if c.lower() in cols]
+    nums = {c: numbers(rows, c) for c in checked}
+    out = []
+    for i, r in enumerate(rows, 2):
+        for c in checked:
+            spec = cols[c.lower()]
+            v = r[c]
+            if not v.strip():
+                if not spec['nullable']:
+                    out.append({'satir': i, 'sutun': c, 'hedef_tip': spec['type'], 'deger': '', 'tur': 'hata', 'sorun': 'NOT NULL sütunda boş değer'})
+                continue
+            base, params = base_type(spec['type'])
+            issue = cast_issue(v, base, params, nums[c][i - 2])
+            if issue:
+                out.append({'satir': i, 'sutun': c, 'hedef_tip': spec['type'], 'deger': v[:40], 'tur': issue[0], 'sorun': issue[1]})
+    errs = [o for o in out if o['tur'] == 'hata']
+    return Result(f'{len(checked)} sütun kontrol edildi; {len(errs)} hata, {len(out) - len(errs)} uyarı, {len({o["satir"] for o in errs})} satır yüklenemez', list(out[0]) if out else ['satir'], out,
+                  {'hata': len(errs), 'uyari': len(out) - len(errs), 'hatali_satir': len({o['satir'] for o in errs}), 'kontrol_edilen_sutun': len(checked),
+                   'eslesmeyen_sutun': [c for c in columns if c.lower() not in cols]},
+                  tables=[('Sütun bazında', ['Sütun', 'Sorun'], Counter(o['sutun'] for o in out).most_common())])
+
+
+@op('gecis-sure-tahmini', title='Dalga bazında veri taşıma süresi ve kesinti penceresi tahmini', domain=D, product=P, tag='süre tahmini', samples={'gecis_dalgalari.csv': 'gecis_dalgalari.csv'},
+    args=[arg('--throughput', type=float, default=100.0, help='Tek akış hızı (GB/saat)'), arg('--parallel', type=int, default=4, help='Paralel akış sayısı'),
+          arg('--window', type=float, default=6.0, help='Dalga başına kesinti penceresi (saat)'), arg('--wave', default='dalga'), arg('--size', default='boyut_gb')],
+    description='Dalga planındaki tabloların boyutundan, ölçülen tek akış hızından ve paralel akış sayısından her dalganın yükleme süresini tahmin eder: toplam hacim/paralel kapasite ile en büyük tablonun tek başına süresinden büyük olanı alır. Kesinti penceresini aşan dalgaları ve süreyi belirleyen tabloyu işaretler.',
+    input='Dalga planı (tablo, boyut GB, dalga)', output='sonuc.csv (dalga bazında süre)', command='python main.py --input dalga_plani.csv --throughput 150 --parallel 8 --window 4',
+    expect={'dalga': 3, 'toplam_saat': 13.0, 'pencere_asan': 1})
+def duration(columns, rows, args):
+    wcol, scol = need(args.wave, columns, '--wave'), need(args.size, columns, '--size')
+    tcol = 'tablo' if 'tablo' in columns else columns[0]
+    waves = defaultdict(list)
+    for r, s in zip(rows, numbers(rows, scol)):
+        waves[r[wcol].strip()].append((r[tcol], s or 0.0))
+    out = []
+    for w, items in sorted(waves.items(), key=lambda kv: (len(kv[0]), kv[0])):
+        total = sum(s for _, s in items)
+        big = max(items, key=lambda x: x[1])
+        hours = max(total / (args.throughput * args.parallel), big[1] / args.throughput)
+        limit = 'en büyük tablo' if big[1] / args.throughput >= total / (args.throughput * args.parallel) else 'toplam hacim'
+        out.append({'dalga': w, 'tablo': len(items), 'toplam_gb': round(total, 2), 'en_buyuk_tablo': big[0], 'tahmini_saat': round(hours, 2), 'belirleyen': limit,
+                    'durum': 'PENCEREYİ AŞIYOR' if hours > args.window else 'sığıyor'})
+    return Result(f'{len(out)} dalga, toplam ≈{sum(o["tahmini_saat"] for o in out):.1f} saat; {sum(o["durum"] != "sığıyor" for o in out)} dalga {fmt(args.window)} saatlik pencereyi aşıyor', list(out[0]), out,
+                  {'dalga': len(out), 'toplam_saat': round(sum(o['tahmini_saat'] for o in out), 2), 'pencere_asan': sum(o['durum'] != 'sığıyor' for o in out)},
+                  notes=['Hız, gerçek ortamda örnek bir tabloyla ölçülmelidir; indeks/kısıt oluşturma ve doğrulama süreleri bu tahmine dahil değildir. En büyük tablo belirleyiciyse bölümlü (paralel) taşımayı değerlendirin.'])

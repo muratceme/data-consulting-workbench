@@ -4,6 +4,7 @@ import ast, re
 from collections import Counter, defaultdict, deque
 from datetime import datetime, timedelta
 from pathlib import Path
+import tabular
 from islem import op, arg, Result, need, numbers
 
 GENEL = 'Zamanlama ve iş akışı dosyaları'
@@ -291,3 +292,95 @@ def bagimlilik(columns, rows, args):
     return Result(f"{len(deps)} iş; kritik yol {' → '.join(path)} ({total:g} dk); {len(cyclic)} iş döngüde, {len(missing)} eksik bağımlılık", list(out[0]), out,
                   {'is': len(deps), 'dongu': len(cyclic), 'eksik_bagimlilik': len(missing), 'kritik_yol_dk': total, 'paralel_seviye': max(level.values(), default=0) + 1},
                   notes=['Döngüdeki işler zamanlanamaz ve kritik yol hesabına girmez. Eksik bağımlılıklar yok sayılarak hesaplanır.'])
+
+
+def job_runs(rows, start, end, cron_col='cron', dur_col='sure_dk', name_col='is'):
+    """[(job, run_start, run_end)] for every job run that starts in [start, end)."""
+    durs = numbers(rows, dur_col)
+    runs, bad = [], []
+    for r, d in zip(rows, durs):
+        try:
+            _, sets = parse_cron(r[cron_col])
+        except ValueError as exc:
+            bad.append([r[name_col], r[cron_col], str(exc)])
+            continue
+        t = start - timedelta(minutes=1)
+        while True:
+            nxt = next_runs(sets, t, 1)
+            if not nxt or nxt[0] >= end:
+                break
+            t = nxt[0]
+            runs.append((r[name_col].strip(), t, t + timedelta(minutes=d or 0)))
+    return runs, bad
+
+
+def window_args(default_days=1):
+    return [arg('--from', dest='start', default='2026-10-16 00:00', help='Simülasyon başlangıcı'), arg('--days', type=float, default=default_days),
+            arg('--job', default='is'), arg('--cron', default='cron'), arg('--duration', default='sure_dk')]
+
+
+@op('zamanlama-yogunlugu', title='Zamanlanmış işlerin eş zamanlılığı ve üst üste binen çalışmalar', domain='orchestration', product=GENEL, tag='eş zamanlılık',
+    samples={'is_zamanlamalari.csv': 'is_zamanlamalari.csv'}, args=window_args(),
+    description='İş listesindeki cron ifadelerini ve ortalama süreleri kullanarak seçilen gün(ler) için tüm çalışmaları dakika dakika yerleştirir; aynı anda çalışan iş sayısının zirvesini ve zamanını, saat bazında yoğunluğu ve süresi çalışma aralığından uzun olduğu için kendi üstüne binen işleri bulur. Gece pencereleri ve kaynak (slot, bağlantı) planlaması için.',
+    input='İş listesi (iş, cron, süre dk)', output='sonuc.csv (saat bazında yoğunluk) + iş özeti', command='python main.py --input airflow_schedules.csv --from "2026-10-19 00:00" --days 7',
+    expect={'is': 5, 'calisma': 100, 'en_yuksek_eszamanli': 5, 'zirve': '2026-10-16 02:30', 'kendi_ustune_binen': 1})
+def concurrency(columns, rows, args):
+    for c, f in ((args.job, '--job'), (args.cron, '--cron'), (args.duration, '--duration')):
+        need(c, columns, f)
+    start = datetime.strptime(args.start, '%Y-%m-%d %H:%M')
+    end = start + timedelta(days=args.days)
+    runs, bad = job_runs(rows, start, end, args.cron, args.duration, args.job)
+    if not runs:
+        raise ValueError('Bu aralıkta çalışan iş yok.')
+    minutes = Counter()
+    for _, a, b in runs:
+        t = a
+        while t < b:
+            minutes[t] += 1
+            t += timedelta(minutes=1)
+    peak_t = min((t for t, n in minutes.items() if n == max(minutes.values())), default=start)
+    per_job = defaultdict(list)
+    for j, a, b in runs:
+        per_job[j].append((a, b))
+    overlap = {j for j, rs in per_job.items() if any(b1 > a2 for (_, b1), (a2, _) in zip(rs, rs[1:]))}
+    hourly = defaultdict(int)
+    for t, n in minutes.items():
+        if start <= t < end:
+            hourly[t.replace(minute=0)] = max(hourly[t.replace(minute=0)], n)
+    out = [{'saat': h.strftime('%Y-%m-%d %H:00'), 'en_yuksek_eszamanli': n, 'baslayan': sum(1 for _, a, _ in runs if a.replace(minute=0) == h)} for h, n in sorted(hourly.items())]
+    jobs = [[j, len(rs), 'evet' if j in overlap else ''] for j, rs in sorted(per_job.items())]
+    return Result(f'{len(per_job)} iş, {len(runs)} çalışma; en yüksek eş zamanlılık {minutes[peak_t]} ({peak_t:%Y-%m-%d %H:%M})', list(out[0]), out,
+                  {'is': len(per_job), 'calisma': len(runs), 'en_yuksek_eszamanli': minutes[peak_t], 'zirve': peak_t.strftime('%Y-%m-%d %H:%M'),
+                   'kendi_ustune_binen': len(overlap), 'hatali_cron': len(bad)},
+                  tables=[('İş özeti', ['İş', 'Çalışma', 'Kendi üstüne biniyor'], jobs)] + ([('Okunamayan cron', ['İş', 'Cron', 'Hata'], bad)] if bad else []),
+                  notes=['Süreler ortalamadır; gerçek çalışma süreleri dağılım gösterir. Kendi üstüne binen işlerde max_active_runs/eşzamanlılık sınırını kontrol edin.'])
+
+
+@op('bakim-penceresi-kontrol', title='Zamanlanmış işlerin bakım/dondurma pencerelerine çakışması', domain='orchestration', product=GENEL, tag='bakım penceresi',
+    samples={'is_zamanlamalari.csv': 'is_zamanlamalari.csv', 'bakim_pencereleri.csv': 'bakim_pencereleri.csv'},
+    args=window_args() + [arg('--windows', default='@ornek/bakim_pencereleri.csv', help='Pencereler (ad, baslangic, bitis)')],
+    description='İşlerin cron zamanlaması ve süresinden önümüzdeki gün(ler)deki çalışmaları hesaplar; veritabanı yedeği, ağ bakımı veya ay sonu dondurma gibi pencerelerle kesişen her çalışmayı pencere, başlangıç ve bitişiyle listeler. Bakım duyurusundan önce hangi işlerin durdurulması gerektiğini görmek için.',
+    input='İş listesi (iş, cron, süre dk) + pencere listesi', output='sonuc.csv (pencereye denk gelen çalışmalar)', command='python main.py --input isler.csv --windows bakim.csv --days 7',
+    expect={'pencere': 2, 'cakisan_calisma': 11, 'cakisan_is': 3})
+def maintenance(columns, rows, args):
+    for c, f in ((args.job, '--job'), (args.cron, '--cron'), (args.duration, '--duration')):
+        need(c, columns, f)
+    wcols, wrows = tabular.read(args.windows)
+    for c in ('ad', 'baslangic', 'bitis'):
+        need(c, wcols, '--windows')
+    windows = []
+    for w in wrows:
+        a, b = tabular.parse_date(w['baslangic']), tabular.parse_date(w['bitis'])
+        if a and b:
+            windows.append((w['ad'], a[0], b[0]))
+    start = datetime.strptime(args.start, '%Y-%m-%d %H:%M')
+    runs, bad = job_runs(rows, start, start + timedelta(days=args.days), args.cron, args.duration, args.job)
+    out = []
+    for name, ws, we in windows:
+        for j, a, b in runs:
+            if a < we and b > ws:
+                out.append({'pencere': name, 'is': j, 'baslangic': a.strftime('%Y-%m-%d %H:%M'), 'bitis': b.strftime('%Y-%m-%d %H:%M'),
+                            'durum': 'pencere içinde başlıyor' if ws <= a < we else 'pencereye taşıyor'})
+    return Result(f'{len(windows)} pencere; {len(out)} çalışma ({len({o["is"] for o in out})} iş) pencerelere denk geliyor', ['pencere', 'is', 'baslangic', 'bitis', 'durum'], out,
+                  {'pencere': len(windows), 'cakisan_calisma': len(out), 'cakisan_is': len({o['is'] for o in out}), 'hatali_cron': len(bad)},
+                  tables=[('İş bazında', ['İş', 'Çakışan çalışma'], Counter(o['is'] for o in out).most_common())])

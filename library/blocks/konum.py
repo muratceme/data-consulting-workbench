@@ -123,3 +123,70 @@ def route(columns, rows, args):
                   {'arac': len(out), 'toplam_km': round(sum(o['mesafe_km'] for o in out), 2), 'durak': len(stops), 'gps_sicrama': jumps_total},
                   tables=[('Duraklar', ['Araç', 'Başlangıç', 'Süre (dk)', 'Enlem', 'Boylam'], stops)],
                   notes=['Mesafe ardışık noktalar arasındaki kuş uçuşu toplamıdır; seyrek örneklenmiş izlerde gerçek yol mesafesinin altında kalır.'])
+
+
+@op('mesafe-matrisi', title='Noktalar arası mesafe matrisi ve en yakın komşu', domain=D, product=P, tag='mesafe matrisi', samples={'depolar.csv': 'depolar.csv'},
+    args=[arg('--id', default='kod'), arg('--lat', default='enlem'), arg('--lon', default='boylam')],
+    description='Depo, mağaza veya müşteri noktalarının tüm ikili kuş uçuşu (haversine) mesafelerini kilometre olarak matris hâlinde (mesafe_matrisi.csv) yazar; her nokta için en yakın ve en uzak noktayı, ortalama mesafeyi verir. Rota optimizasyonu, bölge ataması ve lojistik modellerine girdi hazırlamak için.',
+    input='Nokta listesi (kod, enlem, boylam)', output='sonuc.csv (nokta bazında en yakın komşu) + mesafe_matrisi.csv', command='python main.py --input bayiler.csv --id bayi_kodu',
+    expect={'nokta': 4, 'en_yakin_cift': 'D1–D2', 'en_yakin_km': 13.93})
+def matrix(columns, rows, args):
+    lats, lons = numbers(rows, need(args.lat, columns, '--lat')), numbers(rows, need(args.lon, columns, '--lon'))
+    icol = need(args.id, columns, '--id')
+    pts = [(r[icol].strip(), la, lo) for r, la, lo in zip(rows, lats, lons) if la is not None and lo is not None and -90 <= la <= 90 and -180 <= lo <= 180]
+    if len(pts) < 2:
+        raise ValueError('En az iki geçerli koordinat gerekir.')
+    dist = {(a[0], b[0]): haversine(a[1:], b[1:]) for a in pts for b in pts}
+    out = []
+    for a, *_ in pts:
+        others = [(dist[(a, b)], b) for b, *_ in pts if b != a]
+        near, far = min(others), max(others)
+        out.append({'nokta': a, 'en_yakin': near[1], 'en_yakin_km': round(near[0], 2), 'en_uzak': far[1], 'en_uzak_km': round(far[0], 2),
+                    'ortalama_km': round(sum(d for d, _ in others) / len(others), 2)})
+    best = min(((dist[(a[0], b[0])], a[0], b[0]) for i, a in enumerate(pts) for b in pts[i + 1:]))
+    ids = [p_[0] for p_ in pts]
+    mat = [{'nokta': a, **{b: round(dist[(a, b)], 2) for b in ids}} for a in ids]
+    return Result(f'{len(pts)} nokta; en yakın çift {best[1]}–{best[2]} ({best[0]:.2f} km)', list(out[0]), out,
+                  {'nokta': len(pts), 'gecersiz': len(rows) - len(pts), 'en_yakin_cift': f'{best[1]}–{best[2]}', 'en_yakin_km': round(best[0], 2)},
+                  files={'mesafe_matrisi.csv': (['nokta', *ids], mat)},
+                  notes=['Kuş uçuşu mesafedir; karayolu mesafesi şehir içinde genelde 1,3–1,5 katıdır.'])
+
+
+@op('bolge-giris-cikis', title='GPS izinden çember bölgelere (geofence) giriş, çıkış ve kalış süresi', domain=D, product=P, tag='geofence',
+    samples={'arac_konumlari.csv': 'arac_konumlari.csv', 'bolge_cemberleri.csv': 'bolge_cemberleri.csv'},
+    args=[arg('--zones', default='@ornek/bolge_cemberleri.csv', help='Bölgeler (ad, enlem, boylam, yaricap_m)'), arg('--vehicle', default='arac'), arg('--time', default='zaman'),
+          arg('--lat', default='enlem'), arg('--lon', default='boylam')],
+    description='Araç veya kurye GPS kayıtlarını depo, müşteri ve şantiye gibi merkez–yarıçap ile tanımlı bölgelerle karşılaştırır; her bölgeye giriş ve çıkış zamanını, ziyaret başına kalış süresini ve bölge bazında toplam ziyareti çıkarır. Teslimat kanıtı, bekleme süresi ve hizmet süresi raporları için.',
+    input='GPS kayıtları + bölge listesi', output='sonuc.csv (ziyaretler)', command='python main.py --input telematik.csv --zones musteri_lokasyonlari.csv',
+    expect={'ziyaret': 2, 'toplam_kalis_dk': 20.0, 'bolge': 2})
+def geofence(columns, rows, args):
+    zcols, zrows = tabular.read(args.zones)
+    for c in ('ad', 'enlem', 'boylam', 'yaricap_m'):
+        need(c, zcols, '--zones')
+    zones = [(z['ad'], la, lo, r) for z, la, lo, r in zip(zrows, numbers(zrows, 'enlem'), numbers(zrows, 'boylam'), numbers(zrows, 'yaricap_m')) if None not in (la, lo, r)]
+    lats, lons = numbers(rows, need(args.lat, columns, '--lat')), numbers(rows, need(args.lon, columns, '--lon'))
+    tracks = defaultdict(list)
+    for r, la, lo in zip(rows, lats, lons):
+        t = tabular.parse_date(r[need(args.time, columns, '--time')])
+        if t and la is not None and lo is not None:
+            tracks[r[need(args.vehicle, columns, '--vehicle')].strip()].append((t[0], la, lo))
+    out = []
+    for v, pts in sorted(tracks.items()):
+        pts.sort()
+        for name, zla, zlo, rad in zones:
+            inside_since = None
+            for t, la, lo in pts:
+                inside = haversine((la, lo), (zla, zlo)) * 1000 <= rad
+                if inside and inside_since is None:
+                    inside_since = t
+                elif not inside and inside_since is not None:
+                    out.append({'arac': v, 'bolge': name, 'giris': inside_since.isoformat(sep=' '), 'cikis': t.isoformat(sep=' '), 'kalis_dk': round((t - inside_since).total_seconds() / 60, 1)})
+                    inside_since = None
+            if inside_since is not None:
+                out.append({'arac': v, 'bolge': name, 'giris': inside_since.isoformat(sep=' '), 'cikis': 'iz bitti (içeride)', 'kalis_dk': round((pts[-1][0] - inside_since).total_seconds() / 60, 1)})
+    out.sort(key=lambda o: (o['arac'], o['giris']))
+    per = Counter(o['bolge'] for o in out)
+    return Result(f'{len(out)} ziyaret, toplam kalış {sum(o["kalis_dk"] for o in out):.0f} dk', ['arac', 'bolge', 'giris', 'cikis', 'kalis_dk'], out,
+                  {'ziyaret': len(out), 'toplam_kalis_dk': round(sum(o['kalis_dk'] for o in out), 1), 'bolge': len(zones)},
+                  tables=[('Bölge bazında ziyaret', ['Bölge', 'Ziyaret'], [[z[0], per[z[0]]] for z in zones])],
+                  notes=['Giriş ve çıkış, bölge içindeki ilk ve dışındaki ilk GPS kaydının zamanıdır; seyrek örneklenmiş izlerde süre örnekleme aralığı kadar sapabilir.'])

@@ -1,0 +1,6 @@
+soru,cevap,getirilen
+İade süresi?,İade süresi 14 gündür [iade_politikasi].,iade_politikasi;kargo
+Kargo ücretli mi?,500 TL üzeri kargo ücretsizdir [kargo][kampanya].,kargo
+Mağaza saatleri?,Bu konuda bilgim yok.,kargo
+Teslim süresi?,Teslimat 3 iş günüdür [kargo].,kargo;iade_politikasi
+Fatura nasıl gelir?,Fatura e-posta ile gönderilir [fatura_sss].,

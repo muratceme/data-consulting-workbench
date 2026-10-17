@@ -1,0 +1,6 @@
+is;cron;sure_dk
+erp_aktarim;0 2 * * *;45
+crm_aktarim;30 2 * * *;20
+dwh_yukleme;0 3 * * *;60
+rapor_yenile;*/15 * * * *;20
+yedekleme;0 2 * * *;90

@@ -2,7 +2,7 @@
 yerel kopya veya dışa aktarılmış liste üzerinde çalışır."""
 import json, re
 from collections import Counter, defaultdict
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import tabular
 from islem import op, arg, Result, need, numbers, fmt
@@ -125,3 +125,90 @@ def nesne(columns, rows, args):
     total = sum(o['dosya'] for o in out)
     return Result(f"{len(out)} bölüm, {total} dosya; {sum(bool(o['durum']) for o in out)} bölüm sıkıştırma adayı", list(out[0]), out,
                   {'bolum': len(out), 'dosya': total, 'sikistirma_adayi': sum(bool(o['durum']) for o in out), 'toplam_gb': round(sum(o['toplam_mb'] for o in out) / 1024, 2)})
+
+
+@op('delta-vacuum-tahmini', title='Delta tablosunda VACUUM ile silinebilecek dosyaları tahmin et', domain='lakehouse', product='Delta Lake', tag='VACUUM', kind='file',
+    samples={f'delta_iade/_delta_log/{v:020d}.json': f'delta_iade/_delta_log/{v:020d}.json' for v in range(4)}, sample_input='delta_iade',
+    args=[arg('--as-of', default='2026-10-16 12:00', help='Hesap zamanı (UTC)'), arg('--retention-hours', type=float, default=168.0)],
+    description='Delta _delta_log kayıtlarındaki remove işlemlerinden tablodan çıkarılmış ama depolamada duran dosyaları bulur; saklama süresini (varsayılan 7 gün) aşmış olanların VACUUM ile silinebilecek sayısını ve boyutunu, henüz süresi dolmamış olanları ve geriye dönük okumanın (time travel) en eski güvenli zamanını verir. Depolama maliyetini ve VACUUM etkisini önceden görmek için.',
+    input='Delta tablo klasörü (_delta_log içeren)', output='sonuc.csv (kaldırılmış dosyalar)', command='python main.py --input C:\\yerel\\iade_tablosu --retention-hours 720',
+    expect={'kaldirilan_dosya': 5, 'silinebilir_dosya': 4, 'silinebilir_mb': 40.0, 'beklemede': 1})
+def vacuum(args):
+    p = Path(args.input)
+    log = p if p.name == '_delta_log' else p / '_delta_log'
+    files = sorted(log.glob('*.json'))
+    if not files:
+        raise ValueError(f'{log} içinde Delta günlük dosyası yok.')
+    as_of = tabular.parse_date(args.as_of)[0].replace(tzinfo=timezone.utc)
+    cutoff = as_of.timestamp() * 1000 - args.retention_hours * 3600 * 1000
+    sizes, removed = {}, []
+    for f in files:
+        for line in f.read_text(encoding='utf-8').splitlines():
+            if not line.strip():
+                continue
+            a = json.loads(line)
+            if 'add' in a:
+                sizes[a['add']['path']] = a['add'].get('size', 0)
+            elif 'remove' in a:
+                r = a['remove']
+                removed.append({'dosya': r['path'], 'surum': int(f.stem), 'silinme': ts(r.get('deletionTimestamp', 0)),
+                                'boyut_mb': round((r.get('size') or sizes.get(r['path'], 0)) / MB, 2), '_t': r.get('deletionTimestamp', 0)})
+    for r in removed:
+        r['durum'] = 'VACUUM ile silinebilir' if r.pop('_t') < cutoff else 'saklama süresinde'
+    ok = [r for r in removed if r['durum'].startswith('VACUUM')]
+    return Result(f'{len(removed)} kaldırılmış dosya; {len(ok)} dosya ({sum(r["boyut_mb"] for r in ok):.1f} MB) VACUUM ile silinebilir', ['dosya', 'surum', 'silinme', 'boyut_mb', 'durum'], removed,
+                  {'kaldirilan_dosya': len(removed), 'silinebilir_dosya': len(ok), 'silinebilir_mb': round(sum(r['boyut_mb'] for r in ok), 2), 'beklemede': len(removed) - len(ok),
+                   'guvenli_time_travel': datetime.fromtimestamp(cutoff / 1000, tz=timezone.utc).strftime('%Y-%m-%d %H:%M')},
+                  notes=['VACUUM sonrası saklama süresinden eski sürümlere time travel ile dönülemez; uzun çalışan okuma işleri varsa süreyi kısaltmayın.'])
+
+
+@op('bolum-yapisi-denetimi', title='Veri gölünde bölüm (partition) yolu tutarlılığı ve eksik tarihler', domain='lakehouse', product='Delta Lake', tag='partition', samples={'bolum_listesi.csv': 'bolum_listesi.csv'},
+    args=[arg('--path', default='yol'), arg('--size', default='boyut_bayt')],
+    description='Nesne listesindeki anahtar=değer biçimli bölüm yollarını çözer: bölüm anahtarlarının adı ve sırası tutarsız olan yolları (DT= / dt=, ay/yil sırası), tarih bölümlerinde eksik günleri, boş (0 bayt) veri dosyalarını ve bölüm yapısı dışında kalan dosyaları bulur. _SUCCESS gibi işaret dosyalarını yok sayar. Hive tarzı bölümlenmiş tabloları sorgu motoruna tanıtmadan önce kontrol için.',
+    input='Nesne listesi (yol, boyut)', output='sonuc.csv (bölüm bazında) + bulgular', command='python main.py --input s3_ls.csv --path key --size size',
+    expect={'veri_dosyasi': 8, 'bolum': 6, 'eksik_gun': 1, 'bos_dosya': 1, 'tutarsiz_anahtar': 1, 'bolum_disi': 1})
+def partitions(columns, rows, args):
+    sizes = numbers(rows, need(args.size, columns, '--size'))
+    pcol = need(args.path, columns, '--path')
+    layouts, parts, findings, dates = Counter(), defaultdict(lambda: [0, 0]), [], set()
+    data = 0
+    for r, s in zip(rows, sizes):
+        path = r[pcol].strip().replace('\\', '/')
+        name = path.rsplit('/', 1)[-1]
+        if name.startswith(('_', '.')):
+            continue
+        data += 1
+        segs = [x for x in path.split('/')[:-1] if '=' in x]
+        if s == 0:
+            findings.append(['boş dosya', path])
+        if not segs:
+            findings.append(['bölüm dışında', path])
+            continue
+        keys = tuple(x.split('=', 1)[0] for x in segs)
+        layouts[keys] += 1
+        key = '/'.join(segs)
+        parts[key][0] += 1
+        parts[key][1] += s or 0
+        for x in segs:
+            v = x.split('=', 1)[1]
+            d = tabular.parse_date(v)
+            if d and re.fullmatch(r'\d{4}-\d{2}-\d{2}', v):
+                dates.add(d[0].date())
+    main_layout = layouts.most_common(1)[0][0] if layouts else ()
+    odd = [k for k in layouts if k != main_layout]
+    for k in odd:
+        findings.append(['tutarsız anahtar', f"{'/'.join(k)} (çoğunluk: {'/'.join(main_layout)})"])
+    missing = []
+    if dates:
+        d, last = min(dates), max(dates)
+        while d <= last:
+            if d not in dates:
+                missing.append(d)
+            d += timedelta(days=1)
+    findings += [['eksik gün', m.isoformat()] for m in missing]
+    out = [{'bolum': k, 'dosya': v[0], 'boyut_mb': round(v[1] / MB, 2)} for k, v in sorted(parts.items())]
+    kinds = Counter(f[0] for f in findings)
+    return Result(f'{data} veri dosyası, {len(parts)} bölüm; {len(missing)} eksik gün, {kinds["tutarsız anahtar"]} tutarsız anahtar düzeni', ['bolum', 'dosya', 'boyut_mb'], out,
+                  {'veri_dosyasi': data, 'bolum': len(parts), 'eksik_gun': len(missing), 'bos_dosya': kinds['boş dosya'], 'tutarsiz_anahtar': kinds['tutarsız anahtar'],
+                   'bolum_disi': kinds['bölüm dışında']},
+                  tables=[('Bulgular', ['Tür', 'Ayrıntı'], findings)])

@@ -1,0 +1,14 @@
+tablo;boyut_gb;dalga
+kampanya;2;1
+kategori;0,1;1
+musteri;40;1
+adres;20;1
+siparis;300;1
+odeme;120;1
+urun;5;1
+kampanya_urun;1;1
+fatura;200;2
+stok;30;2
+log_a;50;2
+log_b;60;2
+siparis_kalem;800;3

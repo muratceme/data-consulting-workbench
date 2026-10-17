@@ -297,3 +297,62 @@ def llm_usage(columns, rows, args):
                   {'cagri': calls, 'hata_%': round(100 * errors / calls, 1), 'toplam_maliyet': round(total, 4), 'fiyatsiz_cagri': unpriced,
                    'fiyatsiz_model': sorted({o.get('model', '') for o in out if o['maliyet_usd'] == ''})},
                   notes=['Fiyatlar örnektir; sağlayıcınızın güncel liste veya sözleşme fiyatlarını --prices ile verin. Önbelleğe alınmış girdi tokenları ayrıca indirimli olabilir.'])
+
+
+PLACEHOLDER = re.compile(r'(?<!\{)\{([A-Za-z_çğıöşüÇĞİÖŞÜ][\wçğıöşüÇĞİÖŞÜ]*)\}(?!\})')
+
+
+@op('prompt-sablon-kontrol', title='Prompt şablonlarında eksik ve kullanılmayan değişkenler', domain=D, product=P, tag='prompt şablonu', kind='file',
+    samples={'promptlar/ozet.txt': 'promptlar/ozet.txt', 'promptlar/siniflandir.md': 'promptlar/siniflandir.md', 'degiskenler.json': 'degiskenler.json'}, sample_input='promptlar',
+    args=[arg('--variables', default='@ornek/degiskenler.json', help='Uygulamanın sağladığı değişkenler: {"degiskenler": [...]} veya {"dosya": [...]}')],
+    description='Bir klasördeki prompt şablonlarında {degisken} yer tutucularını bulur ({{ }} kaçışlarını yok sayar) ve uygulamanın sağladığı değişken listesiyle karşılaştırır: şablonda olup verilmeyen (çalışırken hata veya boş kalan) ve verilip hiçbir şablonda kullanılmayan değişkenleri, şablon başına yaklaşık token sayısını raporlar. Prompt değişikliklerini yayına almadan önce CI kontrolü için.',
+    input='Şablon klasörü (.txt/.md/.prompt) + değişken listesi (JSON)', output='sonuc.csv (şablon × değişken)', command='python main.py --input prompts/ --variables app_variables.json',
+    expect={'sablon': 2, 'degisken': 6, 'eksik': 1, 'kullanilmayan': 1})
+def prompt_vars(args):
+    p = Path(args.input)
+    files = sorted(f for f in (p.rglob('*') if p.is_dir() else [p]) if f.suffix.lower() in ('.txt', '.md', '.prompt', '.j2', '.tmpl'))
+    if not files:
+        raise ValueError('Şablon dosyası bulunamadı (.txt, .md, .prompt).')
+    try:
+        given = json.loads(Path(args.variables).read_text(encoding='utf-8-sig'))
+    except json.JSONDecodeError as exc:
+        raise ValueError(f'Değişken JSON okunamadı: {exc}') from None
+    common = set(given.get('degiskenler', [])) if isinstance(given, dict) else set(given)
+    out, used = [], set()
+    for f in files:
+        text = f.read_text(encoding='utf-8-sig', errors='replace')
+        names = sorted(set(PLACEHOLDER.findall(text)))
+        avail = common | set(given.get(f.name, []) if isinstance(given, dict) else [])
+        used.update(names)
+        for n in names:
+            out.append({'sablon': f.name, 'degisken': n, 'durum': 'verilmiyor (EKSİK)' if n not in avail else 'tamam', 'yaklasik_token': round(len(text) / 4)})
+    unused = sorted(common - used)
+    rows = sorted(out, key=lambda o: (o['durum'] == 'tamam', o['sablon']))
+    return Result(f'{len(files)} şablon, {len(used)} değişken; {sum(o["durum"] != "tamam" for o in out)} eksik, {len(unused)} kullanılmayan', ['sablon', 'degisken', 'durum', 'yaklasik_token'], rows,
+                  {'sablon': len(files), 'degisken': len(used), 'eksik': sum(o['durum'] != 'tamam' for o in out), 'kullanilmayan': len(unused)},
+                  tables=[('Verilen ama kullanılmayan değişkenler', ['Değişken'], [[u] for u in unused])],
+                  notes=['Token sayısı karakter/4 yaklaşımıdır; Türkçe metinlerde gerçek sayı biraz daha yüksek olabilir.'])
+
+
+CITE = re.compile(r'\[([^\[\]\s]+)\]')
+
+
+@op('atif-kontrol', title='RAG cevaplarındaki kaynak atıflarını getirilen dokümanlarla doğrula', domain=D, product=P, tag='atıf', samples={'rag_cevaplari.csv': 'rag_cevaplari.csv'},
+    args=[arg('--answer', default='cevap'), arg('--retrieved', default='getirilen', help='Getirilen doküman kimlikleri (; ile)')],
+    description='Model cevabındaki [doküman_kimliği] biçimli atıfları o soru için gerçekten getirilen dokümanlarla karşılaştırır: getirilmeyen bir dokümana yapılan (uydurma) atıfları, hiç atıf içermeyen cevapları ve doğru atıf oranını hesaplar. Kaynak gösterme zorunluluğu olan asistanların kalite kontrolü için.',
+    input='Cevaplar (soru, cevap, getirilen doküman kimlikleri)', output='sonuc.csv (cevap bazında atıf durumu)', command='python main.py --input eval_run.csv --retrieved context_ids',
+    expect={'cevap': 5, 'atifli': 4, 'uydurma_atif': 2, 'atifsiz': 1, 'dogru_atif_%': 60.0})
+def citations(columns, rows, args):
+    acol, rcol = need(args.answer, columns, '--answer'), need(args.retrieved, columns, '--retrieved')
+    out, total, good = [], 0, 0
+    for i, r in enumerate(rows, 2):
+        cites = CITE.findall(r[acol])
+        got = {x.strip() for x in re.split(r'[;,]', r[rcol]) if x.strip()}
+        fake = [c for c in cites if c not in got]
+        total += len(cites)
+        good += len(cites) - len(fake)
+        out.append({'satir': i, 'atif': ', '.join(cites), 'getirilen': ', '.join(sorted(got)), 'uydurma': ', '.join(fake),
+                    'durum': 'atıfsız' if not cites else 'UYDURMA ATIF' if fake else 'doğru'})
+    return Result(f'{len(out)} cevap; {sum(o["durum"] == "UYDURMA ATIF" for o in out)} cevapta uydurma atıf, {sum(o["durum"] == "atıfsız" for o in out)} atıfsız', list(out[0]), out,
+                  {'cevap': len(out), 'atifli': sum(bool(o['atif']) for o in out), 'uydurma_atif': total - good, 'atifsiz': sum(o['durum'] == 'atıfsız' for o in out),
+                   'dogru_atif_%': round(100 * good / total, 1) if total else 0})

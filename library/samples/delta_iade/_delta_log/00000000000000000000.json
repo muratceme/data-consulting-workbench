@@ -1,0 +1,6 @@
+{"commitInfo": {"timestamp": 1790762400000, "operation": "WRITE"}}
+{"metaData": {"id": "iade", "schemaString": "{\"type\": \"struct\", \"fields\": [{\"name\": \"iade_id\", \"type\": \"long\"}, {\"name\": \"tutar\", \"type\": \"double\"}]}", "partitionColumns": []}}
+{"add": {"path": "part-00000.parquet", "size": 10485760, "partitionValues": {}, "dataChange": true}}
+{"add": {"path": "part-00001.parquet", "size": 10485760, "partitionValues": {}, "dataChange": true}}
+{"add": {"path": "part-00002.parquet", "size": 10485760, "partitionValues": {}, "dataChange": true}}
+{"add": {"path": "part-00003.parquet", "size": 10485760, "partitionValues": {}, "dataChange": true}}

@@ -1,0 +1,97 @@
+{
+ "metadata": {
+  "generated_at": "2026-10-16T12:00:05Z",
+  "dbt_version": "1.8.0"
+ },
+ "results": [
+  {
+   "unique_id": "source.perakende.erp.siparisler",
+   "max_loaded_at": "2026-10-16T09:00:00Z",
+   "snapshotted_at": "2026-10-16T12:00:00Z",
+   "max_loaded_at_time_ago_in_s": 10800,
+   "status": "pass",
+   "criteria": {
+    "warn_after": {
+     "count": 12,
+     "period": "hour"
+    },
+    "error_after": {
+     "count": 24,
+     "period": "hour"
+    },
+    "filter": null
+   }
+  },
+  {
+   "unique_id": "source.perakende.erp.musteriler",
+   "max_loaded_at": "2026-10-16T09:00:00Z",
+   "snapshotted_at": "2026-10-16T12:00:00Z",
+   "max_loaded_at_time_ago_in_s": 18000,
+   "status": "pass",
+   "criteria": {
+    "warn_after": {
+     "count": 12,
+     "period": "hour"
+    },
+    "error_after": {
+     "count": 24,
+     "period": "hour"
+    },
+    "filter": null
+   }
+  },
+  {
+   "unique_id": "source.perakende.crm.firsatlar",
+   "max_loaded_at": "2026-10-16T09:00:00Z",
+   "snapshotted_at": "2026-10-16T12:00:00Z",
+   "max_loaded_at_time_ago_in_s": 54000,
+   "status": "warn",
+   "criteria": {
+    "warn_after": {
+     "count": 12,
+     "period": "hour"
+    },
+    "error_after": {
+     "count": 24,
+     "period": "hour"
+    },
+    "filter": null
+   }
+  },
+  {
+   "unique_id": "source.perakende.web.olaylar",
+   "max_loaded_at": "2026-10-16T09:00:00Z",
+   "snapshotted_at": "2026-10-16T12:00:00Z",
+   "max_loaded_at_time_ago_in_s": 108000,
+   "status": "error",
+   "criteria": {
+    "warn_after": {
+     "count": 12,
+     "period": "hour"
+    },
+    "error_after": {
+     "count": 24,
+     "period": "hour"
+    },
+    "filter": null
+   }
+  },
+  {
+   "unique_id": "source.perakende.ref.kurlar",
+   "max_loaded_at": "2026-10-16T09:00:00Z",
+   "snapshotted_at": "2026-10-16T12:00:00Z",
+   "max_loaded_at_time_ago_in_s": 172800,
+   "status": "pass",
+   "criteria": {
+    "warn_after": {
+     "count": null,
+     "period": null
+    },
+    "error_after": {
+     "count": null,
+     "period": null
+    }
+   }
+  }
+ ]
+}

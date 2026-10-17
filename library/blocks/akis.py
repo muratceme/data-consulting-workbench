@@ -1,6 +1,6 @@
 """Akış (streaming) blokları: olaylardan şema çıkarma, Avro/JSON şema uyumluluğu, olay gecikmesi ve Kafka tüketici gecikmesi.
 Broker’a veya şema kayıt servisine bağlanmaz; dışa aktarılmış örnekleri ve komut çıktılarını okur."""
-import json, re
+import json, math, re
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -418,3 +418,60 @@ def windows(args):
     return Result(f'{sum(o["olay"] for o in out)} olay, {len(out)} pencere ({args.window} sn); {late} olay izin verilen gecikmeden sonra geldi', list(out[0]), out,
                   {'olay': sum(o['olay'] for o in out), 'pencere': len(out), 'gec_olay': late, 'zamansiz': skipped, 'bozuk_satir': bad},
                   notes=['Geç olaylar akış motorunda varsayılan olarak düşürülür; kayıp kabul edilemiyorsa izin verilen gecikmeyi artırın veya yan çıktıya (side output) yönlendirin.'])
+
+
+def nearest_rank(vals, q):
+    s = sorted(vals)
+    return s[min(len(s) - 1, max(0, math.ceil(len(s) * q) - 1))] if s else None
+
+
+@op('mesaj-boyutu-analizi', title='Olay/mesaj boyutu dağılımı ve broker sınırı kontrolü', domain='stream', product='Kafka', tag='mesaj boyutu', kind='file', samples={'olaylar.jsonl': 'olaylar.jsonl'},
+    args=[arg('--type', default='tur', help='Olay türü alanı (boyutları türe göre ayırmak için)'), arg('--max-bytes', type=int, default=1048576, help='Broker/topic mesaj sınırı (max.message.bytes)')],
+    description='JSON Lines olay dökümünde her mesajın UTF-8 bayt boyutunu ölçer; p50/p95/en büyük boyutu, olay türüne göre ortalama boyutu, sınıra yaklaşan ve sınırı aşan mesajları ve toplam veri hacmini verir. Topic ayarı, sıkıştırma ve büyük alanları dışarı taşıma (claim-check) kararı için.',
+    input='JSON Lines olay dosyası', output='sonuc.csv (tür bazında boyut)', command='python main.py --input orders.jsonl --type event_type --max-bytes 2097152',
+    expect={'olay': 200, 'p50_bayt': 190, 'p95_bayt': 195, 'en_buyuk_bayt': 196, 'sinir_ustu': 0})
+def msg_size(args):
+    rows = []
+    for line in Path(args.input).read_text(encoding='utf-8-sig', errors='replace').splitlines():
+        if not line.strip():
+            continue
+        try:
+            obj = json.loads(line)
+        except json.JSONDecodeError:
+            obj = {}
+        rows.append((len(line.encode('utf-8')), get_path(obj, args.type) if isinstance(obj, dict) else None))
+    if not rows:
+        raise ValueError('Mesaj yok.')
+    sizes = [s for s, _ in rows]
+    by = defaultdict(list)
+    for s, t in rows:
+        by[str(t) if t is not None else '(türsüz)'].append(s)
+    out = [{'tur': t, 'mesaj': len(v), 'ortalama_bayt': round(sum(v) / len(v), 1), 'en_buyuk_bayt': max(v), 'toplam_kb': round(sum(v) / 1024, 2)} for t, v in sorted(by.items(), key=lambda kv: -sum(kv[1]))]
+    over = sum(s > args.max_bytes for s in sizes)
+    near = sum(0.8 * args.max_bytes < s <= args.max_bytes for s in sizes)
+    return Result(f'{len(sizes)} mesaj; p50 {nearest_rank(sizes, 0.5)} B, p95 {nearest_rank(sizes, 0.95)} B, en büyük {max(sizes)} B; {over} mesaj sınırı aşıyor', list(out[0]), out,
+                  {'olay': len(sizes), 'p50_bayt': nearest_rank(sizes, 0.5), 'p95_bayt': nearest_rank(sizes, 0.95), 'en_buyuk_bayt': max(sizes), 'toplam_kb': round(sum(sizes) / 1024, 2),
+                   'sinira_yakin': near, 'sinir_ustu': over},
+                  notes=['Ölçülen boyut sıkıştırılmamış JSON gövdesidir; başlıklar ve anahtar dahil değildir. Producer sıkıştırması (lz4/zstd) ağ ve diskte boyutu düşürür.'])
+
+
+@op('anahtar-carpikligi', title='Partition anahtarı çarpıklığı (sıcak anahtar) analizi', domain='stream', product='Kafka', tag='sıcak anahtar', kind='file', samples={'olaylar.jsonl': 'olaylar.jsonl'},
+    args=[arg('--key', default='musteri.id', help='Mesaj anahtarı olarak kullanılan alan'), arg('--partitions', type=int, default=6)],
+    description='Mesaj anahtarı olarak kullanılan alanın değer dağılımını çıkarır: farklı anahtar sayısını, en sık anahtarların payını, bir partition’ın adil payını (1/partition sayısı) aşan sıcak anahtarları ve dağılımın Gini katsayısını verir. Sıcak anahtar tek bir tüketiciyi tıkar; anahtar seçimi ve partition sayısı kararı için.',
+    input='JSON Lines olay dosyası', output='sonuc.csv (anahtar bazında pay)', command='python main.py --input clicks.jsonl --key user.id --partitions 24',
+    expect={'olay': 200, 'anahtar': 50, 'en_sik_pay_%': 4.0, 'sicak_anahtar': 0})
+def key_skew(args):
+    events, bad = load_events(args.input)
+    keys = Counter(str(get_path(e, args.key)) for e in events if get_path(e, args.key) is not None)
+    if not keys:
+        raise ValueError(f'"{args.key}" alanı olaylarda yok.')
+    n = sum(keys.values())
+    fair = 1 / args.partitions
+    out = [{'anahtar': k, 'mesaj': c, 'pay_%': round(100 * c / n, 2), 'durum': 'SICAK' if c / n > fair else ''} for k, c in keys.most_common()]
+    vals = sorted(keys.values())
+    gini = sum((2 * i - len(vals) - 1) * v for i, v in enumerate(vals, 1)) / (len(vals) * sum(vals))
+    top = out[0]
+    return Result(f'{len(keys)} farklı anahtar; en sık {top["anahtar"]} (%{top["pay_%"]}); Gini {gini:.3f}', list(out[0]), out,
+                  {'olay': n, 'anahtar': len(keys), 'en_sik_anahtar': top['anahtar'], 'en_sik_pay_%': top['pay_%'], 'sicak_anahtar': sum(o['durum'] == 'SICAK' for o in out),
+                   'gini': round(gini, 3), 'anahtarsiz': len(events) - n},
+                  notes=[f'Bir anahtarın payı 1/{args.partitions} (%{100 * fair:.1f}) üstündeyse o anahtarın partition’ı diğerlerinden fazla yük alır; anahtar sayısı partition sayısından azsa bazı partition’lar boş kalır.'])

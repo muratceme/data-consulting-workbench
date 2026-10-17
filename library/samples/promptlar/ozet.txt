@@ -1,0 +1,3 @@
+Aşağıdaki {belge} metnini {dil} dilinde {uzunluk} cümleyle özetle.
+Müşteri adı: {musteri_adi}
+Yalnızca metindeki bilgileri kullan.

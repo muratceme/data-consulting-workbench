@@ -375,3 +375,76 @@ def completeness(columns, rows, args):
                   {'kayit': len(rows), 'ortalama_skor': round(sum(o['skor'] for o in out) / n, 1), 'tam_kayit': sum(o['skor'] == 100 for o in out),
                    'esik_alti': sum(o['skor'] < args.min_score for o in out)},
                   tables=[('Alan özeti', ['Alan', 'Ağırlık', 'Dolu %', 'Geçerli %', 'Geçerlilik kuralı'], field_rows)])
+
+
+IDENT = [('vkn', 'aynı vergi no', lambda v: re.sub(r'\D', '', v)), ('iban', 'aynı IBAN', lambda v: re.sub(r'\s', '', v).upper()),
+         ('telefon', 'aynı telefon', lambda v: re.sub(r'\D', '', v)[-10:]), ('eposta', 'aynı e-posta', lambda v: v.strip().lower())]
+
+
+@op('paylasilan-kimlik', title='Tedarikçi/cari kartlarında paylaşılan vergi no, IBAN, telefon ve e-posta', domain=D, product=P, tag='mükerrer cari', samples={'tedarikciler.csv': 'tedarikciler.csv'},
+    args=[arg('--key', default='kod'), arg('--name', default='unvan')],
+    description='Cari veya tedarikçi ana verisinde aynı vergi numarasını (mükerrer kart), aynı IBAN’ı, telefonu veya e-postayı paylaşan kayıtları gruplar. Farklı vergi numaralı firmaların aynı IBAN’ı kullanması gibi ödeme dolandırıcılığı sinyallerini yüksek risk olarak işaretler. Telefonlar son 10 haneye, IBAN boşluksuz büyük harfe normalize edilir.',
+    input='Cari/tedarikçi listesi (kod, ünvan, vkn, iban, telefon, eposta)', output='sonuc.csv (paylaşım grupları)', command='python main.py --input satici_ana_verisi.xlsx --key lifnr --name name1',
+    expect={'kayit': 6, 'grup': 3, 'ilgili_kayit': 5, 'yuksek_risk': 1})
+def shared_ids(columns, rows, args):
+    kcol, ncol = need(args.key, columns, '--key'), need(args.name, columns, '--name')
+    out = []
+    for col, label, norm in IDENT:
+        if col not in columns:
+            continue
+        groups = defaultdict(list)
+        for r in rows:
+            v = norm(r[col]) if r[col].strip() else ''
+            if len(v) >= 5:
+                groups[v].append(r)
+        for v, rs in groups.items():
+            if len(rs) < 2:
+                continue
+            vkns = {re.sub(r'\D', '', r.get('vkn', '')) for r in rs} - {''}
+            risk = 'YÜKSEK: farklı vergi numaralı firmalar aynı hesabı kullanıyor' if col == 'iban' and len(vkns) > 1 else \
+                'mükerrer kart olabilir' if col == 'vkn' else 'orta: aynı kişi/aracı olabilir' if len(vkns) > 1 else 'mükerrer kart olabilir'
+            out.append({'tur': label, 'deger': v[:4] + '…' + v[-4:] if col == 'iban' else v, 'kayit_sayisi': len(rs), 'kodlar': ', '.join(r[kcol] for r in rs),
+                        'unvanlar': ' | '.join(r[ncol] for r in rs), 'risk': risk})
+    out.sort(key=lambda o: (not o['risk'].startswith('YÜKSEK'), o['tur']))
+    involved = {k.strip() for o in out for k in o['kodlar'].split(',')}
+    return Result(f'{len(rows)} kayıt; {len(out)} paylaşım grubunda {len(involved)} kayıt; {sum(o["risk"].startswith("YÜKSEK") for o in out)} yüksek risk', list(out[0]) if out else ['tur'], out,
+                  {'kayit': len(rows), 'grup': len(out), 'ilgili_kayit': len(involved), 'yuksek_risk': sum(o['risk'].startswith('YÜKSEK') for o in out)},
+                  notes=['Grup şirketleri ve şubeler meşru olarak aynı telefonu/IBAN’ı paylaşabilir; yüksek riskli grupları ödeme öncesi satın alma ve finansla doğrulayın.'])
+
+
+@op('hiyerarsi-duzlestir', title='Ebeveyn–çocuk hiyerarşisini seviye sütunlarına düzleştir', domain=D, product=P, tag='hiyerarşi', samples={'kategori_agaci.csv': 'kategori_agaci.csv'},
+    args=[arg('--id', default='kategori_id'), arg('--parent', default='ust_id'), arg('--name', default='ad'), arg('--sep', default=' > ')],
+    description='Kimlik–üst kimlik biçimindeki kategori, organizasyon, hesap planı veya ürün ağacını her kayıt için seviye numarası, kökten yola (Tüm ürünler > Elektronik > Bilgisayar) ve seviye_1…seviye_n sütunlarına düzleştirir; yaprak düğümleri işaretler, üst kaydı olmayan (yetim) ve döngüye giren kayıtları ayırır. BI araçlarında hiyerarşi ve drill-down kurmak için.',
+    input='Hiyerarşi listesi (id, üst id, ad)', output='sonuc.csv (düzleştirilmiş hiyerarşi)', command='python main.py --input org.csv --id personel_no --parent yonetici_no --name ad_soyad',
+    expect={'kayit': 12, 'maks_seviye': 4, 'yaprak': 4, 'yetim': 1, 'dongu': 2})
+def flatten(columns, rows, args):
+    icol, pcol, ncol = need(args.id, columns, '--id'), need(args.parent, columns, '--parent'), need(args.name, columns, '--name')
+    nodes = {r[icol].strip(): r for r in rows if r[icol].strip()}
+    has_child = {r[pcol].strip() for r in rows if r[pcol].strip()}
+    paths, status = {}, {}
+    for k in nodes:
+        chain, cur, seen = [], k, set()
+        while cur:
+            if cur in seen:
+                status[k] = 'döngü'
+                break
+            if cur not in nodes:
+                status[k] = 'yetim'
+                break
+            seen.add(cur)
+            chain.append(cur)
+            cur = nodes[cur][pcol].strip()
+        else:
+            status[k] = 'tamam'
+        paths[k] = list(reversed(chain))
+    depth = max((len(p) for k, p in paths.items() if status[k] == 'tamam'), default=0)
+    out = []
+    for k, r in nodes.items():
+        ok = status[k] == 'tamam'
+        names = [nodes[x][ncol] for x in paths[k]] if ok else []
+        out.append({'id': k, 'ad': r[ncol], 'seviye': len(names) if ok else '', 'yol': args.sep.join(names), 'yaprak': 'evet' if ok and k not in has_child else '',
+                    **{f'seviye_{i}': names[i - 1] if i <= len(names) else '' for i in range(1, depth + 1)}, 'durum': status[k]})
+    c = Counter(status.values())
+    return Result(f'{len(out)} kayıt, en derin {depth} seviye; {c["yetim"]} yetim, {c["döngü"]} döngüde', list(out[0]), out,
+                  {'kayit': len(out), 'maks_seviye': depth, 'yaprak': sum(o['yaprak'] == 'evet' for o in out), 'yetim': c['yetim'], 'dongu': c['döngü']},
+                  notes=['Yetim ve döngüdeki kayıtların yolu boş bırakılır; hiyerarsi-kontrol bloğu bu kayıtların ayrıntısını verir.'])

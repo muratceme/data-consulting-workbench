@@ -1,0 +1,8 @@
+pid;usename;state;wait_event_type;blocked_by;query
+101;app;active;;{};UPDATE stok SET adet = adet - 1 WHERE urun_id = 5
+102;app;active;Lock;{101};UPDATE stok SET adet = adet - 2 WHERE urun_id = 5
+103;rapor;active;Lock;{102};SELECT sum(adet) FROM stok
+104;app;active;Lock;{102};UPDATE stok SET rezerve = 1 WHERE urun_id = 5
+201;etl;idle in transaction;;{};UPDATE musteri SET segment = 3 WHERE id = 9
+202;app;active;Lock;{201};UPDATE musteri SET eposta = NULL WHERE id = 9
+301;app;active;;{};SELECT 1

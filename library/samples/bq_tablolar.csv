@@ -1,0 +1,6 @@
+table_schema,table_name,total_logical_bytes,long_term_logical_bytes,partitioning_column,clustering_columns,require_partition_filter
+dwh,fct_satis,536870912000,322122547200,tarih,musteri_id,YES
+dwh,fct_olay,2147483648000,1610612736000,olay_tarihi,,NO
+dwh,dim_musteri,2147483648,0,,,NO
+ham,ham_log,53687091200,48318382080,,,NO
+stg,stg_tmp,16106127360,0,yukleme,id,NO

@@ -357,3 +357,63 @@ def woe_iv(columns, rows, args):
                    'supheli': [x[0] for x in ivs if x[2] > 0.5]},
                   tables=[('Information Value sıralaması', ['Değişken', 'Tür', 'IV', 'Güç'], ivs)],
                   notes=['WoE = ln(olay olmayan payı / olay payı); boş dilimlerde 0,5 düzeltmesi uygulanır.', 'IV > 0,5 genelde hedefin bilgisini taşıyan (ör. sonradan dolan tarih) alanlara işaret eder.'])
+
+
+@op('cok-sinifli-metrikler', title='Çok sınıflı sınıflandırma: karışıklık matrisi ve sınıf bazında metrikler', domain=D, product=P, tag='çok sınıflı', samples={'cok_sinifli_tahmin.csv': 'cok_sinifli_tahmin.csv'},
+    args=[arg('--actual', default='gercek'), arg('--predicted', default='tahmin')],
+    description='Gerçek ve tahmin edilen sınıf etiketlerinden karışıklık matrisini, sınıf bazında kesinlik, duyarlılık, F1 ve destek (örnek sayısını), doğruluk ile makro ve ağırlıklı F1’i hesaplar; en çok karıştırılan sınıf çiftlerini listeler. Kategori, niyet (intent) veya ürün sınıflandırma modelleri için.',
+    input='Tahmin dosyası (gerçek sınıf, tahmin sınıf)', output='sonuc.csv (sınıf bazında metrikler) + karışıklık matrisi', command='python main.py --actual kategori --predicted model_kategori',
+    expect={'n': 12, 'dogruluk': 0.75, 'makro_f1': 0.7389, 'agirlikli_f1': 0.75})
+def multiclass(columns, rows, args):
+    a, p = need(args.actual, columns, '--actual'), need(args.predicted, columns, '--predicted')
+    pairs = [(r[a].strip(), r[p].strip()) for r in rows if r[a].strip()]
+    if not pairs:
+        raise ValueError('Gerçek etiketi olan satır yok.')
+    labels = sorted({x for pr in pairs for x in pr if x})
+    cm = Counter(pairs)
+    out = []
+    for c in labels:
+        tp = cm[(c, c)]
+        pred = sum(cm[(x, c)] for x in labels)
+        sup = sum(cm[(c, x)] for x in labels) + cm[(c, '')]
+        prec = tp / pred if pred else 0.0
+        rec = tp / sup if sup else 0.0
+        f1 = 2 * prec * rec / (prec + rec) if prec + rec else 0.0
+        out.append({'sinif': c, 'destek': sup, 'kesinlik': round(prec, 4), 'duyarlilik': round(rec, 4), 'f1': round(f1, 4), '_f1': f1})
+    n = len(pairs)
+    macro = sum(o['_f1'] for o in out) / len(out)
+    weighted = sum(o['_f1'] * o['destek'] for o in out) / n
+    for o in out:
+        o.pop('_f1')
+    confused = sorted(((k, v) for k, v in cm.items() if k[0] != k[1]), key=lambda kv: -kv[1])[:10]
+    matrix = [[c] + [cm[(c, x)] for x in labels] for c in labels]
+    return Result(f'{n} örnek, {len(labels)} sınıf; doğruluk {sum(cm[(c, c)] for c in labels) / n:.3f}, makro F1 {macro:.3f}', list(out[0]), out,
+                  {'n': n, 'sinif': len(labels), 'dogruluk': round(sum(cm[(c, c)] for c in labels) / n, 4), 'makro_f1': round(macro, 4), 'agirlikli_f1': round(weighted, 4)},
+                  tables=[('Karışıklık matrisi (satır: gerçek, sütun: tahmin)', ['Gerçek \\ Tahmin', *labels], matrix),
+                          ('En çok karıştırılanlar', ['Gerçek', 'Tahmin', 'Adet'], [[k[0], k[1] or '(boş)', v] for k, v in confused])])
+
+
+@op('lift-tablosu', title='Skor dilimlerine göre lift, kazanç (gain) ve KS', domain=D, product=P, tag='lift/gain', samples={'model_tahminleri.csv': 'model_tahminleri.csv'},
+    args=[arg('--actual', default='gercek'), arg('--score', default='skor'), arg('--groups', type=int, default=10)],
+    description='Kayıtları model skoruna göre azalan sıralayıp eşit büyüklükte dilimlere (desil) böler; her dilimde olay oranını, kümülatif yakalanan olay yüzdesini (kazanç), lift’i ve Kolmogorov–Smirnov istatistiğini hesaplar. Kampanyada ilk %20’ye ulaşınca olayların ne kadarının yakalandığını iş birimine anlatmak için.',
+    input='Tahmin dosyası (gerçek 0/1, skor)', output='sonuc.csv (dilim bazında lift/kazanç)', command='python main.py --actual satin_aldi --score olasilik --groups 20',
+    expect={'kayit': 600, 'dilim': 10, 'ilk_dilim_lift': 4.32, 'ks': 0.6721, 'ilk_iki_dilim_kazanc_%': 74.8})
+def lift(columns, rows, args):
+    pairs = labeled(columns, rows, args)
+    pairs.sort(key=lambda x: -x[1])
+    n, events = len(pairs), sum(y for y, _ in pairs)
+    if not events or events == n:
+        raise ValueError('Hem olay hem olay-dışı kayıt gerekir.')
+    base = events / n
+    out, cum_e, cum_ne, ks = [], 0, 0, 0.0
+    for g in range(args.groups):
+        chunk = pairs[g * n // args.groups:(g + 1) * n // args.groups]
+        e = sum(y for y, _ in chunk)
+        cum_e += e
+        cum_ne += len(chunk) - e
+        gap = cum_e / events - cum_ne / (n - events)
+        ks = max(ks, gap)
+        out.append({'dilim': g + 1, 'kayit': len(chunk), 'min_skor': round(chunk[-1][1], 4), 'olay': e, 'olay_orani_%': round(100 * e / len(chunk), 1),
+                    'lift': round(e / len(chunk) / base, 2), 'kumulatif_kazanc_%': round(100 * cum_e / events, 1), 'kumulatif_lift': round(cum_e / ((g + 1) * n // args.groups) / base, 2)})
+    return Result(f'İlk dilim lift {out[0]["lift"]}; ilk %{100 * 2 // args.groups} kayıtta olayların %{out[1]["kumulatif_kazanc_%"]}’i; KS {ks:.3f}', list(out[0]), out,
+                  {'kayit': n, 'dilim': len(out), 'ilk_dilim_lift': out[0]['lift'], 'ks': round(ks, 4), 'ilk_iki_dilim_kazanc_%': out[1]['kumulatif_kazanc_%']})

@@ -1,5 +1,7 @@
 """Veri ambarı tasarım ve depolama blokları: Redshift tablo tasarımı (dağıtım, sıralama, sıkıştırma) ve Snowflake depolama (Time Travel, Fail-safe, klon).
 Ambara bağlanmaz; sistem görünümlerinin dışa aktarımlarını okur. Fiyatlar parametredir."""
+from collections import Counter, defaultdict
+import tabular
 from islem import op, arg, Result, need, numbers, fmt
 
 TB = 1024 ** 4
@@ -76,3 +78,73 @@ def sf_storage(columns, rows, args):
                   {'tablo': len(out), 'toplam_tb': round(total / TB, 2), 'aylik_usd': round(total / TB * args.price, 2), 'gecmis_%': round(100 * hist / (total or 1), 1),
                    'sorunlu': sum(bool(o['bulgu']) for o in out)},
                   notes=['Fail-safe süresi kalıcı tablolarda 7 gündür ve kısaltılamaz; transient/temporary tablolarda Fail-safe yoktur.'])
+
+
+GB = 1024 ** 3
+
+
+@op('bigquery-tablo-tasarim', title='BigQuery tablo tasarımı: bölümleme, kümeleme ve bölüm filtresi', domain='warehouse', product='BigQuery', tag='partition/cluster',
+    samples={'bq_tablolar.csv': 'bq_tablolar.csv'}, args=[arg('--large-gb', type=float, default=10.0, help='Bu boyuttan büyük tablolar için bölümleme/kümeleme beklenir')],
+    description='INFORMATION_SCHEMA.TABLES ve TABLE_STORAGE dışa aktarımından büyük olup bölümlenmemiş, bölümlenmiş ama sorgularda bölüm filtresi zorunlu olmayan (tam tarama riski) ve kümeleme sütunu olmayan tabloları bulur; uzun süreli (long-term) depolama payını gösterir. Tarama maliyetini düşürecek tasarım değişikliklerini önceliklendirmek için.',
+    input='Tablo listesi (tablo, boyut, bölüm sütunu, kümeleme, require_partition_filter)', output='sonuc.csv (tablo bazında bulgular)', command='python main.py --input bq_tables.csv --large-gb 50',
+    expect={'tablo': 5, 'sorunlu': 3, 'bulgu': 5})
+def bq_design(columns, rows, args):
+    for c in ('table_name', 'total_logical_bytes', 'partitioning_column', 'clustering_columns'):
+        need(c, columns, 'tablo listesi')
+    total = numbers(rows, 'total_logical_bytes')
+    lt = numbers(rows, 'long_term_logical_bytes') if 'long_term_logical_bytes' in columns else [None] * len(rows)
+    out, count = [], 0
+    for r, t, l in zip(rows, total, lt):
+        gb = (t or 0) / GB
+        part, clus = r['partitioning_column'].strip(), r['clustering_columns'].strip()
+        req = r.get('require_partition_filter', '').strip().upper() in ('YES', 'TRUE')
+        issues = []
+        if gb > args.large_gb and not part:
+            issues.append('bölümleme yok: tarih/zaman sütunuyla PARTITION BY')
+        if part and not req:
+            issues.append('bölüm filtresi zorunlu değil: require_partition_filter = TRUE')
+        if gb > args.large_gb and not clus:
+            issues.append('kümeleme yok: sık filtrelenen sütunlarla CLUSTER BY')
+        count += len(issues)
+        out.append({'tablo': '.'.join(x for x in (r.get('table_schema', '').strip(), r['table_name'].strip()) if x), 'boyut_gb': round(gb, 1), 'bolum': part or '-', 'kume': clus or '-',
+                    'uzun_sureli_%': round(100 * (l or 0) / t, 1) if t else '', 'bulgular': '; '.join(issues)})
+    out.sort(key=lambda o: (-len(o['bulgular']), -o['boyut_gb']))
+    return Result(f'{len(out)} tablo; {sum(bool(o["bulgular"]) for o in out)} tabloda {count} tasarım bulgusu', list(out[0]), out,
+                  {'tablo': len(out), 'sorunlu': sum(bool(o['bulgular']) for o in out), 'bulgu': count})
+
+
+@op('kullanilmayan-tablolar', title='Sorgulanmayan ambar tablolarını erişim geçmişinden bul', domain='warehouse', product='Snowflake', tag='erişim geçmişi',
+    samples={'ambar_tablolari.csv': 'ambar_tablolari.csv', 'tablo_erisimleri.csv': 'tablo_erisimleri.csv'},
+    args=[arg('--access', default='@ornek/tablo_erisimleri.csv', help='Erişim geçmişi (tablo, kullanici, zaman)'), arg('--as-of', default='2026-10-16'), arg('--days', type=int, default=90)],
+    description='Tablo listesini (boyutuyla) ACCESS_HISTORY, INFORMATION_SCHEMA.JOBS veya denetim logundan çıkarılmış erişim kayıtlarıyla eşleştirir; belirtilen gün sayısında hiç okunmamış tabloları, son erişim tarihini, erişen kullanıcı sayısını ve kaldırılırsa kazanılacak depolamayı raporlar. Ambar temizliği ve depolama maliyeti için.',
+    input='Tablo listesi (tablo, boyut_gb) + erişim geçmişi', output='sonuc.csv (tablo bazında kullanım)', command='python main.py --input tables.csv --access access_history.csv --days 180',
+    expect={'tablo': 6, 'kullanilmayan': 3, 'kullanilmayan_gb': 460.0})
+def unused_tables(columns, rows, args):
+    need('tablo', columns, 'tablo listesi')
+    acols, arows = tabular.read(args.access)
+    for c in ('tablo', 'zaman'):
+        need(c, acols, '--access')
+    as_of = tabular.parse_date(args.as_of)[0]
+    last, users, hits = {}, defaultdict(set), Counter()
+    for a in arows:
+        d = tabular.parse_date(a['zaman'])
+        if not d:
+            continue
+        k = a['tablo'].strip().lower()
+        last[k] = max(last.get(k, d[0]), d[0])
+        if (as_of - d[0]).days <= args.days:
+            hits[k] += 1
+            users[k].add(a.get('kullanici', '').strip().lower())
+    sizes = numbers(rows, 'boyut_gb') if 'boyut_gb' in columns else [None] * len(rows)
+    out = []
+    for r, s in zip(rows, sizes):
+        k = r['tablo'].strip().lower()
+        idle = (as_of - last[k]).days if k in last else None
+        unused = idle is None or idle > args.days
+        out.append({'tablo': r['tablo'], 'boyut_gb': fmt(s), 'son_erisim': last[k].strftime('%Y-%m-%d') if k in last else 'hiç', 'gun_once': idle if idle is not None else '',
+                    f'erisim_{args.days}g': hits[k], 'kullanici': len(users[k]), 'durum': 'KULLANILMIYOR' if unused else 'kullanılıyor'})
+    out.sort(key=lambda o: (o['durum'] != 'KULLANILMIYOR', -(float(o['boyut_gb'] or 0))))
+    unused_gb = sum(float(o['boyut_gb'] or 0) for o in out if o['durum'] == 'KULLANILMIYOR')
+    return Result(f'{len(out)} tablo; {sum(o["durum"] == "KULLANILMIYOR" for o in out)} tablo {args.days} gündür okunmuyor ({unused_gb:,.1f} GB)', list(out[0]), out,
+                  {'tablo': len(out), 'kullanilmayan': sum(o['durum'] == 'KULLANILMIYOR' for o in out), 'kullanilmayan_gb': round(unused_gb, 2)},
+                  notes=['Erişim geçmişi yalnız sorgu okumalarını gösterir; yükleme işlerinin yazdığı ama kimsenin okumadığı tablolar da burada kullanılmıyor görünür. Silmeden önce sahibine sorun ve yedekleyin.'])

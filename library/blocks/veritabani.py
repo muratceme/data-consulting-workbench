@@ -338,3 +338,89 @@ def deadlock(args):
                   {'deadlock': len(graphs), 'surec': len(out), 'kurban': sum(o['kurban'] == 'EVET' for o in out), 'en_sik_nesne': top},
                   tables=[('Deadlock’a karışan nesneler', ['Nesne', 'Deadlock'], objects.most_common())],
                   notes=['Kalıcı çözüm genelde nesnelere aynı sırada erişmek, işlemi kısaltmak ve bekleyen sorguya uygun indeks eklemektir; READ COMMITTED SNAPSHOT okuma–yazma çakışmalarını azaltır.'])
+
+
+def bracket_cols(v):
+    return [c.strip().strip('[]') for c in (v or '').split(',') if c.strip()]
+
+
+@op('eksik-indeks-onerisi', title='SQL Server eksik indeks DMV’sinden CREATE INDEX önerileri', domain='database', product=SS, tag='eksik indeks', samples={'eksik_indeksler.csv': 'eksik_indeksler.csv'},
+    args=[arg('--min-score', type=float, default=1000.0, help='Bu iyileştirme puanının altındaki önerileri “düşük etki” say')],
+    description='sys.dm_db_missing_index_details/group_stats dışa aktarımından her öneri için iyileştirme puanını (ortalama maliyet × etki % × arama sayısı) hesaplar, eşitlik ve eşitsizlik sütunlarıyla INCLUDE’u doğru sırada içeren CREATE INDEX komutunu yazar; aynı tablodaki önerilerden anahtarı diğerinin önekiyle aynı olanları birleştirilebilir diye işaretler. DMV önerilerini körü körüne uygulamadan önce elemek için.',
+    input='Eksik indeks DMV dışa aktarımı (tablo, equality/inequality/included, seeks, maliyet, etki)', output='sonuc.csv (puanlı öneriler) + eksik_indeksler.sql', command='python main.py --input missing_idx.csv --min-score 5000',
+    expect={'oneri': 5, 'onerilen': 4, 'birlestirilebilir': 1})
+def missing_index(columns, rows, args):
+    for c in ('tablo', 'equality_columns', 'inequality_columns', 'included_columns', 'user_seeks', 'avg_total_user_cost', 'avg_user_impact'):
+        need(c, columns, 'eksik indeks listesi')
+    seeks, cost, impact = numbers(rows, 'user_seeks'), numbers(rows, 'avg_total_user_cost'), numbers(rows, 'avg_user_impact')
+    items = []
+    for r, s, c, i in zip(rows, seeks, cost, impact):
+        eq, ineq, inc = bracket_cols(r['equality_columns']), bracket_cols(r['inequality_columns']), bracket_cols(r['included_columns'])
+        table = r['tablo'].strip()
+        short = table.split('.')[-1].strip('[]')
+        name = 'IX_' + short + '_' + '_'.join(eq + ineq)
+        sql = f'CREATE INDEX [{name}] ON {table} ({", ".join(f"[{x}]" for x in eq + ineq)})' + (f' INCLUDE ({", ".join(f"[{x}]" for x in inc)})' if inc else '') + ';'
+        items.append({'tablo': table, 'anahtar': ', '.join(eq + ineq), 'include': ', '.join(inc), 'puan': round((s or 0) * (c or 0) * (i or 0) / 100, 1), 'sql': sql, '_key': eq + ineq})
+    for a in items:
+        a['not'] = ''
+        if a['puan'] < args.min_score:
+            a['not'] = 'düşük etki'
+        for b in items:
+            if a is not b and a['tablo'] == b['tablo'] and len(a['_key']) < len(b['_key']) and b['_key'][:len(a['_key'])] == a['_key']:
+                a['not'] = (a['not'] + '; ' if a['not'] else '') + f'birleştirilebilir: {b["anahtar"]} önerisinin öneki'
+    items.sort(key=lambda o: -o['puan'])
+    for o in items:
+        o.pop('_key')
+    good = [o for o in items if 'düşük etki' not in o['not'] and 'birleştirilebilir' not in o['not']]
+    return Result(f'{len(items)} öneri; {sum("düşük etki" not in o["not"] for o in items)} öneri eşik üstünde, {sum("birleştirilebilir" in o["not"] for o in items)} birleştirilebilir', list(items[0]), items,
+                  {'oneri': len(items), 'onerilen': sum('düşük etki' not in o['not'] for o in items), 'birlestirilebilir': sum('birleştirilebilir' in o['not'] for o in items)},
+                  files={'eksik_indeksler.sql': '-- Uygulamadan önce mevcut indekslerle örtüşmeyi ve yazma yükünü kontrol edin.\n' + '\n'.join(o['sql'] for o in good) + '\n'},
+                  notes=['DMV önerileri sunucu yeniden başlayınca sıfırlanır ve mevcut indeksleri dikkate almaz; indeks-kullanim-analizi bloğuyla birlikte değerlendirin.'])
+
+
+def pids(v):
+    return [int(x) for x in re.findall(r'\d+', v or '')]
+
+
+@op('pg-kilit-agaci', title='PostgreSQL kilit bekleme ağacı ve kök engelleyiciler', domain='database', product=PG, tag='kilit', samples={'pg_aktivite.csv': 'pg_aktivite.csv'},
+    description='pg_stat_activity ve pg_blocking_pids() çıktısından kim kimi bekletiyor ağacını kurar; zincirin başındaki kök engelleyicileri, her birinin dolaylı olarak beklettiği oturum sayısını ve “idle in transaction” durumunda kilit tutan oturumları işaretler; gerekirse sonlandırma komutunu yazar. Kilit kaynaklı yavaşlamada ilk müdahale için.',
+    input='Oturum listesi (pid, usename, state, blocked_by, query)', output='sonuc.csv (kök engelleyiciler) + ağaç', command='python main.py --input pg_locks_snapshot.csv',
+    expect={'oturum': 7, 'bekleyen': 4, 'kok_engelleyici': 2, 'idle_in_tx_kok': 1})
+def lock_tree(columns, rows, args):
+    for c in ('pid', 'blocked_by'):
+        need(c, columns, 'oturum listesi')
+    info = {int(r['pid']): r for r in rows if r['pid'].strip().isdigit()}
+    blockers = {p: pids(r['blocked_by']) for p, r in info.items()}
+    children = defaultdict(list)
+    for p, bs in blockers.items():
+        for b in bs:
+            children[b].append(p)
+    waiting = [p for p, bs in blockers.items() if bs]
+    roots = sorted(p for p in children if not blockers.get(p))
+
+    def below(p, seen=None):
+        seen = seen if seen is not None else set()
+        for c in children[p]:
+            if c not in seen:
+                seen.add(c)
+                below(c, seen)
+        return seen
+    tree = []
+
+    def draw(p, depth):
+        r = info.get(p, {})
+        tree.append(['  ' * depth + str(p), r.get('usename', ''), r.get('state', ''), (r.get('query', '') or '')[:80]])
+        for c in sorted(children[p]):
+            draw(c, depth + 1)
+    out = []
+    for p in roots:
+        r = info.get(p, {})
+        idle = 'idle in transaction' in (r.get('state', '') or '').lower()
+        out.append({'pid': p, 'kullanici': r.get('usename', ''), 'durum': r.get('state', ''), 'bekletilen': len(below(p)), 'sorgu': (r.get('query', '') or '')[:200],
+                    'oneri': f'SELECT pg_terminate_backend({p});  -- işlem açık bırakılmış' if idle else 'sorgunun bitmesini bekleyin veya pg_cancel_backend ile iptal edin'})
+        draw(p, 0)
+    out.sort(key=lambda o: -o['bekletilen'])
+    return Result(f'{len(info)} oturum; {len(waiting)} oturum bekliyor, {len(roots)} kök engelleyici', ['pid', 'kullanici', 'durum', 'bekletilen', 'sorgu', 'oneri'], out,
+                  {'oturum': len(info), 'bekleyen': len(waiting), 'kok_engelleyici': len(roots), 'idle_in_tx_kok': sum('idle in transaction' in o['durum'].lower() for o in out)},
+                  tables=[('Bekleme ağacı', ['PID', 'Kullanıcı', 'Durum', 'Sorgu'], tree)],
+                  notes=['Anlık görüntüdür; birkaç saniye arayla iki kez alıp aynı kök engelleyicinin sürdüğünü doğrulayın. idle_in_transaction_session_timeout ayarını değerlendirin.'])

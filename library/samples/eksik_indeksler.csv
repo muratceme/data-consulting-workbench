@@ -1,0 +1,6 @@
+tablo;equality_columns;inequality_columns;included_columns;user_seeks;avg_total_user_cost;avg_user_impact
+[Satis].[dbo].[Siparis];[MusteriId];[Tarih];[Tutar];5000;12,5;90
+[Satis].[dbo].[Siparis];[MusteriId];;[Durum];800;10;70
+[Satis].[dbo].[Stok];[UrunId], [DepoId];;;20000;1,2;95
+[Satis].[dbo].[Log];;[Zaman];[Mesaj];3;50;99
+[Satis].[dbo].[Fatura];[SiparisId];;;1200;4;85
