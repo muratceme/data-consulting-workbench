@@ -229,6 +229,11 @@ LOCAL = [
          description='Load script’ten alan ve değişken adlarını yerelde çıkarır; model istenen ölçüleri Qlik grafik ifadesi olarak (set analizi, TOTAL, Aggr) yazar. Parantez/tırnak dengesi, script’te olmayan alan, Qlik’te olmayan fonksiyon ve tanımsız $(değişken) kodla reddedilir; geçen ifadeler qlik-cli ile yüklenecek ana ölçü dosyasına yazılır. Script metni gönderilmez.',
          input='Load script (.qvs) + istenen ölçüler; yalnızca alan ve değişken adları gönderilir', output='measures.json + ifadeler.md + alanlar.csv',
          command='python main.py --input uygulama.qvs --request "Bu yılın cirosu, geçen yılın aynı dönemi ve bölge payı"'),
+    dict(id='tableau-hesap-yazari', kind='agent', domain='bi', product='Tableau Desktop', title='Veri kaynağındaki alanlarla doğrulanmış Tableau hesaplanmış alanları yazan agent',
+         main='agents/tableau_hesap_yazari.py', modules=['common', 'tabular', 'llm'], samples={'satis_raporu.twb': 'satis_raporu.twb'},
+         description='Çalışma kitabının (.twb/.twbx) veri kaynağındaki alanları yerelde okur; model istenen ölçüleri hesaplanmış alan olarak (IF/CASE, tarih fonksiyonları, FIXED/INCLUDE/EXCLUDE LOD) yazar. Parantez ve IF…END dengesi, veri kaynağında olmayan alan, Tableau’da olmayan fonksiyon ve toplanmış/toplanmamış ifade karışımı kodla reddedilir; geçen alanlar iç adlara çevrilip çalışma kitabına eklenir.',
+         input='.twb/.twbx + istenen hesaplar; yalnızca alan adları gönderilir', output='hesapli.twb + hesaplanan-alanlar.md + alanlar.csv',
+         command='python main.py --input pano.twbx --request "Bu yılın cirosu, geçen yılın aynı dönemi ve kategori payı"'),
 ]
 
 # Single-purpose blocks registered with islem.op in category modules (library/blocks/*.py).

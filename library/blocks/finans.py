@@ -679,3 +679,139 @@ def nakit(columns, rows, args):
     neg = sum(bool(o['uyari']) for o in out)
     return Result(f'{len(out)} dönem; kapanış bakiyesi {tr_money(bal)}; {neg} dönemde bakiye eksi', list(out[0]), out,
                   {'donem': len(out), 'kapanis': round(bal, 2), 'eksi_donem': neg, 'en_dusuk': round(min(o['kapanis'] for o in out), 2)})
+
+
+# ---------------------------------------------------------------- e-fatura üretimi
+UNIT = {'adet': 'C62', 'ad': 'C62', 'kg': 'KGM', 'kilogram': 'KGM', 'g': 'GRM', 'ton': 'TNE', 'lt': 'LTR', 'litre': 'LTR', 'm': 'MTR', 'metre': 'MTR',
+        'm2': 'MTK', 'm3': 'MTQ', 'saat': 'HUR', 'gün': 'DAY', 'ay': 'MON', 'yıl': 'ANN', 'paket': 'PA', 'kutu': 'BX', 'set': 'SET', 'çift': 'PR'}
+
+
+def _money(x):
+    from decimal import Decimal, ROUND_HALF_UP
+    return Decimal(str(x)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+
+def _party(no, name, tax_office, city, district, country='Türkiye'):
+    from xml.sax.saxutils import escape as e
+    scheme = 'TCKN' if len(no) == 11 else 'VKN'
+    person = ''
+    if scheme == 'TCKN':
+        first, _, last = name.rpartition(' ')
+        person = f'<cac:Person><cbc:FirstName>{e(first or name)}</cbc:FirstName><cbc:FamilyName>{e(last if first else name)}</cbc:FamilyName></cac:Person>'
+    return (f'<cac:Party><cac:PartyIdentification><cbc:ID schemeID="{scheme}">{no}</cbc:ID></cac:PartyIdentification>'
+            + (f'<cac:PartyName><cbc:Name>{e(name)}</cbc:Name></cac:PartyName>' if scheme == 'VKN' else '')
+            + f'<cac:PostalAddress><cbc:CitySubdivisionName>{e(district or city)}</cbc:CitySubdivisionName><cbc:CityName>{e(city)}</cbc:CityName>'
+              f'<cac:Country><cbc:Name>{e(country)}</cbc:Name></cac:Country></cac:PostalAddress>'
+            + (f'<cac:PartyTaxScheme><cac:TaxScheme><cbc:Name>{e(tax_office)}</cbc:Name></cac:TaxScheme></cac:PartyTaxScheme>' if tax_office else '')
+            + person + '</cac:Party>')
+
+
+@op('efatura-uret', title='Fatura satırlarından UBL-TR e-Fatura / e-Arşiv XML’i üret (tutarlar ve şema yapısı denetlenir)', domain=D, product=P, tag='e-fatura üret',
+    samples={'fatura_satirlari.csv': 'fatura_satirlari.csv'},
+    args=[arg('--seller-no', default='4540536920', help='Satıcı VKN (10) veya TCKN (11)'), arg('--seller-name', default='Örnek Satıcı A.Ş.'),
+          arg('--seller-tax-office', default='Büyük Mükellefler'), arg('--seller-city', default='İstanbul'), arg('--seller-district', default='Şişli'),
+          arg('--prefix', default='ABC', help='Fatura no öneki (3 karakter)'), arg('--start', type=int, default=1, help='İlk sıra numarası'),
+          arg('--profile', default='TICARIFATURA', choices=['TEMELFATURA', 'TICARIFATURA', 'EARSIVFATURA']), arg('--currency', default='TRY')],
+    description='Fatura satırı tablosundan (alıcı, ürün, miktar, birim, birim fiyat, KDV oranı, iskonto) her fatura için UBL-TR 1.2 XML’i yazar: GİB biçiminde 16 haneli fatura '
+                'numarası, UUID, satıcı/alıcı (VKN için unvan ve vergi dairesi, TCKN için ad soyad), satır iskontosu, KDV oranı bazında vergi alt toplamları ve yasal toplamlar. '
+                'Tutarlar kuruşa yuvarlanır; VKN/TCKN kontrol hanesi denetlenir; üretilen XML geri okunup satır, KDV ve ödenecek tutar yeniden hesaplanarak karşılaştırılır.',
+    input='CSV/XLSX (fatura satırları)', output='efatura/<FaturaNo>.xml + sonuc.csv (fatura özeti)',
+    command='python main.py --input satislar.csv --seller-no 1234567890 --seller-name "Firma A.Ş." --prefix FRM --start 1001 --profile EARSIVFATURA',
+    expect={'fatura': 3, 'satir_sayisi': 7, 'odenecek_toplam': 97932.36, 'hatali_kimlik': 0})
+def efatura_uret(columns, rows, args):
+    import uuid
+    from xml.sax.saxutils import escape as e
+    from decimal import Decimal
+    if not re.fullmatch(r'[A-Z0-9]{3}', args.prefix):
+        raise ValueError('--prefix 3 büyük harf/rakam olmalı (ör. ABC).')
+    err = tr.vkn(args.seller_no) if len(tr.digits(args.seller_no)) == 10 else tr.tckn(args.seller_no)
+    if err:
+        raise ValueError(f'Satıcı numarası geçersiz: {err}')
+    for c in ('tarih', 'alici_no', 'alici_unvan', 'urun', 'miktar', 'birim_fiyat', 'kdv_orani'):
+        need(c, columns, c)
+    style = {c: tabular.number_style([r[c] for r in rows if r.get(c, '').strip()]) for c in ('miktar', 'birim_fiyat', 'kdv_orani', 'iskonto_orani') if c in columns}
+    num = lambda r, c: tabular.parse_number(r[c], style[c]) if c in columns and r[c].strip() else None
+    groups = defaultdict(list)
+    for r in rows:
+        key = r.get('fatura_no', '').strip() or f"{r['tarih'].strip()}|{r['alici_no'].strip()}"
+        groups[key].append(r)
+    files, heads, bad_ids, seq = {}, [], 0, args.start
+    cur = args.currency
+    amt = lambda tag, v: f'<cbc:{tag} currencyID="{cur}">{v}</cbc:{tag}>'
+    for key, lines in groups.items():
+        first = lines[0]
+        d = tabular.parse_date(first['tarih'])
+        if not d:
+            raise ValueError(f'{key}: tarih okunamadı ({first["tarih"]}).')
+        issue = d[0].date()
+        inv_id = f'{args.prefix}{issue.year}{seq:09d}'
+        seq += 1
+        buyer = tr.digits(first['alici_no'])
+        problem = (tr.vkn(buyer) if len(buyer) == 10 else tr.tckn(buyer) if len(buyer) == 11 else '10 veya 11 hane değil')
+        if problem:
+            bad_ids += 1
+        line_xml, subtotals, line_total, allowance_total = [], defaultdict(lambda: [Decimal(0), Decimal(0)]), Decimal(0), Decimal(0)
+        for i, r in enumerate(lines, 1):
+            qty, price, rate = num(r, 'miktar'), num(r, 'birim_fiyat'), num(r, 'kdv_orani')
+            if qty is None or price is None or rate is None:
+                raise ValueError(f'{key} satır {i}: miktar, birim_fiyat ve kdv_orani sayı olmalı.')
+            gross = _money(Decimal(str(qty)) * Decimal(str(price)))
+            disc_rate = num(r, 'iskonto_orani') or 0
+            disc = _money(gross * Decimal(str(disc_rate)) / 100)
+            net = gross - disc
+            tax = _money(net * Decimal(str(rate)) / 100)
+            line_total += net
+            allowance_total += disc
+            subtotals[rate][0] += net
+            subtotals[rate][1] += tax
+            unit = UNIT.get(r.get('birim', 'adet').strip().lower() or 'adet')
+            if not unit:
+                raise ValueError(f'{key} satır {i}: bilinmeyen birim “{r["birim"]}” (adet, kg, lt, m, m2, saat, gün, paket…).')
+            allowance = (f'<cac:AllowanceCharge><cbc:ChargeIndicator>false</cbc:ChargeIndicator><cbc:MultiplierFactorNumeric>{Decimal(str(disc_rate)) / 100}</cbc:MultiplierFactorNumeric>'
+                         f'{amt("Amount", disc)}{amt("BaseAmount", gross)}</cac:AllowanceCharge>') if disc else ''
+            line_xml.append(f'<cac:InvoiceLine><cbc:ID>{i}</cbc:ID><cbc:InvoicedQuantity unitCode="{unit}">{qty:g}</cbc:InvoicedQuantity>{amt("LineExtensionAmount", net)}'
+                            f'{allowance}<cac:TaxTotal>{amt("TaxAmount", tax)}<cac:TaxSubtotal>{amt("TaxableAmount", net)}{amt("TaxAmount", tax)}<cbc:Percent>{rate:g}</cbc:Percent>'
+                            '<cac:TaxCategory><cac:TaxScheme><cbc:Name>KDV</cbc:Name><cbc:TaxTypeCode>0015</cbc:TaxTypeCode></cac:TaxScheme></cac:TaxCategory></cac:TaxSubtotal></cac:TaxTotal>'
+                            f'<cac:Item><cbc:Name>{e(r["urun"].strip())}</cbc:Name></cac:Item><cac:Price>{amt("PriceAmount", _money(price))}</cac:Price></cac:InvoiceLine>')
+        tax_total = sum((v[1] for v in subtotals.values()), Decimal(0))
+        sub_xml = ''.join(f'<cac:TaxSubtotal>{amt("TaxableAmount", b)}{amt("TaxAmount", t)}<cbc:Percent>{rt:g}</cbc:Percent><cac:TaxCategory><cac:TaxScheme>'
+                          '<cbc:Name>KDV</cbc:Name><cbc:TaxTypeCode>0015</cbc:TaxTypeCode></cac:TaxScheme></cac:TaxCategory></cac:TaxSubtotal>' for rt, (b, t) in sorted(subtotals.items()))
+        inv_uuid = str(uuid.uuid5(uuid.NAMESPACE_URL, f'efatura/{args.seller_no}/{inv_id}')).upper()
+        seller_scheme = 'TCKN' if len(tr.digits(args.seller_no)) == 11 else 'VKN'
+        profile = args.profile if len(buyer) == 10 or args.profile == 'EARSIVFATURA' else 'EARSIVFATURA'
+        xml = ('<?xml version="1.0" encoding="UTF-8"?>\n<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2" '
+               'xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2" xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2" '
+               'xmlns:ext="urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2">'
+               '<ext:UBLExtensions><ext:UBLExtension><ext:ExtensionContent><imza:ImzaBekleniyor xmlns:imza="urn:agency-codeblocks:imza"/></ext:ExtensionContent>'
+               '</ext:UBLExtension></ext:UBLExtensions>'  # placeholder; the signing software puts ds:Signature here
+               f'<cbc:UBLVersionID>2.1</cbc:UBLVersionID><cbc:CustomizationID>TR1.2</cbc:CustomizationID><cbc:ProfileID>{profile}</cbc:ProfileID><cbc:ID>{inv_id}</cbc:ID>'
+               f'<cbc:CopyIndicator>false</cbc:CopyIndicator><cbc:UUID>{inv_uuid}</cbc:UUID><cbc:IssueDate>{issue.isoformat()}</cbc:IssueDate>'
+               f'<cbc:InvoiceTypeCode>SATIS</cbc:InvoiceTypeCode><cbc:DocumentCurrencyCode>{cur}</cbc:DocumentCurrencyCode><cbc:LineCountNumeric>{len(lines)}</cbc:LineCountNumeric>'
+               f'<cac:Signature><cbc:ID schemeID="VKN_TCKN">{args.seller_no}</cbc:ID><cac:SignatoryParty><cac:PartyIdentification><cbc:ID schemeID="{seller_scheme}">{args.seller_no}</cbc:ID>'
+               f'</cac:PartyIdentification><cac:PostalAddress><cbc:CitySubdivisionName>{e(args.seller_district)}</cbc:CitySubdivisionName><cbc:CityName>{e(args.seller_city)}</cbc:CityName><cac:Country><cbc:Name>Türkiye</cbc:Name></cac:Country></cac:PostalAddress>'
+               f'</cac:SignatoryParty><cac:DigitalSignatureAttachment><cac:ExternalReference><cbc:URI>#Signature_{inv_id}</cbc:URI></cac:ExternalReference></cac:DigitalSignatureAttachment></cac:Signature>'
+               f'<cac:AccountingSupplierParty>{_party(args.seller_no, args.seller_name, args.seller_tax_office, args.seller_city, args.seller_district)}</cac:AccountingSupplierParty>'
+               f'<cac:AccountingCustomerParty>{_party(buyer, first["alici_unvan"].strip(), first.get("alici_vergi_dairesi", "").strip(), first.get("alici_il", "").strip() or "-", first.get("alici_ilce", "").strip())}</cac:AccountingCustomerParty>'
+               f'<cac:TaxTotal>{amt("TaxAmount", tax_total)}{sub_xml}</cac:TaxTotal>'
+               f'<cac:LegalMonetaryTotal>{amt("LineExtensionAmount", line_total)}{amt("TaxExclusiveAmount", line_total)}{amt("TaxInclusiveAmount", line_total + tax_total)}'
+               + (amt('AllowanceTotalAmount', allowance_total) if allowance_total else '') + f'{amt("PayableAmount", line_total + tax_total)}</cac:LegalMonetaryTotal>'
+               + ''.join(line_xml) + '</Invoice>\n')
+        # read the XML back and recompute, as the efatura-csv block would
+        root = ET.fromstring(xml.encode('utf-8'))
+        val = lambda path, node=root: Decimal(node.findtext(path, namespaces=UBL))
+        back_lines = sum((val('cbc:LineExtensionAmount', ln) for ln in root.findall('cac:InvoiceLine', UBL)), Decimal(0))
+        back_tax = sum((val('cac:TaxTotal/cbc:TaxAmount', ln) for ln in root.findall('cac:InvoiceLine', UBL)), Decimal(0))
+        if back_lines != val('cac:LegalMonetaryTotal/cbc:LineExtensionAmount') or back_tax != val('cac:TaxTotal/cbc:TaxAmount') \
+                or val('cac:LegalMonetaryTotal/cbc:PayableAmount') != back_lines + back_tax:
+            raise ValueError(f'{inv_id}: geri okunan tutarlar tutmuyor (iç hata).')
+        files[f'efatura/{inv_id}.xml'] = xml
+        heads.append({'fatura_no': inv_id, 'kaynak_anahtar': key, 'tarih': issue.isoformat(), 'profil': profile, 'alici_no': buyer, 'alici': first['alici_unvan'].strip(),
+                      'satir': len(lines), 'mal_hizmet': float(line_total), 'iskonto': float(allowance_total), 'kdv': float(tax_total), 'odenecek': float(line_total + tax_total),
+                      'kontrol': f'alıcı numarası geçersiz ({problem})' if problem else 'tutarlı'})
+    total = round(sum(h['odenecek'] for h in heads), 2)
+    return Result(f'{len(heads)} fatura XML’i ({sum(h["satir"] for h in heads)} satır), ödenecek toplam {tr_money(total)}', list(heads[0]), heads,
+                  {'fatura': len(heads), 'satir_sayisi': sum(h['satir'] for h in heads), 'odenecek_toplam': total, 'hatali_kimlik': bad_ids}, files=files,
+                  notes=['XML’ler imzasızdır: mali mühür/e-imza ve GİB’e gönderim özel entegratör veya GİB portalı üzerinden yapılır; UBLExtensions içindeki yer tutucu imzayla değiştirilir.',
+                         'Örnek çıktılar geliştirme sırasında GİB UBL-TR 1.2.1 XSD’sinden ve GİB e-Fatura/e-Arşiv Schematron kurallarından hatasız geçti; imzalı gönderim test edilmedi.',
+                         'Bireysel (TCKN) alıcılara kesilen faturalar e-Arşiv profiliyle yazılır. İade, istisna, tevkifat ve ÖTV’li faturalar desteklenmez.',
+                         'Fatura numaraları --start’tan sıralı verilir; aynı yıl içinde daha önce kullanılmış numarayı vermeyin.'])

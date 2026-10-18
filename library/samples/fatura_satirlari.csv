@@ -1,0 +1,8 @@
+fatura_no;tarih;alici_no;alici_unvan;alici_vergi_dairesi;alici_il;alici_ilce;urun;miktar;birim;birim_fiyat;kdv_orani;iskonto_orani
+F1;2026-09-15;1234567890;Örnek Alıcı Ltd. Şti.;Kadıköy;İstanbul;Kadıköy;Dizüstü Bilgisayar;2;adet;32.500,00;20;5
+F1;2026-09-15;1234567890;Örnek Alıcı Ltd. Şti.;Kadıköy;İstanbul;Kadıköy;Kablosuz Fare;5;adet;420,00;20;
+F1;2026-09-15;1234567890;Örnek Alıcı Ltd. Şti.;Kadıköy;İstanbul;Kadıköy;Teknik Kitap;3;adet;250,00;10;
+F2;2026-09-16;9876543217;Deniz Gıda A.Ş.;Konak;İzmir;Konak;Un;150;kg;18,40;1;
+F2;2026-09-16;9876543217;Deniz Gıda A.Ş.;Konak;İzmir;Konak;Danışmanlık Hizmeti;8;saat;1.750,00;20;10
+F3;2026-09-17;12345678950;Ayşe Yılmaz;;Ankara;Çankaya;Kulaklık;1;adet;1.850,00;20;
+F3;2026-09-17;12345678950;Ayşe Yılmaz;;Ankara;Çankaya;Kılıf;2;adet;149,90;20;

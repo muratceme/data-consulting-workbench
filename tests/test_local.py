@@ -59,8 +59,8 @@ class LocalTestCase(unittest.TestCase):
 
 class PackageShape(LocalTestCase):
     def test_every_local_package_is_self_contained_and_has_no_network_code(self):
-        self.assertEqual(len([i for i in LOCAL if not i.get('op')]), 44)
-        self.assertEqual(sum(i['kind'] == 'agent' for i in LOCAL), 32)
+        self.assertEqual(len([i for i in LOCAL if not i.get('op')]), 45)
+        self.assertEqual(sum(i['kind'] == 'agent' for i in LOCAL), 33)
         self.assertEqual(len({i['id'] for i in LOCAL}), len(LOCAL))
         for item in LOCAL:
             names = local_package.files(item)
@@ -547,6 +547,25 @@ class SinglePurposeBlocks(LocalTestCase):
         self.assertIn('hard_deletes: invalidate', yml)
         self.assertIn('updated_at: guncelleme', yml)
 
+    def test_efatura_generator_round_trips_through_the_reader(self):
+        import xml.etree.ElementTree as ET
+        p = self.package('efatura-uret')
+        self.ok(p.run('--prefix', 'FRM', '--start', '1001'))
+        files = sorted(p.out('efatura').glob('*.xml'))
+        self.assertEqual([f.stem for f in files], ['FRM2026000001001', 'FRM2026000001002', 'FRM2026000001003'])
+        ns = {'cbc': 'urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2', 'cac': 'urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2'}
+        first = ET.parse(files[0]).getroot()
+        self.assertEqual(first.find('cac:LegalMonetaryTotal/cbc:AllowanceTotalAmount', ns).text, '3250.00')  # 5% off 2 × 32.500
+        self.assertEqual(first.find('cac:LegalMonetaryTotal/cbc:PayableAmount', ns).text, '77445.00')
+        self.assertEqual([s.find('cbc:Percent', ns).text for s in first.findall('cac:TaxTotal/cac:TaxSubtotal', ns)], ['10', '20'])
+        person = ET.parse(files[2]).getroot()
+        self.assertEqual(person.find('cbc:ProfileID', ns).text, 'EARSIVFATURA')  # TCKN buyer
+        self.assertEqual(person.find('cac:AccountingCustomerParty/cac:Party/cac:Person/cbc:FamilyName', ns).text, 'Yılmaz')
+        reader = self.package('efatura-csv')
+        self.ok(reader.run('--input', str(p.out('efatura'))))
+        self.assertEqual({r['kontrol'] for r in reader.csv('sonuc.csv')}, {'tutarlı'})
+        self.assertEqual(sum(float(r['odenecek']) for r in reader.csv('sonuc.csv')), 97932.36)
+
     def test_sql_formatter_never_turns_code_into_a_comment(self):
         p = self.package('sql-bicimlendir')
         (p.dir / 'x.sql').write_text("SELECT a -- not\nFROM t WHERE b = 'x -- y'; /* c */ DELETE FROM u WHERE id = 1", encoding='utf-8')
@@ -729,6 +748,8 @@ GOOD['sube-planlayici'] = {'ozet': 'En büyük iki kapsama dışı küme için �
 GOOD['rapor-tasarimcisi'] = {'baslik': 'Bölge Satış Raporu', 'olculer': [{'sutun': 'tutar', 'toplama': 'toplam'}, {'sutun': 'adet', 'toplama': 'toplam'}], 'boyutlar': ['bolge', 'kanal'], 'tarih': 'siparis_tarihi', 'araclar': ['qlik', 'powerbi'], 'gerekce': 'Ciro tutar sütunundan; sipariş adedi için farklı sipariş sayısı eklenir.', 'sorular': ['Ciro KDV dahil mi?']}
 GOOD['qlik-ifade-yazari'] = {'ifadeler': [{'ad': 'Ciro YTD', 'ifade': 'Sum({<[Yil]=, [Tarih]={">=$(=Date(YearStart(Max([Tarih]))))<=$(=Date(Max([Tarih])))"}>} [Tutar])', 'aciklama': 'Yıl başından son tarihe ciro.'}, {'ad': 'Ciro GY YTD', 'ifade': 'Sum({<[Yil]=, [Tarih]={">=$(=Date(AddYears(YearStart(Max([Tarih])), -1)))<=$(=Date(AddYears(Max([Tarih]), -1)))"}>} [Tutar])', 'aciklama': 'Geçen yılın aynı dönemi.'}, {'ad': 'Sipariş Başına Ciro', 'ifade': 'Sum([Tutar]) / Count(DISTINCT [SiparisNo])', 'aciklama': ''}, {'ad': 'Kategori Payı', 'ifade': 'Sum([Tutar]) / Sum({<[Kategori]=>} TOTAL [Tutar])', 'aciklama': 'Seçili kategorinin tüm kategoriler içindeki payı.'}, {'ad': '3+ Siparişli Müşteri', 'ifade': 'Count({<[MusteriNo]={"=Count(DISTINCT [SiparisNo])>=3"}>} DISTINCT [MusteriNo])', 'aciklama': ''}], 'varsayimlar': ['Tarih alanı tarih (dual) olarak yükleniyor.']}
 OUTPUTS['qlik-ifade-yazari'] = 'ifadeler.md'
+GOOD['tableau-hesap-yazari'] = {'alanlar': [{'ad': 'Son Tarih', 'formul': '{FIXED : MAX([Siparis Tarihi])}', 'tip': 'date', 'rol': 'dimension', 'aciklama': 'Verideki son sipariş tarihi.'}, {'ad': 'Ciro YTD', 'formul': "SUM(IF [Siparis Tarihi] >= DATETRUNC('year', [Son Tarih]) AND [Siparis Tarihi] <= [Son Tarih] THEN [Tutar] END)", 'tip': 'real', 'rol': 'measure', 'aciklama': 'Yıl başından son tarihe.'}, {'ad': 'Ciro GY YTD', 'formul': "SUM(IF [Siparis Tarihi] >= DATEADD('year', -1, DATETRUNC('year', [Son Tarih])) AND [Siparis Tarihi] <= DATEADD('year', -1, [Son Tarih]) THEN [Tutar] END)", 'tip': 'real', 'rol': 'measure', 'aciklama': 'Geçen yılın aynı dönemi.'}, {'ad': 'Sipariş Başına Ciro', 'formul': 'SUM([Tutar]) / COUNTD([Siparis No])', 'tip': 'real', 'rol': 'measure', 'aciklama': ''}, {'ad': 'Bölge Payı', 'formul': 'SUM({FIXED [Bolge] : SUM([Tutar])}) / SUM({FIXED : SUM([Tutar])})', 'tip': 'real', 'rol': 'measure', 'aciklama': ''}], 'varsayimlar': ['Ciro, Tutar alanının toplamıdır.']}
+OUTPUTS['tableau-hesap-yazari'] = 'hesaplanan-alanlar.md'
 OUTPUTS.update({'deney-analisti': 'deney-raporu.md', 'sube-planlayici': 'sube-plani.md', 'rapor-tasarimcisi': 'tasarim.md'})
 OUTPUTS.update({'veri-sozlesmesi-yazari': 'veri_sozlesmesi.json', 'butce-sapma-yorumu': 'butce-yorumu.md', 'hesap-plani-esleyici': 'hesap-eslemesi.csv',
                 'json-esleme-yazari': 'duz_tablo.csv', 'bolumleme-danismani': 'bolumleme.md'})
@@ -953,6 +974,21 @@ class Agents(LocalTestCase):
         self.assertNotIn('SatisDB.dbo', sent)  # only field and variable names leave the machine
         self.assertEqual([m['qMeasure']['qLabel'] for m in p.json('measures.json')][:2], ['Ciro YTD', 'Ciro GY YTD'])
 
+    def test_tableau_calculation_agent_checks_fields_and_aggregation(self):
+        bad = {'alanlar': [{'ad': 'Ciro', 'formul': 'SUMM([Ciro])', 'tip': 'real', 'rol': 'measure'}, {'ad': 'Oran', 'formul': 'SUM([Tutar]) / [Adet]', 'tip': 'real', 'rol': 'measure'},
+                           {'ad': 'Bayrak', 'formul': 'IF [Tutar] > 5 THEN 1', 'tip': 'integer', 'rol': 'dimension'}]}
+        p, done = self.run_agent('tableau-hesap-yazari', '--yes', answers=[bad, GOOD['tableau-hesap-yazari']])
+        self.ok(done)
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        for message in ('veri kaynağında olmayan alan [Ciro]', 'Tableau fonksiyonu değil: SUMM()', 'toplanmış ve toplanmamış ifade karışık: [Adet]', 'IF/CASE ile END sayısı eşleşmiyor'):
+            self.assertIn(message, retry)
+        self.assertIn('- [Siparis Tarihi] (date, dimension)', self.model.requests[-2]['body']['messages'][-1]['content'])
+        twb = p.out('hesapli.twb').read_text(encoding='utf-8')
+        import xml.etree.ElementTree as ET
+        calcs = {c.get('caption'): c.find('calculation').get('formula') for c in ET.fromstring(twb.encode('utf-8')).iter('column') if c.find('calculation') is not None}
+        self.assertEqual(calcs['Sipariş Başına Ciro'], 'SUM([tutar]) / COUNTD([siparis_no])')  # captions turned into internal names
+        self.assertIn('[Calculation_001_agent]', calcs['Ciro YTD'])  # a calculation can use an earlier one
+
     def test_invalid_answer_gets_one_corrective_retry(self):
         bad = {'sql': 'SELECT s.KalemlerToplamCiro FROM dbo.Siparisler s'}
         p, done = self.run_agent('sql-yazari', '--yes', answers=[bad, GOOD['sql-yazari']])
@@ -991,7 +1027,8 @@ class Agents(LocalTestCase):
                              ('deney-analisti', {**GOOD['deney-analisti'], 'test': 'welch-t'}),
                              ('sube-planlayici', {**GOOD['sube-planlayici'], 'oneriler': []}),
                              ('rapor-tasarimcisi', {**GOOD['rapor-tasarimcisi'], 'boyutlar': ['musteri_eposta']}),
-                             ('qlik-ifade-yazari', {'ifadeler': [{'ad': 'Ciro', 'ifade': 'Sum([Ciro])'}]})]:
+                             ('qlik-ifade-yazari', {'ifadeler': [{'ad': 'Ciro', 'ifade': 'Sum([Ciro])'}]}),
+                             ('tableau-hesap-yazari', {'alanlar': [{'ad': 'Oran', 'formul': 'SUM([Tutar]) / [Adet]', 'tip': 'real', 'rol': 'measure'}]})]:
             with self.subTest(item_id):
                 p, done = self.run_agent(item_id, '--yes', answers=[bad, bad])
                 self.assertEqual(done.returncode, 1)

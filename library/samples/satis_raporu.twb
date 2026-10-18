@@ -1,0 +1,312 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<workbook original-version='26.1' source-build='0.0.0 (0000.0.0.0)' source-platform='win' version='26.1' xmlns:user='http://www.tableausoftware.com/xml/user'>
+  <document-format-change-manifest>
+    <ManifestByVersion />
+  </document-format-change-manifest>
+  <datasources>
+    <datasource caption="SatisDetay" inline="true" name="federated.rapor" version="18.1">
+      <connection class="federated">
+        <named-connections>
+          <named-connection caption="satis_detay.csv" name="textscan.rapor">
+            <connection class="textscan" directory="C:/Veri" filename="satis_detay.csv" password="" server="" />
+          </named-connection>
+        </named-connections>
+        <relation connection="textscan.rapor" name="satis_detay.csv" table="[satis_detay#csv]" type="table">
+          <columns character-set="UTF-8" header="yes" locale="tr_TR" separator=";">
+            <column datatype="string" name="siparis_no" ordinal="0" />
+            <column datatype="date" name="siparis_tarihi" ordinal="1" />
+            <column datatype="string" name="bolge" ordinal="2" />
+            <column datatype="string" name="kanal" ordinal="3" />
+            <column datatype="string" name="kategori" ordinal="4" />
+            <column datatype="string" name="urun" ordinal="5" />
+            <column datatype="string" name="musteri_eposta" ordinal="6" />
+            <column datatype="integer" name="adet" ordinal="7" />
+            <column datatype="real" name="birim_fiyat" ordinal="8" />
+            <column datatype="real" name="tutar" ordinal="9" />
+          </columns>
+        </relation>
+      </connection>
+      <aliases enabled="yes" />
+      <column caption="Siparis No" datatype="string" name="[siparis_no]" role="dimension" type="nominal" />
+      <column caption="Siparis Tarihi" datatype="date" name="[siparis_tarihi]" role="dimension" type="ordinal" />
+      <column caption="Bolge" datatype="string" name="[bolge]" role="dimension" type="nominal" />
+      <column caption="Kanal" datatype="string" name="[kanal]" role="dimension" type="nominal" />
+      <column caption="Kategori" datatype="string" name="[kategori]" role="dimension" type="nominal" />
+      <column caption="Urun" datatype="string" name="[urun]" role="dimension" type="nominal" />
+      <column caption="Musteri Eposta" datatype="string" name="[musteri_eposta]" role="dimension" type="nominal" />
+      <column caption="Adet" datatype="integer" name="[adet]" role="measure" type="quantitative" />
+      <column caption="Birim Fiyat" datatype="real" name="[birim_fiyat]" role="measure" type="quantitative" />
+      <column caption="Tutar" datatype="real" name="[tutar]" role="measure" type="quantitative" />
+    </datasource>
+  </datasources>
+  <worksheets>
+    <worksheet name="KPI Toplam Tutar">
+      <table>
+        <view>
+          <datasources>
+            <datasource caption="SatisDetay" name="federated.rapor" />
+          </datasources>
+          <datasource-dependencies datasource="federated.rapor">
+            <column caption="Tutar" datatype="real" name="[tutar]" role="measure" type="quantitative" />
+            <column-instance column="[tutar]" derivation="Sum" name="[sum:tutar:qk]" pivot="key" type="quantitative" />
+          </datasource-dependencies>
+          <aggregation value="true" />
+        </view>
+        <style />
+        <panes>
+          <pane selection-relaxation-option="selection-relaxation-allow">
+            <view>
+              <breakdown value="auto" />
+            </view>
+            <mark class="Text" />
+              <encodings>
+                <text column="[federated.rapor].[sum:tutar:qk]" />
+              </encodings>
+          </pane>
+        </panes>
+        <rows></rows>
+        <cols></cols>
+      </table>
+      <simple-id uuid="{BCECF82B-2E4F-5F94-9C6D-EC6054537EBA}" />
+    </worksheet>
+    <worksheet name="KPI Toplam Adet">
+      <table>
+        <view>
+          <datasources>
+            <datasource caption="SatisDetay" name="federated.rapor" />
+          </datasources>
+          <datasource-dependencies datasource="federated.rapor">
+            <column caption="Adet" datatype="integer" name="[adet]" role="measure" type="quantitative" />
+            <column-instance column="[adet]" derivation="Sum" name="[sum:adet:qk]" pivot="key" type="quantitative" />
+          </datasource-dependencies>
+          <aggregation value="true" />
+        </view>
+        <style />
+        <panes>
+          <pane selection-relaxation-option="selection-relaxation-allow">
+            <view>
+              <breakdown value="auto" />
+            </view>
+            <mark class="Text" />
+              <encodings>
+                <text column="[federated.rapor].[sum:adet:qk]" />
+              </encodings>
+          </pane>
+        </panes>
+        <rows></rows>
+        <cols></cols>
+      </table>
+      <simple-id uuid="{DB84D121-D61E-53C7-91E1-DA24FAD35BC1}" />
+    </worksheet>
+    <worksheet name="KPI Ortalama Birim Fiyat">
+      <table>
+        <view>
+          <datasources>
+            <datasource caption="SatisDetay" name="federated.rapor" />
+          </datasources>
+          <datasource-dependencies datasource="federated.rapor">
+            <column caption="Birim Fiyat" datatype="real" name="[birim_fiyat]" role="measure" type="quantitative" />
+            <column-instance column="[birim_fiyat]" derivation="Avg" name="[avg:birim_fiyat:qk]" pivot="key" type="quantitative" />
+          </datasource-dependencies>
+          <aggregation value="true" />
+        </view>
+        <style />
+        <panes>
+          <pane selection-relaxation-option="selection-relaxation-allow">
+            <view>
+              <breakdown value="auto" />
+            </view>
+            <mark class="Text" />
+              <encodings>
+                <text column="[federated.rapor].[avg:birim_fiyat:qk]" />
+              </encodings>
+          </pane>
+        </panes>
+        <rows></rows>
+        <cols></cols>
+      </table>
+      <simple-id uuid="{0AF34856-D623-5B73-9C54-675694B70C78}" />
+    </worksheet>
+    <worksheet name="KPI Siparis Sayısı">
+      <table>
+        <view>
+          <datasources>
+            <datasource caption="SatisDetay" name="federated.rapor" />
+          </datasources>
+          <datasource-dependencies datasource="federated.rapor">
+            <column caption="Siparis No" datatype="string" name="[siparis_no]" role="dimension" type="nominal" />
+            <column-instance column="[siparis_no]" derivation="CountD" name="[ctd:siparis_no:qk]" pivot="key" type="quantitative" />
+          </datasource-dependencies>
+          <aggregation value="true" />
+        </view>
+        <style />
+        <panes>
+          <pane selection-relaxation-option="selection-relaxation-allow">
+            <view>
+              <breakdown value="auto" />
+            </view>
+            <mark class="Text" />
+              <encodings>
+                <text column="[federated.rapor].[ctd:siparis_no:qk]" />
+              </encodings>
+          </pane>
+        </panes>
+        <rows></rows>
+        <cols></cols>
+      </table>
+      <simple-id uuid="{BA875B6F-C58D-5124-8BFF-7BE7088DC22D}" />
+    </worksheet>
+    <worksheet name="Bolge bazında">
+      <table>
+        <view>
+          <datasources>
+            <datasource caption="SatisDetay" name="federated.rapor" />
+          </datasources>
+          <datasource-dependencies datasource="federated.rapor">
+            <column caption="Bolge" datatype="string" name="[bolge]" role="dimension" type="nominal" />
+            <column caption="Tutar" datatype="real" name="[tutar]" role="measure" type="quantitative" />
+            <column-instance column="[bolge]" derivation="None" name="[none:bolge:nk]" pivot="key" type="nominal" />
+            <column-instance column="[tutar]" derivation="Sum" name="[sum:tutar:qk]" pivot="key" type="quantitative" />
+          </datasource-dependencies>
+          <aggregation value="true" />
+        </view>
+        <style />
+        <panes>
+          <pane selection-relaxation-option="selection-relaxation-allow">
+            <view>
+              <breakdown value="auto" />
+            </view>
+            <mark class="Bar" />
+          </pane>
+        </panes>
+        <rows>[federated.rapor].[none:bolge:nk]</rows>
+        <cols>[federated.rapor].[sum:tutar:qk]</cols>
+      </table>
+      <simple-id uuid="{4124D6B8-F630-5D88-97D7-B29BB454F232}" />
+    </worksheet>
+    <worksheet name="Kanal bazında">
+      <table>
+        <view>
+          <datasources>
+            <datasource caption="SatisDetay" name="federated.rapor" />
+          </datasources>
+          <datasource-dependencies datasource="federated.rapor">
+            <column caption="Kanal" datatype="string" name="[kanal]" role="dimension" type="nominal" />
+            <column caption="Tutar" datatype="real" name="[tutar]" role="measure" type="quantitative" />
+            <column-instance column="[kanal]" derivation="None" name="[none:kanal:nk]" pivot="key" type="nominal" />
+            <column-instance column="[tutar]" derivation="Sum" name="[sum:tutar:qk]" pivot="key" type="quantitative" />
+          </datasource-dependencies>
+          <aggregation value="true" />
+        </view>
+        <style />
+        <panes>
+          <pane selection-relaxation-option="selection-relaxation-allow">
+            <view>
+              <breakdown value="auto" />
+            </view>
+            <mark class="Bar" />
+          </pane>
+        </panes>
+        <rows>[federated.rapor].[none:kanal:nk]</rows>
+        <cols>[federated.rapor].[sum:tutar:qk]</cols>
+      </table>
+      <simple-id uuid="{6312317F-7513-5990-B1B9-5EECA81EA61B}" />
+    </worksheet>
+    <worksheet name="Aylık trend">
+      <table>
+        <view>
+          <datasources>
+            <datasource caption="SatisDetay" name="federated.rapor" />
+          </datasources>
+          <datasource-dependencies datasource="federated.rapor">
+            <column caption="Siparis Tarihi" datatype="date" name="[siparis_tarihi]" role="dimension" type="ordinal" />
+            <column caption="Tutar" datatype="real" name="[tutar]" role="measure" type="quantitative" />
+            <column-instance column="[siparis_tarihi]" derivation="Month-Trunc" name="[tmn:siparis_tarihi:qk]" pivot="key" type="quantitative" />
+            <column-instance column="[tutar]" derivation="Sum" name="[sum:tutar:qk]" pivot="key" type="quantitative" />
+          </datasource-dependencies>
+          <aggregation value="true" />
+        </view>
+        <style />
+        <panes>
+          <pane selection-relaxation-option="selection-relaxation-allow">
+            <view>
+              <breakdown value="auto" />
+            </view>
+            <mark class="Line" />
+          </pane>
+        </panes>
+        <rows>[federated.rapor].[sum:tutar:qk]</rows>
+        <cols>[federated.rapor].[tmn:siparis_tarihi:qk]</cols>
+      </table>
+      <simple-id uuid="{9F0B17B0-CDA0-5B6A-8104-FE0FB3442F74}" />
+    </worksheet>
+    <worksheet name="Detay">
+      <table>
+        <view>
+          <datasources>
+            <datasource caption="SatisDetay" name="federated.rapor" />
+          </datasources>
+          <datasource-dependencies datasource="federated.rapor">
+            <column caption="Bolge" datatype="string" name="[bolge]" role="dimension" type="nominal" />
+            <column caption="Kanal" datatype="string" name="[kanal]" role="dimension" type="nominal" />
+            <column caption="Kategori" datatype="string" name="[kategori]" role="dimension" type="nominal" />
+            <column caption="Tutar" datatype="real" name="[tutar]" role="measure" type="quantitative" />
+            <column-instance column="[bolge]" derivation="None" name="[none:bolge:nk]" pivot="key" type="nominal" />
+            <column-instance column="[kanal]" derivation="None" name="[none:kanal:nk]" pivot="key" type="nominal" />
+            <column-instance column="[kategori]" derivation="None" name="[none:kategori:nk]" pivot="key" type="nominal" />
+            <column-instance column="[tutar]" derivation="Sum" name="[sum:tutar:qk]" pivot="key" type="quantitative" />
+          </datasource-dependencies>
+          <aggregation value="true" />
+        </view>
+        <style />
+        <panes>
+          <pane selection-relaxation-option="selection-relaxation-allow">
+            <view>
+              <breakdown value="auto" />
+            </view>
+            <mark class="Text" />
+              <encodings>
+                <text column="[federated.rapor].[sum:tutar:qk]" />
+              </encodings>
+          </pane>
+        </panes>
+        <rows>[federated.rapor].[none:bolge:nk] / [federated.rapor].[none:kanal:nk] / [federated.rapor].[none:kategori:nk]</rows>
+        <cols></cols>
+      </table>
+      <simple-id uuid="{33922984-79D6-5B43-944B-FF227FC32F6B}" />
+    </worksheet>
+  </worksheets>
+  <dashboards>
+    <dashboard name="Satış Raporu">
+      <style />
+      <size maxheight="900" maxwidth="1400" minheight="900" minwidth="1400" />
+      <zones>
+        <zone h="100000" id="2" type-v2="layout-basic" w="100000" x="0" y="0">
+          <zone h="16000" id="3" name="KPI Toplam Tutar" w="25000" x="0" y="0" />
+          <zone h="16000" id="4" name="KPI Toplam Adet" w="25000" x="25000" y="0" />
+          <zone h="16000" id="5" name="KPI Ortalama Birim Fiyat" w="25000" x="50000" y="0" />
+          <zone h="16000" id="6" name="KPI Siparis Sayısı" w="25000" x="75000" y="0" />
+          <zone h="42000" id="7" name="Bolge bazında" w="50000" x="0" y="16000" />
+          <zone h="42000" id="8" name="Kanal bazında" w="50000" x="50000" y="16000" />
+          <zone h="42000" id="9" name="Aylık trend" w="50000" x="0" y="58000" />
+          <zone h="42000" id="10" name="Detay" w="50000" x="50000" y="58000" />
+        </zone>
+      </zones>
+      <simple-id uuid="{2E8865B7-1B85-5B66-8A47-AAF6A079FC00}" />
+    </dashboard>
+  </dashboards>
+  <windows>
+    <window class="worksheet" hidden="true" name="KPI Toplam Tutar"><cards><edge name="left"><strip size="160"><card type="pages" /><card type="filters" /><card type="marks" /></strip></edge><edge name="top"><strip size="2147483647"><card type="columns" /></strip><strip size="2147483647"><card type="rows" /></strip><strip size="31"><card type="title" /></strip></edge></cards><simple-id uuid="{A910F37D-7FE6-5946-9CF7-16E77A75E38D}" /></window>
+    <window class="worksheet" hidden="true" name="KPI Toplam Adet"><cards><edge name="left"><strip size="160"><card type="pages" /><card type="filters" /><card type="marks" /></strip></edge><edge name="top"><strip size="2147483647"><card type="columns" /></strip><strip size="2147483647"><card type="rows" /></strip><strip size="31"><card type="title" /></strip></edge></cards><simple-id uuid="{F8AE3E2B-0BC1-5C43-9555-EB4D1C5B3AD5}" /></window>
+    <window class="worksheet" hidden="true" name="KPI Ortalama Birim Fiyat"><cards><edge name="left"><strip size="160"><card type="pages" /><card type="filters" /><card type="marks" /></strip></edge><edge name="top"><strip size="2147483647"><card type="columns" /></strip><strip size="2147483647"><card type="rows" /></strip><strip size="31"><card type="title" /></strip></edge></cards><simple-id uuid="{7A67B2E2-A046-5A1A-9B7F-14935F8A26D5}" /></window>
+    <window class="worksheet" hidden="true" name="KPI Siparis Sayısı"><cards><edge name="left"><strip size="160"><card type="pages" /><card type="filters" /><card type="marks" /></strip></edge><edge name="top"><strip size="2147483647"><card type="columns" /></strip><strip size="2147483647"><card type="rows" /></strip><strip size="31"><card type="title" /></strip></edge></cards><simple-id uuid="{149AE263-F062-55C4-A70F-880173C98925}" /></window>
+    <window class="worksheet" hidden="true" name="Bolge bazında"><cards><edge name="left"><strip size="160"><card type="pages" /><card type="filters" /><card type="marks" /></strip></edge><edge name="top"><strip size="2147483647"><card type="columns" /></strip><strip size="2147483647"><card type="rows" /></strip><strip size="31"><card type="title" /></strip></edge></cards><simple-id uuid="{05776C3D-1316-5DA5-997A-294DC54D8093}" /></window>
+    <window class="worksheet" hidden="true" name="Kanal bazında"><cards><edge name="left"><strip size="160"><card type="pages" /><card type="filters" /><card type="marks" /></strip></edge><edge name="top"><strip size="2147483647"><card type="columns" /></strip><strip size="2147483647"><card type="rows" /></strip><strip size="31"><card type="title" /></strip></edge></cards><simple-id uuid="{1097B726-8BAA-5FE1-A7F3-A3D33FB8F0AF}" /></window>
+    <window class="worksheet" hidden="true" name="Aylık trend"><cards><edge name="left"><strip size="160"><card type="pages" /><card type="filters" /><card type="marks" /></strip></edge><edge name="top"><strip size="2147483647"><card type="columns" /></strip><strip size="2147483647"><card type="rows" /></strip><strip size="31"><card type="title" /></strip></edge></cards><simple-id uuid="{8AC1E369-8545-5387-B346-112A06F0AAA1}" /></window>
+    <window class="worksheet" hidden="true" name="Detay"><cards><edge name="left"><strip size="160"><card type="pages" /><card type="filters" /><card type="marks" /></strip></edge><edge name="top"><strip size="2147483647"><card type="columns" /></strip><strip size="2147483647"><card type="rows" /></strip><strip size="31"><card type="title" /></strip></edge></cards><simple-id uuid="{85AC29D1-120A-5728-88CA-A6DF2BBA09AF}" /></window>
+    <window class="dashboard" maximized="true" name="Satış Raporu"><viewpoints><viewpoint name="KPI Toplam Tutar" /><viewpoint name="KPI Toplam Adet" /><viewpoint name="KPI Ortalama Birim Fiyat" /><viewpoint name="KPI Siparis Sayısı" /><viewpoint name="Bolge bazında" /><viewpoint name="Kanal bazında" /><viewpoint name="Aylık trend" /><viewpoint name="Detay" /></viewpoints><active id="-1" /><simple-id uuid="{9FA5189C-1340-5E71-B9FA-A07CBB3C32DB}" /></window>
+  </windows>
+  <explain-data enabled-for-viewer="true" extreme-values-enabled-for-all="true">
+    <explanation-types />
+  </explain-data>
+</workbook>
