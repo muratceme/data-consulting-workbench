@@ -1,0 +1,13 @@
+tablo;kolon;kaynak_tip;max_uzunluk;max_tam_hane;max_ondalik;saat_var;unicode_var;sadece_01;bos_var
+SIPARIS;SIPARIS_ID;NUMBER;10;10;0;hayır;hayır;hayır;hayır
+SIPARIS;MUSTERI_KODU;VARCHAR2(20);8;0;0;hayır;hayır;hayır;hayır
+SIPARIS;SIPARIS_TARIHI;DATE;19;0;0;evet;hayır;hayır;hayır
+SIPARIS;TESLIM_TARIHI;DATE;10;0;0;hayır;hayır;hayır;evet
+SIPARIS;TUTAR;NUMBER(14,2);13;11;2;hayır;hayır;hayır;hayır
+SIPARIS;KUR;NUMBER;9;2;6;hayır;hayır;hayır;evet
+SIPARIS;IPTAL;NUMBER(1);1;1;0;hayır;hayır;evet;hayır
+SIPARIS;ADET;NUMBER(5);4;4;0;hayır;hayır;hayır;hayır
+SIPARIS;ACIKLAMA;VARCHAR2(4000 CHAR);612;0;0;hayır;evet;hayır;evet
+MUSTERI;UNVAN;NVARCHAR2(200);143;0;0;hayır;evet;hayır;hayır
+MUSTERI;NOTLAR;CLOB;18450;0;0;hayır;evet;hayır;evet
+MUSTERI;KAYIT_ZAMANI;TIMESTAMP(6);26;0;0;evet;hayır;hayır;hayır

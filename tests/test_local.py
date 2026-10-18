@@ -59,8 +59,8 @@ class LocalTestCase(unittest.TestCase):
 
 class PackageShape(LocalTestCase):
     def test_every_local_package_is_self_contained_and_has_no_network_code(self):
-        self.assertEqual(len([i for i in LOCAL if not i.get('op')]), 60)
-        self.assertEqual(sum(i['kind'] == 'agent' for i in LOCAL), 48)
+        self.assertEqual(len([i for i in LOCAL if not i.get('op')]), 68)
+        self.assertEqual(sum(i['kind'] == 'agent' for i in LOCAL), 56)
         self.assertEqual(len({i['id'] for i in LOCAL}), len(LOCAL))
         for item in LOCAL:
             names = local_package.files(item)
@@ -826,6 +826,22 @@ GOOD['hata-siniflandirici'] = {'kategoriler': [{'kod': 'BAGLANTI', 'ad': 'Bağla
 OUTPUTS['hata-siniflandirici'] = 'hata-siniflari.md'
 GOOD['sozluk-kolon-eslestirici'] = {'terimler': [{'terim': 'Net Ciro', 'kolonlar': [{'tablo': 'dwh.fct_satis', 'kolon': 'net_tutar'}], 'gerekce': 'Anlamı birebir aynı.'}, {'terim': 'Brüt Satış Tutarı', 'kolonlar': [{'tablo': 'dwh.fct_satis', 'kolon': 'brut_tutar'}], 'gerekce': 'Anlamı birebir aynı.'}, {'terim': 'Sipariş Tarihi', 'kolonlar': [{'tablo': 'dwh.fct_satis', 'kolon': 'siparis_tarihi'}], 'gerekce': 'Anlamı birebir aynı.'}, {'terim': 'Müşteri Kodu', 'kolonlar': [{'tablo': 'dwh.fct_satis', 'kolon': 'musteri_kodu'}, {'tablo': 'dwh.dim_musteri', 'kolon': 'musteri_kodu'}], 'gerekce': 'Anlamı birebir aynı.'}, {'terim': 'Aktif Müşteri', 'kolonlar': [{'tablo': 'dwh.dim_musteri', 'kolon': 'aktif_mi'}], 'gerekce': 'Anlamı birebir aynı.'}, {'terim': 'Satış Kanalı', 'kolonlar': [{'tablo': 'dwh.fct_satis', 'kolon': 'kanal'}], 'gerekce': 'Siparişin kanalı; dim_musteri.kayit_kanali müşterinin ilk kayıt kanalıdır, farklı anlam.'}, {'terim': 'Müşteri Yaşam Boyu Değeri', 'kolonlar': [], 'gerekce': 'Ambarda tahmini kâr ya da CLV kolonu yok; hesaplanması gerekir.'}]}
 OUTPUTS['sozluk-kolon-eslestirici'] = 'sozluk-esleme.md'
+GOOD['tahsilat-eslestirici'] = {'eslesmeler': [{'hareket': 'H02', 'faturalar': ['FTR-2026-1003'], 'kismi': False, 'gerekce': 'Beta Yapı, tutar tek faturayla aynı.'}, {'hareket': 'H03', 'faturalar': ['FTR-2026-1002'], 'kismi': False, 'gerekce': 'Ada Gıda’nın kalan tek açık faturası.'}, {'hareket': 'H04', 'faturalar': ['FTR-2026-1004', 'FTR-2026-1005'], 'kismi': False, 'gerekce': 'Açıklamada 1004 ve 1005; toplam 12.501,00.'}, {'hareket': 'H05', 'faturalar': ['FTR-2026-1006'], 'kismi': True, 'gerekce': 'Ege Tekstil kısmi ödeme.'}, {'hareket': 'H06', 'faturalar': [], 'kismi': False, 'gerekce': 'Gönderen belli değil, tutar hiçbir faturaya uymuyor.'}]}
+OUTPUTS['tahsilat-eslestirici'] = 'tahsilat-eslesme.md'
+GOOD['maskeleme-plani'] = {'kolonlar': {'sicil_no': {'yontem': 'takma_ad', 'anahtar': True, 'gerekce': 'Bordro ile birleştirme anahtarı.'}, 'ad_soyad': {'yontem': 'sil'}, 'tckn': {'yontem': 'sil'}, 'eposta': {'yontem': 'kismi'}, 'telefon': {'yontem': 'sil'}, 'dogum_tarihi': {'yontem': 'genellestir', 'gerekce': 'Yaş analizi için yıl-ay yeterli.'}, 'departman': {'yontem': 'koru'}, 'maas': {'yontem': 'genellestir', 'aralik': 10000}, 'ise_giris': {'yontem': 'koru'}, 'notlar': {'yontem': 'koru'}}}
+OUTPUTS['maskeleme-plani'] = 'maskeleme-plani.md'
+GOOD['tip-donusum-eslestirici'] = {'eslemeler': [{'tablo': 'SIPARIS', 'kolon': 'SIPARIS_ID', 'hedef_tip': 'bigint', 'gerekce': 'ölçümlere göre'}, {'tablo': 'SIPARIS', 'kolon': 'MUSTERI_KODU', 'hedef_tip': 'varchar(20)', 'gerekce': 'ölçümlere göre'}, {'tablo': 'SIPARIS', 'kolon': 'SIPARIS_TARIHI', 'hedef_tip': 'timestamp', 'gerekce': 'ölçümlere göre'}, {'tablo': 'SIPARIS', 'kolon': 'TESLIM_TARIHI', 'hedef_tip': 'date', 'gerekce': 'ölçümlere göre'}, {'tablo': 'SIPARIS', 'kolon': 'TUTAR', 'hedef_tip': 'numeric(14,2)', 'gerekce': 'ölçümlere göre'}, {'tablo': 'SIPARIS', 'kolon': 'KUR', 'hedef_tip': 'numeric(12,6)', 'gerekce': 'ölçümlere göre'}, {'tablo': 'SIPARIS', 'kolon': 'IPTAL', 'hedef_tip': 'boolean', 'gerekce': 'ölçümlere göre'}, {'tablo': 'SIPARIS', 'kolon': 'ADET', 'hedef_tip': 'integer', 'gerekce': 'ölçümlere göre'}, {'tablo': 'SIPARIS', 'kolon': 'ACIKLAMA', 'hedef_tip': 'varchar(4000)', 'gerekce': 'ölçümlere göre'}, {'tablo': 'MUSTERI', 'kolon': 'UNVAN', 'hedef_tip': 'varchar(200)', 'gerekce': 'ölçümlere göre'}, {'tablo': 'MUSTERI', 'kolon': 'NOTLAR', 'hedef_tip': 'text', 'gerekce': 'ölçümlere göre'}, {'tablo': 'MUSTERI', 'kolon': 'KAYIT_ZAMANI', 'hedef_tip': 'timestamp', 'gerekce': 'ölçümlere göre'}]}
+OUTPUTS['tip-donusum-eslestirici'] = 'tip-donusum.md'
+GOOD['dbt-test-onerici'] = {'kolonlar': {'siparis_no': [{'test': 'unique'}, {'test': 'not_null'}], 'siparis_tarihi': [{'test': 'not_null'}], 'musteri_kodu': [{'test': 'not_null'}, {'test': 'relationships', 'to': 'dim_musteri', 'field': 'musteri_kodu'}], 'durum': [{'test': 'accepted_values', 'values': ['yeni', 'hazirlaniyor', 'kargoda', 'teslim', 'iptal']}], 'kanal': [{'test': 'accepted_values', 'values': ['web', 'mobil', 'magaza']}], 'adet': [{'test': 'accepted_range', 'min_value': 1}], 'tutar': [{'test': 'accepted_range', 'min_value': 0}], 'indirim_orani': [{'test': 'accepted_range', 'min_value': 0, 'max_value': 100}]}}
+OUTPUTS['dbt-test-onerici'] = 'test-onerileri.md'
+GOOD['huni-analisti'] = {'en_buyuk_kayip': 'sepete_ekleme', 'en_kotu_segment': {'urun_goruntuleme': 'mobil', 'sepete_ekleme': 'mobil', 'odeme_baslatma': 'mobil', 'satin_alma': 'masaustu'}, 'ozet': '200 kullanıcının 22’si satın aldı (%11). En büyük kayıp ürün görüntülemeden sepete eklemeye geçişte: %40,7; mobilde bu oran %35,6.', 'oneriler': ['Mobil ürün sayfasında sepete ekle düğmesini sabitleyin ve test edin.', 'Ürün sayfasında kargo süresi ve iade koşullarını görünür yapın.']}
+OUTPUTS['huni-analisti'] = 'huni-analizi.md'
+GOOD['regresyon-yorumlayici'] = {'degiskenler': [{'ad': 'reklam_harcamasi', 'etki': 'pozitif', 'yorum': 'Reklam harcaması satışla pozitif ilişkili: diğer değişken sabitken katsayı 1,3004 (p 0,00023).'}, {'ad': 'indirim_orani', 'etki': 'pozitif', 'yorum': 'İndirim oranının her puanlık farkı satışta 8208,6979 birimlik farkla birlikte görülüyor (p 0,00001).'}], 'ozet': 'Model satıştaki değişimin %53,2’sini açıklıyor (R² 0,532); iki değişken de anlamlı ve satışla birlikte hareket ediyor.'}
+OUTPUTS['regresyon-yorumlayici'] = 'regresyon-yorumu.md'
+GOOD['vardiya-planlayici'] = {'vardiyalar': [{'baslangic': '08:00', 'sure_saat': 4.0, 'kisi': 7}, {'baslangic': '08:30', 'sure_saat': 4.0, 'kisi': 2}, {'baslangic': '09:00', 'sure_saat': 4.0, 'kisi': 2}, {'baslangic': '09:30', 'sure_saat': 4.0, 'kisi': 3}, {'baslangic': '10:00', 'sure_saat': 4.0, 'kisi': 3}, {'baslangic': '11:00', 'sure_saat': 4.0, 'kisi': 1}, {'baslangic': '12:00', 'sure_saat': 4.0, 'kisi': 5}, {'baslangic': '12:30', 'sure_saat': 4.0, 'kisi': 2}, {'baslangic': '13:00', 'sure_saat': 4.0, 'kisi': 2}, {'baslangic': '13:30', 'sure_saat': 4.0, 'kisi': 4}, {'baslangic': '14:00', 'sure_saat': 4.0, 'kisi': 3}, {'baslangic': '14:00', 'sure_saat': 6.0, 'kisi': 2}, {'baslangic': '14:30', 'sure_saat': 4.0, 'kisi': 1}, {'baslangic': '15:30', 'sure_saat': 4.0, 'kisi': 2}, {'baslangic': '16:00', 'sure_saat': 4.0, 'kisi': 4}], 'aciklama': 'Sabah ve akşam yoğunluğuna göre kademeli başlangıçlar.'}
+OUTPUTS['vardiya-planlayici'] = 'vardiya-plani.md'
+GOOD['excel-baslik-cozucu'] = {'baslik_satirlari': [5, 6], 'veri_ilk': 7, 'veri_son': 13, 'atlanacak_satirlar': [10], 'kolon_adlari': ['bolge', 'temsilci', 'temmuz_adet', 'temmuz_tutar', 'agustos_adet', 'agustos_tutar']}
+OUTPUTS['excel-baslik-cozucu'] = 'baslik-cozumu.md'
 GOOD['tableau-hesap-yazari'] = {'alanlar': [{'ad': 'Son Tarih', 'formul': '{FIXED : MAX([Siparis Tarihi])}', 'tip': 'date', 'rol': 'dimension', 'aciklama': 'Verideki son sipariş tarihi.'}, {'ad': 'Ciro YTD', 'formul': "SUM(IF [Siparis Tarihi] >= DATETRUNC('year', [Son Tarih]) AND [Siparis Tarihi] <= [Son Tarih] THEN [Tutar] END)", 'tip': 'real', 'rol': 'measure', 'aciklama': 'Yıl başından son tarihe.'}, {'ad': 'Ciro GY YTD', 'formul': "SUM(IF [Siparis Tarihi] >= DATEADD('year', -1, DATETRUNC('year', [Son Tarih])) AND [Siparis Tarihi] <= DATEADD('year', -1, [Son Tarih]) THEN [Tutar] END)", 'tip': 'real', 'rol': 'measure', 'aciklama': 'Geçen yılın aynı dönemi.'}, {'ad': 'Sipariş Başına Ciro', 'formul': 'SUM([Tutar]) / COUNTD([Siparis No])', 'tip': 'real', 'rol': 'measure', 'aciklama': ''}, {'ad': 'Bölge Payı', 'formul': 'SUM({FIXED [Bolge] : SUM([Tutar])}) / SUM({FIXED : SUM([Tutar])})', 'tip': 'real', 'rol': 'measure', 'aciklama': ''}], 'varsayimlar': ['Ciro, Tutar alanının toplamıdır.']}
 OUTPUTS['tableau-hesap-yazari'] = 'hesaplanan-alanlar.md'
 OUTPUTS.update({'deney-analisti': 'deney-raporu.md', 'sube-planlayici': 'sube-plani.md', 'rapor-tasarimcisi': 'tasarim.md'})
@@ -1369,6 +1385,129 @@ class Agents(LocalTestCase):
         yml = p.out('dbt_sozluk.yml').read_text(encoding='utf-8')
         self.assertIn('      - name: aktif_mi\n        description: "Son 12 ayda en az bir siparişi olan müşteri"\n        meta:\n          terim: "Aktif Müşteri"', yml)
 
+    def test_payment_matching_checks_amounts_and_parties(self):
+        e = lambda h, f, k=False: {'hareket': h, 'faturalar': f, 'kismi': k, 'gerekce': 'x'}
+        bad = {'eslesmeler': [e('H02', ['FTR-2026-1003']), e('H03', ['FTR-2026-1001']), e('H04', ['FTR-2026-1004', 'FTR-2026-1006']), e('H05', ['FTR-2026-1006'])]}
+        p, done = self.run_agent('tahsilat-eslestirici', '--yes', answers=[bad, GOOD['tahsilat-eslestirici']])
+        self.ok(done)
+        sent = self.model.requests[-2]['body']['messages'][-1]['content']
+        self.assertNotIn('H01:', sent)  # invoice number + exact amount: matched by the rule
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        for text in ('H03: açık listede olmayan fatura: FTR-2026-1001', 'H04: faturalar farklı carilere ait', 'H05: hareket 10000.00 ≠ faturaların kalan toplamı 19990.00', 'cevapsız hareket: H06'):
+            self.assertIn(text, retry)
+        rows = {r['hareket_no']: r for r in p.csv('eslesmeler.csv')}
+        self.assertEqual((rows['H01']['kaynak'], rows['H04']['faturalar'], rows['H05']['tur'], rows['H06']['tur']), ('kural', 'FTR-2026-1004;FTR-2026-1005', 'kısmi', 'eşlenmedi'))
+        left = {r['fatura_no']: r['kalan'] for r in p.csv('kalan_faturalar.csv')}
+        self.assertEqual(left, {'FTR-2026-1006': '9990.00', 'FTR-2026-1007': '3300.00'})
+
+    def test_masking_plan_is_applied_and_rescanned(self):
+        k = lambda m, **x: {'yontem': m, **x}
+        bad = {'kolonlar': {**GOOD['maskeleme-plani']['kolonlar'], 'sicil_no': k('koru', anahtar=True), 'ad_soyad': k('koru'), 'departman': k('genellestir'), 'maas': k('genellestir')}}
+        p, done = self.run_agent('maskeleme-plani', '--yes', '--salt', 'test-tuzu', answers=[bad, GOOD['maskeleme-plani']])
+        self.ok(done)
+        sent = self.model.requests[-2]['body']['messages'][-1]['content']
+        real = (p.dir / 'ornek' / 'personel_listesi.csv').read_text(encoding='utf-8').splitlines()[1].split(';')
+        self.assertNotIn(real[1], sent)  # name
+        self.assertNotIn(real[2], sent)  # TCKN
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        for text in ('sicil_no: birleştirme anahtarı takma adla maskelenmeli', 'ad_soyad: kişisel veri (ad soyad) korunamaz',
+                     'departman: genelleştirme yalnızca tarih/sayı kolonunda', 'maas: sayı genelleştirmede "aralik"'):
+            self.assertIn(text, retry)
+        rows = p.csv('maskeli.csv')
+        self.assertTrue(all(r['sicil_no'].startswith('KV-') and r['ad_soyad'] == '' for r in rows))
+        self.assertRegex(rows[0]['dogum_tarihi'], r'^\d{4}-\d{2}$')
+        self.assertRegex(rows[0]['maas'], r'^\d+0000-\d+0000$')
+        self.assertFalse(any(common.pii_kind(v) for r in rows for v in r.values()))  # embedded phones in notes are masked too
+        self.assertEqual(len({r['sicil_no'] for r in rows}), len(rows))
+
+    def test_type_mapping_fits_measured_values(self):
+        names = {'SIPARIS_ID': 'integer', 'SIPARIS_TARIHI': 'date', 'KUR': 'numeric(10,2)', 'ADET': 'boolean', 'UNVAN': 'varchar(100)'}
+        bad = {'eslemeler': [{**e, 'hedef_tip': names.get(e['kolon'], e['hedef_tip'])} for e in GOOD['tip-donusum-eslestirici']['eslemeler'] if e['kolon'] != 'NOTLAR']}
+        p, done = self.run_agent('tip-donusum-eslestirici', '--yes', answers=[bad, GOOD['tip-donusum-eslestirici']])
+        self.ok(done)
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        for text in ('SIPARIS_ID (NUMBER) → integer: 10 haneli değer integer aralığına sığmaz', 'SIPARIS_TARIHI (DATE) → date: değerlerde saat var',
+                     'KUR (NUMBER) → numeric(10,2): ölçek 2 < ölçülen ondalık hane 6', 'UNVAN (NVARCHAR2(200)) → varchar(100): uzunluk 100 < ölçülen en uzun değer 143',
+                     'eşlenmeyen kolon: MUSTERI.NOTLAR'):
+            self.assertIn(text, retry)
+        ddl = p.out('hedef_ddl.sql').read_text(encoding='utf-8')
+        self.assertIn('"siparis_id" BIGINT NOT NULL', ddl)
+        self.assertIn('"teslim_tarihi" DATE,', ddl)
+        ss, done = self.run_agent('tip-donusum-eslestirici', '--yes', '--target', 'sqlserver',
+                                  answers=[{'eslemeler': [{**e, 'hedef_tip': {'varchar(200)': 'varchar(200)'}.get(e['hedef_tip'], 'nvarchar(max)')} for e in GOOD['tip-donusum-eslestirici']['eslemeler']]}] * 2)
+        self.assertEqual(done.returncode, 1)
+        self.assertIn('Unicode karakter var; SQL Server’da nvarchar gerekir', self.model.requests[-1]['body']['messages'][-1]['content'])
+
+    def test_dbt_tests_must_pass_on_todays_data(self):
+        bad = {'kolonlar': {'siparis_no': [{'test': 'not_null'}], 'kanal': [{'test': 'not_null'}], 'durum': [{'test': 'accepted_values', 'values': ['yeni', 'teslim']}],
+                            'musteri_kodu': [{'test': 'relationships', 'to': 'dim_urun', 'field': 'kod'}]}}
+        p, done = self.run_agent('dbt-test-onerici', '--yes', answers=[bad, GOOD['dbt-test-onerici']])
+        self.ok(done)
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        for text in ('kanal not_null: bugünkü veride 15 satır geçmiyor', 'durum accepted_values: bugünkü veride 33 satır geçmiyor',
+                     'relationships hedefi dim_urun.kod yok (verilen modeller: dim_musteri)', 'aday anahtar siparis_no için unique testi eksik'):
+            self.assertIn(text, retry)
+        yml = p.out('schema.yml').read_text(encoding='utf-8')
+        self.assertIn("          - relationships:\n              arguments:\n                to: ref('dim_musteri')\n                field: musteri_kodu", yml)
+        self.assertIn('          - dbt_utils.accepted_range:\n              arguments:\n                min_value: 0\n                max_value: 100', yml)
+
+    def test_funnel_findings_match_the_computed_table(self):
+        bad = {'en_buyuk_kayip': 'satin_alma', 'en_kotu_segment': {'satin_alma': 'mobil'}, 'ozet': 'Kullanıcıların %15’i satın aldı.', 'oneriler': ['x']}
+        p, done = self.run_agent('huni-analisti', '--yes', answers=[bad, GOOD['huni-analisti']])
+        self.ok(done)
+        sent = self.model.requests[-2]['body']['messages'][-1]['content']
+        self.assertIn('Huni adımları: ziyaret → urun_goruntuleme → sepete_ekleme → odeme_baslatma → satin_alma', sent)  # typical order found in code
+        self.assertNotIn('U0001', sent)
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        for text in ('en büyük kayıp “satin_alma” değil', 'satin_alma adımında en düşük dönüşüm mobil segmentinde değil', 'hesaplanan sonuçlarda olmayan sayılar: 15'):
+            self.assertIn(text, retry)
+        main = [r for r in p.csv('huni.csv') if r['grup'] == 'tümü']
+        self.assertEqual([r['kullanici'] for r in main], ['200', '123', '50', '32', '22'])
+
+    def test_regression_reading_is_checked(self):
+        bad = {'degiskenler': [{'ad': 'reklam_harcamasi', 'etki': 'negatif', 'yorum': 'x'}, {'ad': 'indirim_orani', 'etki': 'anlamsız', 'yorum': 'x'}],
+               'ozet': 'Reklam harcaması satışları artırır; her 2,5 TL reklam bir satış getirir.'}
+        p, done = self.run_agent('regresyon-yorumlayici', '--yes', answers=[bad, GOOD['regresyon-yorumlayici']])
+        self.ok(done)
+        sent = self.model.requests[-2]['body']['messages'][-1]['content']
+        self.assertIn('reklam_harcamasi · 1.3004 · 0.3265 · 3.983 · 0.00023', sent)
+        self.assertNotIn('2025-H01', sent)  # rows stay local
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        for text in ('reklam_harcamasi: katsayı 1.3004, p=0.00023 → etki “pozitif” olmalı', 'indirim_orani: katsayı 8208.6979, p=1e-05 → etki “pozitif” olmalı',
+                     'nedensellik iddiası (“artırır”)', 'tabloda olmayan sayılar: 2,5'):
+            self.assertIn(text, retry)
+        self.assertEqual({r['degisken']: r['etki'] for r in p.csv('katsayilar.csv')}, {'sabit': '', 'reklam_harcamasi': 'pozitif', 'indirim_orani': 'pozitif'})
+
+    def test_shift_plan_covers_every_interval(self):
+        bad = {'vardiyalar': [{'baslangic': '08:00', 'sure_saat': 8, 'kisi': 10}, {'baslangic': '12:00', 'sure_saat': 8, 'kisi': 10}]}
+        p, done = self.run_agent('vardiya-planlayici', '--yes', answers=[bad, GOOD['vardiya-planlayici']])
+        self.ok(done)
+        sent = self.model.requests[-2]['body']['messages'][-1]['content']
+        self.assertIn('14:30 · 95 · 19', sent)  # Erlang C need at the peak (with 30% shrinkage)
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        self.assertIn('eksik aralıklar: 09:30 (10/13), 10:00 (10/16)', retry)
+        cover = p.csv('kapsama.csv')
+        self.assertTrue(all(int(r['planlanan']) >= int(r['gereken']) for r in cover))
+        self.assertEqual(sum(int(r['gereken']) for r in cover), 316)  # 158 person-hours
+        over = {'vardiyalar': [{'baslangic': '08:00', 'sure_saat': 8, 'kisi': 20}, {'baslangic': '12:00', 'sure_saat': 8, 'kisi': 20}]}
+        p2, done = self.run_agent('vardiya-planlayici', '--yes', answers=[over, over])
+        self.assertEqual(done.returncode, 1)
+        self.assertIn('planlanan 320 adam-saat, gereken 158; fazlalık %103 (en fazla %25)', self.model.requests[-1]['body']['messages'][-1]['content'])
+
+    def test_messy_report_header_is_resolved(self):
+        bad = {'baslik_satirlari': [5, 6], 'veri_ilk': 7, 'veri_son': 14, 'atlanacak_satirlar': [],
+               'kolon_adlari': ['bolge', 'temsilci', 'temmuz_adet', 'temmuz_tutar', 'agustos_adet', 'agustos_tutar']}
+        p, done = self.run_agent('excel-baslik-cozucu', '--yes', answers=[bad, GOOD['excel-baslik-cozucu']])
+        self.ok(done)
+        sent = self.model.requests[-2]['body']['messages'][-1]['content']
+        self.assertNotIn('satis.raporlama@ornek.com.tr', sent)
+        self.assertIn('7: Marmara | Ayşe K. | <sayı> | <sayı> | <sayı> | <sayı>', sent)
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        self.assertIn('veri aralığında toplam satırı: 10, 14', retry)
+        rows = p.csv('temiz.csv')
+        self.assertEqual([r['bolge'] for r in rows], ['Marmara', 'Marmara', 'Ege', 'İç Anadolu', 'Akdeniz', 'Karadeniz'])
+        self.assertEqual(rows[0]['agustos_tutar'], '54.250,00')
+
     def test_invalid_answer_gets_one_corrective_retry(self):
         bad = {'sql': 'SELECT s.KalemlerToplamCiro FROM dbo.Siparisler s'}
         p, done = self.run_agent('sql-yazari', '--yes', answers=[bad, GOOD['sql-yazari']])
@@ -1423,7 +1562,15 @@ class Agents(LocalTestCase):
                              ('belge-alan-cikarici', {'belgeler': [{**b, 'alanlar': {k: {'deger': '1', 'kanit': 'yok böyle bir cümle'} for k in b['alanlar']}} for b in GOOD['belge-alan-cikarici']['belgeler']]}),
                              ('birlestirme-anahtari', {**GOOD['birlestirme-anahtari'], 'iliski': 'n-n'}),
                              ('hata-siniflandirici', {'kategoriler': [{**c, 'desen': '('} for c in GOOD['hata-siniflandirici']['kategoriler']]}),
-                             ('sozluk-kolon-eslestirici', {'terimler': [{**x, 'kolonlar': [{'tablo': 'dwh.yok', 'kolon': 'yok'}]} for x in GOOD['sozluk-kolon-eslestirici']['terimler']]})]:
+                             ('sozluk-kolon-eslestirici', {'terimler': [{**x, 'kolonlar': [{'tablo': 'dwh.yok', 'kolon': 'yok'}]} for x in GOOD['sozluk-kolon-eslestirici']['terimler']]}),
+                             ('tahsilat-eslestirici', {'eslesmeler': [{**e, 'faturalar': ['FTR-YOK']} for e in GOOD['tahsilat-eslestirici']['eslesmeler']]}),
+                             ('maskeleme-plani', {'kolonlar': {c: {'yontem': 'koru'} for c in GOOD['maskeleme-plani']['kolonlar']}}),
+                             ('tip-donusum-eslestirici', {'eslemeler': [{**e, 'hedef_tip': 'varchar(1)'} for e in GOOD['tip-donusum-eslestirici']['eslemeler']]}),
+                             ('dbt-test-onerici', {'kolonlar': {'kanal': [{'test': 'not_null'}]}}),
+                             ('huni-analisti', {**GOOD['huni-analisti'], 'en_buyuk_kayip': 'ziyaret'}),
+                             ('regresyon-yorumlayici', {**GOOD['regresyon-yorumlayici'], 'ozet': 'Reklam satışı artırır.'}),
+                             ('vardiya-planlayici', {'vardiyalar': [{'baslangic': '08:00', 'sure_saat': 4, 'kisi': 1}]}),
+                             ('excel-baslik-cozucu', {**GOOD['excel-baslik-cozucu'], 'kolon_adlari': ['a', 'a']})]:
             with self.subTest(item_id):
                 p, done = self.run_agent(item_id, '--yes', answers=[bad, bad])
                 self.assertEqual(done.returncode, 1)
