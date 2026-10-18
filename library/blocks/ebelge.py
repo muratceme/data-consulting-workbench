@@ -293,3 +293,44 @@ def eirsaliye(columns, rows, args):
                   notes=['XML’ler imzasızdır; mali mühür ve GİB’e gönderim özel entegratör üzerinden yapılır. Örnek çıktılar geliştirme sırasında GİB UBL-TR 1.2.1 XSD’sinden ve '
                          'GİB Schematron kurallarından hatasız geçti.', 'Matbu irsaliyeden dönüşüm (MATBUDAN), HKS ve İDİS profilleri desteklenmez.'],
                   code=1 if bad and not files else 0)
+
+
+# KDV tevkifat kodları ve izin verilen tevkif oranları (yüzde) — GİB UBL-TR kod listesi (WithholdingTaxTypeWithPercent)
+WITHHOLDING = {
+    '601': ('Yapım işleri ile birlikte ifa edilen mühendislik-mimarlık ve etüt-proje hizmetleri', {30, 40}),
+    '602': ('Etüt, plan-proje, danışmanlık, denetim ve benzeri hizmetler', {90}),
+    '603': ('Makine, teçhizat, demirbaş ve taşıtlara ait tadil, bakım ve onarım hizmetleri', {50, 70}),
+    '604': ('Yemek servis hizmeti', {50}), '605': ('Organizasyon hizmeti', {50}), '606': ('İşgücü temin hizmetleri', {90}),
+    '607': ('Özel güvenlik hizmeti', {90}), '608': ('Yapı denetim hizmetleri', {90}),
+    '609': ('Fason tekstil ve konfeksiyon, çanta ve ayakkabı dikim işleri', {50, 70}),
+    '610': ('Turistik mağazalara verilen müşteri bulma / götürme hizmetleri', {90}),
+    '611': ('Spor kulüplerinin yayın, reklam ve isim hakkı gelirleri', {90}), '612': ('Temizlik hizmeti', {70, 90}),
+    '613': ('Çevre ve bahçe bakım hizmetleri', {70, 90}), '614': ('Servis taşımacılığı hizmeti', {50}),
+    '615': ('Her türlü baskı ve basım hizmetleri', {50, 70}), '616': ('5018 sayılı kanun kapsamındaki idarelere yapılan diğer hizmetler', {50}),
+    '617': ('Hurda metalden elde edilen külçe teslimleri', {70}), '618': ('Hurda dışı bakır, çinko, alüminyum külçe teslimleri', {70}),
+    '619': ('Bakır, çinko, alüminyum ve kurşun ürünlerinin teslimi', {70}), '620': ('İstisnadan vazgeçenlerin hurda ve atık teslimi', {70}),
+    '621': ('Metal, plastik, lastik, kauçuk, kâğıt, cam hurda ve atıklardan elde edilen hammadde teslimi', {90}),
+    '622': ('Pamuk, tiftik, yün, yapağı, ham post ve deri teslimleri', {90}), '623': ('Ağaç ve orman ürünleri teslimi', {50}),
+    '624': ('Yük taşımacılığı hizmeti', {20}), '625': ('Ticari reklam hizmetleri', {30}), '626': ('Diğer teslimler', {20}),
+    '627': ('Demir-çelik ürünlerinin teslimi', {40, 50}),
+    **{str(c): ('Tam tevkifat', {100}) for c in range(801, 826)},
+}
+# KDV istisna / muafiyet kodları ve hangi fatura tipinde kullanılabildikleri (GİB Schematron)
+EXEMPT_ISTISNA = set('001 101 102 103 104 105 106 107 108 201 202 204 205 206 207 208 209 211 212 213 214 215 216 217 218 219 220 221 223 225 226 227 228 229 230 '
+                     '231 232 233 234 235 236 237 238 239 240 241 242 250 301 302 303 304 305 306 307 309 310 311 312 313 314 315 316 317 318 319 320 321 322 323 '
+                     '324 325 326 327 328 329 330 331 332 333 334 335 336 337 338 340 341 342 343 344 350 501'.split())
+EXEMPT_NAMES = {'351': 'KDV - İstisna Olmayan Diğer', '301': '11/1-a Mal İhracatı', '302': '11/1-a Hizmet İhracatı'}
+
+
+def withholding_percent(text):
+    """'9/10', '%90', '90', '0,9' -> 90; None when empty."""
+    t = str(text or '').strip().replace('%', '').replace(' ', '')
+    if not t:
+        return None
+    if '/' in t:
+        a, _, b = t.partition('/')
+        v = float(a.replace(',', '.')) / float(b.replace(',', '.')) * 100
+    else:
+        v = float(t.replace(',', '.'))
+        v = v * 100 if v <= 1 else v
+    return int(round(v))

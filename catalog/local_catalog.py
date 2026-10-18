@@ -239,6 +239,11 @@ LOCAL = [
          description='Stok/ERP dışa aktarımındaki birim yazımlarını (AD, Kg., KOLİ, Sandık, Bidon) UN/ECE birim kodlarına çevirir: bilinen yazımları kural eşler, yalnızca tanınmayanlar modele gider. GİB UBL-TR kod listesinde olmayan kod, kuralın bildiği yazıma farklı kod ve cevapsız birim reddedilir; emin olunamayan birim gerekçesiyle eşlenmeden bırakılır. Çıktı efatura-uret ve eirsaliye-uret bloklarına --unit-map ile verilir.',
          input='CSV/XLSX (birim sütunu); yalnızca birim yazımları gönderilir', output='birim_esleme.csv + birim-esleme.md',
          command='python main.py --input stok_kartlari.xlsx --column OLCU_BIRIMI'),
+    dict(id='tevkifat-kodu-onerici', kind='agent', domain='erp', product='Muhasebe dışa aktarımları', title='Fatura satırlarına KDV tevkifat kodu ve oranı öneren agent',
+         main='agents/tevkifat_kodu_onerici.py', modules=['common', 'tabular', 'islem', 'turkiye', 'ebelge', 'llm'], samples={'hizmet_faturalari.csv': 'hizmet_faturalari.csv'},
+         description='Fatura satırlarındaki mal/hizmet açıklamalarına (temizlik, bakım-onarım, servis taşımacılığı, yemek) KDV tevkifat kodu ve tevkif oranı önerir; modele yalnızca tekil açıklamalar gider. GİB kod listesinde olmayan kod, koda uymayan oran, gerekçesiz öneri ve cevapsız satır reddedilir; kullanıcının doldurduğu kod değiştirilmez. Çıktı doğrudan efatura-uret bloğuna verilir ve tevkifatlı satırı olan fatura TEVKIFAT tipinde yazılır.',
+         input='CSV/XLSX (fatura satırları, urun sütunu); yalnızca açıklamalar gönderilir', output='fatura_satirlari_tevkifatli.csv + tevkifat-onerileri.md',
+         command='python main.py --input eylul_hizmet_faturalari.xlsx --column ACIKLAMA'),
 ]
 
 # Single-purpose blocks registered with islem.op in category modules (library/blocks/*.py).

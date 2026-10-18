@@ -1,0 +1,7 @@
+fatura_no;tarih;alici_no;alici_unvan;alici_vergi_dairesi;alici_il;alici_ilce;urun;miktar;birim;birim_fiyat;kdv_orani;tevkifat_kodu;tevkifat_orani
+H1;2026-09-30;1234567890;Örnek Alıcı Ltd. Şti.;Kadıköy;İstanbul;Kadıköy;Bina temizlik hizmeti - Eylül;1;ay;48.000,00;20;;
+H1;2026-09-30;1234567890;Örnek Alıcı Ltd. Şti.;Kadıköy;İstanbul;Kadıköy;Ofis kırtasiye malzemesi;25;adet;64,00;20;;
+H2;2026-09-30;9876543217;Deniz Gıda A.Ş.;Konak;İzmir;Konak;Forklift periyodik bakım ve onarımı;2;adet;9.500,00;20;;
+H2;2026-09-30;9876543217;Deniz Gıda A.Ş.;Konak;İzmir;Konak;Personel servis taşımacılığı - Eylül;1;ay;62.000,00;20;;
+H3;2026-09-30;9876543217;Deniz Gıda A.Ş.;Konak;İzmir;Konak;Personel öğle yemeği hizmeti;420;adet;145,00;10;;
+H3;2026-09-30;9876543217;Deniz Gıda A.Ş.;Konak;İzmir;Konak;Özel güvenlik hizmeti - Eylül;1;ay;85.000,00;20;607;9/10

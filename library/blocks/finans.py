@@ -7,6 +7,7 @@ from pathlib import Path
 import tabular
 import turkiye as tr
 from islem import op, arg, Result, col_list, need, numbers, fmt, tr_money, fold, tr_sort_key
+from ebelge import WITHHOLDING, EXEMPT_ISTISNA, EXEMPT_NAMES, withholding_percent
 
 REQUIRES = ['turkiye', 'ebelge']
 D, P = 'erp', 'Muhasebe dışa aktarımları'
@@ -340,7 +341,7 @@ def ubl_files(path):
 
 @op('efatura-csv', title='e-Fatura (UBL-TR) XML’lerini tabloya çevir', domain=D, product=P, tag='e-fatura', kind='file',
     samples={'efatura/ABC2026000000101.xml': 'efatura/ABC2026000000101.xml', 'efatura/ABC2026000000102.xml': 'efatura/ABC2026000000102.xml'}, sample_input='efatura',
-    description='Klasördeki UBL-TR e-Fatura/e-Arşiv XML dosyalarından başlık (no, tarih, satıcı/alıcı VKN, tutarlar) ve satır (mal/hizmet, miktar, fiyat, KDV oranı) tabloları üretir. Satır toplamı, KDV ve ödenecek tutar tutarlılığını ve VKN geçerliliğini denetler.',
+    description='Klasördeki UBL-TR e-Fatura/e-Arşiv XML dosyalarından başlık (no, tarih, tip, satıcı/alıcı VKN, tutarlar, tevkifat) ve satır (mal/hizmet, miktar, fiyat, KDV oranı) tabloları üretir. Satır toplamı, KDV, tevkifat (kod/oran GİB listesinde mi, tutar KDV × oran mı) ve ödenecek tutar tutarlılığını ve VKN geçerliliğini denetler.',
     input='XML dosyası veya klasörü', output='sonuc.csv (fatura başlıkları) + satirlar.csv', command='python main.py --input C:\\efaturalar\\2026-09',
     expect={'fatura': 2, 'satir_sayisi': 4, 'tutarsiz': 1})
 def efatura(args):
@@ -372,15 +373,22 @@ def efatura(args):
         head = {'dosya': f.name, 'fatura_no': t('cbc:ID'), 'tarih': t('cbc:IssueDate'), 'profil': t('cbc:ProfileID'), 'tip': t('cbc:InvoiceTypeCode'),
                 'para_birimi': t('cbc:DocumentCurrencyCode'), 'satici_no': ids['AccountingSupplierParty'][0], 'alici_no': ids['AccountingCustomerParty'][0],
                 'mal_hizmet_toplam': n('cac:LegalMonetaryTotal/cbc:LineExtensionAmount'), 'kdv_toplam': n('cac:TaxTotal/cbc:TaxAmount'),
-                'odenecek': n('cac:LegalMonetaryTotal/cbc:PayableAmount'), 'kontrol': ''}
+                'tevkifat': n('cac:WithholdingTaxTotal/cbc:TaxAmount'), 'odenecek': n('cac:LegalMonetaryTotal/cbc:PayableAmount'), 'kontrol': ''}
         issues = []
         if abs(line_sum - head['mal_hizmet_toplam']) > 0.01:
             issues.append(f"satır toplamı {line_sum:.2f} ≠ {head['mal_hizmet_toplam']:.2f}")
         if abs(tax_sum - head['kdv_toplam']) > 0.01:
             issues.append(f"satır KDV toplamı {tax_sum:.2f} ≠ {head['kdv_toplam']:.2f}")
         incl = n('cac:LegalMonetaryTotal/cbc:TaxInclusiveAmount')
-        if abs(head['mal_hizmet_toplam'] + head['kdv_toplam'] - incl) > 0.01 or abs(incl - head['odenecek']) > 0.01:
-            issues.append(f"vergiler dahil {incl:.2f} / ödenecek {head['odenecek']:.2f} uyuşmuyor (iskonto/kesinti olabilir)")
+        if abs(head['mal_hizmet_toplam'] + head['kdv_toplam'] - incl) > 0.01 or abs(incl - head['tevkifat'] - head['odenecek']) > 0.01:
+            issues.append(f"vergiler dahil {incl:.2f}" + (f" − tevkifat {head['tevkifat']:.2f}" if head['tevkifat'] else '')
+                          + f" / ödenecek {head['odenecek']:.2f} uyuşmuyor (iskonto/kesinti olabilir)")
+        for sub in root.findall('cac:WithholdingTaxTotal/cac:TaxSubtotal', UBL):
+            code, pct = t('cac:TaxCategory/cac:TaxScheme/cbc:TaxTypeCode', sub), t('cbc:Percent', sub)
+            if code not in WITHHOLDING or not pct.replace('.', '', 1).isdigit() or round(float(pct)) not in WITHHOLDING[code][1]:
+                issues.append(f'tevkifat kodu/oranı geçersiz ({code} %{pct})')
+            elif abs(n('cbc:TaxableAmount', sub) * float(pct) / 100 - n('cbc:TaxAmount', sub)) > 0.01 * max(1, len(root.findall('cac:InvoiceLine', UBL))):
+                issues.append(f'{code} tevkifat tutarı KDV × %{pct} ile uyuşmuyor')
         for role, (no, scheme) in ids.items():
             err = tr.vkn(no) if scheme == 'VKN' else tr.tckn(no) if scheme == 'TCKN' else ''
             if err:
@@ -704,7 +712,10 @@ def _party(no, name, tax_office, city, district, country='Türkiye'):
             + person + '</cac:Party>')
 
 
-@op('efatura-uret', title='Fatura satırlarından UBL-TR e-Fatura / e-Arşiv XML’i üret (tutarlar ve şema yapısı denetlenir)', domain=D, product=P, tag='e-fatura üret',
+INVOICE_TYPES = ('SATIS', 'IADE', 'TEVKIFAT', 'ISTISNA', 'TEVKIFATIADE')
+
+
+@op('efatura-uret', title='Fatura satırlarından UBL-TR e-Fatura / e-Arşiv XML’i üret: satış, tevkifat, iade ve istisna faturaları', domain=D, product=P, tag='e-fatura üret',
     samples={'fatura_satirlari.csv': 'fatura_satirlari.csv'},
     args=[arg('--seller-no', default='4540536920', help='Satıcı VKN (10) veya TCKN (11)'), arg('--seller-name', default='Örnek Satıcı A.Ş.'),
           arg('--seller-tax-office', default='Büyük Mükellefler'), arg('--seller-city', default='İstanbul'), arg('--seller-district', default='Şişli'),
@@ -712,11 +723,13 @@ def _party(no, name, tax_office, city, district, country='Türkiye'):
           arg('--profile', default='TICARIFATURA', choices=['TEMELFATURA', 'TICARIFATURA', 'EARSIVFATURA']), arg('--currency', default='TRY'),
           arg('--unit-map', default='', help='Birim eşleme CSV’si (birim, kod); birim-kodu-eslestirici agent’ının çıktısı')],
     description='Fatura satırı tablosundan (alıcı, ürün, miktar, birim, birim fiyat, KDV oranı, iskonto) her fatura için UBL-TR 1.2 XML’i yazar: GİB biçiminde 16 haneli fatura '
-                'numarası, UUID, satıcı/alıcı (VKN için unvan ve vergi dairesi, TCKN için ad soyad), satır iskontosu, KDV oranı bazında vergi alt toplamları ve yasal toplamlar. '
-                'Tutarlar kuruşa yuvarlanır; VKN/TCKN kontrol hanesi denetlenir; üretilen XML geri okunup satır, KDV ve ödenecek tutar yeniden hesaplanarak karşılaştırılır.',
-    input='CSV/XLSX (fatura satırları)', output='efatura/<FaturaNo>.xml + sonuc.csv (fatura özeti)',
+                'numarası, UUID, satıcı/alıcı, satır iskontosu, KDV oranı bazında vergi alt toplamları ve yasal toplamlar. İsteğe bağlı sütunlarla tevkifatlı fatura '
+                '(tevkifat_kodu + tevkifat_orani: satır ve fatura düzeyinde WithholdingTaxTotal, ödenecek = KDV dahil − tevkif edilen KDV), iade faturası (iade_fatura_no + '
+                'iade_fatura_tarihi: BillingReference) ve istisna faturası (istisna_kodu + istisna_sebebi) üretir. Tevkifat kodu/oranı ve istisna kodu ile fatura tipi '
+                'uyumu GİB kod listesine göre denetlenir; kurala uymayan fatura gerekçesiyle reddedilir, XML’i yazılmaz. Üretilen XML geri okunup tutarlar yeniden hesaplanır.',
+    input='CSV/XLSX (fatura satırları)', output='efatura/<FaturaNo>.xml + sonuc.csv (fatura özeti) + reddedilen.csv',
     command='python main.py --input satislar.csv --seller-no 1234567890 --seller-name "Firma A.Ş." --prefix FRM --start 1001 --profile EARSIVFATURA',
-    expect={'fatura': 3, 'satir_sayisi': 7, 'odenecek_toplam': 97932.36, 'hatali_kimlik': 0})
+    expect={'fatura': 6, 'reddedilen': 1, 'satir_sayisi': 11, 'odenecek_toplam': 240124.04, 'tevkifat_toplam': 7200.0, 'hatali_kimlik': 0})
 def efatura_uret(columns, rows, args):
     import uuid
     from xml.sax.saxutils import escape as e
@@ -732,26 +745,44 @@ def efatura_uret(columns, rows, args):
         need(c, columns, c)
     style = {c: tabular.number_style([r[c] for r in rows if r.get(c, '').strip()]) for c in ('miktar', 'birim_fiyat', 'kdv_orani', 'iskonto_orani') if c in columns}
     num = lambda r, c: tabular.parse_number(r[c], style[c]) if c in columns and r[c].strip() else None
+    cell = lambda r, c: (r.get(c) or '').strip()
     groups = defaultdict(list)
     for r in rows:
-        key = r.get('fatura_no', '').strip() or f"{r['tarih'].strip()}|{r['alici_no'].strip()}"
+        key = cell(r, 'fatura_no') or f"{cell(r, 'tarih')}|{cell(r, 'alici_no')}"
         groups[key].append(r)
-    files, heads, bad_ids, seq = {}, [], 0, args.start
+    files, heads, rejected, bad_ids, seq = {}, [], [], 0, args.start
     cur = args.currency
     amt = lambda tag, v: f'<cbc:{tag} currencyID="{cur}">{v}</cbc:{tag}>'
+
+    def category(exempt):
+        if not exempt:
+            return '<cac:TaxCategory><cac:TaxScheme><cbc:Name>KDV</cbc:Name><cbc:TaxTypeCode>0015</cbc:TaxTypeCode></cac:TaxScheme></cac:TaxCategory>'
+        return (f'<cac:TaxCategory><cbc:TaxExemptionReasonCode>{exempt[0]}</cbc:TaxExemptionReasonCode><cbc:TaxExemptionReason>{e(exempt[1])}</cbc:TaxExemptionReason>'
+                '<cac:TaxScheme><cbc:Name>KDV</cbc:Name><cbc:TaxTypeCode>0015</cbc:TaxTypeCode></cac:TaxScheme></cac:TaxCategory>')
+
+    def withholding_xml(parts):
+        """parts: {(code, pct): [kdv, withheld]} -> cac:WithholdingTaxTotal"""
+        total = sum((v[1] for v in parts.values()), Decimal(0))
+        return (f'<cac:WithholdingTaxTotal>{amt("TaxAmount", total)}' + ''.join(
+            f'<cac:TaxSubtotal>{amt("TaxableAmount", base)}{amt("TaxAmount", held)}<cbc:Percent>{pct}</cbc:Percent><cac:TaxCategory><cac:TaxScheme>'
+            f'<cbc:Name>{e(WITHHOLDING[code][0])}</cbc:Name><cbc:TaxTypeCode>{code}</cbc:TaxTypeCode></cac:TaxScheme></cac:TaxCategory></cac:TaxSubtotal>'
+            for (code, pct), (base, held) in sorted(parts.items())) + '</cac:WithholdingTaxTotal>')
+
     for key, lines in groups.items():
         first = lines[0]
+        problems = []
         d = tabular.parse_date(first['tarih'])
         if not d:
             raise ValueError(f'{key}: tarih okunamadı ({first["tarih"]}).')
         issue = d[0].date()
-        inv_id = f'{args.prefix}{issue.year}{seq:09d}'
-        seq += 1
         buyer = tr.digits(first['alici_no'])
         problem = (tr.vkn(buyer) if len(buyer) == 10 else tr.tckn(buyer) if len(buyer) == 11 else '10 veya 11 hane değil')
-        if problem:
-            bad_ids += 1
-        line_xml, subtotals, line_total, allowance_total = [], defaultdict(lambda: [Decimal(0), Decimal(0)]), Decimal(0), Decimal(0)
+        asked = fold(cell(first, 'fatura_tipi')).upper().replace(' ', '') or 'SATIS'
+        if asked not in INVOICE_TYPES:
+            problems.append(f'fatura_tipi “{cell(first, "fatura_tipi")}” desteklenmiyor ({", ".join(INVOICE_TYPES)})')
+        line_xml, subtotals, held_parts = [], defaultdict(lambda: [Decimal(0), Decimal(0)]), defaultdict(lambda: [Decimal(0), Decimal(0)])
+        line_total, allowance_total = Decimal(0), Decimal(0)
+        has_withholding = has_istisna = wants_withholding = False
         for i, r in enumerate(lines, 1):
             qty, price, rate = num(r, 'miktar'), num(r, 'birim_fiyat'), num(r, 'kdv_orani')
             if qty is None or price is None or rate is None:
@@ -761,10 +792,48 @@ def efatura_uret(columns, rows, args):
             disc = _money(gross * Decimal(str(disc_rate)) / 100)
             net = gross - disc
             tax = _money(net * Decimal(str(rate)) / 100)
+            exempt = None
+            code = cell(r, 'istisna_kodu')
+            if code:
+                code = code.zfill(3)
+                reason = cell(r, 'istisna_sebebi') or EXEMPT_NAMES.get(code, '')
+                if rate:
+                    problems.append(f'satır {i}: istisna kodu {code} verilmiş ama KDV oranı %{rate:g}')
+                elif code == '351':
+                    exempt = (code, reason)
+                elif code in EXEMPT_ISTISNA:
+                    exempt, has_istisna = (code, reason), True
+                else:
+                    problems.append(f'satır {i}: istisna kodu {code} desteklenmiyor (ihraç kayıtlı, özel matrah ve 555 bu blokta yok)')
+                if exempt and not reason:
+                    problems.append(f'satır {i}: istisna kodu {code} için istisna_sebebi yazılmalı')
+            elif not rate:
+                problems.append(f'satır {i}: KDV %0 satır için istisna_kodu gerekli (istisna değilse 351)')
+            held_xml = ''
+            wcode, wpct = cell(r, 'tevkifat_kodu'), None
+            if wcode or cell(r, 'tevkifat_orani'):
+                wants_withholding = True
+                try:
+                    wpct = withholding_percent(cell(r, 'tevkifat_orani'))
+                except ValueError:
+                    wpct = -1
+                if wcode not in WITHHOLDING:
+                    problems.append(f'satır {i}: tevkifat kodu “{wcode}” GİB listesinde yok')
+                elif wpct not in WITHHOLDING[wcode][1]:
+                    allowed = ', '.join(f'{x // 10}/10' if x < 100 else 'tam' for x in sorted(WITHHOLDING[wcode][1]))
+                    problems.append(f'satır {i}: {wcode} ({WITHHOLDING[wcode][0]}) için tevkifat oranı {cell(r, "tevkifat_orani") or "boş"} olamaz; geçerli: {allowed}')
+                elif not tax:
+                    problems.append(f'satır {i}: KDV’si olmayan satırda tevkifat olmaz')
+                else:
+                    held = _money(tax * wpct / 100)
+                    held_parts[(wcode, wpct)][0] += tax
+                    held_parts[(wcode, wpct)][1] += held
+                    held_xml = withholding_xml({(wcode, wpct): [tax, held]})
+                    has_withholding = True
             line_total += net
             allowance_total += disc
-            subtotals[rate][0] += net
-            subtotals[rate][1] += tax
+            subtotals[(rate, exempt)][0] += net
+            subtotals[(rate, exempt)][1] += tax
             unit = ebelge.unit_code(r.get('birim', ''), extra)
             if not unit:
                 raise ValueError(f'{key} satır {i}: birim “{r["birim"]}” GİB birim koduna çevrilemedi; birim-kodu-eslestirici agent’ını veya --unit-map’i kullanın.')
@@ -772,14 +841,60 @@ def efatura_uret(columns, rows, args):
                          f'{amt("Amount", disc)}{amt("BaseAmount", gross)}</cac:AllowanceCharge>') if disc else ''
             line_xml.append(f'<cac:InvoiceLine><cbc:ID>{i}</cbc:ID><cbc:InvoicedQuantity unitCode="{unit}">{qty:g}</cbc:InvoicedQuantity>{amt("LineExtensionAmount", net)}'
                             f'{allowance}<cac:TaxTotal>{amt("TaxAmount", tax)}<cac:TaxSubtotal>{amt("TaxableAmount", net)}{amt("TaxAmount", tax)}<cbc:Percent>{rate:g}</cbc:Percent>'
-                            '<cac:TaxCategory><cac:TaxScheme><cbc:Name>KDV</cbc:Name><cbc:TaxTypeCode>0015</cbc:TaxTypeCode></cac:TaxScheme></cac:TaxCategory></cac:TaxSubtotal></cac:TaxTotal>'
+                            f'{category(exempt)}</cac:TaxSubtotal></cac:TaxTotal>{held_xml}'
                             f'<cac:Item><cbc:Name>{e(r["urun"].strip())}</cbc:Name></cac:Item><cac:Price>{amt("PriceAmount", _money(price))}</cac:Price></cac:InvoiceLine>')
+        # fatura tipi: tevkifat satırı varsa TEVKIFAT / TEVKIFATIADE; istisna kodu ISTISNA (veya IADE) ister
+        kind = asked
+        if has_withholding and kind in ('SATIS', 'TEVKIFAT'):
+            kind = 'TEVKIFAT'
+        elif has_withholding and kind in ('IADE', 'TEVKIFATIADE'):
+            kind = 'TEVKIFATIADE'
+        elif has_withholding:
+            problems.append(f'{asked} faturasında tevkifat satırı olamaz')
+        if kind in ('TEVKIFAT', 'TEVKIFATIADE') and not wants_withholding:
+            problems.append(f'{kind} faturasında tevkifat_kodu olan satır yok')
+        if has_istisna and kind not in ('ISTISNA', 'IADE'):
+            problems.append(f'istisna kodu ({", ".join(sorted({x[0] for _, x in subtotals if x and x[0] in EXEMPT_ISTISNA}))}) yalnızca ISTISNA veya IADE faturasında kullanılabilir')
+        if kind == 'ISTISNA' and not has_istisna:
+            problems.append('ISTISNA faturasında istisna kodlu satır yok')
+        refs = []
+        if kind in ('IADE', 'TEVKIFATIADE'):
+            for r in lines:
+                no, day_ = cell(r, 'iade_fatura_no').upper(), cell(r, 'iade_fatura_tarihi')
+                if (no, day_) in refs or not (no or day_):
+                    continue
+                pd = tabular.parse_date(day_) if day_ else None
+                if not re.fullmatch(r'[A-Z0-9]{3}20\d{2}\d{9}', no):
+                    problems.append(f'iade edilen fatura numarası “{no or "boş"}” 16 haneli GİB biçiminde değil')
+                elif not pd:
+                    problems.append(f'iade edilen fatura {no} için tarih okunamadı')
+                elif pd[0].date() > issue:
+                    problems.append(f'iade edilen fatura {no} iade faturasından sonra tarihli')
+                refs.append((no, day_))
+            if not refs:
+                problems.append('iade faturası için iade_fatura_no ve iade_fatura_tarihi gerekli')
+        elif any(cell(r, 'iade_fatura_no') for r in lines):
+            problems.append(f'{kind} faturasında iade_fatura_no olamaz (fatura_tipi IADE olmalı)')
+        if problems:
+            rejected.append({'kaynak_anahtar': key, 'tarih': issue.isoformat(), 'alici': first['alici_unvan'].strip(), 'tip': kind, 'gerekce': '; '.join(problems)})
+            continue
+        if problem:
+            bad_ids += 1
+        inv_id = f'{args.prefix}{issue.year}{seq:09d}'
+        seq += 1
         tax_total = sum((v[1] for v in subtotals.values()), Decimal(0))
-        sub_xml = ''.join(f'<cac:TaxSubtotal>{amt("TaxableAmount", b)}{amt("TaxAmount", t)}<cbc:Percent>{rt:g}</cbc:Percent><cac:TaxCategory><cac:TaxScheme>'
-                          '<cbc:Name>KDV</cbc:Name><cbc:TaxTypeCode>0015</cbc:TaxTypeCode></cac:TaxScheme></cac:TaxCategory></cac:TaxSubtotal>' for rt, (b, t) in sorted(subtotals.items()))
+        held_total = sum((v[1] for v in held_parts.values()), Decimal(0))
+        sub_xml = ''.join(f'<cac:TaxSubtotal>{amt("TaxableAmount", b)}{amt("TaxAmount", t)}<cbc:Percent>{rt:g}</cbc:Percent>{category(ex)}</cac:TaxSubtotal>'
+                          for (rt, ex), (b, t) in sorted(subtotals.items(), key=lambda kv: (kv[0][0], kv[0][1] or ())))
         inv_uuid = str(uuid.uuid5(uuid.NAMESPACE_URL, f'efatura/{args.seller_no}/{inv_id}')).upper()
         seller_scheme = 'TCKN' if len(tr.digits(args.seller_no)) == 11 else 'VKN'
         profile = args.profile if len(buyer) == 10 or args.profile == 'EARSIVFATURA' else 'EARSIVFATURA'
+        if kind in ('IADE', 'TEVKIFATIADE') and profile == 'TICARIFATURA':
+            profile = 'TEMELFATURA'  # GİB: iade faturası ticari senaryoda kesilemez
+        billing = ''.join(f'<cac:BillingReference><cac:InvoiceDocumentReference><cbc:ID>{no}</cbc:ID><cbc:IssueDate>{tabular.parse_date(day_)[0].date().isoformat()}</cbc:IssueDate>'
+                          '<cbc:DocumentTypeCode>IADE</cbc:DocumentTypeCode></cac:InvoiceDocumentReference></cac:BillingReference>' for no, day_ in refs)
+        country = cell(first, 'alici_ulke') or 'Türkiye'
+        payable = line_total + tax_total - held_total
         xml = ('<?xml version="1.0" encoding="UTF-8"?>\n<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2" '
                'xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2" xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2" '
                'xmlns:ext="urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2">'
@@ -787,32 +902,47 @@ def efatura_uret(columns, rows, args):
                '</ext:UBLExtension></ext:UBLExtensions>'  # placeholder; the signing software puts ds:Signature here
                f'<cbc:UBLVersionID>2.1</cbc:UBLVersionID><cbc:CustomizationID>TR1.2</cbc:CustomizationID><cbc:ProfileID>{profile}</cbc:ProfileID><cbc:ID>{inv_id}</cbc:ID>'
                f'<cbc:CopyIndicator>false</cbc:CopyIndicator><cbc:UUID>{inv_uuid}</cbc:UUID><cbc:IssueDate>{issue.isoformat()}</cbc:IssueDate>'
-               f'<cbc:InvoiceTypeCode>SATIS</cbc:InvoiceTypeCode><cbc:DocumentCurrencyCode>{cur}</cbc:DocumentCurrencyCode><cbc:LineCountNumeric>{len(lines)}</cbc:LineCountNumeric>'
+               f'<cbc:InvoiceTypeCode>{kind}</cbc:InvoiceTypeCode><cbc:DocumentCurrencyCode>{cur}</cbc:DocumentCurrencyCode><cbc:LineCountNumeric>{len(lines)}</cbc:LineCountNumeric>'
+               f'{billing}'
                f'<cac:Signature><cbc:ID schemeID="VKN_TCKN">{args.seller_no}</cbc:ID><cac:SignatoryParty><cac:PartyIdentification><cbc:ID schemeID="{seller_scheme}">{args.seller_no}</cbc:ID>'
                f'</cac:PartyIdentification><cac:PostalAddress><cbc:CitySubdivisionName>{e(args.seller_district)}</cbc:CitySubdivisionName><cbc:CityName>{e(args.seller_city)}</cbc:CityName><cac:Country><cbc:Name>Türkiye</cbc:Name></cac:Country></cac:PostalAddress>'
                f'</cac:SignatoryParty><cac:DigitalSignatureAttachment><cac:ExternalReference><cbc:URI>#Signature_{inv_id}</cbc:URI></cac:ExternalReference></cac:DigitalSignatureAttachment></cac:Signature>'
                f'<cac:AccountingSupplierParty>{_party(args.seller_no, args.seller_name, args.seller_tax_office, args.seller_city, args.seller_district)}</cac:AccountingSupplierParty>'
-               f'<cac:AccountingCustomerParty>{_party(buyer, first["alici_unvan"].strip(), first.get("alici_vergi_dairesi", "").strip(), first.get("alici_il", "").strip() or "-", first.get("alici_ilce", "").strip())}</cac:AccountingCustomerParty>'
+               f'<cac:AccountingCustomerParty>{_party(buyer, first["alici_unvan"].strip(), cell(first, "alici_vergi_dairesi"), cell(first, "alici_il") or "-", cell(first, "alici_ilce"), country)}</cac:AccountingCustomerParty>'
                f'<cac:TaxTotal>{amt("TaxAmount", tax_total)}{sub_xml}</cac:TaxTotal>'
-               f'<cac:LegalMonetaryTotal>{amt("LineExtensionAmount", line_total)}{amt("TaxExclusiveAmount", line_total)}{amt("TaxInclusiveAmount", line_total + tax_total)}'
-               + (amt('AllowanceTotalAmount', allowance_total) if allowance_total else '') + f'{amt("PayableAmount", line_total + tax_total)}</cac:LegalMonetaryTotal>'
+               + (withholding_xml(held_parts) if held_parts else '')
+               + f'<cac:LegalMonetaryTotal>{amt("LineExtensionAmount", line_total)}{amt("TaxExclusiveAmount", line_total)}{amt("TaxInclusiveAmount", line_total + tax_total)}'
+               + (amt('AllowanceTotalAmount', allowance_total) if allowance_total else '') + f'{amt("PayableAmount", payable)}</cac:LegalMonetaryTotal>'
                + ''.join(line_xml) + '</Invoice>\n')
         # read the XML back and recompute, as the efatura-csv block would
         root = ET.fromstring(xml.encode('utf-8'))
-        val = lambda path, node=root: Decimal(node.findtext(path, namespaces=UBL))
-        back_lines = sum((val('cbc:LineExtensionAmount', ln) for ln in root.findall('cac:InvoiceLine', UBL)), Decimal(0))
-        back_tax = sum((val('cac:TaxTotal/cbc:TaxAmount', ln) for ln in root.findall('cac:InvoiceLine', UBL)), Decimal(0))
+        val = lambda path, node=root: Decimal(node.findtext(path, namespaces=UBL) or 0)
+        inv_lines = root.findall('cac:InvoiceLine', UBL)
+        back_lines = sum((val('cbc:LineExtensionAmount', ln) for ln in inv_lines), Decimal(0))
+        back_tax = sum((val('cac:TaxTotal/cbc:TaxAmount', ln) for ln in inv_lines), Decimal(0))
+        back_held = sum((val('cac:WithholdingTaxTotal/cbc:TaxAmount', ln) for ln in inv_lines), Decimal(0))
         if back_lines != val('cac:LegalMonetaryTotal/cbc:LineExtensionAmount') or back_tax != val('cac:TaxTotal/cbc:TaxAmount') \
-                or val('cac:LegalMonetaryTotal/cbc:PayableAmount') != back_lines + back_tax:
+                or back_held != val('cac:WithholdingTaxTotal/cbc:TaxAmount') or val('cac:LegalMonetaryTotal/cbc:PayableAmount') != back_lines + back_tax - back_held:
             raise ValueError(f'{inv_id}: geri okunan tutarlar tutmuyor (iç hata).')
         files[f'efatura/{inv_id}.xml'] = xml
-        heads.append({'fatura_no': inv_id, 'kaynak_anahtar': key, 'tarih': issue.isoformat(), 'profil': profile, 'alici_no': buyer, 'alici': first['alici_unvan'].strip(),
-                      'satir': len(lines), 'mal_hizmet': float(line_total), 'iskonto': float(allowance_total), 'kdv': float(tax_total), 'odenecek': float(line_total + tax_total),
+        heads.append({'fatura_no': inv_id, 'kaynak_anahtar': key, 'tarih': issue.isoformat(), 'profil': profile, 'tip': kind, 'alici_no': buyer, 'alici': first['alici_unvan'].strip(),
+                      'satir': len(lines), 'mal_hizmet': float(line_total), 'iskonto': float(allowance_total), 'kdv': float(tax_total), 'tevkifat': float(held_total),
+                      'odenecek': float(payable), 'iade_edilen': ', '.join(no for no, _ in refs),
                       'kontrol': f'alıcı numarası geçersiz ({problem})' if problem else 'tutarlı'})
+    if not heads:
+        raise ValueError('Hiç fatura yazılamadı: ' + ' | '.join(f'{r["kaynak_anahtar"]}: {r["gerekce"]}' for r in rejected))
     total = round(sum(h['odenecek'] for h in heads), 2)
-    return Result(f'{len(heads)} fatura XML’i ({sum(h["satir"] for h in heads)} satır), ödenecek toplam {tr_money(total)}', list(heads[0]), heads,
-                  {'fatura': len(heads), 'satir_sayisi': sum(h['satir'] for h in heads), 'odenecek_toplam': total, 'hatali_kimlik': bad_ids}, files=files,
+    if rejected:
+        files['reddedilen.csv'] = (list(rejected[0]), rejected)
+    by_type = Counter(h['tip'] for h in heads)
+    return Result(f'{len(heads)} fatura XML’i ({", ".join(f"{n} {t}" for t, n in sorted(by_type.items()))}), ödenecek toplam {tr_money(total)}'
+                  + (f'; {len(rejected)} fatura reddedildi' if rejected else ''), list(heads[0]), heads,
+                  {'fatura': len(heads), 'reddedilen': len(rejected), 'satir_sayisi': sum(h['satir'] for h in heads), 'odenecek_toplam': total,
+                   'tevkifat_toplam': round(sum(h['tevkifat'] for h in heads), 2), 'hatali_kimlik': bad_ids}, files=files,
+                  tables=[('Reddedilen faturalar', ['Kaynak', 'Tarih', 'Alıcı', 'Tip', 'Gerekçe'], [list(r.values()) for r in rejected])] if rejected else [],
                   notes=['XML’ler imzasızdır: mali mühür/e-imza ve GİB’e gönderim özel entegratör veya GİB portalı üzerinden yapılır; UBLExtensions içindeki yer tutucu imzayla değiştirilir.',
-                         'Örnek çıktılar geliştirme sırasında GİB UBL-TR 1.2.1 XSD’sinden ve GİB e-Fatura/e-Arşiv Schematron kurallarından hatasız geçti; imzalı gönderim test edilmedi.',
-                         'Bireysel (TCKN) alıcılara kesilen faturalar e-Arşiv profiliyle yazılır. İade, istisna, tevkifat ve ÖTV’li faturalar desteklenmez.',
-                         'Fatura numaraları --start’tan sıralı verilir; aynı yıl içinde daha önce kullanılmış numarayı vermeyin.'])
+                         'Örnek çıktılar (satış, tevkifat, iade, istisna) geliştirme sırasında GİB UBL-TR 1.2.1 XSD’sinden ve GİB e-Fatura/e-Arşiv Schematron kurallarından hatasız geçti; imzalı gönderim test edilmedi.',
+                         'Tevkifat kodu ve oranının, istisna kodunun işleme uygunluğunu blok bilemez; yalnızca GİB kod listesine ve fatura tipine uyumu denetlenir. Alıcının tevkifat '
+                         'yapmakla yükümlü olup olmadığını ve yılın tevkifat tutar sınırını mali müşavirinizle doğrulayın.',
+                         'Bireysel (TCKN) alıcılara kesilen faturalar e-Arşiv profiliyle, iade faturaları TEMELFATURA (veya e-Arşiv) profiliyle yazılır. İhraç kayıtlı, özel matrah, ÖTV’li ve SGK faturaları desteklenmez.',
+                         'Fatura numaraları --start’tan sıralı verilir (reddedilen fatura numara tüketmez); aynı yıl içinde daha önce kullanılmış numarayı vermeyin.'])

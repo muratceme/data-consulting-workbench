@@ -59,8 +59,8 @@ class LocalTestCase(unittest.TestCase):
 
 class PackageShape(LocalTestCase):
     def test_every_local_package_is_self_contained_and_has_no_network_code(self):
-        self.assertEqual(len([i for i in LOCAL if not i.get('op')]), 46)
-        self.assertEqual(sum(i['kind'] == 'agent' for i in LOCAL), 34)
+        self.assertEqual(len([i for i in LOCAL if not i.get('op')]), 47)
+        self.assertEqual(sum(i['kind'] == 'agent' for i in LOCAL), 35)
         self.assertEqual(len({i['id'] for i in LOCAL}), len(LOCAL))
         for item in LOCAL:
             names = local_package.files(item)
@@ -552,7 +552,7 @@ class SinglePurposeBlocks(LocalTestCase):
         p = self.package('efatura-uret')
         self.ok(p.run('--prefix', 'FRM', '--start', '1001'))
         files = sorted(p.out('efatura').glob('*.xml'))
-        self.assertEqual([f.stem for f in files], ['FRM2026000001001', 'FRM2026000001002', 'FRM2026000001003'])
+        self.assertEqual([f.stem for f in files], [f'FRM202600000100{i}' for i in range(1, 7)])  # the rejected invoice uses no number
         ns = {'cbc': 'urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2', 'cac': 'urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2'}
         first = ET.parse(files[0]).getroot()
         self.assertEqual(first.find('cac:LegalMonetaryTotal/cbc:AllowanceTotalAmount', ns).text, '3250.00')  # 5% off 2 × 32.500
@@ -564,7 +564,25 @@ class SinglePurposeBlocks(LocalTestCase):
         reader = self.package('efatura-csv')
         self.ok(reader.run('--input', str(p.out('efatura'))))
         self.assertEqual({r['kontrol'] for r in reader.csv('sonuc.csv')}, {'tutarlı'})
-        self.assertEqual(sum(float(r['odenecek']) for r in reader.csv('sonuc.csv')), 97932.36)
+        self.assertAlmostEqual(sum(float(r['odenecek']) for r in reader.csv('sonuc.csv')), 240124.04, places=2)
+        held = ET.parse(files[3]).getroot()  # 40.000 cleaning, 20% VAT, 9/10 withheld
+        self.assertEqual(held.find('cbc:InvoiceTypeCode', ns).text, 'TEVKIFAT')
+        self.assertEqual(held.find('cac:WithholdingTaxTotal/cbc:TaxAmount', ns).text, '7200.00')
+        self.assertEqual(held.find('cac:LegalMonetaryTotal/cbc:PayableAmount', ns).text, '41820.00')
+        ret = ET.parse(files[4]).getroot()
+        self.assertEqual((ret.find('cbc:ProfileID', ns).text, ret.find('cbc:InvoiceTypeCode', ns).text), ('TEMELFATURA', 'IADE'))
+        self.assertEqual(ret.find('cac:BillingReference/cac:InvoiceDocumentReference/cbc:ID', ns).text, 'DNZ2026000000457')
+        exempt = ET.parse(files[5]).getroot()
+        self.assertEqual(exempt.find('cac:TaxTotal/cac:TaxSubtotal/cac:TaxCategory/cbc:TaxExemptionReasonCode', ns).text, '302')
+        self.assertIn('603', p.csv('reddedilen.csv')[0]['gerekce'])  # 603 allows only 5/10 and 7/10
+        bad = self.package('efatura-uret')
+        rows = (bad.dir / 'ornek' / 'fatura_satirlari.csv').read_text(encoding='utf-8')
+        rows = rows.replace(';ISTISNA;', ';SATIS;').replace(';Kılıf;2;adet;149,90;20;', ';Kılıf;2;adet;149,90;0;')
+        (bad.dir / 'f.csv').write_text(rows, encoding='utf-8')
+        self.ok(bad.run('--input', str(bad.dir / 'f.csv')))
+        reasons = ' | '.join(r['gerekce'] for r in bad.csv('reddedilen.csv'))
+        self.assertIn('yalnızca ISTISNA veya IADE faturasında', reasons)
+        self.assertIn('KDV %0 satır için istisna_kodu gerekli', reasons)
 
     def test_despatch_advice_and_pivot_report(self):
         import xml.etree.ElementTree as ET
@@ -780,6 +798,8 @@ GOOD['qlik-ifade-yazari'] = {'ifadeler': [{'ad': 'Ciro YTD', 'ifade': 'Sum({<[Yi
 OUTPUTS['qlik-ifade-yazari'] = 'ifadeler.md'
 GOOD['birim-kodu-eslestirici'] = {'eslemeler': [{'birim': 'Kasa', 'kod': 'CR', 'gerekce': 'Sebze kasası; ambalaj sayılır.'}, {'birim': 'Damacana', 'kod': 'BO', 'gerekce': 'Büyük şişe.'}, {'birim': 'Bidon', 'kod': 'CA', 'gerekce': 'Metal/plastik kap.'}, {'birim': 'Varil', 'kod': 'DR', 'gerekce': 'Drum.'}, {'birim': 'Sandık', 'kod': 'CS', 'gerekce': 'Case.'}, {'birim': 'Muhtelif', 'kod': 'eşlenemez', 'gerekce': 'Birim belirsiz; stok kartında gerçek birim yazılmalı.'}]}
 OUTPUTS['birim-kodu-eslestirici'] = 'birim-esleme.md'
+GOOD['tevkifat-kodu-onerici'] = {"oneriler": [{"urun": "Bina temizlik hizmeti - Eylül", "kod": "612", "oran": "9/10", "gerekce": "Temizlik hizmeti kısmi tevkifat kapsamında."}, {"urun": "Ofis kırtasiye malzemesi", "kod": "yok", "gerekce": "Kırtasiye malzemesi teslimi tevkifat kapsamında değil."}, {"urun": "Forklift periyodik bakım ve onarımı", "kod": "603", "oran": "7/10", "gerekce": "Makine ve teçhizat bakım onarımı."}, {"urun": "Personel servis taşımacılığı - Eylül", "kod": "614", "oran": "5/10", "gerekce": "Servis taşımacılığı hizmeti."}, {"urun": "Personel öğle yemeği hizmeti", "kod": "604", "gerekce": "Yemek servis hizmeti; oran tek."}]}
+OUTPUTS['tevkifat-kodu-onerici'] = 'tevkifat-onerileri.md'
 GOOD['tableau-hesap-yazari'] = {'alanlar': [{'ad': 'Son Tarih', 'formul': '{FIXED : MAX([Siparis Tarihi])}', 'tip': 'date', 'rol': 'dimension', 'aciklama': 'Verideki son sipariş tarihi.'}, {'ad': 'Ciro YTD', 'formul': "SUM(IF [Siparis Tarihi] >= DATETRUNC('year', [Son Tarih]) AND [Siparis Tarihi] <= [Son Tarih] THEN [Tutar] END)", 'tip': 'real', 'rol': 'measure', 'aciklama': 'Yıl başından son tarihe.'}, {'ad': 'Ciro GY YTD', 'formul': "SUM(IF [Siparis Tarihi] >= DATEADD('year', -1, DATETRUNC('year', [Son Tarih])) AND [Siparis Tarihi] <= DATEADD('year', -1, [Son Tarih]) THEN [Tutar] END)", 'tip': 'real', 'rol': 'measure', 'aciklama': 'Geçen yılın aynı dönemi.'}, {'ad': 'Sipariş Başına Ciro', 'formul': 'SUM([Tutar]) / COUNTD([Siparis No])', 'tip': 'real', 'rol': 'measure', 'aciklama': ''}, {'ad': 'Bölge Payı', 'formul': 'SUM({FIXED [Bolge] : SUM([Tutar])}) / SUM({FIXED : SUM([Tutar])})', 'tip': 'real', 'rol': 'measure', 'aciklama': ''}], 'varsayimlar': ['Ciro, Tutar alanının toplamıdır.']}
 OUTPUTS['tableau-hesap-yazari'] = 'hesaplanan-alanlar.md'
 OUTPUTS.update({'deney-analisti': 'deney-raporu.md', 'sube-planlayici': 'sube-plani.md', 'rapor-tasarimcisi': 'tasarim.md'})
@@ -1038,6 +1058,26 @@ class Agents(LocalTestCase):
         self.ok(irs.run('--input', str(irs.dir / 'sevk.csv'), '--unit-map', str(p.out('birim_esleme.csv'))))
         self.assertIn('unitCode="CS">4<', irs.out('eirsaliye/IRS2026000000001.xml').read_text(encoding='utf-8'))
 
+    def test_withholding_agent_feeds_the_invoice_generator(self):
+        bad = {'oneriler': [{'urun': 'Bina temizlik hizmeti - Eylül', 'kod': '612', 'oran': '5/10', 'gerekce': 'x'},
+                            {'urun': 'Forklift periyodik bakım ve onarımı', 'kod': '650', 'oran': '50', 'gerekce': 'x'}]}
+        p, done = self.run_agent('tevkifat-kodu-onerici', '--yes', answers=[bad, GOOD['tevkifat-kodu-onerici']])
+        self.ok(done)
+        sent = self.model.requests[-2]['body']['messages'][-1]['content']
+        self.assertNotIn('1234567890', sent)  # only descriptions leave the machine
+        self.assertNotIn('Özel güvenlik hizmeti - Eylül', sent)  # the user's own code is kept, not re-asked
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        self.assertIn('612 için oran 5/10 olamaz (geçerli: 7/10, 9/10)', retry)
+        self.assertIn('650 GİB tevkifat kod listesinde yok', retry)
+        rows = p.csv('fatura_satirlari_tevkifatli.csv')
+        self.assertEqual([(r['tevkifat_kodu'], r['tevkifat_orani']) for r in rows],
+                         [('612', '9/10'), ('', ''), ('603', '7/10'), ('614', '5/10'), ('604', '5/10'), ('607', '9/10')])
+        inv = self.package('efatura-uret')
+        self.ok(inv.run('--input', str(p.out('fatura_satirlari_tevkifatli.csv'))))
+        heads = inv.csv('sonuc.csv')
+        self.assertEqual({h['tip'] for h in heads}, {'TEVKIFAT'})
+        self.assertEqual([float(h['tevkifat']) for h in heads], [8640.0, 8860.0, 18345.0])  # 9600×0.9; 3800×0.7 + 12400×0.5; 6090×0.5 + 17000×0.9
+
     def test_invalid_answer_gets_one_corrective_retry(self):
         bad = {'sql': 'SELECT s.KalemlerToplamCiro FROM dbo.Siparisler s'}
         p, done = self.run_agent('sql-yazari', '--yes', answers=[bad, GOOD['sql-yazari']])
@@ -1078,7 +1118,8 @@ class Agents(LocalTestCase):
                              ('rapor-tasarimcisi', {**GOOD['rapor-tasarimcisi'], 'boyutlar': ['musteri_eposta']}),
                              ('qlik-ifade-yazari', {'ifadeler': [{'ad': 'Ciro', 'ifade': 'Sum([Ciro])'}]}),
                              ('tableau-hesap-yazari', {'alanlar': [{'ad': 'Oran', 'formul': 'SUM([Tutar]) / [Adet]', 'tip': 'real', 'rol': 'measure'}]}),
-                             ('birim-kodu-eslestirici', {'eslemeler': [{'birim': 'Kasa', 'kod': 'KASA'}]})]:
+                             ('birim-kodu-eslestirici', {'eslemeler': [{'birim': 'Kasa', 'kod': 'KASA'}]}),
+                             ('tevkifat-kodu-onerici', {'oneriler': [{'urun': 'Ofis kırtasiye malzemesi', 'kod': '650', 'oran': '50', 'gerekce': 'x'}]})]:
             with self.subTest(item_id):
                 p, done = self.run_agent(item_id, '--yes', answers=[bad, bad])
                 self.assertEqual(done.returncode, 1)
