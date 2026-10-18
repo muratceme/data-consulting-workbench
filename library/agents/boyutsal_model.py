@@ -3,8 +3,10 @@ tablosuna (ölçüler, dejenere boyutlar, tarih anahtarları) ve boyut tablolar�
 Her sütunun tam bir kez kullanıldığı, ölçülerin sayısal, doğal anahtarın boyutun içinde olduğu yerelde denetlenir. Ardından kod,
 her boyut için doğal anahtar → nitelik bağımlılığını gerçek veride ölçer (aynı anahtarda farklı nitelik değeri = SCD2 ya da
 yanlış boyut) ve CREATE TABLE taslağıyla Mermaid ER şemasını yazar. Satırlar gönderilmez.
-Çıktı: boyutsal-model.md, model.sql, model.json."""
+Onaylanan tasarım yildiz-sema bloğuyla DDL ve yükleme SQL’ine çevrilir ve SQLite’ta çalıştırılıp satır sayısı ve ölçü toplamları kaynakla karşılaştırılır.
+Çıktı: boyutsal-model.md, model.sql, model.json, yukleme/ (ddl.sql, yukleme.sql, dogrulama.csv)."""
 import argparse, re
+from argparse import Namespace
 from collections import defaultdict
 from pathlib import Path
 import llm
@@ -12,6 +14,7 @@ import tabular
 from common import here, output_dir, write_json, write_text, md_table
 from veri_profili import profile
 from veri_sozlugu import profile_text
+import yildiz
 
 NUMERIC = ('tam sayı', 'ondalık')
 NAME = re.compile(r'^[a-z][a-z0-9_]{1,62}$')
@@ -87,6 +90,34 @@ def validator(data):
     return validate
 
 
+def measured_dependencies(columns, rows):
+    """Pairs A -> B among text columns where every A value has a single B value (A has fewer distinct values than the file has rows)."""
+    texts = [c for c in columns if any(r[c].strip() for r in rows) and not all(tabular.parse_number(r[c]) is not None for r in rows if r[c].strip())]
+    distinct = {c: len({r[c].strip() for r in rows if r[c].strip()}) for c in texts}
+    cands = [c for c in texts if 1 < distinct[c] < len(rows)]
+    deps = []
+    for a in cands:
+        for b in cands:
+            if a != b and distinct[a] >= distinct[b]:
+                seen = {}
+                if all(seen.setdefault(r[a].strip(), r[b].strip()) == r[b].strip() for r in rows if r[a].strip()):
+                    deps.append((a, b))
+    return deps
+
+
+def verified_load(columns, rows, result, dialect):
+    """Run the design through the yildiz-sema block: load SQL generated and executed in SQLite against the source."""
+    fact = result['fact']
+    spec = ';'.join(f"{d['ad'][4:]}={','.join(d['dogal_anahtar'] + d['nitelikler'])}" for d in result['dims'])
+    dates = fact['tarih_sutunlari']
+    try:
+        res = yildiz.star(columns, rows, Namespace(dims=spec, drop='', keep=','.join(fact['dejenere'] + dates[1:]), date=dates[0] if dates else '',
+                                                   name=fact['ad'][4:], dialect=dialect))
+    except ValueError as exc:
+        return None, str(exc)
+    return res, ''
+
+
 def dependency(rows, dims):
     """For each dimension: how many natural keys map to more than one attribute combination in the data."""
     found = []
@@ -139,13 +170,16 @@ def main():
     p.add_argument('--sheet')
     p.add_argument('--context', help='İş bağlamı (isteğe bağlı .md)')
     p.add_argument('--schema', default='dwh', help='DDL taslağındaki şema adı')
+    p.add_argument('--dialect', default='postgres', choices=yildiz.DIALECTS, help='Doğrulanmış yükleme SQL’inin lehçesi')
     llm.add_arguments(p)
     args = p.parse_args()
     columns, rows = tabular.read(args.input, args.sheet)
     data = {'source': Path(args.input).name, **profile(columns, rows)}
     context = Path(args.context).read_text(encoding='utf-8-sig').strip() if args.context and Path(args.context).is_file() else ''
     out = output_dir(args.output)
-    user = f"Sütun profili:\n{profile_text(data)}\n\nİş bağlamı:\n\"\"\"\n{context or 'Verilmedi.'}\n\"\"\""
+    deps = measured_dependencies(columns, rows)
+    dep_text = '\n'.join(f'- {a} → {b}' for a, b in deps) or '- yok'
+    user = f"Sütun profili:\n{profile_text(data)}\n\nVeride ölçülen bağımlılıklar (A → B: her A değerinin tek B değeri var):\n{dep_text}\n\nİş bağlamı:\n\"\"\"\n{context or 'Verilmedi.'}\n\"\"\""
     result, meta = llm.ask(args, out, SYSTEM, user, validator(data))
     if result is None:
         return
@@ -163,6 +197,19 @@ def main():
           '', '```mermaid', er, '```']
     if result['notes']:
         md += ['', '## Tasarım notları', ''] + [f'- {n}' for n in result['notes']]
+    load, error = verified_load(columns, rows, result, args.dialect)
+    md += ['', '## Çalıştırılarak doğrulanan yükleme (yildiz-sema)', '']
+    if load:
+        (out / 'yukleme').mkdir(exist_ok=True)
+        write_text(out / 'yukleme' / 'ddl.sql', load.files['ddl.sql'])
+        write_text(out / 'yukleme' / 'yukleme.sql', load.files['yukleme.sql'])
+        tabular.write_csv(out / 'yukleme' / 'dogrulama.csv', load.columns, load.rows)
+        md += [f'yukleme/ klasöründeki {args.dialect} SQL’i SQLite’ta çalıştırıldı: {load.headline}.', '',
+               md_table(load.columns, [[r[c] for c in load.columns] for r in load.rows])] + [''] + [f'- {n}' for n in load.notes[1:]]
+        if any(d['scd'] == '2' for d in result['dims']):
+            md += ['', 'SCD2 boyutlar bu yüklemede tip 1 olarak (her nitelik birleşimi ayrı satır) yüklenir; geçmiş için dbt-snapshot-sablonu bloğunu kullanın.']
+    else:
+        md += [f'Yükleme SQL’i doğrulanamadı: {error}']
     md += ['', f"_Model: {meta['model']} · DDL taslaktır (model.sql); tane ve SCD kararlarını iş sahibiyle onaylayın._"]
     write_text(out / 'boyutsal-model.md', '\n'.join(md))
     bad = [c['boyut'] for c in checks if c['celisen_anahtar'] and c['scd'] != '2']

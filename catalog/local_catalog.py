@@ -116,9 +116,9 @@ LOCAL = [
          input='Zaman damgalı log dosyası (.log/.txt) + isteğe bağlı sistem bağlamı; log satırları gönderilmez', output='olay-raporu.md (aksiyon listesiyle) + olay-imzalari.csv + olay.json',
          command='python main.py --input /var/log/etl/gece.log --top 20'),
     dict(id='boyutsal-model', kind='agent', domain='warehouse', product='Snowflake', title='Düz dışa aktarımdan yıldız şema tasarlayan agent',
-         main='agents/boyutsal_model.py', modules=['common', 'tabular', 'llm', 'veri_profili', 'veri_sozlugu'], samples={'satislar.csv': 'satislar.csv'},
-         description='Dosyanın profilini yerelde çıkarır; model sütunları olgu tablosuna (tane, ölçüler, dejenere boyutlar, tarih anahtarları) ve boyutlara (doğal anahtar, nitelikler, SCD tipi) dağıtır. Her sütunun tam bir kez kullanıldığı ve ölçülerin sayısal olduğu denetlenir; kod gerçek veride anahtar → nitelik bağımlılığını ölçer, CREATE TABLE taslağı ve Mermaid ER şeması yazar.',
-         input='CSV/XLSX (düz rapor/dışa aktarım) + isteğe bağlı iş bağlamı; satırlar gönderilmez', output='boyutsal-model.md + model.sql + model.json',
+         main='agents/boyutsal_model.py', modules=['common', 'tabular', 'islem', 'llm', 'veri_profili', 'veri_sozlugu', 'sema_farki', 'sqlgen', 'yildiz'], samples={'satislar.csv': 'satislar.csv'},
+         description='Dosyanın profilini yerelde çıkarır; model sütunları olgu tablosuna (tane, ölçüler, dejenere boyutlar, tarih anahtarları) ve boyutlara (doğal anahtar, nitelikler, SCD tipi) dağıtır. Her sütunun tam bir kez kullanıldığı ve ölçülerin sayısal olduğu denetlenir; kod gerçek veride anahtar → nitelik bağımlılığını ölçer (ölçülen bağımlılıklar modele de verilir), CREATE TABLE taslağı ve Mermaid ER şeması yazar. Onaylanan tasarımdan dört lehçede yükleme SQL’i üretilir ve SQLite’ta çalıştırılıp satır ve toplamlar kaynakla karşılaştırılır.',
+         input='CSV/XLSX (düz rapor/dışa aktarım) + isteğe bağlı iş bağlamı; satırlar gönderilmez', output='boyutsal-model.md + model.sql + model.json + yukleme/ (doğrulanmış SQL)',
          command='python main.py --input siparis_raporu.xlsx --schema dwh'),
     dict(id='regex-yazari', kind='agent', domain='files', product='CSV / Excel', title='Örneklerden doğrulanmış regex yazan agent',
          main='agents/regex_yazari.py', modules=['common', 'tabular', 'llm'], samples={'plaka_ornekleri.csv': 'plaka_ornekleri.csv'},
@@ -229,11 +229,6 @@ LOCAL = [
          description='Load script’ten alan ve değişken adlarını yerelde çıkarır; model istenen ölçüleri Qlik grafik ifadesi olarak (set analizi, TOTAL, Aggr) yazar. Parantez/tırnak dengesi, script’te olmayan alan, Qlik’te olmayan fonksiyon ve tanımsız $(değişken) kodla reddedilir; geçen ifadeler qlik-cli ile yüklenecek ana ölçü dosyasına yazılır. Script metni gönderilmez.',
          input='Load script (.qvs) + istenen ölçüler; yalnızca alan ve değişken adları gönderilir', output='measures.json + ifadeler.md + alanlar.csv',
          command='python main.py --input uygulama.qvs --request "Bu yılın cirosu, geçen yılın aynı dönemi ve bölge payı"'),
-    dict(id='yildiz-sema-tasarimcisi', kind='agent', domain='warehouse', product='Boyutsal model (SQL)', title='Düz dosyayı ölçülmüş bağımlılıklarla yıldız şemaya bölen agent',
-         main='agents/yildiz_sema_tasarimcisi.py', modules=['common', 'tabular', 'islem', 'sema_farki', 'sqlgen', 'yildiz', 'llm'], samples={'satis_detay.csv': 'satis_detay.csv'},
-         description='Sütun profilini ve sütunlar arası işlevsel bağımlılıkları veride ölçer; model olgu tanecikliğini, boyutları, dejenere boyutları ve dışarıda kalacak sütunları seçer. Veride tutmayan bağımlılık, kişisel verinin boyuta konması, iki yerde kullanılan veya yeri belirsiz sütun reddedilir. Onaylanan tasarımdan DDL ve yükleme SQL’i üretilir ve SQLite’ta çalıştırılıp satır ve toplamlar kaynakla karşılaştırılır.',
-         input='Düz CSV/XLSX + modelin amacı; satırlar ve örnek değerler gönderilmez', output='tasarim.md + ddl.sql + yukleme.sql + dogrulama.csv',
-         command='python main.py --input satis_ozeti.csv --dialect sqlserver --context "Bayi performans raporları"'),
 ]
 
 # Single-purpose blocks registered with islem.op in category modules (library/blocks/*.py).
