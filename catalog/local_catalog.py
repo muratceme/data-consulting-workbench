@@ -297,6 +297,21 @@ LOCAL = [
          description='Sözleşme, teklif ve yazışma metinlerinden tanımladığınız alanları (taraf, tarih, tutar, süre, seçenek) tabloya çıkarır. Model her değer için belgeden birebir alıntı vermek zorundadır: alıntı belgede geçmeli; tarih alıntıdaki tarihle (15.01.2026, 15 Ocak 2026), tutar ve sayı alıntıdaki sayıyla (185.000,00) eşleşmeli; seçim alanı izin verilen seçeneklerden olmalı. Bulunamayan alan boş kalır; kişisel veriler gönderilmeden maskelenir.',
          input='.txt/.md belgeler klasörü + alan tanımı CSV’si (alan, tip, aciklama, secenekler)', output='alanlar.csv + kanitlar.csv + belge-alanlari.md',
          command='python main.py --input C:\\sozlesmeler --fields alanlar.csv'),
+    dict(id='birlestirme-anahtari', kind='agent', domain='integration', product='Dosya biçimi dönüştürme', title='İki sistemin tablosu için birleştirme anahtarı ve temizlik dönüşümü bulan agent',
+         main='agents/birlestirme_anahtari.py', modules=['common', 'tabular', 'islem', 'turkiye', 'llm'], samples={'erp_cari_listesi.csv': 'erp_cari_listesi.csv', 'crm_musteri_listesi.csv': 'crm_musteri_listesi.csv'},
+         description='ERP cari listesi ile CRM müşteri listesi gibi farklı sistemlerden gelen iki tabloyu hangi kolonlarla ve hangi temizlikle (trim, büyük harf, önek silme, sıfır doldurma/silme) birleştireceğinizi bulur. Modele kolon adları, birkaç maskeli örnek değer ve ham örtüşme gider; önerilen dönüşümler iki tablonun tamamına uygulanıp gerçek eşleşme oranı ve ilişki (1-1, n-1) ölçülür. Eşiğin altında kalan ya da ilişkiyi yanlış söyleyen öneri eşleşmeyen örneklerle geri gönderilir. Birleşik tablo, eşleşmeyenler ve PostgreSQL JOIN sorgusu yazılır.',
+         input='İki CSV/XLSX tablo; örnek değerler maskelenerek gönderilir', output='birlesik.csv + eslesmeyen.csv + birlestirme.sql + birlestirme.md',
+         command='python main.py --left erp_cariler.xlsx --right crm_export.csv --min-match 0.95'),
+    dict(id='hata-siniflandirici', kind='agent', domain='orchestration', product='Zamanlama ve iş akışı dosyaları', title='Başarısız iş hatalarını yeniden kullanılabilir kurallarla sınıflayan agent',
+         main='agents/hata_siniflandirici.py', modules=['common', 'tabular', 'llm'], samples={'basarisiz_isler.csv': 'basarisiz_isler.csv'},
+         description='Airflow, SSIS, ADF ya da cron işlerinin başarısız çalışmalarındaki hata mesajlarını kök nedene göre kategorilere ayıran regex kuralları yazar. Mesajlar önce sayı, tarih, yol ve UUID’lerden arındırılmış şablonlara indirgenir; yalnızca tekil şablonlar maskelenerek gönderilir. Kurallar sırayla tüm mesajlarda çalıştırılır: derlenmeyen desen, hiçbir mesaja uymayan ya da örneğini yakalamayan kategori ve kapsama eşiğinin altında kalan kural seti reddedilir. Her kategori için yeniden deneme kararı ve aksiyon, yeni hatalar için kurallar.json yazılır.',
+         input='CSV/XLSX (iş adı + hata mesajı); yalnızca tekil şablonlar gönderilir', output='siniflandirilmis.csv + kurallar.json + hata-siniflari.md',
+         command='python main.py --input airflow_failed_tasks.csv --message-column exception --job-column dag_id'),
+    dict(id='sozluk-kolon-eslestirici', kind='agent', domain='governance', product='Erişim ve sahiplik listeleri', title='İş sözlüğü terimlerini ambar kolonlarına eşleyen agent',
+         main='agents/sozluk_kolon_eslestirici.py', modules=['common', 'tabular', 'llm'], samples={'terim_sozlugu.csv': 'terim_sozlugu.csv', 'dwh_kolonlari.csv': 'dwh_kolonlari.csv'},
+         description='İş sözlüğündeki terimleri (Net Ciro, Aktif Müşteri, Sipariş Tarihi) veri ambarındaki fiziksel kolonlara bağlar; modele terim tanımları ve tablo/kolon adları gider, veri gönderilmez. Şemada olmayan kolon, terim tipine uymayan kolon tipi (tutar → sayısal, tarih → tarih, bayrak → bit/bool), iki terime bağlanan kolon ve gerekçesiz eşlenmeyen terim reddedilir. Terimi olmayan kolonlar listelenir; kolon açıklamaları dbt şema dosyasına yazılır.',
+         input='İş sözlüğü CSV’si (terim, tanim, tip) + şema dökümü (tablo, kolon, tip)', output='terim_kolon.csv + dbt_sozluk.yml + sozluk-esleme.md',
+         command='python main.py --glossary is_sozlugu.xlsx --schema information_schema.csv'),
 ]
 
 # Single-purpose blocks registered with islem.op in category modules (library/blocks/*.py).

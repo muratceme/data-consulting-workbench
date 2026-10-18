@@ -59,8 +59,8 @@ class LocalTestCase(unittest.TestCase):
 
 class PackageShape(LocalTestCase):
     def test_every_local_package_is_self_contained_and_has_no_network_code(self):
-        self.assertEqual(len([i for i in LOCAL if not i.get('op')]), 57)
-        self.assertEqual(sum(i['kind'] == 'agent' for i in LOCAL), 45)
+        self.assertEqual(len([i for i in LOCAL if not i.get('op')]), 60)
+        self.assertEqual(sum(i['kind'] == 'agent' for i in LOCAL), 48)
         self.assertEqual(len({i['id'] for i in LOCAL}), len(LOCAL))
         for item in LOCAL:
             names = local_package.files(item)
@@ -820,6 +820,12 @@ GOOD['sentetik-veri-tasarimcisi'] = {"anahtar": ["musteri_no"], "kolonlar": {"mu
 OUTPUTS['sentetik-veri-tasarimcisi'] = 'sentetik-veri.md'
 GOOD['belge-alan-cikarici'] = {"belgeler": [{"belge": "bulut_hizmet.txt", "alanlar": {"tedarikci": {"deger": "Bulutçu Bilişim Teknolojileri Ltd. Şti.", "kanit": "diğer yanda Bulutçu Bilişim Teknolojileri Ltd. Şti. (Hizmet Sağlayıcı)"}, "sozlesme_tarihi": {"deger": "2026-01-15", "kanit": "Bu sözleşme 15 Ocak 2026 tarihinde yürürlüğe girer"}, "bitis_tarihi": {"deger": "2028-01-14", "kanit": "14.01.2028 tarihine kadar geçerlidir"}, "aylik_bedel": {"deger": "185000", "kanit": "aylık 185.000,00 TL + KDV ödeyecektir"}, "para_birimi": {"deger": "TRY", "kanit": "aylık 185.000,00 TL + KDV"}, "fesih_bildirim_gun": {"deger": "30", "kanit": "otuz (30) gün önceden yazılı bildirimde bulunarak"}, "otomatik_yenileme": {"deger": "evet", "kanit": "birer yıllık dönemler halinde kendiliğinden uzar"}}}, {"belge": "guvenlik_teklifi.md", "alanlar": {"tedarikci": {"deger": "Kalkan Güvenlik Hizmetleri A.Ş.", "kanit": "Teklifi veren: Kalkan Güvenlik Hizmetleri A.Ş."}, "sozlesme_tarihi": {"deger": "", "kanit": ""}, "bitis_tarihi": {"deger": "", "kanit": ""}, "aylik_bedel": {"deger": "96400", "kanit": "Aylık hizmet bedeli 96.400 TL (KDV hariç)"}, "para_birimi": {"deger": "TRY", "kanit": "96.400 TL"}, "fesih_bildirim_gun": {"deger": "", "kanit": ""}, "otomatik_yenileme": {"deger": "", "kanit": ""}}}, {"belge": "yazilim_destek.txt", "alanlar": {"tedarikci": {"deger": "Kod Atölyesi Yazılım A.Ş.", "kanit": "Örnek Lojistik A.Ş. ile Kod Atölyesi Yazılım A.Ş. arasında"}, "sozlesme_tarihi": {"deger": "2026-03-01", "kanit": "İşbu sözleşme 01/03/2026 tarihinde"}, "bitis_tarihi": {"deger": "2027-02-28", "kanit": "28/02/2027 tarihinde sona erer"}, "aylik_bedel": {"deger": "4500", "kanit": "Aylık destek bedeli 4.500 USD"}, "para_birimi": {"deger": "USD", "kanit": "4.500 USD"}, "fesih_bildirim_gun": {"deger": "60", "kanit": "60 gün önceden bildirmek kaydıyla"}, "otomatik_yenileme": {"deger": "hayır", "kanit": "sözleşme kendiliğinden uzamaz"}}}]}
 OUTPUTS['belge-alan-cikarici'] = 'belge-alanlari.md'
+GOOD['birlestirme-anahtari'] = {'anahtarlar': [{'sol': 'cari_kodu', 'sag': 'ERP_REF', 'donusum_sol': ['trim', 'upper', 'onek_sil:C', 'sifir_sil'], 'donusum_sag': ['trim', 'upper', 'onek_sil:C', 'sifir_sil']}], 'iliski': '1-1', 'gerekce': 'CRM, ERP cari kodunu önek ve sıfırlar olmadan, bazen küçük harf ve sonda boşlukla tutuyor; vergi numarası bazı kayıtlarda boş ya da boşluklu.'}
+OUTPUTS['birlestirme-anahtari'] = 'birlestirme.md'
+GOOD['hata-siniflandirici'] = {'kategoriler': [{'kod': 'BAGLANTI', 'ad': 'Bağlantı / zaman aşımı', 'desen': 'timed out|timeout|could not connect|connection (reset|refused)', 'yeniden_dene': True, 'aksiyon': 'Üstel bekleme ile 3 kez yeniden dene; sürerse ağ/sunucu ekibine bildir.', 'ornekler': [1, 2]}, {'kod': 'KIMLIK', 'ad': 'Kimlik doğrulama', 'desen': 'login failed|password|authentication failed', 'yeniden_dene': False, 'aksiyon': 'Servis hesabı parolasının süresini ve kasadaki değerini kontrol et.', 'ornekler': [4]}, {'kod': 'DOSYA_YOK', 'ad': 'Kaynak dosya gelmedi', 'desen': 'no such file|filenotfound', 'yeniden_dene': True, 'aksiyon': 'Dosya geç gelmiş olabilir; 30 dk sonra yeniden dene, sonra kaynağa sor.', 'ornekler': [3]}, {'kod': 'SEMA', 'ad': 'Şema uyumsuzluğu', 'desen': 'invalid column name|column \\S+ does not exist|42S22', 'yeniden_dene': False, 'aksiyon': 'Kaynak şema değişikliğini incele; sema-degisiklik-etkisi agent’ını çalıştır.', 'ornekler': [5]}, {'kod': 'KILIT', 'ad': 'Kilit / deadlock', 'desen': 'deadlock', 'yeniden_dene': True, 'aksiyon': 'Kısa beklemeyle yeniden dene; tekrarlarsa yükleme saatlerini ayır.', 'ornekler': [6]}, {'kod': 'VERI_KALITESI', 'ad': 'Veri kalitesi testi', 'desen': 'validation failed|expect_column', 'yeniden_dene': False, 'aksiyon': 'Kaynak veriyi incele; hatalı satırları karantinaya al.', 'ornekler': [7]}, {'kod': 'KAYNAK', 'ad': 'Disk / bellek', 'desen': 'no space left|out of memory|memoryerror', 'yeniden_dene': False, 'aksiyon': 'Geçici alanı temizle ya da disk büyüt.', 'ornekler': [8]}]}
+OUTPUTS['hata-siniflandirici'] = 'hata-siniflari.md'
+GOOD['sozluk-kolon-eslestirici'] = {'terimler': [{'terim': 'Net Ciro', 'kolonlar': [{'tablo': 'dwh.fct_satis', 'kolon': 'net_tutar'}], 'gerekce': 'Anlamı birebir aynı.'}, {'terim': 'Brüt Satış Tutarı', 'kolonlar': [{'tablo': 'dwh.fct_satis', 'kolon': 'brut_tutar'}], 'gerekce': 'Anlamı birebir aynı.'}, {'terim': 'Sipariş Tarihi', 'kolonlar': [{'tablo': 'dwh.fct_satis', 'kolon': 'siparis_tarihi'}], 'gerekce': 'Anlamı birebir aynı.'}, {'terim': 'Müşteri Kodu', 'kolonlar': [{'tablo': 'dwh.fct_satis', 'kolon': 'musteri_kodu'}, {'tablo': 'dwh.dim_musteri', 'kolon': 'musteri_kodu'}], 'gerekce': 'Anlamı birebir aynı.'}, {'terim': 'Aktif Müşteri', 'kolonlar': [{'tablo': 'dwh.dim_musteri', 'kolon': 'aktif_mi'}], 'gerekce': 'Anlamı birebir aynı.'}, {'terim': 'Satış Kanalı', 'kolonlar': [{'tablo': 'dwh.fct_satis', 'kolon': 'kanal'}], 'gerekce': 'Siparişin kanalı; dim_musteri.kayit_kanali müşterinin ilk kayıt kanalıdır, farklı anlam.'}, {'terim': 'Müşteri Yaşam Boyu Değeri', 'kolonlar': [], 'gerekce': 'Ambarda tahmini kâr ya da CLV kolonu yok; hesaplanması gerekir.'}]}
+OUTPUTS['sozluk-kolon-eslestirici'] = 'sozluk-esleme.md'
 GOOD['tableau-hesap-yazari'] = {'alanlar': [{'ad': 'Son Tarih', 'formul': '{FIXED : MAX([Siparis Tarihi])}', 'tip': 'date', 'rol': 'dimension', 'aciklama': 'Verideki son sipariş tarihi.'}, {'ad': 'Ciro YTD', 'formul': "SUM(IF [Siparis Tarihi] >= DATETRUNC('year', [Son Tarih]) AND [Siparis Tarihi] <= [Son Tarih] THEN [Tutar] END)", 'tip': 'real', 'rol': 'measure', 'aciklama': 'Yıl başından son tarihe.'}, {'ad': 'Ciro GY YTD', 'formul': "SUM(IF [Siparis Tarihi] >= DATEADD('year', -1, DATETRUNC('year', [Son Tarih])) AND [Siparis Tarihi] <= DATEADD('year', -1, [Son Tarih]) THEN [Tutar] END)", 'tip': 'real', 'rol': 'measure', 'aciklama': 'Geçen yılın aynı dönemi.'}, {'ad': 'Sipariş Başına Ciro', 'formul': 'SUM([Tutar]) / COUNTD([Siparis No])', 'tip': 'real', 'rol': 'measure', 'aciklama': ''}, {'ad': 'Bölge Payı', 'formul': 'SUM({FIXED [Bolge] : SUM([Tutar])}) / SUM({FIXED : SUM([Tutar])})', 'tip': 'real', 'rol': 'measure', 'aciklama': ''}], 'varsayimlar': ['Ciro, Tutar alanının toplamıdır.']}
 OUTPUTS['tableau-hesap-yazari'] = 'hesaplanan-alanlar.md'
 OUTPUTS.update({'deney-analisti': 'deney-raporu.md', 'sube-planlayici': 'sube-plani.md', 'rapor-tasarimcisi': 'tasarim.md'})
@@ -1304,6 +1310,65 @@ class Agents(LocalTestCase):
         self.assertEqual(rows['yazilim_destek.txt']['bitis_tarihi'], '2027-02-28')  # “28/02/2027”
         self.assertEqual(rows['guvenlik_teklifi.md']['fesih_bildirim_gun'], '')
 
+    def test_join_keys_are_measured_on_both_tables(self):
+        bad = {'anahtarlar': [{'sol': 'vergi_no', 'sag': 'Tax ID', 'donusum_sol': [], 'donusum_sag': ['digits']}], 'iliski': 'n-1'}
+        p, done = self.run_agent('birlestirme-anahtari', '--yes', answers=[bad, GOOD['birlestirme-anahtari']])
+        self.ok(done)
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        self.assertIn('eşleşme oranı %77.5 (gereken %90)', retry)  # tax ids are blank in 8 CRM rows
+        self.assertIn('iliski n-1 denmiş ama dönüşüm sonrası ölçülen 1-1', retry)
+        rows = p.csv('birlesik.csv')
+        self.assertEqual((len(rows), sum(r['eslesti'] == 'evet' for r in rows)), (40, 38))
+        self.assertEqual(len(p.csv('eslesmeyen.csv')), 2)
+        sql = p.out('birlestirme.sql').read_text(encoding='utf-8')
+        self.assertIn("LTRIM(CASE WHEN UPPER(TRIM(s.\"cari_kodu\")) LIKE 'C%'", sql)
+        import sqlite3  # the same keys through SQLite string functions agree with the Python join
+        con = sqlite3.connect(':memory:')
+        for name, path in (('sol', 'erp_cari_listesi.csv'), ('sag', 'crm_musteri_listesi.csv')):
+            lines = (p.dir / 'ornek' / path).read_text(encoding='utf-8').splitlines()
+            cols = lines[0].split(';')
+            con.execute(f'CREATE TABLE {name} ({", ".join(chr(34) + c + chr(34) for c in cols)})')
+            con.executemany(f'INSERT INTO {name} VALUES ({", ".join("?" * len(cols))})', [l.split(';') for l in lines[1:]])
+        key = "COALESCE(NULLIF(LTRIM(CASE WHEN UPPER(TRIM({c})) LIKE 'C%' THEN SUBSTR(UPPER(TRIM({c})), 2) ELSE UPPER(TRIM({c})) END, '0'), ''), '0')"
+        n = con.execute(f'SELECT COUNT(*) FROM sol s JOIN sag g ON {key.format(c="s.cari_kodu")} = {key.format(c="g.ERP_REF")}').fetchone()[0]
+        self.assertEqual(n, 38)
+
+    def test_error_rules_run_on_every_message(self):
+        bad = {'kategoriler': [{'kod': 'GENEL', 'ad': 'Genel', 'desen': 'error', 'yeniden_dene': True, 'aksiyon': 'Yeniden dene.', 'ornekler': [5]},
+                               {'kod': 'BAGLANTI', 'ad': 'Bağlantı', 'desen': 'timed out', 'yeniden_dene': True, 'aksiyon': 'x', 'ornekler': [1, 2]}]}
+        p, done = self.run_agent('hata-siniflandirici', '--yes', answers=[bad, GOOD['hata-siniflandirici']])
+        self.ok(done)
+        sent = self.model.requests[-2]['body']['messages'][-1]['content']
+        self.assertIn('1. (8 kez) psycopg2.OperationalError', sent)  # 36 runs sent as 9 templates
+        self.assertIn('host "<IP>"', sent)
+        self.assertNotIn('bordro_2026', sent)  # file paths reduced to <YOL>
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        self.assertIn('BAGLANTI: örnek gösterdiği şablon 1 bu kurala düşmüyor (GENEL)', retry)  # shadowed by the earlier rule
+        self.assertIn('sınıflanmayan şablonlar:', retry)
+        rows = p.csv('siniflandirilmis.csv')
+        self.assertEqual(sum(r['kategori'] == 'BAGLANTI' for r in rows), 14)
+        self.assertEqual([r['kategori'] for r in rows if 'SIGTERM' in r['hata_mesaji']], ['SINIFLANMADI'])
+        rules = p.json('kurallar.json')
+        self.assertEqual(rules[0]['kod'], 'BAGLANTI')
+        self.assertIn('%97.2', p.out('hata-siniflari.md').read_text(encoding='utf-8'))
+
+    def test_glossary_terms_map_to_typed_columns(self):
+        t = lambda term, cols: {'terim': term, 'kolonlar': [{'tablo': a, 'kolon': b} for a, b in cols], 'gerekce': 'x'}
+        bad = {'terimler': [t('Net Ciro', [('dwh.fct_satis', 'brut_tutar')]), t('Brüt Satış Tutarı', [('dwh.fct_satis', 'brut_tutar')]),
+                            t('Sipariş Tarihi', [('dwh.fct_satis', 'siparis_no')]), t('Aktif Müşteri', [('dwh.dim_musteri', 'aktif')])]}
+        p, done = self.run_agent('sozluk-kolon-eslestirici', '--yes', answers=[bad, GOOD['sozluk-kolon-eslestirici']])
+        self.ok(done)
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        for text in ('dwh.fct_satis.brut_tutar hem “Net Ciro” hem “Brüt Satış Tutarı” terimine bağlanmış', 'Sipariş Tarihi (tarih): dwh.fct_satis.siparis_no tipi varchar(20) uymuyor',
+                     'Aktif Müşteri: dwh.dim_musteri.aktif şemada yok', 'cevapsız terim: Müşteri Kodu, Satış Kanalı, Müşteri Yaşam Boyu Değeri'):
+            self.assertIn(text, retry)
+        rows = p.csv('terim_kolon.csv')
+        self.assertEqual(sorted(r['tablo'] for r in rows if r['terim'] == 'Müşteri Kodu'), ['dwh.dim_musteri', 'dwh.fct_satis'])
+        md = p.out('sozluk-esleme.md').read_text(encoding='utf-8')
+        self.assertIn('dwh.dim_musteri.kayit_kanali', md.split('## Terimi olmayan kolonlar')[1])
+        yml = p.out('dbt_sozluk.yml').read_text(encoding='utf-8')
+        self.assertIn('      - name: aktif_mi\n        description: "Son 12 ayda en az bir siparişi olan müşteri"\n        meta:\n          terim: "Aktif Müşteri"', yml)
+
     def test_invalid_answer_gets_one_corrective_retry(self):
         bad = {'sql': 'SELECT s.KalemlerToplamCiro FROM dbo.Siparisler s'}
         p, done = self.run_agent('sql-yazari', '--yes', answers=[bad, GOOD['sql-yazari']])
@@ -1355,7 +1420,10 @@ class Agents(LocalTestCase):
                              ('sema-degisiklik-etkisi', {'degisiklikler': [{**e, 'dosyalar': []} for e in GOOD['sema-degisiklik-etkisi']['degisiklikler']]}),
                              ('segment-yorumlayici', {'segmentler': [{**x, 'ozellikler': []} for x in GOOD['segment-yorumlayici']['segmentler']]}),
                              ('sentetik-veri-tasarimcisi', {**GOOD['sentetik-veri-tasarimcisi'], 'kolonlar': {**GOOD['sentetik-veri-tasarimcisi']['kolonlar'], 'ad_soyad': {'tur': 'kategori', 'degerler': {'X': 1}}}}),
-                             ('belge-alan-cikarici', {'belgeler': [{**b, 'alanlar': {k: {'deger': '1', 'kanit': 'yok böyle bir cümle'} for k in b['alanlar']}} for b in GOOD['belge-alan-cikarici']['belgeler']]})]:
+                             ('belge-alan-cikarici', {'belgeler': [{**b, 'alanlar': {k: {'deger': '1', 'kanit': 'yok böyle bir cümle'} for k in b['alanlar']}} for b in GOOD['belge-alan-cikarici']['belgeler']]}),
+                             ('birlestirme-anahtari', {**GOOD['birlestirme-anahtari'], 'iliski': 'n-n'}),
+                             ('hata-siniflandirici', {'kategoriler': [{**c, 'desen': '('} for c in GOOD['hata-siniflandirici']['kategoriler']]}),
+                             ('sozluk-kolon-eslestirici', {'terimler': [{**x, 'kolonlar': [{'tablo': 'dwh.yok', 'kolon': 'yok'}]} for x in GOOD['sozluk-kolon-eslestirici']['terimler']]})]:
             with self.subTest(item_id):
                 p, done = self.run_agent(item_id, '--yes', answers=[bad, bad])
                 self.assertEqual(done.returncode, 1)

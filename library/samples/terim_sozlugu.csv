@@ -1,0 +1,8 @@
+terim;tanim;tip
+Net Ciro;İade ve indirimler düşüldükten sonra, KDV hariç satış tutarı;tutar
+Brüt Satış Tutarı;İndirim ve iade öncesi, KDV hariç liste fiyatı üzerinden satış tutarı;tutar
+Sipariş Tarihi;Müşterinin siparişi verdiği gün;tarih
+Müşteri Kodu;ERP’deki tekil cari kodu;kod
+Aktif Müşteri;Son 12 ayda en az bir siparişi olan müşteri;bayrak
+Satış Kanalı;Siparişin geldiği kanal (mağaza, web, mobil, bayi);metin
+Müşteri Yaşam Boyu Değeri;Müşterinin gelecekte getireceği tahmini toplam kâr;tutar

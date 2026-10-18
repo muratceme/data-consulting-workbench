@@ -1,0 +1,15 @@
+tablo;kolon;tip
+dwh.fct_satis;siparis_no;varchar(20)
+dwh.fct_satis;siparis_tarihi;date
+dwh.fct_satis;musteri_kodu;varchar(20)
+dwh.fct_satis;brut_tutar;decimal(18,2)
+dwh.fct_satis;indirim_tutari;decimal(18,2)
+dwh.fct_satis;iade_tutari;decimal(18,2)
+dwh.fct_satis;net_tutar;decimal(18,2)
+dwh.fct_satis;kanal;varchar(20)
+dwh.fct_satis;yukleme_zamani;datetime2
+dwh.dim_musteri;musteri_kodu;varchar(20)
+dwh.dim_musteri;unvan;nvarchar(200)
+dwh.dim_musteri;aktif_mi;bit
+dwh.dim_musteri;son_siparis_tarihi;date
+dwh.dim_musteri;kayit_kanali;varchar(20)
