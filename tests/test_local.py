@@ -59,8 +59,8 @@ class LocalTestCase(unittest.TestCase):
 
 class PackageShape(LocalTestCase):
     def test_every_local_package_is_self_contained_and_has_no_network_code(self):
-        self.assertEqual(len([i for i in LOCAL if not i.get('op')]), 51)
-        self.assertEqual(sum(i['kind'] == 'agent' for i in LOCAL), 39)
+        self.assertEqual(len([i for i in LOCAL if not i.get('op')]), 54)
+        self.assertEqual(sum(i['kind'] == 'agent' for i in LOCAL), 42)
         self.assertEqual(len({i['id'] for i in LOCAL}), len(LOCAL))
         for item in LOCAL:
             names = local_package.files(item)
@@ -808,6 +808,12 @@ GOOD['alarm-esigi-onerici'] = {"kurallar": [{"metrik": "satis_satir", "tip": "or
 OUTPUTS['alarm-esigi-onerici'] = 'alarm-kurallari.md'
 GOOD['kolon-adi-standardi'] = {"eslemeler": [{"tablo": "SIPARIS", "kolon": "SIP_NO", "yeni_ad": "siparis_no", "gerekce": "standart ad"}, {"tablo": "SIPARIS", "kolon": "MUST_KOD", "yeni_ad": "musteri_kodu", "gerekce": "standart ad"}, {"tablo": "SIPARIS", "kolon": "SIP_TRH", "yeni_ad": "siparis_tarihi", "gerekce": "standart ad"}, {"tablo": "SIPARIS", "kolon": "TeslimTarihi", "yeni_ad": "teslim_tarihi", "gerekce": "standart ad"}, {"tablo": "SIPARIS", "kolon": "Tutar (TL)", "yeni_ad": "tutar_tl", "gerekce": "standart ad"}, {"tablo": "SIPARIS", "kolon": "KDV", "yeni_ad": "kdv_tutari_tl", "gerekce": "standart ad"}, {"tablo": "SIPARIS", "kolon": "iptal", "yeni_ad": "iptal_mi", "gerekce": "standart ad"}, {"tablo": "SIPARIS", "kolon": "order", "yeni_ad": "sira_no", "gerekce": "standart ad"}, {"tablo": "SIPARIS", "kolon": "durum", "yeni_ad": "durum", "gerekce": "standart ad"}, {"tablo": "MUSTERI", "kolon": "MusteriKodu", "yeni_ad": "musteri_kodu", "gerekce": "standart ad"}, {"tablo": "MUSTERI", "kolon": "MusteriAdi", "yeni_ad": "musteri_adi", "gerekce": "standart ad"}, {"tablo": "MUSTERI", "kolon": "Şehir", "yeni_ad": "sehir", "gerekce": "standart ad"}, {"tablo": "MUSTERI", "kolon": "aktif?", "yeni_ad": "aktif_mi", "gerekce": "standart ad"}, {"tablo": "MUSTERI", "kolon": "KAYIT_ZAMANI", "yeni_ad": "kayit_zamani", "gerekce": "standart ad"}, {"tablo": "MUSTERI", "kolon": "user", "yeni_ad": "kullanici_adi", "gerekce": "standart ad"}, {"tablo": "MUSTERI", "kolon": "TEL", "yeni_ad": "telefon", "gerekce": "standart ad"}]}
 OUTPUTS['kolon-adi-standardi'] = 'kolon-standardi.md'
+GOOD['adres-cozumleyici'] = {"adresler": [{"id": "3", "mahalle": "Caferağa Mahallesi", "cadde_sokak": "Moda Caddesi", "no": "18", "kat": "", "daire": "4", "ilce": "Kadıköy", "il": "İstanbul", "posta_kodu": "34710"}, {"id": "5", "mahalle": "Suadiye Mahallesi", "cadde_sokak": "Bağdat Caddesi", "no": "312", "kat": "", "daire": "5", "ilce": "Kadıköy", "il": "İstanbul", "posta_kodu": ""}, {"id": "6", "mahalle": "Odunluk Mahallesi", "cadde_sokak": "Akpınar Caddesi", "no": "9", "kat": "", "daire": "", "ilce": "Nilüfer", "il": "Bursa", "posta_kodu": "16110"}, {"id": "9", "mahalle": "Esentepe Mahallesi", "cadde_sokak": "Büyükdere Caddesi", "no": "199", "kat": "", "daire": "", "ilce": "Şişli", "il": "İstanbul", "posta_kodu": "34394"}, {"id": "10", "mahalle": "Liman Mahallesi", "cadde_sokak": "25. Sokak", "no": "4", "kat": "", "daire": "", "ilce": "Konyaaltı", "il": "Antalya", "posta_kodu": ""}]}
+OUTPUTS['adres-cozumleyici'] = 'adres-cozumleme.md'
+GOOD['urun-kategori-eslestirici'] = {"eslemeler": [{"urun": "Buğday Unu 5 kg", "kategori": "K111", "gerekce": "Ad açıkça bu kategoriyi belirtiyor."}, {"urun": "Kırmızı Mercimek 1 kg", "kategori": "K112", "gerekce": "Ad açıkça bu kategoriyi belirtiyor."}, {"urun": "Baldo Pirinç 2 kg", "kategori": "K112", "gerekce": "Ad açıkça bu kategoriyi belirtiyor."}, {"urun": "Türk Kahvesi 100 g", "kategori": "K122", "gerekce": "Ad açıkça bu kategoriyi belirtiyor."}, {"urun": "Siyah Çay 1 kg", "kategori": "K122", "gerekce": "Ad açıkça bu kategoriyi belirtiyor."}, {"urun": "Sıvı Bulaşık Deterjanı 1,5 L", "kategori": "K21", "gerekce": "Ad açıkça bu kategoriyi belirtiyor."}, {"urun": "Tuvalet Kağıdı 32'li", "kategori": "K22", "gerekce": "Ad açıkça bu kategoriyi belirtiyor."}, {"urun": "Kağıt Havlu 12'li", "kategori": "K22", "gerekce": "Ad açıkça bu kategoriyi belirtiyor."}, {"urun": "USB-C Şarj Kablosu 1 m", "kategori": "K31", "gerekce": "Ad açıkça bu kategoriyi belirtiyor."}, {"urun": "Telefon Kılıfı", "kategori": "K31", "gerekce": "Ad açıkça bu kategoriyi belirtiyor."}, {"urun": "Kettle 1,7 L", "kategori": "K32", "gerekce": "Ad açıkça bu kategoriyi belirtiyor."}, {"urun": "Hediye Seti", "kategori": "eşlenemez", "gerekce": "İçeriği belli değil; gıda, kozmetik ya da elektronik olabilir."}, {"urun": "Filtre Kahve Makinesi", "kategori": "K32", "gerekce": "Elektrikli küçük ev aleti; kahve kategorisi değil."}]}
+OUTPUTS['urun-kategori-eslestirici'] = 'kategori-esleme.md'
+GOOD['sema-degisiklik-etkisi'] = {"ozet": "Bir kırıcı değişiklik (eposta silindi) pazartesi CRM aktarımını bozar; tutar tipinin daraltılması ciro raporunda taşma riski yaratır.", "degisiklikler": [{"no": 1, "seviye": "kırıcı", "etki": "kampanya_listesi.sql eposta kolonunu seçiyor ve filtreliyor; sorgu bir sonraki çalışmada hata verir ve CRM aktarımı durur.", "aksiyonlar": ["Kaynak ekiple eposta kolonunun nereye taşındığını doğrula", "kampanya_listesi.sql sorgusunu yeni kaynağa göre güncelle", "CRM aktarımını değişiklik bitene kadar durdur"], "dosyalar": ["kampanya_listesi.sql"]}, {"no": 2, "seviye": "bilgi", "etki": "Yeni kanal kolonu henüz hiçbir sorguda kullanılmıyor.", "aksiyonlar": ["Ciro raporuna kanal kırılımı eklenip eklenmeyeceğini rapor sahibine sor"], "dosyalar": []}, {"no": 3, "seviye": "riskli", "etki": "tutar decimal(18,2)’den decimal(12,2)’ye daraltıldı; 10 milyarı aşan tutarlar sığmaz. Aylık ciro raporu bu kolonu topluyor.", "aksiyonlar": ["Kaynakta 10 haneyi aşan tutar olup olmadığını kontrol et", "Daraltmanın bilinçli olup olmadığını kaynak ekiple doğrula"], "dosyalar": ["rapor_aylik_ciro.sql"]}]}
+OUTPUTS['sema-degisiklik-etkisi'] = 'degisiklik-etkisi.md'
 GOOD['tableau-hesap-yazari'] = {'alanlar': [{'ad': 'Son Tarih', 'formul': '{FIXED : MAX([Siparis Tarihi])}', 'tip': 'date', 'rol': 'dimension', 'aciklama': 'Verideki son sipariş tarihi.'}, {'ad': 'Ciro YTD', 'formul': "SUM(IF [Siparis Tarihi] >= DATETRUNC('year', [Son Tarih]) AND [Siparis Tarihi] <= [Son Tarih] THEN [Tutar] END)", 'tip': 'real', 'rol': 'measure', 'aciklama': 'Yıl başından son tarihe.'}, {'ad': 'Ciro GY YTD', 'formul': "SUM(IF [Siparis Tarihi] >= DATEADD('year', -1, DATETRUNC('year', [Son Tarih])) AND [Siparis Tarihi] <= DATEADD('year', -1, [Son Tarih]) THEN [Tutar] END)", 'tip': 'real', 'rol': 'measure', 'aciklama': 'Geçen yılın aynı dönemi.'}, {'ad': 'Sipariş Başına Ciro', 'formul': 'SUM([Tutar]) / COUNTD([Siparis No])', 'tip': 'real', 'rol': 'measure', 'aciklama': ''}, {'ad': 'Bölge Payı', 'formul': 'SUM({FIXED [Bolge] : SUM([Tutar])}) / SUM({FIXED : SUM([Tutar])})', 'tip': 'real', 'rol': 'measure', 'aciklama': ''}], 'varsayimlar': ['Ciro, Tutar alanının toplamıdır.']}
 OUTPUTS['tableau-hesap-yazari'] = 'hesaplanan-alanlar.md'
 OUTPUTS.update({'deney-analisti': 'deney-raporu.md', 'sube-planlayici': 'sube-plani.md', 'rapor-tasarimcisi': 'tasarim.md'})
@@ -1168,6 +1174,65 @@ class Agents(LocalTestCase):
         self.ok(done)
         self.assertIn("EXEC sp_rename N'SIPARIS.[Tutar (TL)]', N'tutar_tl', N'COLUMN';", ss.out('yeniden_adlandir.sql').read_text(encoding='utf-8'))
 
+    def test_address_agent_only_sends_what_the_rules_cannot_parse(self):
+        def a(i, m, c, no, d, ilce, il, pk):
+            return {'id': i, 'mahalle': m, 'cadde_sokak': c, 'no': no, 'kat': '', 'daire': d, 'ilce': ilce, 'il': il, 'posta_kodu': pk}
+        bad = {'adresler': [a('3', 'Fenerbahçe Mahallesi', 'Moda Caddesi', '18', '4', 'Kadıköy', 'İstanbul', '34710'),
+                            a('6', 'Odunluk Mahallesi', 'Akpınar Caddesi', '9', '', 'Nilüfer', 'İstanbul', '16110'),
+                            a('9', 'Esentepe Mahallesi', 'Büyükdere Caddesi', '199', '', 'Şişli', 'Konyaaltı', '34394')]}
+        p, done = self.run_agent('adres-cozumleyici', '--yes', answers=[bad, GOOD['adres-cozumleyici']])
+        self.ok(done)
+        sent = self.model.requests[-2]['body']['messages'][-1]['content']
+        self.assertNotIn('Ayşe Yılmaz', sent)  # only the address column leaves the machine
+        self.assertNotIn('Ümraniye', sent)  # complete addresses stay with the rule parser
+        self.assertIn('6: NİLÜFER BURSA ODUNLUK', sent)  # the rule put the district into the neighbourhood, so it is sent
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        self.assertIn('3: mahalle “Fenerbahçe Mahallesi” metinde geçmiyor', retry)
+        self.assertIn('6: posta kodu 16110 Bursa iline ait, il İstanbul verilmiş', retry)
+        self.assertIn('il “Konyaaltı” 81 il listesinde yok', retry)
+        self.assertIn('cevapsız adres: 5, 10', retry)
+        rows = {r['musteri_no']: r for r in p.csv('adresler_ayrisik.csv')}
+        self.assertEqual({r['adr_tam'] for r in rows.values()}, {'evet'})
+        self.assertEqual((rows['M06']['adr_mahalle'], rows['M06']['adr_ilce'], rows['M06']['adr_kaynak']), ('Odunluk Mahallesi', 'Nilüfer', 'model'))
+        self.assertEqual(rows['M03']['adr_kaynak'], 'model (il çıkarım)')  # İstanbul from postal code 34710
+        self.assertEqual(rows['M01']['adr_kaynak'], 'kural')
+
+    def test_category_agent_uses_leaf_categories_only(self):
+        bad = {'eslemeler': [{**e, 'kategori': {'Siyah Çay 1 kg': 'K12', 'Kettle 1,7 L': 'K99'}.get(e['urun'], e['kategori'])}
+                             for e in GOOD['urun-kategori-eslestirici']['eslemeler'] if e['urun'] != 'Hediye Seti']}
+        p, done = self.run_agent('urun-kategori-eslestirici', '--yes', answers=[bad, GOOD['urun-kategori-eslestirici']])
+        self.ok(done)
+        sent = self.model.requests[-2]['body']['messages'][-1]['content']
+        self.assertNotIn('Doğal Kaynak Suyu', sent)  # already categorised
+        self.assertNotIn('türk kahvesi 100g', sent)  # same product name, sent once
+        self.assertNotIn('189,90', sent)  # prices stay local
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        self.assertIn('“Siyah Çay 1 kg”: K12 (İçecek) ara düğüm', retry)
+        self.assertIn('“Kettle 1,7 L”: K99 kategori ağacında yok', retry)
+        self.assertIn('cevapsız ürün: Hediye Seti', retry)
+        rows = {r['urun_kodu']: r for r in p.csv('urun_kategorileri.csv')}
+        self.assertEqual(rows['U013']['kategori_kodu'], 'K122')  # follows U005
+        self.assertEqual((rows['U004']['kategori_kodu'], rows['U004']['kaynak']), ('K121', 'mevcut'))
+        self.assertEqual(rows['U014']['kaynak'], 'eşlenemedi')
+        self.assertEqual(rows['U015']['kategori_yolu'], 'Elektronik > Küçük Ev Aletleri')
+
+    def test_schema_change_impact_is_found_in_code(self):
+        bad = {'degisiklikler': [{**GOOD['sema-degisiklik-etkisi']['degisiklikler'][0], 'seviye': 'orta'},
+                                 {**GOOD['sema-degisiklik-etkisi']['degisiklikler'][2], 'dosyalar': ['rapor_aylik_ciro.sql', 'segment_ozeti.sql']}]}
+        p, done = self.run_agent('sema-degisiklik-etkisi', '--yes', answers=[bad, GOOD['sema-degisiklik-etkisi']])
+        self.ok(done)
+        sent = self.model.requests[-2]['body']['messages'][-1]['content']
+        self.assertIn('kampanya_listesi.sql: SELECT m.musteri_no, m.segment, m.eposta', sent)
+        self.assertNotIn("WHERE m.segment IN ('Altın', 'Platin')", sent)  # only lines that mention the changed column
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        self.assertIn('seviye en az kırıcı olmalı (silinen kolon sorgularda kullanılıyor)', retry)
+        self.assertIn('bu değişikliği kullanmayan: segment_ozeti.sql', retry)
+        self.assertIn('anlatılmayan değişiklik: 2', retry)
+        rows = {r['sutun']: r for r in p.csv('etki.csv')}
+        self.assertEqual((rows['eposta']['seviye'], rows['eposta']['etkilenen_dosyalar']), ('kırıcı', 'kampanya_listesi.sql'))
+        self.assertEqual(rows['tutar']['en_dusuk_seviye'], 'riskli')  # decimal(18,2) → decimal(12,2) narrows
+        self.assertEqual(rows['kanal']['etkilenen_dosyalar'], '')
+
     def test_invalid_answer_gets_one_corrective_retry(self):
         bad = {'sql': 'SELECT s.KalemlerToplamCiro FROM dbo.Siparisler s'}
         p, done = self.run_agent('sql-yazari', '--yes', answers=[bad, GOOD['sql-yazari']])
@@ -1213,7 +1278,10 @@ class Agents(LocalTestCase):
                              ('log-ayristirici', {'desenler': [{'ad': 'hepsi', 'desen': '(?P<zaman>.+) (?P<mesaj>.*)'}]}),
                              ('anket-kodlayici', {**GOOD['anket-kodlayici'], 'atamalar': GOOD['anket-kodlayici']['atamalar'][:-1]}),
                              ('alarm-esigi-onerici', {'kurallar': [{**r, 'esik': 0.1} if r['tip'] == 'oran_alt' else r for r in GOOD['alarm-esigi-onerici']['kurallar']]}),
-                             ('kolon-adi-standardi', {'eslemeler': [{**e, 'yeni_ad': 'order'} if e['kolon'] == 'order' else e for e in GOOD['kolon-adi-standardi']['eslemeler']]})]:
+                             ('kolon-adi-standardi', {'eslemeler': [{**e, 'yeni_ad': 'order'} if e['kolon'] == 'order' else e for e in GOOD['kolon-adi-standardi']['eslemeler']]}),
+                             ('adres-cozumleyici', {'adresler': [{**a, 'mahalle': 'Uydurma Mahallesi'} for a in GOOD['adres-cozumleyici']['adresler']]}),
+                             ('urun-kategori-eslestirici', {'eslemeler': [{**e, 'kategori': 'K1'} for e in GOOD['urun-kategori-eslestirici']['eslemeler']]}),
+                             ('sema-degisiklik-etkisi', {'degisiklikler': [{**e, 'dosyalar': []} for e in GOOD['sema-degisiklik-etkisi']['degisiklikler']]})]:
             with self.subTest(item_id):
                 p, done = self.run_agent(item_id, '--yes', answers=[bad, bad])
                 self.assertEqual(done.returncode, 1)

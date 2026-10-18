@@ -264,6 +264,22 @@ LOCAL = [
          description='Eski sistem kolonlarını (MusteriAdi, SIP_TRH, Tutar (TL), aktif?, order) snake_case, ASCII, ayrılmış kelimesiz, uzunluk sınırlı ve tarih/mantıksal kolon ekleri olan bir standarda çevirir; modele yalnızca adlar ve tipler gider. Kurala uymayan, eksik ya da tablo içinde çakışan ad kolon kolon reddedilir. Yeniden adlandırma ve stg_ görünüm SQL’i (PostgreSQL, SQL Server, Snowflake, Oracle, SQLite) SQLite’ta orijinal adlarla kurulan tablolarda çalıştırılıp doğrulanır.',
          input='CSV/XLSX (tablo, kolon, tip; information_schema çıktısı)', output='kolon_esleme.csv + yeniden_adlandir.sql + gorunumler.sql + kolon-standardi.md',
          command='python main.py --input information_schema.csv --lang en --max-len 63 --dialect sqlserver'),
+    dict(id='adres-cozumleyici', kind='agent', domain='mdm', product='Ana veri temizliği', title='Kuralın çözemediği Türkçe adresleri parçalarına ayıran agent',
+         main='agents/adres_cozumleyici.py', modules=['common', 'tabular', 'islem', 'turkiye', 'anaveri', 'llm'], samples={'musteri_adresleri.csv': 'musteri_adresleri.csv'},
+         description='Serbest yazılmış adresleri mahalle, cadde/sokak, kapı no, kat, daire, ilçe, il ve posta koduna ayırır. Önce kural tabanlı ayrıştırıcı çalışır; yalnızca tamamlanamayan adresler (ve mahallesi ilçe/il adını yutan kayıtlar) modele gider, ad, telefon gibi diğer sütunlar gönderilmez. Modelin verdiği her parça adres metninde geçmeli; il 81 il listesinden olmalı, posta kodu metinde yazmalı ve ilk iki hanesi ilin plaka koduyla tutmalı. Metinde olmayan il yalnızca ilçe ya da posta kodundan çıkarılır ve işaretlenir.',
+         input='CSV/XLSX (adres sütunu); yalnızca kuralın çözemediği adresler gönderilir', output='adresler_ayrisik.csv + adres-cozumleme.md',
+         command='python main.py --input cari_kartlar.xlsx --column ADRES --id-column CARI_KOD'),
+    dict(id='urun-kategori-eslestirici', kind='agent', domain='mdm', product='Ana veri temizliği', title='Ürün adlarını şirketin kategori ağacına eşleyen agent',
+         main='agents/urun_kategori_eslestirici.py', modules=['common', 'tabular', 'islem', 'turkiye', 'llm'], samples={'urun_listesi.csv': 'urun_listesi.csv', 'urun_kategori_agaci.csv': 'urun_kategori_agaci.csv'},
+         description='Ürün adlarını kendi kategori ağacınızın (kod, ad, üst kod) yaprak kategorilerine atar; modele yalnızca tekil ürün adları ve ağaç gider. Ağaçta olmayan kod, ara düğüme atama, cevapsız ürün ve gerekçesiz “eşlenemez” reddedilir; aynı adlı ürünler (büyük/küçük harf, boşluk farkı yok sayılır) birlikte eşlenir, mevcut kategorisi dolu ürünlere dokunulmaz. Kategori dağılımı ve boş kalan yaprak kategoriler raporlanır.',
+         input='CSV/XLSX ürün listesi + kategori ağacı (kod, ad, ust_kod); yalnızca ürün adları gönderilir', output='urun_kategorileri.csv + kategori_dagilimi.csv + kategori-esleme.md',
+         command='python main.py --input urunler.xlsx --tree kategori_agaci.csv --column URUN_ADI --keep KATEGORI'),
+    dict(id='sema-degisiklik-etkisi', kind='agent', domain='governance', product='Erişim ve sahiplik listeleri', title='Şema değişikliklerinin sorgulara etkisini çıkaran agent',
+         main='agents/sema_degisiklik_etkisi.py', modules=['common', 'tabular', 'llm'],
+         samples={'sema_anliklari.csv': 'sema_anliklari.csv', 'etki_sql/rapor_aylik_ciro.sql': 'etki_sql/rapor_aylik_ciro.sql', 'etki_sql/kampanya_listesi.sql': 'etki_sql/kampanya_listesi.sql', 'etki_sql/segment_ozeti.sql': 'etki_sql/segment_ozeti.sql'},
+         description='information_schema anlık görüntülerinden eklenen, silinen ve tipi değişen kolonları bulur; SQL/dbt dosyalarını tarayıp her değişikliğin hangi sorguları etkilediğini kodla belirler. Model etki açıklaması ve yapılacak işleri yazar; seviyesi kodun hesapladığı en düşük seviyenin altına inemez (kullanılan silinmiş kolon kırıcı, daraltılan tip en az riskli), dosya listesi kodun bulduğuyla aynı olmalı. Modele yalnızca değişen kolonun geçtiği satırlar maskelenerek gider.',
+         input='Tarihli şema anlık görüntüleri (tarih, tablo, sutun, tip) + .sql klasörü', output='etki.csv + degisiklik-etkisi.md',
+         command='python main.py --input columns_snapshots.csv --sql C:\\dbt\\models'),
 ]
 
 # Single-purpose blocks registered with islem.op in category modules (library/blocks/*.py).

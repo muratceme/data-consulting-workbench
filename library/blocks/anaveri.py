@@ -4,7 +4,7 @@ from collections import Counter, defaultdict
 import tabular
 from common import pii_kind
 import turkiye as tr
-from islem import op, arg, Result, need, col_list, fold, fmt, tr_title, tr_sort_key
+from islem import op, arg, Result, need, col_list, fold, fmt, tr_title, tr_lower, tr_sort_key
 
 REQUIRES = ['turkiye']
 D, P = 'mdm', 'Ana veri temizliği'
@@ -145,7 +145,7 @@ def parse_address(text):
             while j >= 0 and tail[j] == '/':
                 j -= 1
             if j >= 0 and not re.search(r'\d', tail[j]):
-                ilce = tr_title(tail[j].lower()) if tail[j].isupper() else tail[j]
+                ilce = tr_title(tr_lower(tail[j])) if tail[j].isupper() else tail[j]
             break
     out['ilce'], out['il'] = ilce, il
     return out

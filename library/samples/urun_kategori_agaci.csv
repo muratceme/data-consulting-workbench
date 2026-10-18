@@ -1,0 +1,14 @@
+kod;ad;ust_kod
+K1;Gıda;
+K11;Temel Gıda;K1
+K111;Un ve Unlu Mamuller;K11
+K112;Bakliyat ve Pirinç;K11
+K12;İçecek;K1
+K121;Su ve Maden Suyu;K12
+K122;Çay ve Kahve;K12
+K2;Ev ve Temizlik;
+K21;Deterjan;K2
+K22;Kâğıt Ürünleri;K2
+K3;Elektronik;
+K31;Telefon Aksesuarları;K3
+K32;Küçük Ev Aletleri;K3
