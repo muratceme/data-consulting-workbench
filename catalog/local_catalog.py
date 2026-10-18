@@ -280,6 +280,23 @@ LOCAL = [
          description='information_schema anlık görüntülerinden eklenen, silinen ve tipi değişen kolonları bulur; SQL/dbt dosyalarını tarayıp her değişikliğin hangi sorguları etkilediğini kodla belirler. Model etki açıklaması ve yapılacak işleri yazar; seviyesi kodun hesapladığı en düşük seviyenin altına inemez (kullanılan silinmiş kolon kırıcı, daraltılan tip en az riskli), dosya listesi kodun bulduğuyla aynı olmalı. Modele yalnızca değişen kolonun geçtiği satırlar maskelenerek gider.',
          input='Tarihli şema anlık görüntüleri (tarih, tablo, sutun, tip) + .sql klasörü', output='etki.csv + degisiklik-etkisi.md',
          command='python main.py --input columns_snapshots.csv --sql C:\\dbt\\models'),
+    dict(id='segment-yorumlayici', kind='agent', domain='product', product='Satış ve müşteri analitiği', title='Müşterileri kümeleyip segmentleri adlandıran agent',
+         main='agents/segment_yorumlayici.py', modules=['common', 'tabular', 'llm'], samples={'musteri_ozellikleri.csv': 'musteri_ozellikleri.csv'},
+         description='Müşteri özellik tablosunu (harcama, sipariş sayısı, son alışverişten bu yana gün, iade oranı) yerelde k-means ile kümeler; modele yalnızca kümelerin medyan ve z-değerleri gider, müşteri satırları gönderilmez. Model her kümeye ad, tarif ve aksiyon yazar; “harcama yüksek” gibi her iddia küme merkezinin z-değeriyle denetlenir, 1 standart sapmadan belirgin metrikler anılmak zorundadır, adlar tekil olmalıdır.',
+         input='CSV/XLSX (müşteri id + sayısal özellikler)', output='musteri_segmentleri.csv + segment_ozeti.csv + segmentler.md',
+         command='python main.py --input musteri_rfm.xlsx --id-column CARI_KOD --k 5 --log harcama'),
+    dict(id='sentetik-veri-tasarimcisi', kind='agent', domain='privacy', product='Hassas veri envanteri', title='Gerçek tablonun profilinden sahte test verisi üreten agent',
+         main='agents/sentetik_veri_tasarimcisi.py', modules=['common', 'tabular', 'llm'], samples={'musteri_kayitlari.csv': 'musteri_kayitlari.csv'},
+         description='Test ve geliştirme ortamı için gerçek tablonun yerine geçecek sahte veri üretir. Modele satırlar değil kolon profili gider; kişisel veri kolonlarının değerleri hiç gönderilmez. Model kolon başına üretici seçer, üretim yerelde sabit tohumla yapılır. Kişisel veri kolonunda sahte olmayan üretici, profilde olmayan kategori, gerçek aralığın dışına çıkan sayı/tarih, tekil olmayan anahtar ve gerçek tablodan birebir satır ya da gerçek bir e-posta/telefon/ad içeren sonuç reddedilir.',
+         input='CSV/XLSX (gerçek tablo); satırlar gönderilmez', output='sentetik.csv + uretici.json + sentetik-veri.md',
+         command='python main.py --input musteri_tablosu.csv --rows 10000 --seed 42'),
+    dict(id='belge-alan-cikarici', kind='agent', domain='ai', product='Doküman ve RAG verisi', title='Sözleşme ve tekliflerden kanıt alıntılı alan çıkaran agent',
+         main='agents/belge_alan_cikarici.py', modules=['common', 'tabular', 'islem', 'turkiye', 'llm'],
+         samples={'sozlesme_alanlari.csv': 'sozlesme_alanlari.csv', 'sozlesme_metinleri/bulut_hizmet.txt': 'sozlesme_metinleri/bulut_hizmet.txt',
+                  'sozlesme_metinleri/yazilim_destek.txt': 'sozlesme_metinleri/yazilim_destek.txt', 'sozlesme_metinleri/guvenlik_teklifi.md': 'sozlesme_metinleri/guvenlik_teklifi.md'},
+         description='Sözleşme, teklif ve yazışma metinlerinden tanımladığınız alanları (taraf, tarih, tutar, süre, seçenek) tabloya çıkarır. Model her değer için belgeden birebir alıntı vermek zorundadır: alıntı belgede geçmeli; tarih alıntıdaki tarihle (15.01.2026, 15 Ocak 2026), tutar ve sayı alıntıdaki sayıyla (185.000,00) eşleşmeli; seçim alanı izin verilen seçeneklerden olmalı. Bulunamayan alan boş kalır; kişisel veriler gönderilmeden maskelenir.',
+         input='.txt/.md belgeler klasörü + alan tanımı CSV’si (alan, tip, aciklama, secenekler)', output='alanlar.csv + kanitlar.csv + belge-alanlari.md',
+         command='python main.py --input C:\\sozlesmeler --fields alanlar.csv'),
 ]
 
 # Single-purpose blocks registered with islem.op in category modules (library/blocks/*.py).

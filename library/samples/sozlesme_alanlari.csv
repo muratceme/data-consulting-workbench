@@ -1,0 +1,8 @@
+alan;tip;aciklama;secenekler
+tedarikci;metin;Hizmeti veren firma unvanı;
+sozlesme_tarihi;tarih;Sözleşmenin imza/yürürlük tarihi;
+bitis_tarihi;tarih;Sözleşme süresinin bittiği tarih;
+aylik_bedel;tutar;KDV hariç aylık hizmet bedeli;
+para_birimi;secim;Bedelin para birimi;TRY|USD|EUR
+fesih_bildirim_gun;sayi;Fesih için önceden bildirim süresi (gün);
+otomatik_yenileme;secim;Süre sonunda kendiliğinden uzar mı;evet|hayır

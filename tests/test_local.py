@@ -59,8 +59,8 @@ class LocalTestCase(unittest.TestCase):
 
 class PackageShape(LocalTestCase):
     def test_every_local_package_is_self_contained_and_has_no_network_code(self):
-        self.assertEqual(len([i for i in LOCAL if not i.get('op')]), 54)
-        self.assertEqual(sum(i['kind'] == 'agent' for i in LOCAL), 42)
+        self.assertEqual(len([i for i in LOCAL if not i.get('op')]), 57)
+        self.assertEqual(sum(i['kind'] == 'agent' for i in LOCAL), 45)
         self.assertEqual(len({i['id'] for i in LOCAL}), len(LOCAL))
         for item in LOCAL:
             names = local_package.files(item)
@@ -814,6 +814,12 @@ GOOD['urun-kategori-eslestirici'] = {"eslemeler": [{"urun": "Buğday Unu 5 kg", 
 OUTPUTS['urun-kategori-eslestirici'] = 'kategori-esleme.md'
 GOOD['sema-degisiklik-etkisi'] = {"ozet": "Bir kırıcı değişiklik (eposta silindi) pazartesi CRM aktarımını bozar; tutar tipinin daraltılması ciro raporunda taşma riski yaratır.", "degisiklikler": [{"no": 1, "seviye": "kırıcı", "etki": "kampanya_listesi.sql eposta kolonunu seçiyor ve filtreliyor; sorgu bir sonraki çalışmada hata verir ve CRM aktarımı durur.", "aksiyonlar": ["Kaynak ekiple eposta kolonunun nereye taşındığını doğrula", "kampanya_listesi.sql sorgusunu yeni kaynağa göre güncelle", "CRM aktarımını değişiklik bitene kadar durdur"], "dosyalar": ["kampanya_listesi.sql"]}, {"no": 2, "seviye": "bilgi", "etki": "Yeni kanal kolonu henüz hiçbir sorguda kullanılmıyor.", "aksiyonlar": ["Ciro raporuna kanal kırılımı eklenip eklenmeyeceğini rapor sahibine sor"], "dosyalar": []}, {"no": 3, "seviye": "riskli", "etki": "tutar decimal(18,2)’den decimal(12,2)’ye daraltıldı; 10 milyarı aşan tutarlar sığmaz. Aylık ciro raporu bu kolonu topluyor.", "aksiyonlar": ["Kaynakta 10 haneyi aşan tutar olup olmadığını kontrol et", "Daraltmanın bilinçli olup olmadığını kaynak ekiple doğrula"], "dosyalar": ["rapor_aylik_ciro.sql"]}]}
 OUTPUTS['sema-degisiklik-etkisi'] = 'degisiklik-etkisi.md'
+GOOD['segment-yorumlayici'] = {"segmentler": [{"no": 0, "ad": "Yeni ve tek seferlik", "tarif": "Yakın zamanda alışveriş yapmış ama az sipariş ve düşük harcamalı müşteriler.", "ozellikler": [{"metrik": "harcama", "yon": "düşük"}, {"metrik": "siparis_sayisi", "yon": "düşük"}, {"metrik": "son_alisveris_gun", "yon": "düşük"}], "aksiyonlar": ["İkinci siparişe özel karşılama kuponu", "İlk 30 günde ürün önerisi e-postası"]}, {"no": 1, "ad": "Sadık yüksek değerli", "tarif": "Sık ve yüksek tutarlı alışveriş yapan, aktif müşteriler.", "ozellikler": [{"metrik": "harcama", "yon": "yüksek"}, {"metrik": "siparis_sayisi", "yon": "yüksek"}, {"metrik": "son_alisveris_gun", "yon": "düşük"}, {"metrik": "iade_orani", "yon": "düşük"}], "aksiyonlar": ["Sadakat programında üst seviye", "Yeni ürünlere erken erişim"]}, {"no": 2, "ad": "Kayıp riski", "tarif": "Ortalama harcamalı ama aylardır alışveriş yapmamış müşteriler.", "ozellikler": [{"metrik": "son_alisveris_gun", "yon": "yüksek"}, {"metrik": "harcama", "yon": "ortalama"}], "aksiyonlar": ["Geri kazanma kampanyası", "Ayrılma nedenini soran kısa anket"]}, {"no": 3, "ad": "Sık iade edenler", "tarif": "Ortalama sipariş sayısında ama iade oranı belirgin yüksek müşteriler.", "ozellikler": [{"metrik": "iade_orani", "yon": "yüksek"}, {"metrik": "siparis_sayisi", "yon": "ortalama"}], "aksiyonlar": ["İade nedenlerini ürün bazında incele", "Beden/ölçü rehberi gönder"]}]}
+OUTPUTS['segment-yorumlayici'] = 'segmentler.md'
+GOOD['sentetik-veri-tasarimcisi'] = {"anahtar": ["musteri_no"], "kolonlar": {"musteri_no": {"tur": "sira", "onek": "T", "baslangic": 1, "hane": 5}, "ad_soyad": {"tur": "sahte_ad"}, "eposta": {"tur": "sahte_eposta"}, "telefon": {"tur": "sahte_telefon", "bos_orani": 0.08}, "il": {"tur": "kategori", "degerler": {"İstanbul": 25, "İzmir": 13, "Ankara": 11, "Antalya": 6, "Bursa": 5}}, "segment": {"tur": "kategori", "degerler": {"Bireysel": 40, "KOBİ": 15, "Kurumsal": 5}}, "kayit_tarihi": {"tur": "tarih", "min": "2022-01-11", "max": "2026-08-20"}, "toplam_harcama": {"tur": "sayi", "min": 195.34, "max": 47984.79, "ondalik": True}, "aktif": {"tur": "kategori", "degerler": {"evet": 51, "hayır": 9}}}, "notlar": "Kişisel kolonlar sahte üreticilerle."}
+OUTPUTS['sentetik-veri-tasarimcisi'] = 'sentetik-veri.md'
+GOOD['belge-alan-cikarici'] = {"belgeler": [{"belge": "bulut_hizmet.txt", "alanlar": {"tedarikci": {"deger": "Bulutçu Bilişim Teknolojileri Ltd. Şti.", "kanit": "diğer yanda Bulutçu Bilişim Teknolojileri Ltd. Şti. (Hizmet Sağlayıcı)"}, "sozlesme_tarihi": {"deger": "2026-01-15", "kanit": "Bu sözleşme 15 Ocak 2026 tarihinde yürürlüğe girer"}, "bitis_tarihi": {"deger": "2028-01-14", "kanit": "14.01.2028 tarihine kadar geçerlidir"}, "aylik_bedel": {"deger": "185000", "kanit": "aylık 185.000,00 TL + KDV ödeyecektir"}, "para_birimi": {"deger": "TRY", "kanit": "aylık 185.000,00 TL + KDV"}, "fesih_bildirim_gun": {"deger": "30", "kanit": "otuz (30) gün önceden yazılı bildirimde bulunarak"}, "otomatik_yenileme": {"deger": "evet", "kanit": "birer yıllık dönemler halinde kendiliğinden uzar"}}}, {"belge": "guvenlik_teklifi.md", "alanlar": {"tedarikci": {"deger": "Kalkan Güvenlik Hizmetleri A.Ş.", "kanit": "Teklifi veren: Kalkan Güvenlik Hizmetleri A.Ş."}, "sozlesme_tarihi": {"deger": "", "kanit": ""}, "bitis_tarihi": {"deger": "", "kanit": ""}, "aylik_bedel": {"deger": "96400", "kanit": "Aylık hizmet bedeli 96.400 TL (KDV hariç)"}, "para_birimi": {"deger": "TRY", "kanit": "96.400 TL"}, "fesih_bildirim_gun": {"deger": "", "kanit": ""}, "otomatik_yenileme": {"deger": "", "kanit": ""}}}, {"belge": "yazilim_destek.txt", "alanlar": {"tedarikci": {"deger": "Kod Atölyesi Yazılım A.Ş.", "kanit": "Örnek Lojistik A.Ş. ile Kod Atölyesi Yazılım A.Ş. arasında"}, "sozlesme_tarihi": {"deger": "2026-03-01", "kanit": "İşbu sözleşme 01/03/2026 tarihinde"}, "bitis_tarihi": {"deger": "2027-02-28", "kanit": "28/02/2027 tarihinde sona erer"}, "aylik_bedel": {"deger": "4500", "kanit": "Aylık destek bedeli 4.500 USD"}, "para_birimi": {"deger": "USD", "kanit": "4.500 USD"}, "fesih_bildirim_gun": {"deger": "60", "kanit": "60 gün önceden bildirmek kaydıyla"}, "otomatik_yenileme": {"deger": "hayır", "kanit": "sözleşme kendiliğinden uzamaz"}}}]}
+OUTPUTS['belge-alan-cikarici'] = 'belge-alanlari.md'
 GOOD['tableau-hesap-yazari'] = {'alanlar': [{'ad': 'Son Tarih', 'formul': '{FIXED : MAX([Siparis Tarihi])}', 'tip': 'date', 'rol': 'dimension', 'aciklama': 'Verideki son sipariş tarihi.'}, {'ad': 'Ciro YTD', 'formul': "SUM(IF [Siparis Tarihi] >= DATETRUNC('year', [Son Tarih]) AND [Siparis Tarihi] <= [Son Tarih] THEN [Tutar] END)", 'tip': 'real', 'rol': 'measure', 'aciklama': 'Yıl başından son tarihe.'}, {'ad': 'Ciro GY YTD', 'formul': "SUM(IF [Siparis Tarihi] >= DATEADD('year', -1, DATETRUNC('year', [Son Tarih])) AND [Siparis Tarihi] <= DATEADD('year', -1, [Son Tarih]) THEN [Tutar] END)", 'tip': 'real', 'rol': 'measure', 'aciklama': 'Geçen yılın aynı dönemi.'}, {'ad': 'Sipariş Başına Ciro', 'formul': 'SUM([Tutar]) / COUNTD([Siparis No])', 'tip': 'real', 'rol': 'measure', 'aciklama': ''}, {'ad': 'Bölge Payı', 'formul': 'SUM({FIXED [Bolge] : SUM([Tutar])}) / SUM({FIXED : SUM([Tutar])})', 'tip': 'real', 'rol': 'measure', 'aciklama': ''}], 'varsayimlar': ['Ciro, Tutar alanının toplamıdır.']}
 OUTPUTS['tableau-hesap-yazari'] = 'hesaplanan-alanlar.md'
 OUTPUTS.update({'deney-analisti': 'deney-raporu.md', 'sube-planlayici': 'sube-plani.md', 'rapor-tasarimcisi': 'tasarim.md'})
@@ -1233,6 +1239,71 @@ class Agents(LocalTestCase):
         self.assertEqual(rows['tutar']['en_dusuk_seviye'], 'riskli')  # decimal(18,2) → decimal(12,2) narrows
         self.assertEqual(rows['kanal']['etkilenen_dosyalar'], '')
 
+    def test_segment_claims_are_checked_against_the_clusters(self):
+        bad = json.loads(json.dumps(GOOD['segment-yorumlayici']))
+        bad['segmentler'][2]['ozellikler'] = [{'metrik': 'son_alisveris_gun', 'yon': 'düşük'}]
+        bad['segmentler'][3]['ad'] = 'Kayıp riski'
+        p, done = self.run_agent('segment-yorumlayici', '--yes', answers=[bad, GOOD['segment-yorumlayici']])
+        self.ok(done)
+        sent = self.model.requests[-2]['body']['messages'][-1]['content']
+        self.assertNotIn('M0001', sent)  # customer rows stay local
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        self.assertIn('son_alisveris_gun “düşük” denmiş ama küme ortalamadan +1.86 standart sapma uzakta', retry)
+        self.assertIn('segment 3: ad boş ya da başka segmentle aynı', retry)
+        summary = {int(r['segment_no']): r for r in p.csv('segment_ozeti.csv')}
+        self.assertEqual([summary[j]['musteri'] for j in range(4)], ['40', '30', '25', '25'])  # the four generated groups come back
+        rows = p.csv('musteri_segmentleri.csv')
+        self.assertEqual(sum(r['segment'] == 'Sık iade edenler' for r in rows), 25)
+        self.assertTrue(all(float(r['iade_orani'].replace(',', '.')) > 0.15 for r in rows if r['segment'] == 'Sık iade edenler'))
+
+    def test_synthetic_data_never_carries_real_values(self):
+        bad = json.loads(json.dumps(GOOD['sentetik-veri-tasarimcisi']))
+        bad['kolonlar']['eposta'] = {'tur': 'kategori', 'degerler': {'a@b.com': 1}}
+        bad['kolonlar']['segment']['degerler']['Kamu'] = 3
+        bad['kolonlar']['toplam_harcama']['max'] = 90000
+        p, done = self.run_agent('sentetik-veri-tasarimcisi', '--yes', answers=[bad, GOOD['sentetik-veri-tasarimcisi']])
+        self.ok(done)
+        sent = self.model.requests[-2]['body']['messages'][-1]['content']
+        real = (p.dir / 'ornek' / 'musteri_kayitlari.csv').read_text(encoding='utf-8')
+        self.assertNotIn('posta.com.tr', sent)
+        self.assertNotIn('[TELEFON]', sent)  # phone numbers are not even profiled as numbers
+        self.assertNotIn(real.splitlines()[1].split(';')[1], sent)  # first real name
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        self.assertIn('eposta: kişisel veri (e-posta) kolonu yalnızca', retry)
+        self.assertIn('segment: profilde olmayan değer: Kamu', retry)
+        self.assertIn('gerçek aralığın (195.34–47984.79) dışında', retry)
+        rows = p.csv('sentetik.csv')
+        self.assertEqual(len(rows), 200)
+        self.assertEqual(len({r['musteri_no'] for r in rows}), 200)
+        real_values = {v.strip().lower() for line in real.splitlines()[1:] for v in line.split(';')[1:4] if v.strip()}
+        self.assertFalse(real_values & {r[c].lower() for r in rows for c in ('ad_soyad', 'eposta', 'telefon')})
+        self.assertTrue(all(195.34 <= float(r['toplam_harcama']) <= 47984.79 for r in rows))
+        self.assertEqual({r['segment'] for r in rows}, {'Bireysel', 'KOBİ', 'Kurumsal'})
+        again = self.package('sentetik-veri-tasarimcisi')  # same seed, same data
+        self.model.answers = [GOOD['sentetik-veri-tasarimcisi']]
+        self.ok(again.run('--yes', env=self.model.env()))
+        self.assertEqual(again.csv('sentetik.csv'), rows)
+
+    def test_document_fields_need_matching_quotes(self):
+        bad = json.loads(json.dumps(GOOD['belge-alan-cikarici']))
+        first = bad['belgeler'][0]['alanlar']
+        first['aylik_bedel'] = {'deger': '158000', 'kanit': 'aylık 185.000,00 TL + KDV ödeyecektir'}
+        first['bitis_tarihi'] = {'deger': '2028-01-15', 'kanit': '14.01.2028 tarihine kadar geçerlidir'}
+        first['tedarikci'] = {'deger': 'Bulutçu Bilişim', 'kanit': 'Bulutçu Bilişim A.Ş. hizmet sağlayıcıdır'}
+        bad['belgeler'][2]['alanlar']['para_birimi'] = {'deger': 'Dolar', 'kanit': '4.500 USD'}
+        p, done = self.run_agent('belge-alan-cikarici', '--yes', answers=[bad, GOOD['belge-alan-cikarici']])
+        self.ok(done)
+        sent = self.model.requests[-2]['body']['messages'][-1]['content']
+        self.assertNotIn('hukuk@ornek-lojistik.com.tr', sent)
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        for text in ('tedarikci = “Bulutçu Bilişim”: alıntı belgede birebir geçmiyor', '2028-01-15 alıntıdaki tarihlerle uyuşmuyor',
+                     '158000 alıntıdaki sayılarla uyuşmuyor', 'para_birimi = “Dolar”: seçenek TRY/USD/EUR olmalı'):
+            self.assertIn(text, retry)
+        rows = {r['belge']: r for r in p.csv('alanlar.csv')}
+        self.assertEqual((rows['bulut_hizmet.txt']['sozlesme_tarihi'], rows['bulut_hizmet.txt']['aylik_bedel']), ('2026-01-15', '185000'))  # “15 Ocak 2026”, “185.000,00”
+        self.assertEqual(rows['yazilim_destek.txt']['bitis_tarihi'], '2027-02-28')  # “28/02/2027”
+        self.assertEqual(rows['guvenlik_teklifi.md']['fesih_bildirim_gun'], '')
+
     def test_invalid_answer_gets_one_corrective_retry(self):
         bad = {'sql': 'SELECT s.KalemlerToplamCiro FROM dbo.Siparisler s'}
         p, done = self.run_agent('sql-yazari', '--yes', answers=[bad, GOOD['sql-yazari']])
@@ -1281,7 +1352,10 @@ class Agents(LocalTestCase):
                              ('kolon-adi-standardi', {'eslemeler': [{**e, 'yeni_ad': 'order'} if e['kolon'] == 'order' else e for e in GOOD['kolon-adi-standardi']['eslemeler']]}),
                              ('adres-cozumleyici', {'adresler': [{**a, 'mahalle': 'Uydurma Mahallesi'} for a in GOOD['adres-cozumleyici']['adresler']]}),
                              ('urun-kategori-eslestirici', {'eslemeler': [{**e, 'kategori': 'K1'} for e in GOOD['urun-kategori-eslestirici']['eslemeler']]}),
-                             ('sema-degisiklik-etkisi', {'degisiklikler': [{**e, 'dosyalar': []} for e in GOOD['sema-degisiklik-etkisi']['degisiklikler']]})]:
+                             ('sema-degisiklik-etkisi', {'degisiklikler': [{**e, 'dosyalar': []} for e in GOOD['sema-degisiklik-etkisi']['degisiklikler']]}),
+                             ('segment-yorumlayici', {'segmentler': [{**x, 'ozellikler': []} for x in GOOD['segment-yorumlayici']['segmentler']]}),
+                             ('sentetik-veri-tasarimcisi', {**GOOD['sentetik-veri-tasarimcisi'], 'kolonlar': {**GOOD['sentetik-veri-tasarimcisi']['kolonlar'], 'ad_soyad': {'tur': 'kategori', 'degerler': {'X': 1}}}}),
+                             ('belge-alan-cikarici', {'belgeler': [{**b, 'alanlar': {k: {'deger': '1', 'kanit': 'yok böyle bir cümle'} for k in b['alanlar']}} for b in GOOD['belge-alan-cikarici']['belgeler']]})]:
             with self.subTest(item_id):
                 p, done = self.run_agent(item_id, '--yes', answers=[bad, bad])
                 self.assertEqual(done.returncode, 1)

@@ -1,0 +1,9 @@
+YAZILIM BAKIM VE DESTEK SÖZLEŞMESİ
+
+İşbu sözleşme 01/03/2026 tarihinde Örnek Lojistik A.Ş. ile Kod Atölyesi Yazılım A.Ş. arasında imzalanmıştır.
+
+Sözleşme süresi 12 aydır ve 28/02/2027 tarihinde sona erer. Süre sonunda yenileme, tarafların yeni bir sözleşme imzalamasıyla mümkündür; sözleşme kendiliğinden uzamaz.
+
+Aylık destek bedeli 4.500 USD olup KDV hariçtir. Ödemeler fatura tarihinden itibaren 30 gün içinde yapılır.
+
+Taraflardan biri 60 gün önceden bildirmek kaydıyla sözleşmeyi sona erdirebilir.

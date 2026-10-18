@@ -1,0 +1,61 @@
+musteri_no;ad_soyad;eposta;telefon;il;segment;kayit_tarihi;toplam_harcama;aktif
+M0001;Pınar Işık;pinar.isik1@posta.com.tr;0555 807 93 77;İstanbul;Bireysel;2023-05-26;31203,43;hayır
+M0002;Sevgi Kurt;sevgi.kurt2@posta.com.tr;0537 489 79 23;Ankara;Bireysel;2023-03-20;19680,03;evet
+M0003;Serkan Ekinci;serkan.ekinci3@posta.com.tr;0532 242 89 89;İstanbul;Bireysel;2022-01-11;10172,49;evet
+M0004;Okan Ekinci;okan.ekinci4@posta.com.tr;0536 652 96 90;İstanbul;KOBİ;2025-11-15;9570,66;hayır
+M0005;Serkan Işık;serkan.isik5@posta.com.tr;;İstanbul;KOBİ;2023-06-25;3266,94;evet
+M0006;Pınar Uçar;pinar.ucar6@posta.com.tr;;İzmir;Bireysel;2023-09-27;17153,56;evet
+M0007;Esra Kurt;esra.kurt7@posta.com.tr;0545 821 32 17;İstanbul;KOBİ;2026-03-16;17263,27;evet
+M0008;Levent Polat;levent.polat8@posta.com.tr;0548 961 11 67;İstanbul;Bireysel;2023-02-07;5845,13;evet
+M0009;Derya Kurt;derya.kurt9@posta.com.tr;0558 637 42 69;İstanbul;Kurumsal;2026-06-21;17725,17;evet
+M0010;Serkan Bulut;serkan.bulut10@posta.com.tr;0546 725 56 28;İstanbul;KOBİ;2025-01-21;4555,71;evet
+M0011;Tolga Ekinci;tolga.ekinci11@posta.com.tr;0550 252 98 49;Antalya;Bireysel;2022-04-10;4023,85;evet
+M0012;Serkan Akın;serkan.akin12@posta.com.tr;0549 452 42 68;İzmir;Bireysel;2025-07-31;1715,71;evet
+M0013;Gül Ekinci;gul.ekinci13@posta.com.tr;0548 235 90 62;İstanbul;Bireysel;2022-11-02;2962,17;evet
+M0014;Okan Sarı;okan.sari14@posta.com.tr;0549 972 31 76;Ankara;Bireysel;2026-02-03;15352,05;evet
+M0015;Derya Polat;derya.polat15@posta.com.tr;0533 486 78 32;Ankara;Bireysel;2023-11-25;8768,76;evet
+M0016;Levent Tekin;levent.tekin16@posta.com.tr;0541 164 55 98;Ankara;Bireysel;2023-09-19;17540,21;evet
+M0017;Tolga Sarı;tolga.sari17@posta.com.tr;0552 833 47 53;Ankara;Bireysel;2022-01-24;22845,44;evet
+M0018;Nur Vural;nur.vural18@posta.com.tr;0539 936 74 92;İzmir;Bireysel;2023-07-15;30968,42;evet
+M0019;Serkan Kurt;serkan.kurt19@posta.com.tr;0535 990 98 67;Antalya;KOBİ;2024-11-27;6937,92;hayır
+M0020;Gül Kurt;gul.kurt20@posta.com.tr;0545 389 98 20;İzmir;Kurumsal;2022-12-18;29662,94;hayır
+M0021;Levent Vural;levent.vural21@posta.com.tr;0539 738 80 91;İstanbul;KOBİ;2023-02-05;7807,1;evet
+M0022;Onur Ekinci;onur.ekinci22@posta.com.tr;0551 284 90 15;Antalya;KOBİ;2022-12-06;2740,74;evet
+M0023;Nur Ekinci;nur.ekinci23@posta.com.tr;0547 136 63 69;İstanbul;Bireysel;2022-05-28;28389,37;evet
+M0024;Nur Akın;nur.akin24@posta.com.tr;0538 976 62 24;İzmir;Bireysel;2022-03-15;26464,29;evet
+M0025;Tolga Tekin;tolga.tekin25@posta.com.tr;0548 400 55 26;İstanbul;KOBİ;2025-08-08;25911,75;evet
+M0026;Okan Uçar;okan.ucar26@posta.com.tr;0545 303 27 87;İstanbul;KOBİ;2025-09-17;195,34;evet
+M0027;Pınar Uçar;pinar.ucar27@posta.com.tr;0540 744 82 58;İstanbul;KOBİ;2024-10-07;14098,02;hayır
+M0028;Serkan Polat;serkan.polat28@posta.com.tr;0559 262 86 86;İstanbul;KOBİ;2024-10-13;12163,62;evet
+M0029;Tolga Sarı;tolga.sari29@posta.com.tr;0534 588 13 25;İzmir;KOBİ;2023-05-18;14174,98;evet
+M0030;Serkan Akın;serkan.akin30@posta.com.tr;0547 380 41 70;İzmir;Bireysel;2023-07-03;40531,28;evet
+M0031;Tolga Işık;tolga.isik31@posta.com.tr;0545 630 92 87;Bursa;KOBİ;2022-02-03;36535,08;evet
+M0032;Levent Yavuz;levent.yavuz32@posta.com.tr;0539 848 77 13;Ankara;Bireysel;2026-03-06;39034,73;evet
+M0033;Kemal Işık;kemal.isik33@posta.com.tr;0551 210 97 79;İstanbul;Bireysel;2026-07-12;20616,95;evet
+M0034;Esra Vural;esra.vural34@posta.com.tr;0557 961 59 70;İstanbul;KOBİ;2023-02-07;43162,23;evet
+M0035;Sevgi Işık;sevgi.isik35@posta.com.tr;0552 897 65 84;İstanbul;Kurumsal;2023-09-29;6977,44;evet
+M0036;Levent Sarı;levent.sari36@posta.com.tr;0547 257 64 84;Ankara;Bireysel;2026-02-09;11156,42;hayır
+M0037;Sevgi Vural;sevgi.vural37@posta.com.tr;0540 839 64 18;Antalya;Kurumsal;2022-04-11;6053,5;evet
+M0038;Pınar Vural;pinar.vural38@posta.com.tr;0533 829 27 47;İzmir;Bireysel;2023-01-10;29367,78;evet
+M0039;Okan Bulut;okan.bulut39@posta.com.tr;0531 668 23 94;İstanbul;Bireysel;2022-04-28;27477,29;evet
+M0040;Serkan Uçar;serkan.ucar40@posta.com.tr;0543 193 50 97;Ankara;Bireysel;2025-09-05;18055,38;evet
+M0041;Esra Işık;esra.isik41@posta.com.tr;0550 794 74 47;Antalya;Bireysel;2025-06-25;10705,26;evet
+M0042;Gül Işık;gul.isik42@posta.com.tr;0539 629 27 40;Bursa;Bireysel;2024-03-07;8730,48;evet
+M0043;Onur Kurt;onur.kurt43@posta.com.tr;;İzmir;Bireysel;2022-09-13;24384,45;evet
+M0044;Serkan Sarı;serkan.sari44@posta.com.tr;0540 210 77 13;Ankara;Bireysel;2022-11-05;45350,04;evet
+M0045;Gül Yavuz;gul.yavuz45@posta.com.tr;0559 781 72 37;İstanbul;Bireysel;2023-12-27;40143,85;evet
+M0046;Pınar Yavuz;pinar.yavuz46@posta.com.tr;0542 487 27 55;Ankara;KOBİ;2024-06-06;46145,69;evet
+M0047;Kemal Uçar;kemal.ucar47@posta.com.tr;0536 857 33 60;İstanbul;Bireysel;2023-01-17;9835,2;evet
+M0048;Derya Vural;derya.vural48@posta.com.tr;0530 537 70 48;Bursa;Bireysel;2024-05-27;15617,92;evet
+M0049;Gül Ekinci;gul.ekinci49@posta.com.tr;0532 483 59 70;İstanbul;Bireysel;2023-07-23;39311,68;evet
+M0050;Onur Güneş;onur.gunes50@posta.com.tr;;Bursa;Bireysel;2026-03-21;17805,12;hayır
+M0051;Esra Akın;esra.akin51@posta.com.tr;0545 969 29 25;İzmir;Bireysel;2024-07-18;32423,17;evet
+M0052;Okan Akın;okan.akin52@posta.com.tr;0530 688 39 94;İstanbul;Bireysel;2025-12-18;17579,51;evet
+M0053;Derya Kurt;derya.kurt53@posta.com.tr;0553 835 69 30;İzmir;Bireysel;2023-03-04;45152,05;evet
+M0054;Serkan Yavuz;serkan.yavuz54@posta.com.tr;0530 573 17 67;İzmir;Bireysel;2022-04-03;1741,95;hayır
+M0055;Levent Uçar;levent.ucar55@posta.com.tr;0533 833 19 40;Bursa;Bireysel;2024-08-23;2722,49;evet
+M0056;Kemal Sarı;kemal.sari56@posta.com.tr;0531 149 42 62;İstanbul;Bireysel;2022-03-19;45613,99;evet
+M0057;Esra Tekin;esra.tekin57@posta.com.tr;0536 644 39 20;Antalya;Kurumsal;2022-06-27;26081,69;hayır
+M0058;Pınar Bulut;pinar.bulut58@posta.com.tr;0536 739 12 66;Ankara;Bireysel;2025-03-16;36904,54;evet
+M0059;Okan Yavuz;okan.yavuz59@posta.com.tr;;İzmir;Bireysel;2026-08-20;47984,79;evet
+M0060;Okan Işık;okan.isik60@posta.com.tr;0554 890 43 61;İstanbul;Bireysel;2022-06-17;22716,53;evet
