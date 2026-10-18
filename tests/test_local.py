@@ -59,8 +59,8 @@ class LocalTestCase(unittest.TestCase):
 
 class PackageShape(LocalTestCase):
     def test_every_local_package_is_self_contained_and_has_no_network_code(self):
-        self.assertEqual(len([i for i in LOCAL if not i.get('op')]), 43)
-        self.assertEqual(sum(i['kind'] == 'agent' for i in LOCAL), 31)
+        self.assertEqual(len([i for i in LOCAL if not i.get('op')]), 44)
+        self.assertEqual(sum(i['kind'] == 'agent' for i in LOCAL), 32)
         self.assertEqual(len({i['id'] for i in LOCAL}), len(LOCAL))
         for item in LOCAL:
             names = local_package.files(item)
@@ -489,6 +489,38 @@ class SinglePurposeBlocks(LocalTestCase):
         self.assertTrue(refs)
         self.assertLessEqual(refs, fields)
 
+    def test_qlik_and_power_bi_model_blocks(self):
+        p = self.package('qlik-zaman-zekasi')
+        self.ok(p.run('--fiscal-start', '4'))
+        rows = {r['olcu']: r for r in p.csv('sonuc.csv')}
+        self.assertEqual((rows['Ciro YTD']['baslangic'], float(rows['Ciro YTD']['beklenen'])), ('2026-04-01', 1880360.0))  # fiscal year from April
+        self.assertEqual(float(rows['Ciro GY YTD']['beklenen']), 1649610.0)
+        self.assertIn('YearStart(Max([Siparis Tarihi]), 0, 4)', rows['Ciro YTD']['ifade'])
+        self.assertIn("LET vciro_ytd = Replace('Sum({<", p.out('olculer.qvs').read_text(encoding='utf-8'))
+        cg = self.package('pbi-zaman-hesaplama-grubu')
+        self.ok(cg.run())
+        tmdl = cg.out('Zaman Hesaplamaları.tmdl').read_text(encoding='utf-8')
+        self.assertEqual(re.findall(r'ordinal: (\d+)', tmdl), [str(i) for i in range(9)])
+        self.assertIn('DATESBETWEEN ( Takvim[Date], EDATE ( YilBasi, -12 ), EDATE ( SonGun, -12 ) )', tmdl)
+        sa = self.package('qlik-section-access')
+        self.ok(sa.run('--domain', 'ORNEK'))
+        script = sa.out('section_access.qvs').read_text(encoding='utf-8')
+        self.assertIn(r'USER;ORNEK\ALI.CELIK;IC ANADOLU', script)  # invariant upper case, full access written value by value
+        self.assertIn('IC ANADOLU;İç Anadolu', script)
+        view = {r['kullanici']: r for r in sa.csv('sonuc.csv')}
+        self.assertEqual((view['mehmet.kaya@ornek.test']['gorunen_satir'], float(view['mehmet.kaya@ornek.test']['gorunen_toplam'])), ('98', 1987370.0))
+        rls = self.package('pbi-rls-tmdl')
+        self.ok(rls.run())
+        role = rls.out('roles/Bölge Erişimi.tmdl').read_text(encoding='utf-8')
+        self.assertIn('RETURN "*" IN Yetkiler || SatisDetay[Bolge] IN Yetkiler', role)
+        self.assertIn('{"ayse.yilmaz@ornek.test", "Marmara"}', rls.out('tables/Guvenlik.tmdl').read_text(encoding='utf-8'))
+        inc = self.package('qlik-artimli-yukleme')
+        self.ok(inc.run('--key', 'fatura_no,satir_no', '--dialect', 'oracle'))
+        text = inc.out('artimli_yukleme.qvs').read_text(encoding='utf-8')
+        self.assertIn("WHERE Not Exists([%Anahtar], [fatura_no] & '|' & [satir_no]);", text)
+        self.assertIn("TO_TIMESTAMP('$(vSonDegisiklik)', 'YYYY-MM-DD HH24:MI:SS')", text)
+        self.assertEqual([t['name'] for t in qlik_parse(text)['tables']], ['Siparis', 'Siparis'])
+
     def test_sql_formatter_never_turns_code_into_a_comment(self):
         p = self.package('sql-bicimlendir')
         (p.dir / 'x.sql').write_text("SELECT a -- not\nFROM t WHERE b = 'x -- y'; /* c */ DELETE FROM u WHERE id = 1", encoding='utf-8')
@@ -669,6 +701,8 @@ GOOD['bolumleme-danismani'] = {'bolum_sutunu': 'siparis_tarihi', 'ayrinti': 'ay'
 GOOD['deney-analisti'] = {'test': 'mann-whitney', 'sonuc': 'anlamlı fark var', 'yuksek_grup': 'A', 'yorum': 'A grubunun medyanı 62,45, B grubunun 47,85 saniye; Mann-Whitney p-değeri 0,0166. Yeni ekran (B) görevi daha kısa sürede tamamlatıyor; etki küçük-orta (r 0,27).', 'uyarilar': ['A grubu normal değil; t-testi yerine Mann-Whitney kullanıldı.'], 'kanit': ['F1', 'F2', 'F4']}
 GOOD['sube-planlayici'] = {'ozet': 'En büyük iki kapsama dışı küme için şube önerilir.', 'oneriler': [{'kume': 'K3', 'gerekce': 'En büyük küme (18 müşteri); en yakın şube 88,9 km uzakta.', 'kanit': ['F4']}, {'kume': 'K2', 'gerekce': '12 müşteri; en yakın şube 358,9 km.', 'kanit': ['F3']}], 'riskler': ['Kira, rakip ve trafik bilgisi olgularda yok; saha ziyaretiyle doğrulanmalı.']}
 GOOD['rapor-tasarimcisi'] = {'baslik': 'Bölge Satış Raporu', 'olculer': [{'sutun': 'tutar', 'toplama': 'toplam'}, {'sutun': 'adet', 'toplama': 'toplam'}], 'boyutlar': ['bolge', 'kanal'], 'tarih': 'siparis_tarihi', 'araclar': ['qlik', 'powerbi'], 'gerekce': 'Ciro tutar sütunundan; sipariş adedi için farklı sipariş sayısı eklenir.', 'sorular': ['Ciro KDV dahil mi?']}
+GOOD['qlik-ifade-yazari'] = {'ifadeler': [{'ad': 'Ciro YTD', 'ifade': 'Sum({<[Yil]=, [Tarih]={">=$(=Date(YearStart(Max([Tarih]))))<=$(=Date(Max([Tarih])))"}>} [Tutar])', 'aciklama': 'Yıl başından son tarihe ciro.'}, {'ad': 'Ciro GY YTD', 'ifade': 'Sum({<[Yil]=, [Tarih]={">=$(=Date(AddYears(YearStart(Max([Tarih])), -1)))<=$(=Date(AddYears(Max([Tarih]), -1)))"}>} [Tutar])', 'aciklama': 'Geçen yılın aynı dönemi.'}, {'ad': 'Sipariş Başına Ciro', 'ifade': 'Sum([Tutar]) / Count(DISTINCT [SiparisNo])', 'aciklama': ''}, {'ad': 'Kategori Payı', 'ifade': 'Sum([Tutar]) / Sum({<[Kategori]=>} TOTAL [Tutar])', 'aciklama': 'Seçili kategorinin tüm kategoriler içindeki payı.'}, {'ad': '3+ Siparişli Müşteri', 'ifade': 'Count({<[MusteriNo]={"=Count(DISTINCT [SiparisNo])>=3"}>} DISTINCT [MusteriNo])', 'aciklama': ''}], 'varsayimlar': ['Tarih alanı tarih (dual) olarak yükleniyor.']}
+OUTPUTS['qlik-ifade-yazari'] = 'ifadeler.md'
 OUTPUTS.update({'deney-analisti': 'deney-raporu.md', 'sube-planlayici': 'sube-plani.md', 'rapor-tasarimcisi': 'tasarim.md'})
 OUTPUTS.update({'veri-sozlesmesi-yazari': 'veri_sozlesmesi.json', 'butce-sapma-yorumu': 'butce-yorumu.md', 'hesap-plani-esleyici': 'hesap-eslemesi.csv',
                 'json-esleme-yazari': 'duz_tablo.csv', 'bolumleme-danismani': 'bolumleme.md'})
@@ -878,6 +912,18 @@ class Agents(LocalTestCase):
         self.assertTrue(list(p.out('pbip').glob('*.pbip')))
         self.assertEqual(p.json('tasarim.json')['kpi'][0], {'ad': 'Toplam Tutar', 'deger': 5912910.0})
 
+    def test_qlik_expression_agent_checks_fields_functions_and_variables(self):
+        bad = {'ifadeler': [{'ad': 'Ciro', 'ifade': 'Summ([Ciro])'}, {'ad': 'Bugün', 'ifade': 'Sum({<[Tarih]={"$(vYok)"}>} [Tutar])'}, {'ad': 'Açık', 'ifade': 'Sum([Tutar]'}]}
+        p, done = self.run_agent('qlik-ifade-yazari', '--yes', answers=[bad, GOOD['qlik-ifade-yazari']])
+        self.ok(done)
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        for message in ('script’te olmayan alan [Ciro]', 'Qlik fonksiyonu değil: Summ()', 'tanımsız değişken $(vYok)', 'parantez veya tırnak kapanmamış'):
+            self.assertIn(message, retry)
+        sent = self.model.requests[-2]['body']['messages'][-1]['content']
+        self.assertIn('[SiparisNo]', sent)
+        self.assertNotIn('SatisDB.dbo', sent)  # only field and variable names leave the machine
+        self.assertEqual([m['qMeasure']['qLabel'] for m in p.json('measures.json')][:2], ['Ciro YTD', 'Ciro GY YTD'])
+
     def test_invalid_answer_gets_one_corrective_retry(self):
         bad = {'sql': 'SELECT s.KalemlerToplamCiro FROM dbo.Siparisler s'}
         p, done = self.run_agent('sql-yazari', '--yes', answers=[bad, GOOD['sql-yazari']])
@@ -915,7 +961,8 @@ class Agents(LocalTestCase):
                              ('bolumleme-danismani', {**GOOD['bolumleme-danismani'], 'ayrinti': 'gün', 'bolum_sutunu': 'durum'}),
                              ('deney-analisti', {**GOOD['deney-analisti'], 'test': 'welch-t'}),
                              ('sube-planlayici', {**GOOD['sube-planlayici'], 'oneriler': []}),
-                             ('rapor-tasarimcisi', {**GOOD['rapor-tasarimcisi'], 'boyutlar': ['musteri_eposta']})]:
+                             ('rapor-tasarimcisi', {**GOOD['rapor-tasarimcisi'], 'boyutlar': ['musteri_eposta']}),
+                             ('qlik-ifade-yazari', {'ifadeler': [{'ad': 'Ciro', 'ifade': 'Sum([Ciro])'}]})]:
             with self.subTest(item_id):
                 p, done = self.run_agent(item_id, '--yes', answers=[bad, bad])
                 self.assertEqual(done.returncode, 1)
