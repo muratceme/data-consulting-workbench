@@ -59,8 +59,8 @@ class LocalTestCase(unittest.TestCase):
 
 class PackageShape(LocalTestCase):
     def test_every_local_package_is_self_contained_and_has_no_network_code(self):
-        self.assertEqual(len([i for i in LOCAL if not i.get('op')]), 68)
-        self.assertEqual(sum(i['kind'] == 'agent' for i in LOCAL), 56)
+        self.assertEqual(len([i for i in LOCAL if not i.get('op')]), 76)
+        self.assertEqual(sum(i['kind'] == 'agent' for i in LOCAL), 64)
         self.assertEqual(len({i['id'] for i in LOCAL}), len(LOCAL))
         for item in LOCAL:
             names = local_package.files(item)
@@ -842,6 +842,22 @@ GOOD['vardiya-planlayici'] = {'vardiyalar': [{'baslangic': '08:00', 'sure_saat':
 OUTPUTS['vardiya-planlayici'] = 'vardiya-plani.md'
 GOOD['excel-baslik-cozucu'] = {'baslik_satirlari': [5, 6], 'veri_ilk': 7, 'veri_son': 13, 'atlanacak_satirlar': [10], 'kolon_adlari': ['bolge', 'temsilci', 'temmuz_adet', 'temmuz_tutar', 'agustos_adet', 'agustos_tutar']}
 OUTPUTS['excel-baslik-cozucu'] = 'baslik-cozumu.md'
+GOOD['kafka-konu-tasarimcisi'] = {'konular': [{'konu': 'siparis-olaylari', 'bolum': 12, 'cogaltma': 3, 'min_insync': 2, 'saklama_saat': 168, 'cleanup': 'delete', 'gerekce': 'yük ve ihtiyaçlara göre'}, {'konu': 'tiklama-akisi', 'bolum': 24, 'cogaltma': 3, 'min_insync': 2, 'saklama_saat': 24, 'cleanup': 'delete', 'gerekce': 'yük ve ihtiyaçlara göre'}, {'konu': 'musteri-profil', 'bolum': 6, 'cogaltma': 3, 'min_insync': 2, 'saklama_saat': -1, 'cleanup': 'compact', 'gerekce': 'yük ve ihtiyaçlara göre'}, {'konu': 'odeme-sonuclari', 'bolum': 6, 'cogaltma': 3, 'min_insync': 2, 'saklama_saat': 336, 'cleanup': 'delete', 'gerekce': 'yük ve ihtiyaçlara göre'}, {'konu': 'stok-seviyesi', 'bolum': 3, 'cogaltma': 3, 'min_insync': 2, 'saklama_saat': -1, 'cleanup': 'compact', 'gerekce': 'yük ve ihtiyaçlara göre'}]}
+OUTPUTS['kafka-konu-tasarimcisi'] = 'kafka-konulari.md'
+GOOD['slo-tasarimcisi'] = {'slolar': [{'is': 'erp_stg_yukle', 'bitis_esigi': '04:45', 'hedef': 0.9, 'pencere_gun': 28, 'risk': False, 'gerekce': 'Sonraki işler 05:00’te başlıyor.'}, {'is': 'satis_dwh', 'bitis_esigi': '06:00', 'hedef': 0.95, 'pencere_gun': 28, 'risk': True, 'gerekce': 'Panoya 30 dk pay; son ayda üç gün 06:00’ı aştı, yükleme hızlandırılmalı.'}, {'is': 'gunluk_pano_yenile', 'bitis_esigi': '07:00', 'hedef': 0.9, 'pencere_gun': 28, 'risk': False, 'gerekce': 'Toplantıdan bir saat önce hazır.'}]}
+OUTPUTS['slo-tasarimcisi'] = 'slo-tasarimi.md'
+GOOD['etiket-kurali-yazari'] = {'kurallar': [{'desen': '^prod-', 'alan': 'kaynak_id', 'etiketler': {'tag_env': 'prod'}, 'gerekce': ''}, {'desen': '^dev-', 'alan': 'kaynak_id', 'etiketler': {'tag_env': 'dev'}, 'gerekce': ''}, {'desen': '^test-', 'alan': 'kaynak_id', 'etiketler': {'tag_env': 'test'}, 'gerekce': ''}, {'desen': '-satis-', 'alan': 'kaynak_id', 'etiketler': {'tag_owner': 'satis-ekibi', 'tag_cost_center': 'CC100'}, 'gerekce': ''}, {'desen': '-finans-', 'alan': 'kaynak_id', 'etiketler': {'tag_owner': 'finans-ekibi', 'tag_cost_center': 'CC200'}, 'gerekce': ''}, {'desen': '-veri-', 'alan': 'kaynak_id', 'etiketler': {'tag_owner': 'veri-ekibi', 'tag_cost_center': 'CC300'}, 'gerekce': ''}]}
+OUTPUTS['etiket-kurali-yazari'] = 'etiket-kurallari.md'
+GOOD['ozellik-muhendisi'] = {'ozellikler': [{'ad': 'sepet_gelir_orani', 'islem': 'oran', 'a': 'sepet', 'b': 'gelir', 'gerekce': 'iş anlamı'}, {'ad': 'yas_kova', 'islem': 'kova', 'a': 'yas', 'sinirlar': [30, 45, 60], 'gerekce': 'iş anlamı'}, {'ad': 'magaza_mi', 'islem': 'esit', 'a': 'kanal', 'deger': 'magaza', 'gerekce': 'iş anlamı'}, {'ad': 'log_gelir', 'islem': 'log', 'a': 'gelir', 'gerekce': 'iş anlamı'}]}
+OUTPUTS['ozellik-muhendisi'] = 'ozellikler.md'
+GOOD['kayma-yorumlayici'] = {'ozellikler': [{'ozellik': 'kanal', 'durum': 'belirgin kayma', 'olasi_neden': 'Mobil payı %20,3’ten %51,8’e çıktı; mağaza %35,9’dan %18,4’e düştü.', 'aksiyon': 'Mobil kanal kampanyasını doğrula, modeli yeni kanal dağılımıyla yeniden eğit.'}, {'ozellik': 'yas', 'durum': 'belirgin kayma', 'olasi_neden': '≤27 dilimi %10,7’den %26,7’ye çıktı; genç müşteri ağırlığı arttı.', 'aksiyon': 'Yaş dağılımı değişimini pazarlama ekibiyle teyit et.'}, {'ozellik': 'gelir', 'durum': 'kararlı', 'olasi_neden': '', 'aksiyon': ''}, {'ozellik': 'sepet', 'durum': 'kararlı', 'olasi_neden': '', 'aksiyon': ''}], 'yeniden_egit': True, 'ozet': 'İki özellikte belirgin kayma var (kanal PSI 0,464, yas PSI 0,372); model güncel müşteri profilini temsil etmiyor.'}
+OUTPUTS['kayma-yorumlayici'] = 'kayma-raporu.md'
+GOOD['sss-yazari'] = {'sss': [{'soru': 'Ürünü kaç gün içinde iade edebilirim?', 'cevap': 'Ürünler teslimattan itibaren 14 gün içinde, kullanılmamış ve orijinal ambalajındaysa iade edilebilir.', 'kaynak': 'iade_politikasi.md', 'kanit': 'Ürünler teslimattan itibaren 14 gün içinde iade edilebilir. İade edilecek ürün kullanılmamış ve orijinal ambalajında olmalıdır.'}, {'soru': 'Hangi ürünler iade edilemez?', 'cevap': 'Hijyen ürünleri, kişiye özel üretilen ürünler ve dijital içerikler iade kapsamı dışındadır.', 'kaynak': 'iade_politikasi.md', 'kanit': 'Hijyen ürünleri, kişiye özel üretilen ürünler ve dijital içerikler iade kapsamı dışındadır.'}, {'soru': 'İade ödemem ne zaman yapılır?', 'cevap': 'Ürün depoya ulaştıktan sonra 3 iş günü içinde kontrol edilir; onaylanan iadede ödeme 7 iş günü içinde aynı ödeme yöntemine yapılır.', 'kaynak': 'iade_politikasi.md', 'kanit': 'Ürün depoya ulaştıktan sonra 3 iş günü içinde kontrol edilir. Onaylanan iadelerde ödeme, kullanılan ödeme yöntemine 7 iş günü içinde geri yapılır.'}, {'soru': 'Ürün hasarlı gelirse ne yapmalıyım?', 'cevap': 'Teslimatta kargo görevlisine tutanak tutturun; tutanak yoksa fotoğrafla destek ekibine başvurabilirsiniz.', 'kaynak': 'iade_politikasi.md', 'kanit': 'Teslimatta hasarlı gelen ürünler için kargo görevlisine tutanak tutturulmalıdır. Tutanak olmadan hasar iddiası kabul edilmez; fotoğraf ile destek ekibine başvurulabilir.'}], 'celiskiler': [{'belgeler': ['kargo.md', 'kargo_kopya.md'], 'aciklama': 'Kargo ücreti bir belgede 49,90 TL, diğerinde 59,90 TL; güncel tutar netleşmeden kargo sorusu yazılmadı.'}]}
+OUTPUTS['sss-yazari'] = 'sss.md'
+GOOD['delta-bakim-plani'] = {'tablolar': [{'tablo': 'satis.fct_siparis', 'optimize': True, 'zorder': ['musteri_id', 'magaza_id'], 'vacuum_saat': 168, 'gerekce': 'dosya boyutu ve sorgu filtrelerine göre'}, {'tablo': 'satis.dim_musteri', 'optimize': False, 'zorder': [], 'vacuum_saat': None, 'gerekce': 'dosya boyutu ve sorgu filtrelerine göre'}, {'tablo': 'log.web_olaylari', 'optimize': True, 'zorder': ['kullanici_id', 'olay'], 'vacuum_saat': 168, 'gerekce': 'dosya boyutu ve sorgu filtrelerine göre'}, {'tablo': 'finans.gl_hareket', 'optimize': False, 'zorder': [], 'vacuum_saat': 168, 'gerekce': 'dosya boyutu ve sorgu filtrelerine göre'}]}
+OUTPUTS['delta-bakim-plani'] = 'tablo-bakimi.md'
+GOOD['kohort-yorumlayici'] = {'en_iyi_kohort': '2026-04', 'en_kotu_kohort': '2026-03', 'egilim': 'yatay', 'ozet': '1. ay tutundurma kohortlar arasında %18,2 ile %70 arasında dalgalanıyor; belirgin bir eğilim yok. En iyi 2026-04 kohortu (%70), en zayıf 2026-03 kohortu (%18,2).', 'oneriler': ['2026-04 kohortunun ilk ayında hangi kampanyanın çalıştığını inceleyin.', 'İlk siparişten sonraki ay için hatırlatma akışı kurun.']}
+OUTPUTS['kohort-yorumlayici'] = 'kohort-yorumu.md'
 GOOD['tableau-hesap-yazari'] = {'alanlar': [{'ad': 'Son Tarih', 'formul': '{FIXED : MAX([Siparis Tarihi])}', 'tip': 'date', 'rol': 'dimension', 'aciklama': 'Verideki son sipariş tarihi.'}, {'ad': 'Ciro YTD', 'formul': "SUM(IF [Siparis Tarihi] >= DATETRUNC('year', [Son Tarih]) AND [Siparis Tarihi] <= [Son Tarih] THEN [Tutar] END)", 'tip': 'real', 'rol': 'measure', 'aciklama': 'Yıl başından son tarihe.'}, {'ad': 'Ciro GY YTD', 'formul': "SUM(IF [Siparis Tarihi] >= DATEADD('year', -1, DATETRUNC('year', [Son Tarih])) AND [Siparis Tarihi] <= DATEADD('year', -1, [Son Tarih]) THEN [Tutar] END)", 'tip': 'real', 'rol': 'measure', 'aciklama': 'Geçen yılın aynı dönemi.'}, {'ad': 'Sipariş Başına Ciro', 'formul': 'SUM([Tutar]) / COUNTD([Siparis No])', 'tip': 'real', 'rol': 'measure', 'aciklama': ''}, {'ad': 'Bölge Payı', 'formul': 'SUM({FIXED [Bolge] : SUM([Tutar])}) / SUM({FIXED : SUM([Tutar])})', 'tip': 'real', 'rol': 'measure', 'aciklama': ''}], 'varsayimlar': ['Ciro, Tutar alanının toplamıdır.']}
 OUTPUTS['tableau-hesap-yazari'] = 'hesaplanan-alanlar.md'
 OUTPUTS.update({'deney-analisti': 'deney-raporu.md', 'sube-planlayici': 'sube-plani.md', 'rapor-tasarimcisi': 'tasarim.md'})
@@ -1508,6 +1524,129 @@ class Agents(LocalTestCase):
         self.assertEqual([r['bolge'] for r in rows], ['Marmara', 'Marmara', 'Ege', 'İç Anadolu', 'Akdeniz', 'Karadeniz'])
         self.assertEqual(rows[0]['agustos_tutar'], '54.250,00')
 
+    def test_kafka_topic_settings_follow_measured_load(self):
+        k = lambda n, b, ret, cl, rf=3, isr=2: {'konu': n, 'bolum': b, 'cogaltma': rf, 'min_insync': isr, 'saklama_saat': ret, 'cleanup': cl}
+        bad = {'konular': [k('siparis-olaylari', 4, 168, 'delete'), k('tiklama-akisi', 24, 24, 'compact', rf=4, isr=1), k('musteri-profil', 6, -1, 'compact'),
+                           k('odeme-sonuclari', 12, 72, 'delete')]}
+        p, done = self.run_agent('kafka-konu-tasarimcisi', '--yes', answers=[bad, GOOD['kafka-konu-tasarimcisi']])
+        self.ok(done)
+        sent = self.model.requests[-2]['body']['messages'][-1]['content']
+        self.assertIn('tiklama-akisi: tepe 60000 mesaj/sn × 0.8 KB; tüketici örneği 5000 mesaj/sn', sent)
+        self.assertIn('en az bölüm 12 (yazma 4.69, okuma 12.0)', sent)
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        for text in ('siparis-olaylari: bölüm 4 < en az 6', 'çoğaltma 4; 3–3 arası olmalı (3 broker)', 'compact yalnızca anahtarlı durum konusunda',
+                     '8 farklı anahtar var; 12 bölümün bir kısmı boş kalır', 'saklama 72 sa < geri oynatma ihtiyacı 336 sa', 'yazılmayan konu: stok-seviyesi'):
+            self.assertIn(text, retry)
+        sh = p.out('kafka-konulari.sh').read_text(encoding='utf-8')
+        self.assertIn('--topic odeme-sonuclari --partitions 6 --replication-factor 3 --config min.insync.replicas=2 --config cleanup.policy=delete --config retention.ms=1209600000', sh)
+        self.assertIn('--topic musteri-profil --partitions 6 --replication-factor 3 --config min.insync.replicas=2 --config cleanup.policy=compact --config retention.ms=-1', sh)
+
+    def test_slo_risk_flag_matches_history(self):
+        s = lambda j, th, t, risk: {'is': j, 'bitis_esigi': th, 'hedef': t, 'pencere_gun': 28, 'risk': risk}
+        bad = {'slolar': [s('erp_stg_yukle', '04:45', 0.9, False), s('satis_dwh', '06:45', 0.95, False), s('gunluk_pano_yenile', '07:00', 0.999, False)]}
+        p, done = self.run_agent('slo-tasarimcisi', '--yes', answers=[bad, GOOD['slo-tasarimcisi']])
+        self.ok(done)
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        self.assertIn('satis_dwh: eşik 06:45, Satış panosu ihtiyacı 06:30’dan geç', retry)
+        self.assertIn('gunluk_pano_yenile: son 28 günde 07:00 eşiğiyle gerçekleşen %92.9, hedef %99.9; risk true olmalı', retry)
+        self.assertNotIn('SLO yazılmayan iş', retry)
+        rows = {r['is']: r for r in p.csv('slo_durumu.csv')}
+        self.assertEqual((rows['satis_dwh']['gerceklesen_%'], rows['satis_dwh']['risk'], rows['satis_dwh']['hata_butcesi_gun'], rows['satis_dwh']['harcanan_gun']), ('89.3', 'evet', '1', '3'))
+        self.assertIn('timeWindow: [{duration: 28d, isRolling: true}]', p.out('slo.yaml').read_text(encoding='utf-8'))
+
+    def test_tag_rules_fill_only_missing_tags(self):
+        t = lambda d, e: {'desen': d, 'alan': 'kaynak_id', 'etiketler': e}
+        bad = {'kurallar': [t('^prod-', {'tag_env': 'prod'}), t('-emr$', {'tag_env': 'test'}), t('-finans-', {'tag_owner': 'finans-ekibi', 'tag_cost_center': 'CC200'})]}
+        p, done = self.run_agent('etiket-kurali-yazari', '--yes', answers=[bad, GOOD['etiket-kurali-yazari']])
+        self.ok(done)
+        self.assertIn('çakışan kurallar: prod-veri-emr.tag_env', self.model.requests[-1]['body']['messages'][-1]['content'])
+        rows = {r['kaynak_id']: r for r in p.csv('etiketlenmis.csv')}
+        self.assertEqual((rows['prod-veri-emr']['tag_owner'], rows['prod-veri-emr']['tag_cost_center'], rows['prod-veri-emr']['tag_env']), ('veri-ekibi', 'CC300', 'prod'))
+        self.assertEqual(rows['test-finans-db']['tag_cost_center'], 'CC200')  # existing value kept
+        self.assertEqual(rows['eski-deneme-sunucu']['tag_owner'], '')  # no rule guesses it
+        self.assertIn('%97', p.out('etiket-kurallari.md').read_text(encoding='utf-8'))  # 1850 of 1905 untagged dollars
+        p2, done = self.run_agent('etiket-kurali-yazari', '--yes', answers=[{'kurallar': [t('^prod-', {'tag_env': 'production'}), t('-veri-', {'tag_owner': 'veri-ekibi', 'tag_cost_center': 'CC999'})]}] * 2)
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        self.assertIn('tag_env=production izinli değil (prod/test/dev)', retry)
+        self.assertIn('tag_cost_center=CC999 mevcut etiketlerde hiç görülmemiş', retry)
+
+    def test_feature_engineering_blocks_leakage(self):
+        f = lambda ad, op, **k: {'ad': ad, 'islem': op, **k}
+        bad = {'ozellikler': [f('iptal_var', 'bos_mu', a='iptal_tarihi'), f('kanal_oran', 'oran', a='kanal', b='gelir'), f('churn_kopya', 'log', a='churn')]}
+        p, done = self.run_agent('ozellik-muhendisi', '--yes', '--reference-date', '2026-10-01', answers=[bad, GOOD['ozellik-muhendisi']])
+        self.ok(done)
+        sent = self.model.requests[-2]['body']['messages'][-1]['content']
+        self.assertIn('iptal_tarihi: metin/tarih, dolu %17, 1 tekil, değerler: 2026-09-10 (SIZINTI: boşluğu hedefi belirliyor; kullanma)', sent)
+        self.assertNotIn('M00001', sent)
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        for text in ('iptal_tarihi sızıntı kolonu', 'kanal sayısal değil', 'churn hedef ya da kimlik kolonu'):
+            self.assertIn(text, retry)
+        rows = p.csv('ozellikli_veri.csv')
+        self.assertEqual((rows[0]['yas_kova'], rows[1]['magaza_mi']), ('2', '1'))  # yas 53 → bucket 2 (>30, >45); M00001 shops in store
+        self.assertAlmostEqual(float(rows[0]['sepet_gelir_orani']), 1243.36 / 22478, places=5)
+        import importlib.util
+        spec = importlib.util.spec_from_file_location('ozellikler_test', p.out('ozellikler.py'))
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        self.assertAlmostEqual(mod.ekle({'sepet': '1243.36', 'gelir': '22478', 'yas': '53', 'kanal': 'web'})['sepet_gelir_orani'], 1243.36 / 22478)
+
+    def test_drift_reading_follows_psi_bands(self):
+        bad = {'ozellikler': [{'ozellik': 'kanal', 'durum': 'izlenmeli'}, {'ozellik': 'yas', 'durum': 'belirgin kayma'}, {'ozellik': 'gelir', 'durum': 'kararlı'},
+                              {'ozellik': 'sepet', 'durum': 'kararlı'}], 'yeniden_egit': False, 'ozet': 'Mobil payı %60 oldu.'}
+        p, done = self.run_agent('kayma-yorumlayici', '--yes', answers=[bad, GOOD['kayma-yorumlayici']])
+        self.ok(done)
+        sent = self.model.requests[-2]['body']['messages'][-1]['content']
+        self.assertIn('kanal · kategorik · 0.464', sent)
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        for text in ('kanal: PSI 0.464 → durum “belirgin kayma” olmalı', 'yas: belirgin kaymada aksiyon yazılmalı', 'yeniden_egit true olmalı', 'tabloda olmayan sayılar: 60'):
+            self.assertIn(text, retry)
+        self.assertEqual({r['ozellik']: r['durum'] for r in p.csv('kayma.csv')}, {'kanal': 'belirgin kayma', 'yas': 'belirgin kayma', 'gelir': 'kararlı', 'sepet': 'kararlı'})
+
+    def test_faq_answers_are_quoted_and_conflicts_reported(self):
+        q = lambda s, c, k, a: {'soru': s, 'cevap': c, 'kaynak': k, 'kanit': a}
+        bad = {'sss': [q('Ürünü kaç gün içinde iade edebilirim?', '30 gün içinde iade edebilirsiniz.', 'iade_politikasi.md', 'Ürünler teslimattan itibaren 14 gün içinde iade edilebilir.'),
+                       q('Kargo ücreti ne kadar?', '49,90 TL.', 'kargo.md', 'Altındaki siparişlerde sabit 49,90 TL kargo ücreti alınır.')], 'celiskiler': []}
+        p, done = self.run_agent('sss-yazari', '--yes', answers=[bad, GOOD['sss-yazari']])
+        self.ok(done)
+        sent = self.model.requests[-2]['body']['messages'][-1]['content']
+        self.assertIn('kargo.md: kargo_kopya.md ile sayılar farklı: 49,90, 59,90', sent)
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        for text in ('cevaptaki sayılar alıntıda yok: 30', 'kargo.md başka bir belgeyle çelişiyor', 'bildirilmeyen çelişkili belge: kargo.md, kargo_kopya.md'):
+            self.assertIn(text, retry)
+        faq = p.json('sss.json')
+        self.assertEqual(len(faq), 4)
+        self.assertTrue(all(x['kaynak'] == 'iade_politikasi.md' for x in faq))
+        self.assertIn('## Çelişkiler', p.out('sss.md').read_text(encoding='utf-8'))
+
+    def test_delta_maintenance_rules(self):
+        d = lambda t, o, z, v: {'tablo': t, 'optimize': o, 'zorder': z, 'vacuum_saat': v}
+        bad = {'tablolar': [d('satis.fct_siparis', True, ['siparis_tarihi', 'tutar'], 168), d('satis.dim_musteri', True, [], None), d('log.web_olaylari', True, ['kullanici_id'], 24)]}
+        p, done = self.run_agent('delta-bakim-plani', '--yes', answers=[bad, GOOD['delta-bakim-plani']])
+        self.ok(done)
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        for text in ('sorgularda filtrelenmeyen kolon: tutar', 'bölüm kolonu ZORDER’a girmez: siparis_tarihi', 'ortalama dosya 819 MB; OPTIMIZE gereksiz',
+                     'VACUUM saklaması en az 168 saat olmalı', 'plansız tablo: finans.gl_hareket'):
+            self.assertIn(text, retry)
+        sql = p.out('bakim.sql').read_text(encoding='utf-8')
+        self.assertIn('OPTIMIZE log.web_olaylari ZORDER BY (kullanici_id, olay);', sql)
+        self.assertNotIn('OPTIMIZE satis.dim_musteri', sql)
+
+    def test_cohort_reading_is_checked(self):
+        bad = {'en_iyi_kohort': '2025-12', 'en_kotu_kohort': '2026-05', 'egilim': 'azalıyor', 'ozet': 'Tutundurma %80’den düştü.', 'oneriler': []}
+        p, done = self.run_agent('kohort-yorumlayici', '--yes', answers=[bad, GOOD['kohort-yorumlayici']])
+        self.ok(done)
+        sent = self.model.requests[-2]['body']['messages'][-1]['content']
+        self.assertNotIn('M036', sent)
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        for text in ('en iyi kohort 2025-12 değil', 'en kötü kohort 2026-05 değil', 'eğilimi “azalıyor” değil (kohort başına eğim -0.12 puan)', 'matriste olmayan sayılar: 80'):
+            self.assertIn(text, retry)
+        self.assertEqual(len(p.csv('kohort.csv')), 11)
+
+    def test_local_ids_are_unique(self):
+        from collections import Counter
+        dup = [k for k, n in Counter(i['id'] for i in LOCAL).items() if n > 1]
+        self.assertEqual(dup, [])
+
     def test_invalid_answer_gets_one_corrective_retry(self):
         bad = {'sql': 'SELECT s.KalemlerToplamCiro FROM dbo.Siparisler s'}
         p, done = self.run_agent('sql-yazari', '--yes', answers=[bad, GOOD['sql-yazari']])
@@ -1570,7 +1709,15 @@ class Agents(LocalTestCase):
                              ('huni-analisti', {**GOOD['huni-analisti'], 'en_buyuk_kayip': 'ziyaret'}),
                              ('regresyon-yorumlayici', {**GOOD['regresyon-yorumlayici'], 'ozet': 'Reklam satışı artırır.'}),
                              ('vardiya-planlayici', {'vardiyalar': [{'baslangic': '08:00', 'sure_saat': 4, 'kisi': 1}]}),
-                             ('excel-baslik-cozucu', {**GOOD['excel-baslik-cozucu'], 'kolon_adlari': ['a', 'a']})]:
+                             ('excel-baslik-cozucu', {**GOOD['excel-baslik-cozucu'], 'kolon_adlari': ['a', 'a']}),
+                             ('kafka-konu-tasarimcisi', {'konular': [{**k, 'bolum': 1} for k in GOOD['kafka-konu-tasarimcisi']['konular']]}),
+                             ('slo-tasarimcisi', {'slolar': [{**x, 'hedef': 0.5} for x in GOOD['slo-tasarimcisi']['slolar']]}),
+                             ('etiket-kurali-yazari', {'kurallar': [{'desen': '^prod-', 'etiketler': {'tag_env': 'canli'}}]}),
+                             ('ozellik-muhendisi', {'ozellikler': [{'ad': 'x', 'islem': 'bos_mu', 'a': 'iptal_tarihi'}]}),
+                             ('kayma-yorumlayici', {**GOOD['kayma-yorumlayici'], 'yeniden_egit': False}),
+                             ('sss-yazari', {**GOOD['sss-yazari'], 'celiskiler': []}),
+                             ('delta-bakim-plani', {'tablolar': [{**t, 'vacuum_saat': 1} for t in GOOD['delta-bakim-plani']['tablolar']]}),
+                             ('kohort-yorumlayici', {**GOOD['kohort-yorumlayici'], 'egilim': 'artıyor'})]:
             with self.subTest(item_id):
                 p, done = self.run_agent(item_id, '--yes', answers=[bad, bad])
                 self.assertEqual(done.returncode, 1)

@@ -1,0 +1,5 @@
+tablo;dosya_sayisi;toplam_gb;silinmis_gb;bolum_kolonlari;kolonlar;filtre_kolonlari
+satis.fct_siparis;48210;610;95;siparis_tarihi;siparis_tarihi|siparis_no|musteri_id|urun_id|magaza_id|tutar;siparis_tarihi|musteri_id|magaza_id
+satis.dim_musteri;3;2,4;0;;musteri_id|ad|segment|il;musteri_id|segment
+log.web_olaylari;920000;1450;310;olay_tarihi;olay_tarihi|oturum_id|kullanici_id|olay|sayfa;olay_tarihi|kullanici_id|olay
+finans.gl_hareket;1200;300;12;donem;donem|hesap_kodu|sirket|tutar;donem|hesap_kodu

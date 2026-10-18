@@ -1,0 +1,12 @@
+kaynak_id;servis;maliyet_usd;tag_owner;tag_cost_center;tag_env
+prod-satis-api-01;Amazon EC2;420;satis-ekibi;CC100;prod
+prod-satis-api-02;Amazon EC2;410;;;
+dev-satis-api-01;Amazon EC2;60;satis-ekibi;CC100;dev
+prod-finans-db;Amazon RDS;780;finans-ekibi;CC200;prod
+test-finans-db;Amazon RDS;95;;CC200;
+prod-finans-etl;AWS Glue;310;;;
+dev-finans-etl;AWS Glue;35;finans-ekibi;;dev
+prod-veri-gol;Amazon S3;520;veri-ekibi;CC300;prod
+test-veri-gol;Amazon S3;40;;;
+prod-veri-emr;Amazon EMR;960;;;
+eski-deneme-sunucu;Amazon EC2;55;;;
