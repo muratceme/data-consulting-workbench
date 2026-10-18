@@ -59,8 +59,8 @@ class LocalTestCase(unittest.TestCase):
 
 class PackageShape(LocalTestCase):
     def test_every_local_package_is_self_contained_and_has_no_network_code(self):
-        self.assertEqual(len([i for i in LOCAL if not i.get('op')]), 47)
-        self.assertEqual(sum(i['kind'] == 'agent' for i in LOCAL), 35)
+        self.assertEqual(len([i for i in LOCAL if not i.get('op')]), 51)
+        self.assertEqual(sum(i['kind'] == 'agent' for i in LOCAL), 39)
         self.assertEqual(len({i['id'] for i in LOCAL}), len(LOCAL))
         for item in LOCAL:
             names = local_package.files(item)
@@ -800,6 +800,14 @@ GOOD['birim-kodu-eslestirici'] = {'eslemeler': [{'birim': 'Kasa', 'kod': 'CR', '
 OUTPUTS['birim-kodu-eslestirici'] = 'birim-esleme.md'
 GOOD['tevkifat-kodu-onerici'] = {"oneriler": [{"urun": "Bina temizlik hizmeti - Eylül", "kod": "612", "oran": "9/10", "gerekce": "Temizlik hizmeti kısmi tevkifat kapsamında."}, {"urun": "Ofis kırtasiye malzemesi", "kod": "yok", "gerekce": "Kırtasiye malzemesi teslimi tevkifat kapsamında değil."}, {"urun": "Forklift periyodik bakım ve onarımı", "kod": "603", "oran": "7/10", "gerekce": "Makine ve teçhizat bakım onarımı."}, {"urun": "Personel servis taşımacılığı - Eylül", "kod": "614", "oran": "5/10", "gerekce": "Servis taşımacılığı hizmeti."}, {"urun": "Personel öğle yemeği hizmeti", "kod": "604", "gerekce": "Yemek servis hizmeti; oran tek."}]}
 OUTPUTS['tevkifat-kodu-onerici'] = 'tevkifat-onerileri.md'
+GOOD['log-ayristirici'] = {"desenler": [{"ad": "uygulama", "desen": "(?P<zaman>\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2},\\d{3}) (?P<seviye>[A-Z]+) \\[(?P<servis>[^\\]]+)\\] (?P<mesaj>.*)", "aciklama": "Uygulama logu (Python/Java logging biçimi)"}, {"ad": "nginx_erisim", "desen": "(?P<ip>[0-9.]+) - (?P<kullanici>[^ ]+) \\[(?P<zaman>[^\\]]+)\\] \"(?P<mesaj>(?P<metot>[A-Z]+) (?P<yol>[^ \"]+) [^\"]*)\" (?P<durum>\\d{3}) (?P<boyut>\\d+) \"(?P<referer>[^\"]*)\" \"(?P<istemci>[^\"]*)\" (?P<sure_sn>[0-9.]+)", "aciklama": "nginx combined + istek süresi"}]}
+OUTPUTS['log-ayristirici'] = 'log-desenleri.md'
+GOOD['anket-kodlayici'] = {"temalar": [{"kod": "T1", "ad": "Teslimat süresi", "tanim": "Geç teslimat, teslimat günü belirsizliği, hızlı teslimat isteği"}, {"kod": "T2", "ad": "Kargo ve ambalaj hasarı", "tanim": "Kırık/ezik ürün, özensiz paketleme"}, {"kod": "T3", "ad": "Müşteri hizmetlerine ulaşım ve çözüm", "tanim": "Çağrı merkezi, canlı destek, e-posta dönüşü ve sorun çözme"}, {"kod": "T4", "ad": "Fiyat ve kampanya", "tanim": "Fiyat seviyesi, kampanya tutarsızlığı, kargo ücreti"}, {"kod": "T5", "ad": "Mobil uygulama sorunları", "tanim": "Uygulamada hata, yavaşlık, oturum ve bildirim sorunları"}, {"kod": "T6", "ad": "Olumlu ya da öneri içermeyen", "tanim": "Memnuniyet, sorun yok ya da anlamsız yanıt"}], "atamalar": [{"id": "1", "temalar": ["T1"], "duygu": "olumsuz"}, {"id": "2", "temalar": ["T5"], "duygu": "olumsuz"}, {"id": "3", "temalar": ["T2"], "duygu": "olumsuz"}, {"id": "4", "temalar": ["T3"], "duygu": "olumsuz"}, {"id": "5", "temalar": ["T4"], "duygu": "olumsuz"}, {"id": "6", "temalar": ["T1"], "duygu": "olumsuz"}, {"id": "7", "temalar": ["T5"], "duygu": "olumsuz"}, {"id": "8", "temalar": ["T6"], "duygu": "olumlu"}, {"id": "9", "temalar": ["T1", "T2"], "duygu": "karışık"}, {"id": "10", "temalar": ["T5"], "duygu": "olumsuz"}, {"id": "11", "temalar": ["T3"], "duygu": "olumsuz"}, {"id": "12", "temalar": ["T4"], "duygu": "olumsuz"}, {"id": "13", "temalar": ["T1"], "duygu": "nötr"}, {"id": "14", "temalar": ["T5"], "duygu": "olumsuz"}, {"id": "15", "temalar": ["T2"], "duygu": "olumsuz"}, {"id": "16", "temalar": ["T3"], "duygu": "olumsuz"}, {"id": "17", "temalar": ["T5"], "duygu": "olumsuz"}, {"id": "18", "temalar": ["T4"], "duygu": "olumsuz"}, {"id": "19", "temalar": ["T6"], "duygu": "olumlu"}, {"id": "20", "temalar": ["T5"], "duygu": "olumsuz"}, {"id": "21", "temalar": ["T3"], "duygu": "olumsuz"}, {"id": "22", "temalar": ["T1"], "duygu": "nötr"}, {"id": "23", "temalar": ["T4", "T5"], "duygu": "olumsuz"}, {"id": "24", "temalar": ["T2"], "duygu": "olumsuz"}, {"id": "25", "temalar": ["T6"], "duygu": "nötr"}, {"id": "26", "temalar": ["T1"], "duygu": "olumsuz"}, {"id": "27", "temalar": ["T5"], "duygu": "olumsuz"}, {"id": "28", "temalar": ["T3"], "duygu": "karışık"}]}
+OUTPUTS['anket-kodlayici'] = 'anket-temalari.md'
+GOOD['alarm-esigi-onerici'] = {"kurallar": [{"metrik": "satis_satir", "tip": "oran_alt", "esik": 0.5, "onem": "kritik", "gerekce": "Satır sayısı aynı günün son 4 hafta medyanının yarısının altına düşerse yükleme eksik; hafta sonu düşük hacmi kendiliğinden hesaba katar."}, {"metrik": "yukleme_suresi_dk", "tip": "sabit_ust", "esik": 45, "onem": "uyarı", "gerekce": "Normal süre 13–31 dk; 45 dk üstü kilit ya da kaynak sorunu."}, {"metrik": "musteri_bos_orani", "tip": "sabit_ust", "esik": 2, "onem": "kritik", "gerekce": "Boş oranı geçmişte %0,8’i geçmedi; %2 üstü kaynak şema değişikliği."}]}
+OUTPUTS['alarm-esigi-onerici'] = 'alarm-kurallari.md'
+GOOD['kolon-adi-standardi'] = {"eslemeler": [{"tablo": "SIPARIS", "kolon": "SIP_NO", "yeni_ad": "siparis_no", "gerekce": "standart ad"}, {"tablo": "SIPARIS", "kolon": "MUST_KOD", "yeni_ad": "musteri_kodu", "gerekce": "standart ad"}, {"tablo": "SIPARIS", "kolon": "SIP_TRH", "yeni_ad": "siparis_tarihi", "gerekce": "standart ad"}, {"tablo": "SIPARIS", "kolon": "TeslimTarihi", "yeni_ad": "teslim_tarihi", "gerekce": "standart ad"}, {"tablo": "SIPARIS", "kolon": "Tutar (TL)", "yeni_ad": "tutar_tl", "gerekce": "standart ad"}, {"tablo": "SIPARIS", "kolon": "KDV", "yeni_ad": "kdv_tutari_tl", "gerekce": "standart ad"}, {"tablo": "SIPARIS", "kolon": "iptal", "yeni_ad": "iptal_mi", "gerekce": "standart ad"}, {"tablo": "SIPARIS", "kolon": "order", "yeni_ad": "sira_no", "gerekce": "standart ad"}, {"tablo": "SIPARIS", "kolon": "durum", "yeni_ad": "durum", "gerekce": "standart ad"}, {"tablo": "MUSTERI", "kolon": "MusteriKodu", "yeni_ad": "musteri_kodu", "gerekce": "standart ad"}, {"tablo": "MUSTERI", "kolon": "MusteriAdi", "yeni_ad": "musteri_adi", "gerekce": "standart ad"}, {"tablo": "MUSTERI", "kolon": "Şehir", "yeni_ad": "sehir", "gerekce": "standart ad"}, {"tablo": "MUSTERI", "kolon": "aktif?", "yeni_ad": "aktif_mi", "gerekce": "standart ad"}, {"tablo": "MUSTERI", "kolon": "KAYIT_ZAMANI", "yeni_ad": "kayit_zamani", "gerekce": "standart ad"}, {"tablo": "MUSTERI", "kolon": "user", "yeni_ad": "kullanici_adi", "gerekce": "standart ad"}, {"tablo": "MUSTERI", "kolon": "TEL", "yeni_ad": "telefon", "gerekce": "standart ad"}]}
+OUTPUTS['kolon-adi-standardi'] = 'kolon-standardi.md'
 GOOD['tableau-hesap-yazari'] = {'alanlar': [{'ad': 'Son Tarih', 'formul': '{FIXED : MAX([Siparis Tarihi])}', 'tip': 'date', 'rol': 'dimension', 'aciklama': 'Verideki son sipariş tarihi.'}, {'ad': 'Ciro YTD', 'formul': "SUM(IF [Siparis Tarihi] >= DATETRUNC('year', [Son Tarih]) AND [Siparis Tarihi] <= [Son Tarih] THEN [Tutar] END)", 'tip': 'real', 'rol': 'measure', 'aciklama': 'Yıl başından son tarihe.'}, {'ad': 'Ciro GY YTD', 'formul': "SUM(IF [Siparis Tarihi] >= DATEADD('year', -1, DATETRUNC('year', [Son Tarih])) AND [Siparis Tarihi] <= DATEADD('year', -1, [Son Tarih]) THEN [Tutar] END)", 'tip': 'real', 'rol': 'measure', 'aciklama': 'Geçen yılın aynı dönemi.'}, {'ad': 'Sipariş Başına Ciro', 'formul': 'SUM([Tutar]) / COUNTD([Siparis No])', 'tip': 'real', 'rol': 'measure', 'aciklama': ''}, {'ad': 'Bölge Payı', 'formul': 'SUM({FIXED [Bolge] : SUM([Tutar])}) / SUM({FIXED : SUM([Tutar])})', 'tip': 'real', 'rol': 'measure', 'aciklama': ''}], 'varsayimlar': ['Ciro, Tutar alanının toplamıdır.']}
 OUTPUTS['tableau-hesap-yazari'] = 'hesaplanan-alanlar.md'
 OUTPUTS.update({'deney-analisti': 'deney-raporu.md', 'sube-planlayici': 'sube-plani.md', 'rapor-tasarimcisi': 'tasarim.md'})
@@ -1078,6 +1086,88 @@ class Agents(LocalTestCase):
         self.assertEqual({h['tip'] for h in heads}, {'TEVKIFAT'})
         self.assertEqual([float(h['tevkifat']) for h in heads], [8640.0, 8860.0, 18345.0])  # 9600×0.9; 3800×0.7 + 12400×0.5; 6090×0.5 + 17000×0.9
 
+    def test_log_parser_checks_patterns_on_the_whole_file(self):
+        bad = {'desenler': [{'ad': 'uygulama', 'desen': r'(?P<zaman>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}) (?P<seviye>[A-Z]+) \[(?P<servis>[^\]]+)\] (?P<mesaj>.*)'}]}
+        p, done = self.run_agent('log-ayristirici', '--yes', answers=[bad, GOOD['log-ayristirici']])
+        self.ok(done)
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        self.assertIn('desenler satırların %47.9’ini ayrıştırdı (gereken %98)', retry)  # only the app log format: 34 of 71 records
+        self.assertIn('[14/Oct/2026:', retry)  # unmatched nginx lines are shown
+        rows = p.csv('log_tablosu.csv')
+        self.assertEqual(len(rows), 70)
+        self.assertEqual(sum(r['desen'] == 'nginx_erisim' for r in rows), 36)
+        err = next(r for r in rows if r['seviye'] == 'ERROR')
+        self.assertEqual(err['devam_satiri'], '3')
+        self.assertIn('SocketTimeoutException', err['mesaj'])  # stack trace joined to its record
+        self.assertEqual(rows[2]['zaman'], '2026-10-14 09:01:09+03:00')  # nginx time read with its offset
+        self.assertEqual(p.out('eslesmeyen.txt').read_text(encoding='utf-8').strip(), '--- günlük dosyası döndürüldü ---')
+        self.assertIn('(?<zaman>', p.out('fluent-bit-parsers.conf').read_text(encoding='utf-8'))
+
+    def test_survey_coder_masks_and_counts_locally(self):
+        small = {**GOOD['anket-kodlayici'], 'temalar': GOOD['anket-kodlayici']['temalar'] + [{'kod': 'T7', 'ad': 'Diğer', 'tanim': 'Konu dışı'}],
+                 'atamalar': [{**a, 'temalar': ['T7']} if a['id'] == '25' else a for a in GOOD['anket-kodlayici']['atamalar']]}
+        p, done = self.run_agent('anket-kodlayici', '--yes', answers=[small, GOOD['anket-kodlayici']])
+        self.ok(done)
+        sent = self.model.requests[-2]['body']['messages'][-1]['content']
+        self.assertNotIn('ayse.k@ornek.com', sent)
+        self.assertIn('[E-POSTA]', sent)
+        self.assertNotIn('mobil', sent)  # the segment column stays local
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        self.assertIn('2 yanıttan az atanan tema: T7 (1)', retry)
+        summary = {r['kod']: r for r in p.csv('tema_ozeti.csv')}
+        self.assertEqual((summary['T5']['yanit'], summary['T5']['oran']), ('8', '28.6'))  # 8 of 28
+        self.assertNotEqual(summary['T6']['ornek_1'], 'asdfgh')  # quotes prefer real sentences
+        coded = {r['yanit_id']: r for r in p.csv('kodlanmis_yanitlar.csv')}
+        self.assertEqual(coded['9']['temalar'], 'T1;T2')
+        self.assertIn('| Mobil uygulama sorunları | 0 | 89 | 0 |', p.out('anket-temalari.md').read_text(encoding='utf-8'))  # 8 of 9 mobile answers
+
+    def test_alarm_rules_are_backtested_and_shipped_as_a_script(self):
+        bad = {'kurallar': [{'metrik': 'satis_satir', 'tip': 'sabit_alt', 'esik': 800, 'gerekce': 'x'},
+                            {'metrik': 'yukleme_suresi_dk', 'tip': 'sabit_ust', 'esik': 20, 'gerekce': 'x'},
+                            {'metrik': 'musteri_bos_orani', 'tip': 'sabit_ust', 'esik': 5, 'gerekce': 'x'}]}
+        p, done = self.run_agent('alarm-esigi-onerici', '--yes', answers=[bad, GOOD['alarm-esigi-onerici']])
+        self.ok(done)
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        self.assertIn('kaçırılan olaylar: satis_satir 2026-09-16 değer=2100, satis_satir 2026-10-04 değer=900', retry)
+        self.assertIn('yukleme_suresi_dk: 45 yanlış alarm (en fazla 2)', retry)
+        rows = p.csv('geriye_donuk_test.csv')
+        self.assertEqual(sorted((r['metrik'], r['tarih']) for r in rows if r['alarm']),
+                         sorted((r['metrik'], r['tarih']) for r in rows if r['olay'] == '1'))  # every incident, nothing else
+        env = {**os.environ, 'PYTHONIOENCODING': 'utf-8'}
+        script = subprocess.run([sys.executable, str(p.out('alarm_kontrol.py')), str(p.dir / 'ornek' / 'metrik_gecmisi.csv'), str(p.out('alarm_kurallari.json'))],
+                                capture_output=True, text=True, encoding='utf-8', env=env)
+        self.assertEqual(script.returncode, 0, script.stderr)  # no alarm on the last day
+        self.assertIn('5 alarm', script.stdout)
+        late = (p.dir / 'ornek' / 'metrik_gecmisi.csv').read_text(encoding='utf-8') + '2026-10-12;satis_satir;3000;\n'
+        (p.dir / 'yeni.csv').write_text(late, encoding='utf-8')
+        script = subprocess.run([sys.executable, str(p.out('alarm_kontrol.py')), str(p.dir / 'yeni.csv'), str(p.out('alarm_kurallari.json'))],
+                                capture_output=True, text=True, encoding='utf-8', env=env)
+        self.assertEqual(script.returncode, 2)  # a Monday with a quarter of the usual rows
+        self.assertIn('SON GÜN ALARM 2026-10-12 satis_satir=3000', script.stdout)
+
+    def test_column_standard_names_and_verified_sql(self):
+        import sqlite3
+        names = {'SIP_TRH': 'siparis_trh', 'aktif?': 'aktif', 'Şehir': 'şehir', 'user': 'musteri_adi'}
+        bad = {'eslemeler': [{**e, 'yeni_ad': names.get(e['kolon'], e['yeni_ad'])} for e in GOOD['kolon-adi-standardi']['eslemeler'] if e['kolon'] != 'TEL']}
+        p, done = self.run_agent('kolon-adi-standardi', '--yes', answers=[bad, GOOD['kolon-adi-standardi']])
+        self.ok(done)
+        sent = self.model.requests[-2]['body']['messages'][-1]['content']
+        self.assertIn('SIPARIS.Tutar (TL): decimal(18,2)', sent)
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        for text in ('SIPARIS.SIP_TRH → “siparis_trh”: tarih/zaman kolonu', 'MUSTERI.aktif? → “aktif”: mantıksal kolon _mi / _mu ile bitmeli',
+                     'MUSTERI.Şehir → “şehir”: küçük harf ASCII', 'eşlenmemiş kolon: MUSTERI.TEL', 'MUSTERI: MusteriAdi, user → musteri_adi'):
+            self.assertIn(text, retry)
+        con = sqlite3.connect(':memory:')
+        con.execute('CREATE TABLE "SIPARIS" ("SIP_NO", "MUST_KOD", "SIP_TRH", "TeslimTarihi", "Tutar (TL)", "KDV", "iptal", "order", "durum")')
+        con.execute('CREATE TABLE "MUSTERI" ("MusteriKodu", "MusteriAdi", "Şehir", "aktif?", "KAYIT_ZAMANI", "user", "TEL")')
+        con.executescript(p.out('yeniden_adlandir.sql').read_text(encoding='utf-8'))  # the PostgreSQL script also runs on SQLite
+        self.assertEqual([r[1] for r in con.execute('PRAGMA table_info("SIPARIS")')],
+                         ['siparis_no', 'musteri_kodu', 'siparis_tarihi', 'teslim_tarihi', 'tutar_tl', 'kdv_tutari_tl', 'iptal_mi', 'sira_no', 'durum'])
+        self.assertIn('CREATE VIEW "stg_musteri"', p.out('gorunumler.sql').read_text(encoding='utf-8'))
+        ss, done = self.run_agent('kolon-adi-standardi', '--yes', '--dialect', 'sqlserver', answers=[GOOD['kolon-adi-standardi']])
+        self.ok(done)
+        self.assertIn("EXEC sp_rename N'SIPARIS.[Tutar (TL)]', N'tutar_tl', N'COLUMN';", ss.out('yeniden_adlandir.sql').read_text(encoding='utf-8'))
+
     def test_invalid_answer_gets_one_corrective_retry(self):
         bad = {'sql': 'SELECT s.KalemlerToplamCiro FROM dbo.Siparisler s'}
         p, done = self.run_agent('sql-yazari', '--yes', answers=[bad, GOOD['sql-yazari']])
@@ -1119,7 +1209,11 @@ class Agents(LocalTestCase):
                              ('qlik-ifade-yazari', {'ifadeler': [{'ad': 'Ciro', 'ifade': 'Sum([Ciro])'}]}),
                              ('tableau-hesap-yazari', {'alanlar': [{'ad': 'Oran', 'formul': 'SUM([Tutar]) / [Adet]', 'tip': 'real', 'rol': 'measure'}]}),
                              ('birim-kodu-eslestirici', {'eslemeler': [{'birim': 'Kasa', 'kod': 'KASA'}]}),
-                             ('tevkifat-kodu-onerici', {'oneriler': [{'urun': 'Ofis kırtasiye malzemesi', 'kod': '650', 'oran': '50', 'gerekce': 'x'}]})]:
+                             ('tevkifat-kodu-onerici', {'oneriler': [{'urun': 'Ofis kırtasiye malzemesi', 'kod': '650', 'oran': '50', 'gerekce': 'x'}]}),
+                             ('log-ayristirici', {'desenler': [{'ad': 'hepsi', 'desen': '(?P<zaman>.+) (?P<mesaj>.*)'}]}),
+                             ('anket-kodlayici', {**GOOD['anket-kodlayici'], 'atamalar': GOOD['anket-kodlayici']['atamalar'][:-1]}),
+                             ('alarm-esigi-onerici', {'kurallar': [{**r, 'esik': 0.1} if r['tip'] == 'oran_alt' else r for r in GOOD['alarm-esigi-onerici']['kurallar']]}),
+                             ('kolon-adi-standardi', {'eslemeler': [{**e, 'yeni_ad': 'order'} if e['kolon'] == 'order' else e for e in GOOD['kolon-adi-standardi']['eslemeler']]})]:
             with self.subTest(item_id):
                 p, done = self.run_agent(item_id, '--yes', answers=[bad, bad])
                 self.assertEqual(done.returncode, 1)

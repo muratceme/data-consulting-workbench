@@ -1,0 +1,89 @@
+2026-10-14 09:00:05,803 INFO [siparis-servisi] Sipariş işlendi siparis_no=100402 sure_ms=375
+2026-10-14 09:00:45,954 INFO [siparis-servisi] Sipariş işlendi siparis_no=100335 sure_ms=294
+10.0.4.31 - - [14/Oct/2026:09:01:09 +0300] "POST /api/stok/100942 HTTP/1.1" 200 1946 "-" "Mozilla/5.0" 1.596
+10.0.8.170 - - [14/Oct/2026:09:01:17 +0300] "GET /saglik/100405 HTTP/1.1" 200 2417 "-" "Mozilla/5.0" 2.062
+2026-10-14 09:01:31,504 INFO [stok-servisi] Sipariş işlendi siparis_no=100558 sure_ms=610
+10.0.8.3 - - [14/Oct/2026:09:01:47 +0300] "GET /saglik HTTP/1.1" 200 3790 "-" "Mozilla/5.0" 1.970
+2026-10-14 09:01:58,435 INFO [odeme-servisi] Sipariş işlendi siparis_no=100438 sure_ms=574
+10.0.5.241 - - [14/Oct/2026:09:02:01 +0300] "GET /saglik HTTP/1.1" 200 2028 "-" "Mozilla/5.0" 1.167
+10.0.1.21 - - [14/Oct/2026:09:02:33 +0300] "GET /saglik/100693 HTTP/1.1" 200 1354 "-" "Mozilla/5.0" 1.727
+10.0.5.21 - - [14/Oct/2026:09:02:42 +0300] "GET /api/siparis HTTP/1.1" 200 597 "-" "Mozilla/5.0" 0.705
+2026-10-14 09:03:12,864 INFO [siparis-servisi] Sipariş işlendi siparis_no=100480 sure_ms=720
+2026-10-14 09:03:43,528 INFO [siparis-servisi] Sipariş işlendi siparis_no=100393 sure_ms=655
+2026-10-14 09:03:49,111 DEBUG [stok-servisi] Önbellek isabeti anahtar=urun:163
+2026-10-14 09:03:55,136 ERROR [odeme-servisi] Ödeme sağlayıcısı yanıt vermedi (zaman aşımı)
+    java.net.SocketTimeoutException: Read timed out
+        at com.ornek.odeme.SaglayiciIstemci.cagir(SaglayiciIstemci.java:88)
+        at com.ornek.odeme.OdemeServisi.tahsilEt(OdemeServisi.java:41)
+2026-10-14 09:04:27,905 ERROR [stok-servisi] Ödeme sağlayıcısı yanıt vermedi (zaman aşımı)
+    java.net.SocketTimeoutException: Read timed out
+        at com.ornek.odeme.SaglayiciIstemci.cagir(SaglayiciIstemci.java:88)
+        at com.ornek.odeme.OdemeServisi.tahsilEt(OdemeServisi.java:41)
+2026-10-14 09:04:50,561 INFO [odeme-servisi] Sipariş işlendi siparis_no=100516 sure_ms=602
+10.0.2.133 - - [14/Oct/2026:09:05:24 +0300] "POST /api/stok HTTP/1.1" 404 3637 "-" "Mozilla/5.0" 0.418
+2026-10-14 09:05:44,253 WARN [stok-servisi] Yavaş sorgu tablo=stok_hareket sure_ms=2266
+2026-10-14 09:06:09,247 WARN [odeme-servisi] Yavaş sorgu tablo=stok_hareket sure_ms=3192
+10.0.6.13 - - [14/Oct/2026:09:06:15 +0300] "GET /api/odeme/100748 HTTP/1.1" 200 1153 "-" "Mozilla/5.0" 1.128
+10.0.9.29 - - [14/Oct/2026:09:06:23 +0300] "POST /api/stok/100732 HTTP/1.1" 503 2523 "-" "Mozilla/5.0" 2.112
+10.0.9.189 - - [14/Oct/2026:09:06:32 +0300] "POST /api/stok/100251 HTTP/1.1" 200 3503 "-" "Mozilla/5.0" 0.141
+10.0.8.81 - - [14/Oct/2026:09:06:52 +0300] "POST /saglik HTTP/1.1" 200 1741 "-" "Mozilla/5.0" 2.375
+2026-10-14 09:07:09,821 WARN [siparis-servisi] Yavaş sorgu tablo=stok_hareket sure_ms=2918
+2026-10-14 09:07:48,047 INFO [stok-servisi] Sipariş işlendi siparis_no=100869 sure_ms=834
+10.0.8.14 - - [14/Oct/2026:09:08:03 +0300] "POST /api/odeme/100968 HTTP/1.1" 200 1823 "-" "Mozilla/5.0" 0.113
+2026-10-14 09:08:42,906 INFO [odeme-servisi] Sipariş işlendi siparis_no=100806 sure_ms=429
+2026-10-14 09:08:54,610 INFO [siparis-servisi] Sipariş işlendi siparis_no=100732 sure_ms=642
+10.0.2.71 - - [14/Oct/2026:09:09:15 +0300] "GET /api/siparis/100861 HTTP/1.1" 200 2071 "-" "Mozilla/5.0" 0.675
+10.0.3.111 - - [14/Oct/2026:09:09:51 +0300] "GET /api/siparis HTTP/1.1" 200 1181 "-" "Mozilla/5.0" 2.011
+10.0.2.14 - - [14/Oct/2026:09:10:16 +0300] "POST /api/odeme HTTP/1.1" 201 3254 "-" "Mozilla/5.0" 0.365
+10.0.6.88 - - [14/Oct/2026:09:10:53 +0300] "GET /saglik/100317 HTTP/1.1" 200 3951 "-" "Mozilla/5.0" 0.613
+2026-10-14 09:11:04,503 INFO [siparis-servisi] Sipariş işlendi siparis_no=100184 sure_ms=139
+10.0.4.10 - - [14/Oct/2026:09:11:38 +0300] "POST /api/siparis/100653 HTTP/1.1" 200 781 "-" "Mozilla/5.0" 1.117
+10.0.8.60 - - [14/Oct/2026:09:12:18 +0300] "POST /saglik/100025 HTTP/1.1" 200 2532 "-" "Mozilla/5.0" 0.729
+2026-10-14 09:12:32,428 WARN [siparis-servisi] Yavaş sorgu tablo=stok_hareket sure_ms=2268
+2026-10-14 09:12:41,596 DEBUG [odeme-servisi] Önbellek isabeti anahtar=urun:38
+10.0.4.234 - - [14/Oct/2026:09:13:18 +0300] "GET /api/stok/100606 HTTP/1.1" 200 3483 "-" "Mozilla/5.0" 0.175
+10.0.9.18 - - [14/Oct/2026:09:13:37 +0300] "POST /saglik HTTP/1.1" 200 2659 "-" "Mozilla/5.0" 1.664
+10.0.5.233 - - [14/Oct/2026:09:14:13 +0300] "GET /saglik/100532 HTTP/1.1" 200 3805 "-" "Mozilla/5.0" 1.594
+10.0.7.154 - - [14/Oct/2026:09:14:53 +0300] "GET /saglik HTTP/1.1" 200 1050 "-" "Mozilla/5.0" 0.396
+--- günlük dosyası döndürüldü ---
+10.0.9.153 - - [14/Oct/2026:09:15:02 +0300] "GET /saglik/100111 HTTP/1.1" 200 252 "-" "Mozilla/5.0" 0.598
+10.0.8.40 - - [14/Oct/2026:09:15:40 +0300] "GET /api/stok/100906 HTTP/1.1" 200 602 "-" "Mozilla/5.0" 1.161
+2026-10-14 09:16:05,229 INFO [stok-servisi] Sipariş işlendi siparis_no=100630 sure_ms=430
+10.0.4.5 - - [14/Oct/2026:09:16:10 +0300] "GET /api/odeme HTTP/1.1" 201 2821 "-" "Mozilla/5.0" 0.145
+10.0.7.106 - - [14/Oct/2026:09:16:31 +0300] "GET /saglik/100544 HTTP/1.1" 201 2052 "-" "Mozilla/5.0" 0.286
+2026-10-14 09:16:38,895 ERROR [stok-servisi] Ödeme sağlayıcısı yanıt vermedi (zaman aşımı)
+    java.net.SocketTimeoutException: Read timed out
+        at com.ornek.odeme.SaglayiciIstemci.cagir(SaglayiciIstemci.java:88)
+        at com.ornek.odeme.OdemeServisi.tahsilEt(OdemeServisi.java:41)
+2026-10-14 09:17:05,876 INFO [odeme-servisi] Sipariş işlendi siparis_no=100344 sure_ms=205
+10.0.2.115 - - [14/Oct/2026:09:17:46 +0300] "GET /api/odeme/100960 HTTP/1.1" 200 1398 "-" "Mozilla/5.0" 2.039
+10.0.7.245 - - [14/Oct/2026:09:17:51 +0300] "GET /api/stok/100562 HTTP/1.1" 200 3454 "-" "Mozilla/5.0" 1.084
+2026-10-14 09:18:15,103 ERROR [odeme-servisi] Ödeme sağlayıcısı yanıt vermedi (zaman aşımı)
+    java.net.SocketTimeoutException: Read timed out
+        at com.ornek.odeme.SaglayiciIstemci.cagir(SaglayiciIstemci.java:88)
+        at com.ornek.odeme.OdemeServisi.tahsilEt(OdemeServisi.java:41)
+2026-10-14 09:18:19,278 ERROR [odeme-servisi] Ödeme sağlayıcısı yanıt vermedi (zaman aşımı)
+    java.net.SocketTimeoutException: Read timed out
+        at com.ornek.odeme.SaglayiciIstemci.cagir(SaglayiciIstemci.java:88)
+        at com.ornek.odeme.OdemeServisi.tahsilEt(OdemeServisi.java:41)
+2026-10-14 09:18:40,055 INFO [odeme-servisi] Sipariş işlendi siparis_no=100379 sure_ms=463
+2026-10-14 09:19:17,051 INFO [odeme-servisi] Sipariş işlendi siparis_no=100575 sure_ms=137
+10.0.3.143 - - [14/Oct/2026:09:19:22 +0300] "GET /api/odeme HTTP/1.1" 200 1573 "-" "Mozilla/5.0" 2.076
+10.0.3.123 - - [14/Oct/2026:09:19:49 +0300] "GET /api/odeme/100450 HTTP/1.1" 200 1008 "-" "Mozilla/5.0" 1.400
+10.0.8.221 - - [14/Oct/2026:09:20:23 +0300] "GET /api/odeme HTTP/1.1" 404 2889 "-" "Mozilla/5.0" 1.007
+2026-10-14 09:20:55,919 INFO [odeme-servisi] Sipariş işlendi siparis_no=100103 sure_ms=289
+2026-10-14 09:21:26,329 DEBUG [odeme-servisi] Önbellek isabeti anahtar=urun:58
+10.0.3.160 - - [14/Oct/2026:09:21:36 +0300] "GET /api/stok/100694 HTTP/1.1" 404 3889 "-" "Mozilla/5.0" 2.182
+10.0.1.139 - - [14/Oct/2026:09:22:10 +0300] "GET /api/stok/100507 HTTP/1.1" 200 2638 "-" "Mozilla/5.0" 0.533
+2026-10-14 09:22:40,622 INFO [stok-servisi] Sipariş işlendi siparis_no=100046 sure_ms=563
+10.0.6.243 - - [14/Oct/2026:09:22:49 +0300] "GET /api/odeme/100337 HTTP/1.1" 200 3845 "-" "Mozilla/5.0" 1.780
+2026-10-14 09:23:07,344 INFO [stok-servisi] Sipariş işlendi siparis_no=100182 sure_ms=834
+10.0.2.166 - - [14/Oct/2026:09:23:38 +0300] "GET /api/stok/100458 HTTP/1.1" 200 2081 "-" "Mozilla/5.0" 1.003
+2026-10-14 09:24:14,577 INFO [stok-servisi] Sipariş işlendi siparis_no=100005 sure_ms=470
+2026-10-14 09:24:48,185 ERROR [stok-servisi] Ödeme sağlayıcısı yanıt vermedi (zaman aşımı)
+    java.net.SocketTimeoutException: Read timed out
+        at com.ornek.odeme.SaglayiciIstemci.cagir(SaglayiciIstemci.java:88)
+        at com.ornek.odeme.OdemeServisi.tahsilEt(OdemeServisi.java:41)
+2026-10-14 09:25:05,642 INFO [odeme-servisi] Sipariş işlendi siparis_no=100358 sure_ms=386
+2026-10-14 09:25:17,185 INFO [odeme-servisi] Sipariş işlendi siparis_no=100492 sure_ms=395
+10.0.6.49 - - [14/Oct/2026:09:25:30 +0300] "GET /saglik/100005 HTTP/1.1" 200 2781 "-" "Mozilla/5.0" 0.224

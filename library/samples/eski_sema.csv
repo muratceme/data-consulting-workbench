@@ -1,0 +1,17 @@
+tablo;kolon;tip
+SIPARIS;SIP_NO;int
+SIPARIS;MUST_KOD;varchar(20)
+SIPARIS;SIP_TRH;datetime
+SIPARIS;TeslimTarihi;date
+SIPARIS;Tutar (TL);decimal(18,2)
+SIPARIS;KDV;decimal(18,2)
+SIPARIS;iptal;bit
+SIPARIS;order;int
+SIPARIS;durum;varchar(10)
+MUSTERI;MusteriKodu;varchar(20)
+MUSTERI;MusteriAdi;nvarchar(200)
+MUSTERI;Şehir;nvarchar(50)
+MUSTERI;aktif?;bit
+MUSTERI;KAYIT_ZAMANI;datetime2
+MUSTERI;user;varchar(50)
+MUSTERI;TEL;varchar(20)
