@@ -59,8 +59,8 @@ class LocalTestCase(unittest.TestCase):
 
 class PackageShape(LocalTestCase):
     def test_every_local_package_is_self_contained_and_has_no_network_code(self):
-        self.assertEqual(len([i for i in LOCAL if not i.get('op')]), 45)
-        self.assertEqual(sum(i['kind'] == 'agent' for i in LOCAL), 33)
+        self.assertEqual(len([i for i in LOCAL if not i.get('op')]), 46)
+        self.assertEqual(sum(i['kind'] == 'agent' for i in LOCAL), 34)
         self.assertEqual(len({i['id'] for i in LOCAL}), len(LOCAL))
         for item in LOCAL:
             names = local_package.files(item)
@@ -566,6 +566,36 @@ class SinglePurposeBlocks(LocalTestCase):
         self.assertEqual({r['kontrol'] for r in reader.csv('sonuc.csv')}, {'tutarlı'})
         self.assertEqual(sum(float(r['odenecek']) for r in reader.csv('sonuc.csv')), 97932.36)
 
+    def test_despatch_advice_and_pivot_report(self):
+        import xml.etree.ElementTree as ET
+        p = self.package('eirsaliye-uret')
+        self.ok(p.run())
+        ns = {'cbc': 'urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2', 'cac': 'urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2'}
+        doc = ET.parse(p.out('eirsaliye/IRS2026000000002.xml')).getroot()
+        self.assertEqual(doc.find('cac:Shipment/cac:ShipmentStage/cac:TransportMeans/cac:RoadTransport/cbc:LicensePlateID', ns).text, '35DG4410')
+        self.assertEqual([q.get('unitCode') for q in doc.iter('{%s}DeliveredQuantity' % ns['cbc'])], ['KGM', 'LTR', 'BX'])  # kg, LT, KT
+        self.assertEqual(doc.find('cac:Shipment/cac:Delivery/cac:DeliveryAddress/cbc:PostalZone', ns).text, '35250')
+        bad = self.package('eirsaliye-uret')
+        rows = (bad.dir / 'ornek' / 'irsaliye_satirlari.csv').read_text(encoding='utf-8').replace(';35250;', ';3525;').replace(';10000000146;', ';10000000147;')
+        (bad.dir / 'kotu.csv').write_text(rows, encoding='utf-8')
+        done = bad.run('--input', str(bad.dir / 'kotu.csv'))
+        self.assertEqual(done.returncode, 1)  # nothing valid to write
+        report = bad.out('rapor.md').read_text(encoding='utf-8')
+        self.assertIn('posta kodu geçersiz: 3525', report)
+        self.assertIn('şoför ad, soyad ve geçerli TCKN birlikte verilmeli', report)
+        pv = self.package('excel-pivot-rapor')
+        self.ok(pv.run())
+        grid = {r['bolge']: r for r in pv.csv('sonuc.csv')}
+        self.assertEqual((float(grid['Karadeniz']['Web']), float(grid['Genel Toplam']['Genel Toplam'])), (807900.0, 5912910.0))
+        with zipfile.ZipFile(pv.out('pivot.xlsx')) as z:
+            pivot = z.read('xl/pivotTables/pivotTable1.xml').decode('utf-8')
+            cache = z.read('xl/pivotCache/pivotCacheDefinition1.xml').decode('utf-8')
+            self.assertIn('<pivotCache cacheId="1" r:id="rId4"/>', z.read('xl/workbook.xml').decode('utf-8'))
+        self.assertIn('<location ref="A3:E10"', pivot)
+        self.assertIn('<pageField fld="4" hier="-1"/>', pivot)
+        self.assertIn('<worksheetSource ref="A1:J241" sheet="Veri"/>', cache)
+        self.assertEqual(cache.count('<cacheField '), 10)
+
     def test_sql_formatter_never_turns_code_into_a_comment(self):
         p = self.package('sql-bicimlendir')
         (p.dir / 'x.sql').write_text("SELECT a -- not\nFROM t WHERE b = 'x -- y'; /* c */ DELETE FROM u WHERE id = 1", encoding='utf-8')
@@ -748,6 +778,8 @@ GOOD['sube-planlayici'] = {'ozet': 'En büyük iki kapsama dışı küme için �
 GOOD['rapor-tasarimcisi'] = {'baslik': 'Bölge Satış Raporu', 'olculer': [{'sutun': 'tutar', 'toplama': 'toplam'}, {'sutun': 'adet', 'toplama': 'toplam'}], 'boyutlar': ['bolge', 'kanal'], 'tarih': 'siparis_tarihi', 'araclar': ['qlik', 'powerbi'], 'gerekce': 'Ciro tutar sütunundan; sipariş adedi için farklı sipariş sayısı eklenir.', 'sorular': ['Ciro KDV dahil mi?']}
 GOOD['qlik-ifade-yazari'] = {'ifadeler': [{'ad': 'Ciro YTD', 'ifade': 'Sum({<[Yil]=, [Tarih]={">=$(=Date(YearStart(Max([Tarih]))))<=$(=Date(Max([Tarih])))"}>} [Tutar])', 'aciklama': 'Yıl başından son tarihe ciro.'}, {'ad': 'Ciro GY YTD', 'ifade': 'Sum({<[Yil]=, [Tarih]={">=$(=Date(AddYears(YearStart(Max([Tarih])), -1)))<=$(=Date(AddYears(Max([Tarih]), -1)))"}>} [Tutar])', 'aciklama': 'Geçen yılın aynı dönemi.'}, {'ad': 'Sipariş Başına Ciro', 'ifade': 'Sum([Tutar]) / Count(DISTINCT [SiparisNo])', 'aciklama': ''}, {'ad': 'Kategori Payı', 'ifade': 'Sum([Tutar]) / Sum({<[Kategori]=>} TOTAL [Tutar])', 'aciklama': 'Seçili kategorinin tüm kategoriler içindeki payı.'}, {'ad': '3+ Siparişli Müşteri', 'ifade': 'Count({<[MusteriNo]={"=Count(DISTINCT [SiparisNo])>=3"}>} DISTINCT [MusteriNo])', 'aciklama': ''}], 'varsayimlar': ['Tarih alanı tarih (dual) olarak yükleniyor.']}
 OUTPUTS['qlik-ifade-yazari'] = 'ifadeler.md'
+GOOD['birim-kodu-eslestirici'] = {'eslemeler': [{'birim': 'Kasa', 'kod': 'CR', 'gerekce': 'Sebze kasası; ambalaj sayılır.'}, {'birim': 'Damacana', 'kod': 'BO', 'gerekce': 'Büyük şişe.'}, {'birim': 'Bidon', 'kod': 'CA', 'gerekce': 'Metal/plastik kap.'}, {'birim': 'Varil', 'kod': 'DR', 'gerekce': 'Drum.'}, {'birim': 'Sandık', 'kod': 'CS', 'gerekce': 'Case.'}, {'birim': 'Muhtelif', 'kod': 'eşlenemez', 'gerekce': 'Birim belirsiz; stok kartında gerçek birim yazılmalı.'}]}
+OUTPUTS['birim-kodu-eslestirici'] = 'birim-esleme.md'
 GOOD['tableau-hesap-yazari'] = {'alanlar': [{'ad': 'Son Tarih', 'formul': '{FIXED : MAX([Siparis Tarihi])}', 'tip': 'date', 'rol': 'dimension', 'aciklama': 'Verideki son sipariş tarihi.'}, {'ad': 'Ciro YTD', 'formul': "SUM(IF [Siparis Tarihi] >= DATETRUNC('year', [Son Tarih]) AND [Siparis Tarihi] <= [Son Tarih] THEN [Tutar] END)", 'tip': 'real', 'rol': 'measure', 'aciklama': 'Yıl başından son tarihe.'}, {'ad': 'Ciro GY YTD', 'formul': "SUM(IF [Siparis Tarihi] >= DATEADD('year', -1, DATETRUNC('year', [Son Tarih])) AND [Siparis Tarihi] <= DATEADD('year', -1, [Son Tarih]) THEN [Tutar] END)", 'tip': 'real', 'rol': 'measure', 'aciklama': 'Geçen yılın aynı dönemi.'}, {'ad': 'Sipariş Başına Ciro', 'formul': 'SUM([Tutar]) / COUNTD([Siparis No])', 'tip': 'real', 'rol': 'measure', 'aciklama': ''}, {'ad': 'Bölge Payı', 'formul': 'SUM({FIXED [Bolge] : SUM([Tutar])}) / SUM({FIXED : SUM([Tutar])})', 'tip': 'real', 'rol': 'measure', 'aciklama': ''}], 'varsayimlar': ['Ciro, Tutar alanının toplamıdır.']}
 OUTPUTS['tableau-hesap-yazari'] = 'hesaplanan-alanlar.md'
 OUTPUTS.update({'deney-analisti': 'deney-raporu.md', 'sube-planlayici': 'sube-plani.md', 'rapor-tasarimcisi': 'tasarim.md'})
@@ -989,6 +1021,23 @@ class Agents(LocalTestCase):
         self.assertEqual(calcs['Sipariş Başına Ciro'], 'SUM([tutar]) / COUNTD([siparis_no])')  # captions turned into internal names
         self.assertIn('[Calculation_001_agent]', calcs['Ciro YTD'])  # a calculation can use an earlier one
 
+    def test_unit_code_agent_feeds_the_e_documents(self):
+        bad = {'eslemeler': [{'birim': 'Kasa', 'kod': 'KASA'}, {'birim': 'AD', 'kod': 'AD'}]}
+        p, done = self.run_agent('birim-kodu-eslestirici', '--yes', answers=[bad, GOOD['birim-kodu-eslestirici']])
+        self.ok(done)
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        self.assertIn('“Kasa”: KASA GİB birim kod listesinde yok', retry)
+        self.assertIn('“AD” kuralla C62 olarak eşlendi', retry)  # “AD” is also the UN/ECE code for byte
+        self.assertIn('cevapsız birim: Kasa, Damacana, Bidon, Varil, Sandık, Muhtelif', retry)
+        mapping = {r['birim']: r['kod'] for r in p.csv('birim_esleme.csv')}
+        self.assertEqual((mapping['KG'], mapping['Sandık'], mapping['Varil']), ('KGM', 'CS', 'DR'))
+        self.assertNotIn('Muhtelif', mapping)  # left unmapped with a reason
+        irs = self.package('eirsaliye-uret')
+        source = (irs.dir / 'ornek' / 'irsaliye_satirlari.csv').read_text(encoding='utf-8').replace(';5;KOLİ', ';4;Sandık')
+        (irs.dir / 'sevk.csv').write_text(source, encoding='utf-8')
+        self.ok(irs.run('--input', str(irs.dir / 'sevk.csv'), '--unit-map', str(p.out('birim_esleme.csv'))))
+        self.assertIn('unitCode="CS">4<', irs.out('eirsaliye/IRS2026000000001.xml').read_text(encoding='utf-8'))
+
     def test_invalid_answer_gets_one_corrective_retry(self):
         bad = {'sql': 'SELECT s.KalemlerToplamCiro FROM dbo.Siparisler s'}
         p, done = self.run_agent('sql-yazari', '--yes', answers=[bad, GOOD['sql-yazari']])
@@ -1028,7 +1077,8 @@ class Agents(LocalTestCase):
                              ('sube-planlayici', {**GOOD['sube-planlayici'], 'oneriler': []}),
                              ('rapor-tasarimcisi', {**GOOD['rapor-tasarimcisi'], 'boyutlar': ['musteri_eposta']}),
                              ('qlik-ifade-yazari', {'ifadeler': [{'ad': 'Ciro', 'ifade': 'Sum([Ciro])'}]}),
-                             ('tableau-hesap-yazari', {'alanlar': [{'ad': 'Oran', 'formul': 'SUM([Tutar]) / [Adet]', 'tip': 'real', 'rol': 'measure'}]})]:
+                             ('tableau-hesap-yazari', {'alanlar': [{'ad': 'Oran', 'formul': 'SUM([Tutar]) / [Adet]', 'tip': 'real', 'rol': 'measure'}]}),
+                             ('birim-kodu-eslestirici', {'eslemeler': [{'birim': 'Kasa', 'kod': 'KASA'}]})]:
             with self.subTest(item_id):
                 p, done = self.run_agent(item_id, '--yes', answers=[bad, bad])
                 self.assertEqual(done.returncode, 1)

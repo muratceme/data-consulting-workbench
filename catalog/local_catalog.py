@@ -234,6 +234,11 @@ LOCAL = [
          description='Çalışma kitabının (.twb/.twbx) veri kaynağındaki alanları yerelde okur; model istenen ölçüleri hesaplanmış alan olarak (IF/CASE, tarih fonksiyonları, FIXED/INCLUDE/EXCLUDE LOD) yazar. Parantez ve IF…END dengesi, veri kaynağında olmayan alan, Tableau’da olmayan fonksiyon ve toplanmış/toplanmamış ifade karışımı kodla reddedilir; geçen alanlar iç adlara çevrilip çalışma kitabına eklenir.',
          input='.twb/.twbx + istenen hesaplar; yalnızca alan adları gönderilir', output='hesapli.twb + hesaplanan-alanlar.md + alanlar.csv',
          command='python main.py --input pano.twbx --request "Bu yılın cirosu, geçen yılın aynı dönemi ve kategori payı"'),
+    dict(id='birim-kodu-eslestirici', kind='agent', domain='erp', product='Muhasebe dışa aktarımları', title='ERP birim yazımlarını GİB e-belge birim kodlarına eşleyen agent',
+         main='agents/birim_kodu_eslestirici.py', modules=['common', 'tabular', 'islem', 'turkiye', 'ebelge', 'llm'], samples={'erp_birimler.csv': 'erp_birimler.csv'},
+         description='Stok/ERP dışa aktarımındaki birim yazımlarını (AD, Kg., KOLİ, Sandık, Bidon) UN/ECE birim kodlarına çevirir: bilinen yazımları kural eşler, yalnızca tanınmayanlar modele gider. GİB UBL-TR kod listesinde olmayan kod, kuralın bildiği yazıma farklı kod ve cevapsız birim reddedilir; emin olunamayan birim gerekçesiyle eşlenmeden bırakılır. Çıktı efatura-uret ve eirsaliye-uret bloklarına --unit-map ile verilir.',
+         input='CSV/XLSX (birim sütunu); yalnızca birim yazımları gönderilir', output='birim_esleme.csv + birim-esleme.md',
+         command='python main.py --input stok_kartlari.xlsx --column OLCU_BIRIMI'),
 ]
 
 # Single-purpose blocks registered with islem.op in category modules (library/blocks/*.py).
@@ -241,7 +246,7 @@ import importlib, sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'library' / 'blocks'))
 import islem
-CATEGORY_MODULES = ['temizlik', 'dogrulama', 'finans', 'anaveri', 'analiz', 'musteri', 'sqlgen', 'bicim', 'bigen', 'zaman', 'planlama', 'orkestrasyon', 'entegrasyon', 'lakehouse', 'veritabani', 'maliyet', 'gecis', 'ml', 'rag', 'akis', 'yonetisim', 'gozlem', 'bi_ceviri', 'gizlilik', 'katalog', 'ambar', 'konum', 'donusum', 'rapor', 'bimodel', 'yildiz']
+CATEGORY_MODULES = ['temizlik', 'dogrulama', 'finans', 'anaveri', 'analiz', 'musteri', 'sqlgen', 'bicim', 'bigen', 'zaman', 'planlama', 'orkestrasyon', 'entegrasyon', 'lakehouse', 'veritabani', 'maliyet', 'gecis', 'ml', 'rag', 'akis', 'yonetisim', 'gozlem', 'bi_ceviri', 'gizlilik', 'katalog', 'ambar', 'konum', 'donusum', 'rapor', 'bimodel', 'yildiz', 'ebelge']
 for _name in CATEGORY_MODULES:
     importlib.import_module(_name)
 for _spec in islem.OPS.values():

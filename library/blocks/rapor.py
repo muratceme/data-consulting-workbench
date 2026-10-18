@@ -11,7 +11,7 @@ from xml.sax.saxutils import escape, quoteattr
 import tabular
 from sqlgen import infer_column, snake
 import bigen
-from islem import op, arg, Result, col_list, numbers, tr_lower
+from islem import op, arg, Result, col_list, need, numbers, tr_lower
 
 REQUIRES = ['sema_farki', 'sqlgen', 'bigen']
 D = 'bi'
@@ -1173,3 +1173,192 @@ def pptx_report(columns, rows, args):
                   files={'rapor.pptx': data, 'rapor-onizleme.html': preview_html(ds, 'PowerPoint')},
                   notes=['Grafik verisi sunumun içindedir (Excel bağlantısı yok); sayıları güncellemek için bloğu yeni dosyayla yeniden çalıştırın. '
                          'Dosya Open XML SDK ile doğrulandı; PowerPoint’te açılarak test edilmedi.'] + ds.warnings)
+
+
+# ---------- Excel PivotTable ----------
+@op('excel-pivot-rapor', title='CSV/Excel’den gerçek PivotTable içeren Excel raporu (satır, sütun, filtre ve değer alanlarıyla)', domain=D, product='Rapor gereksinimleri',
+    tag='Excel pivot', samples=SATIS,
+    args=[arg('--rows', default='bolge', help='Satır alanı'), arg('--columns', default='kanal', help='Sütun alanı (boş bırakılabilir)'),
+          arg('--value', default='tutar', help='Değer alanı'), arg('--agg', default='sum', choices=['sum', 'average', 'count']),
+          arg('--filter', default='kategori', help='Rapor filtresi alanı (boş bırakılabilir)'), arg('--title', default='')],
+    description='Veriyi “Veri” sayfasına, Excel’in kendi PivotTable’ını “Pivot” sayfasına koyar: satır, sütun ve filtre alanları, toplam/ortalama/sayı değer alanı, ara ve genel '
+                'toplamlar. Pivot önbelleği dosya açılınca yenilenir; yenilemeden görüntüleyen araçlar için hesaplanmış değerler hücrelere de yazılır. Kullanıcı Excel’de alanları '
+                'sürükleyip raporu değiştirebilir. Dosya Open XML SDK doğrulayıcısından geçer.',
+    input='CSV/XLSX', output='pivot.xlsx + sonuc.csv (pivotun hesaplanmış değerleri)', command='python main.py --input satislar.csv --rows urun --columns ay --value adet --agg sum',
+    expect={'satir_ogesi': 5, 'sutun_ogesi': 3, 'genel_toplam': 5912910.0, 'veri_satiri': 240})
+def excel_pivot(columns, rows, args):
+    rf = need(args.rows, columns, '--rows')
+    cf = need(args.columns, columns, '--columns') if args.columns else None
+    pf = need(args.filter, columns, '--filter') if args.filter else None
+    vf = need(args.value, columns, '--value')
+    if len({rf, cf, pf, vf} - {None}) != len([x for x in (rf, cf, pf, vf) if x]):
+        raise ValueError('Satır, sütun, filtre ve değer alanları farklı olmalı.')
+    kinds = {c: infer_column([r[c] for r in rows])[0] for c in columns}
+    if args.agg != 'count' and kinds[vf] not in ('int', 'bigint', 'decimal'):
+        raise ValueError(f'{vf} sayısal değil; --agg count kullanın.')
+    nums = {c: numbers(rows, c) for c in columns if kinds[c] in ('int', 'bigint', 'decimal')}
+    items = lambda c: sorted({r[c].strip() for r in rows}, key=lambda v: (v == '', tr_lower(v)))
+    r_items, c_items = items(rf), (items(cf) if cf else [])
+    if len(r_items) > 500 or len(c_items) > 100:
+        raise ValueError('Satır alanında en çok 500, sütun alanında en çok 100 farklı değer olabilir.')
+    vals = nums.get(vf) or [None] * len(rows)
+
+    def agg(idx):
+        if args.agg == 'count':
+            return len(idx)
+        xs = [vals[i] for i in idx if vals[i] is not None]
+        if not xs:
+            return None
+        return round(sum(xs), 6) if args.agg == 'sum' else round(sum(xs) / len(xs), 6)
+    cells = defaultdict(list)
+    for i, r in enumerate(rows):
+        cells[(r[rf].strip(), r[cf].strip() if cf else '')].append(i)
+        cells[(r[rf].strip(), None)].append(i)
+        cells[(None, r[cf].strip() if cf else '')].append(i)
+        cells[(None, None)].append(i)
+    n, last_col = len(rows), col_letter(len(columns) - 1)
+    epoch = date(1899, 12, 30)
+    agg_name = {'sum': 'Toplam', 'average': 'Ortalama', 'count': 'Sayı'}[args.agg]
+    data_name = f'{agg_name} {vf}'
+
+    # data sheet
+    def c(ref, v, s=0):
+        if v is None or v == '':
+            return ''
+        if isinstance(v, (int, float)):
+            return f'<c r="{ref}"{f" s=\"{s}\"" if s else ""}><v>{v}</v></c>'
+        return f'<c r="{ref}" t="inlineStr"{f" s=\"{s}\"" if s else ""}><is><t xml:space="preserve">{escape(str(v))}</t></is></c>'
+    sheet_rows = [f'<row r="1">' + ''.join(c(f'{col_letter(j)}1', h, 1) for j, h in enumerate(columns)) + '</row>']
+    for i, r in enumerate(rows):
+        cs = []
+        for j, h in enumerate(columns):
+            ref = f'{col_letter(j)}{i + 2}'
+            if h in nums and nums[h][i] is not None:
+                cs.append(c(ref, nums[h][i]))
+            elif kinds[h] == 'date' and tabular.parse_date(r[h]):
+                cs.append(c(ref, (tabular.parse_date(r[h])[0].date() - epoch).days, 2))
+            else:
+                cs.append(c(ref, r[h].strip()))
+        sheet_rows.append(f'<row r="{i + 2}">' + ''.join(cs) + '</row>')
+    ws = lambda body, extra='': ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+                                 'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetData>' + body + '</sheetData>' + extra + '</worksheet>')
+    data_xml = ws(''.join(sheet_rows))
+
+    # pivot cache: shared items only for axis fields, typed flags for the rest
+    axis = {rf: r_items, **({cf: c_items} if cf else {}), **({pf: items(pf)} if pf else {})}
+    fields_xml = []
+    for h in columns:
+        if h in axis:
+            its = axis[h]
+            fields_xml.append(f'<cacheField name={quoteattr(h)} numFmtId="0"><sharedItems{" containsBlank=\"1\"" if "" in its else ""} count="{len(its)}">'
+                              + ''.join('<m/>' if v == '' else f'<s v={quoteattr(v)}/>' for v in its) + '</sharedItems></cacheField>')
+        elif h in nums:
+            xs = [x for x in nums[h] if x is not None]
+            whole = all(float(x).is_integer() for x in xs)
+            fields_xml.append(f'<cacheField name={quoteattr(h)} numFmtId="0"><sharedItems containsSemiMixedTypes="0" containsString="0" containsNumber="1"'
+                              f'{" containsInteger=\"1\"" if whole else ""} minValue="{min(xs)}" maxValue="{max(xs)}"{" containsBlank=\"1\"" if len(xs) < n else ""}/></cacheField>')
+        elif kinds[h] == 'date':
+            ds = [tabular.parse_date(r[h])[0] for r in rows if tabular.parse_date(r[h])]
+            fields_xml.append(f'<cacheField name={quoteattr(h)} numFmtId="14"><sharedItems containsSemiMixedTypes="0" containsNonDate="0" containsDate="1" containsString="0" '
+                              f'minDate="{min(ds).strftime("%Y-%m-%dT00:00:00")}" maxDate="{max(ds).strftime("%Y-%m-%dT00:00:00")}"/></cacheField>')
+        else:
+            fields_xml.append(f'<cacheField name={quoteattr(h)} numFmtId="0"><sharedItems/></cacheField>')
+    cache = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<pivotCacheDefinition xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+             'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" saveData="0" refreshOnLoad="1" createdVersion="6" refreshedVersion="6" '
+             f'minRefreshableVersion="3" recordCount="{n}"><cacheSource type="worksheet"><worksheetSource ref="A1:{last_col}{n + 1}" sheet="Veri"/></cacheSource>'
+             f'<cacheFields count="{len(columns)}">' + ''.join(fields_xml) + '</cacheFields></pivotCacheDefinition>')
+
+    # pivot table definition and the rendered values it will show
+    idx = {h: j for j, h in enumerate(columns)}
+    pfields = []
+    for h in columns:
+        if h == rf or h == cf:
+            its = axis[h]
+            pfields.append(f'<pivotField axis="{"axisRow" if h == rf else "axisCol"}" showAll="0"><items count="{len(its) + 1}">'
+                           + ''.join(f'<item x="{k}"/>' for k in range(len(its))) + '<item t="default"/></items></pivotField>')
+        elif h == pf:
+            its = axis[h]
+            pfields.append(f'<pivotField axis="axisPage" showAll="0"><items count="{len(its) + 1}">' + ''.join(f'<item x="{k}"/>' for k in range(len(its)))
+                           + '<item t="default"/></items></pivotField>')
+        elif h == vf:
+            pfields.append('<pivotField dataField="1" showAll="0"/>')
+        else:
+            pfields.append('<pivotField showAll="0"/>')
+    top = 3 if pf else 1
+    ncols = (len(c_items) + 1) if cf else 1
+    first_row = top + (1 if cf else 0)
+    last_row = first_row + len(r_items) + 1
+    ref = f'A{top}:{col_letter(ncols)}{last_row}'
+    row_items = ''.join('<i><x/></i>' if k == 0 else f'<i><x v="{k}"/></i>' for k in range(len(r_items))) + '<i t="grand"><x/></i>'
+    col_items = (''.join('<i><x/></i>' if k == 0 else f'<i><x v="{k}"/></i>' for k in range(len(c_items))) + '<i t="grand"><x/></i>') if cf else '<i/>'
+    pivot = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<pivotTableDefinition xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+             'name="Pivot1" cacheId="1" applyNumberFormats="0" applyBorderFormats="0" applyFontFormats="0" applyPatternFormats="0" applyAlignmentFormats="0" '
+             'applyWidthHeightFormats="1" dataCaption="Değerler" updatedVersion="6" minRefreshableVersion="3" useAutoFormatting="1" itemPrintTitles="1" createdVersion="6" '
+             'indent="0" outline="1" outlineData="1" multipleFieldFilters="0" rowHeaderCaption=' + quoteattr(rf) + (' colHeaderCaption=' + quoteattr(cf) if cf else '') + '>'
+             f'<location ref="{ref}" firstHeaderRow="1" firstDataRow="{2 if cf else 1}" firstDataCol="1"' + (' rowPageCount="1" colPageCount="1"' if pf else '') + '/>'
+             f'<pivotFields count="{len(columns)}">' + ''.join(pfields) + '</pivotFields>'
+             f'<rowFields count="1"><field x="{idx[rf]}"/></rowFields><rowItems count="{len(r_items) + 1}">{row_items}</rowItems>'
+             + (f'<colFields count="1"><field x="{idx[cf]}"/></colFields><colItems count="{len(c_items) + 1}">{col_items}</colItems>' if cf else '<colItems count="1"><i/></colItems>')
+             + (f'<pageFields count="1"><pageField fld="{idx[pf]}" hier="-1"/></pageFields>' if pf else '')
+             + f'<dataFields count="1"><dataField name={quoteattr(data_name)} fld="{idx[vf]}"' + ('' if args.agg == 'sum' else f' subtotal="{args.agg}"')
+             + ' baseField="0" baseItem="0" numFmtId="4"/></dataFields>'
+             '<pivotTableStyleInfo name="PivotStyleLight16" showRowHeaders="1" showColHeaders="1" showRowStripes="0" showColStripes="0" showLastColumn="1"/></pivotTableDefinition>')
+    label = lambda v: v if v != '' else '(boş)'
+    grid, out = defaultdict(list), []
+    if pf:
+        grid[1] = [c('A1', pf, 1), c('B1', '(Tümü)')]
+    if cf:
+        grid[top] = [c(f'A{top}', data_name, 1), c(f'B{top}', cf, 1)]
+        grid[first_row] = [c(f'A{first_row}', rf, 1)] + [c(f'{col_letter(k + 1)}{first_row}', label(v), 1) for k, v in enumerate(c_items)] + [c(f'{col_letter(ncols)}{first_row}', 'Genel Toplam', 1)]
+    else:
+        grid[top] = [c(f'A{top}', rf, 1), c(f'B{top}', data_name, 1)]
+    for k, rv in enumerate(r_items + [None]):
+        rr = first_row + 1 + k
+        line = [c(f'A{rr}', label(rv) if rv is not None else 'Genel Toplam', 1 if rv is None else 0)]
+        rec = {rf: label(rv) if rv is not None else 'Genel Toplam'}
+        for j, cv in enumerate((c_items + [None]) if cf else [None]):
+            v = agg(cells.get((rv, cv if cf else '') if cv is not None else (rv, None), []) if rv is not None else cells.get((None, cv if cf else ''), []) if cv is not None else cells[(None, None)])
+            line.append(c(f'{col_letter(j + 1)}{rr}', v, 3))
+            rec[label(cv) if cv is not None else 'Genel Toplam'] = v if v is not None else ''
+        grid[rr] = line
+        out.append(rec)
+    pivot_sheet = ws(''.join(f'<row r="{r}">' + ''.join(v) + '</row>' for r, v in sorted(grid.items())))
+    styles = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+              '<numFmts count="1"><numFmt numFmtId="164" formatCode="dd.mm.yyyy"/></numFmts><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font>'
+              '<font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>'
+              '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
+              '<cellXfs count="4"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>'
+              '<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="4" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs>'
+              '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>')
+    rel = lambda items: ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                         + ''.join(f'<Relationship Id="{i}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/{t}" Target="{g}"/>' for i, t, g in items) + '</Relationships>')
+    sm = 'application/vnd.openxmlformats-officedocument.spreadsheetml.'
+    parts = {
+        '[Content_Types].xml': ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+                                '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>'
+                                f'<Override PartName="/xl/workbook.xml" ContentType="{sm}sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="{sm}worksheet+xml"/>'
+                                f'<Override PartName="/xl/worksheets/sheet2.xml" ContentType="{sm}worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="{sm}styles+xml"/>'
+                                f'<Override PartName="/xl/pivotTables/pivotTable1.xml" ContentType="{sm}pivotTable+xml"/>'
+                                f'<Override PartName="/xl/pivotCache/pivotCacheDefinition1.xml" ContentType="{sm}pivotCacheDefinition+xml"/></Types>'),
+        '_rels/.rels': ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                        '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'),
+        'xl/workbook.xml': ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+                            'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Pivot" sheetId="1" r:id="rId1"/>'
+                            '<sheet name="Veri" sheetId="2" r:id="rId2"/></sheets><calcPr calcId="191029"/><pivotCaches><pivotCache cacheId="1" r:id="rId4"/></pivotCaches></workbook>'),
+        'xl/_rels/workbook.xml.rels': rel([('rId1', 'worksheet', 'worksheets/sheet1.xml'), ('rId2', 'worksheet', 'worksheets/sheet2.xml'), ('rId3', 'styles', 'styles.xml'),
+                                           ('rId4', 'pivotCacheDefinition', 'pivotCache/pivotCacheDefinition1.xml')]),
+        'xl/styles.xml': styles, 'xl/worksheets/sheet1.xml': pivot_sheet, 'xl/worksheets/sheet2.xml': data_xml,
+        'xl/worksheets/_rels/sheet1.xml.rels': rel([('rId1', 'pivotTable', '../pivotTables/pivotTable1.xml')]),
+        'xl/pivotTables/pivotTable1.xml': pivot,
+        'xl/pivotTables/_rels/pivotTable1.xml.rels': rel([('rId1', 'pivotCacheDefinition', '../pivotCache/pivotCacheDefinition1.xml')]),
+        'xl/pivotCache/pivotCacheDefinition1.xml': cache}
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as z:
+        for name, text in parts.items():
+            z.writestr(zipfile.ZipInfo(name, (2026, 1, 1, 0, 0, 0)), text.encode('utf-8'), zipfile.ZIP_DEFLATED)
+    grand = cells[(None, None)]
+    return Result(f'pivot.xlsx: {rf} × {cf or "—"} ({agg_name.lower()} {vf}), {len(r_items)} satır öğesi, {len(c_items)} sütun öğesi', list(out[0]), out,
+                  {'satir_ogesi': len(r_items), 'sutun_ogesi': len(c_items), 'genel_toplam': agg(grand), 'veri_satiri': n}, files={'pivot.xlsx': buf.getvalue()},
+                  notes=['Pivot önbelleği dosya açılınca yenilenir (refreshOnLoad); hücrelerdeki değerler Python’la hesaplanıp yazıldı ve sonuc.csv ile aynıdır. '
+                         'Veri sayfasına satır eklerseniz pivotun kaynak aralığını genişletin (Pivot Tablo Analizi > Veri Kaynağını Değiştir).',
+                         'Dosya Open XML SDK ile doğrulandı; Excel’de açılarak test edilmedi.'])

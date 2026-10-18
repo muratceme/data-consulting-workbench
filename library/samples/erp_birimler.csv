@@ -1,0 +1,21 @@
+stok_kodu;urun;birim
+P-100;Dizüstü Bilgisayar;AD
+P-101;Monitör;Adet
+P-102;Klavye;ADT
+G-200;Un;KG
+G-201;Şeker;Kg.
+G-202;Sıvı Yağ;LT
+G-203;Zeytin;Teneke
+G-204;Domates;Kasa
+G-205;Bakliyat;Çuval
+G-206;Su;Damacana
+K-300;Ambalaj;KOLİ
+K-301;Etiket;Rulo
+K-302;Boya;Bidon
+K-303;Makine Yağı;Varil
+K-304;Cam Şişe;Sandık
+K-305;Seramik;M2
+K-306;Kablo;Mt
+H-400;Danışmanlık;Saat
+H-401;Kiralama;Gün
+Y-500;Yedek Parça;Muhtelif

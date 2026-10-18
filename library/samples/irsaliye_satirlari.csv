@@ -1,0 +1,6 @@
+irsaliye_no;tarih;saat;alici_no;alici_unvan;alici_vergi_dairesi;teslim_il;teslim_ilce;teslim_posta_kodu;teslim_adres;plaka;sofor_ad;sofor_soyad;sofor_tckn;siparis_no;urun_kodu;urun;miktar;birim
+S-101;2026-09-15;10:30;1234567890;Örnek Alıcı Ltd. Şti.;Kadıköy;İstanbul;Kadıköy;34710;Moda Cad. No 12;34 ABC 123;Mehmet;Öztürk;10000000146;SP-5501;P-100;Dizüstü Bilgisayar;2;Adet
+S-101;2026-09-15;10:30;1234567890;Örnek Alıcı Ltd. Şti.;Kadıköy;İstanbul;Kadıköy;34710;Moda Cad. No 12;34 ABC 123;Mehmet;Öztürk;10000000146;SP-5501;P-300;Kablosuz Fare;5;KOLİ
+S-102;2026-09-16;14:05;9876543217;Deniz Gıda A.Ş.;Konak;İzmir;Konak;35250;Alsancak Mah. 1453 Sok. 4;35 DG 4410;Ali;Çelik;12345678950;SP-5502;UN-01;Un;150;kg
+S-102;2026-09-16;14:05;9876543217;Deniz Gıda A.Ş.;Konak;İzmir;Konak;35250;Alsancak Mah. 1453 Sok. 4;35 DG 4410;Ali;Çelik;12345678950;SP-5502;SY-02;Sıvı Yağ;100;LT
+S-102;2026-09-16;14:05;9876543217;Deniz Gıda A.Ş.;Konak;İzmir;Konak;35250;Alsancak Mah. 1453 Sok. 4;35 DG 4410;Ali;Çelik;12345678950;SP-5502;PK-03;Ambalaj Kutusu;6;KT

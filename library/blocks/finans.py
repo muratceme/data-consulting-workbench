@@ -8,7 +8,7 @@ import tabular
 import turkiye as tr
 from islem import op, arg, Result, col_list, need, numbers, fmt, tr_money, fold, tr_sort_key
 
-REQUIRES = ['turkiye']
+REQUIRES = ['turkiye', 'ebelge']
 D, P = 'erp', 'Muhasebe dışa aktarımları'
 NOTE = 'Kontrol amaçlıdır; muhasebe kaydı veya beyan yerine geçmez. Sonuçları mali müşavirinizle doğrulayın.'
 
@@ -682,8 +682,6 @@ def nakit(columns, rows, args):
 
 
 # ---------------------------------------------------------------- e-fatura üretimi
-UNIT = {'adet': 'C62', 'ad': 'C62', 'kg': 'KGM', 'kilogram': 'KGM', 'g': 'GRM', 'ton': 'TNE', 'lt': 'LTR', 'litre': 'LTR', 'm': 'MTR', 'metre': 'MTR',
-        'm2': 'MTK', 'm3': 'MTQ', 'saat': 'HUR', 'gün': 'DAY', 'ay': 'MON', 'yıl': 'ANN', 'paket': 'PA', 'kutu': 'BX', 'set': 'SET', 'çift': 'PR'}
 
 
 def _money(x):
@@ -711,7 +709,8 @@ def _party(no, name, tax_office, city, district, country='Türkiye'):
     args=[arg('--seller-no', default='4540536920', help='Satıcı VKN (10) veya TCKN (11)'), arg('--seller-name', default='Örnek Satıcı A.Ş.'),
           arg('--seller-tax-office', default='Büyük Mükellefler'), arg('--seller-city', default='İstanbul'), arg('--seller-district', default='Şişli'),
           arg('--prefix', default='ABC', help='Fatura no öneki (3 karakter)'), arg('--start', type=int, default=1, help='İlk sıra numarası'),
-          arg('--profile', default='TICARIFATURA', choices=['TEMELFATURA', 'TICARIFATURA', 'EARSIVFATURA']), arg('--currency', default='TRY')],
+          arg('--profile', default='TICARIFATURA', choices=['TEMELFATURA', 'TICARIFATURA', 'EARSIVFATURA']), arg('--currency', default='TRY'),
+          arg('--unit-map', default='', help='Birim eşleme CSV’si (birim, kod); birim-kodu-eslestirici agent’ının çıktısı')],
     description='Fatura satırı tablosundan (alıcı, ürün, miktar, birim, birim fiyat, KDV oranı, iskonto) her fatura için UBL-TR 1.2 XML’i yazar: GİB biçiminde 16 haneli fatura '
                 'numarası, UUID, satıcı/alıcı (VKN için unvan ve vergi dairesi, TCKN için ad soyad), satır iskontosu, KDV oranı bazında vergi alt toplamları ve yasal toplamlar. '
                 'Tutarlar kuruşa yuvarlanır; VKN/TCKN kontrol hanesi denetlenir; üretilen XML geri okunup satır, KDV ve ödenecek tutar yeniden hesaplanarak karşılaştırılır.',
@@ -722,6 +721,8 @@ def efatura_uret(columns, rows, args):
     import uuid
     from xml.sax.saxutils import escape as e
     from decimal import Decimal
+    import ebelge
+    extra = ebelge.load_unit_map(args.unit_map)
     if not re.fullmatch(r'[A-Z0-9]{3}', args.prefix):
         raise ValueError('--prefix 3 büyük harf/rakam olmalı (ör. ABC).')
     err = tr.vkn(args.seller_no) if len(tr.digits(args.seller_no)) == 10 else tr.tckn(args.seller_no)
@@ -764,9 +765,9 @@ def efatura_uret(columns, rows, args):
             allowance_total += disc
             subtotals[rate][0] += net
             subtotals[rate][1] += tax
-            unit = UNIT.get(r.get('birim', 'adet').strip().lower() or 'adet')
+            unit = ebelge.unit_code(r.get('birim', ''), extra)
             if not unit:
-                raise ValueError(f'{key} satır {i}: bilinmeyen birim “{r["birim"]}” (adet, kg, lt, m, m2, saat, gün, paket…).')
+                raise ValueError(f'{key} satır {i}: birim “{r["birim"]}” GİB birim koduna çevrilemedi; birim-kodu-eslestirici agent’ını veya --unit-map’i kullanın.')
             allowance = (f'<cac:AllowanceCharge><cbc:ChargeIndicator>false</cbc:ChargeIndicator><cbc:MultiplierFactorNumeric>{Decimal(str(disc_rate)) / 100}</cbc:MultiplierFactorNumeric>'
                          f'{amt("Amount", disc)}{amt("BaseAmount", gross)}</cac:AllowanceCharge>') if disc else ''
             line_xml.append(f'<cac:InvoiceLine><cbc:ID>{i}</cbc:ID><cbc:InvoicedQuantity unitCode="{unit}">{qty:g}</cbc:InvoicedQuantity>{amt("LineExtensionAmount", net)}'
