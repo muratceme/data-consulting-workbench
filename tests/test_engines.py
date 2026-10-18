@@ -65,7 +65,7 @@ class Packages(unittest.TestCase):
        self.assertNotIn('sample.csv',z.namelist())
   self.assertEqual(len(ids),len(set(ids)));self.assertGreater(planned,0)
   self.assertEqual({p.name for p in (ROOT/'dist/packages').glob('*.zip')},downloads)
-  self.assertEqual(len(json.loads((ROOT/'dist/integration-plan.json').read_text(encoding='utf-8'))),206)
+  self.assertEqual(len(json.loads((ROOT/'dist/integration-plan.json').read_text(encoding='utf-8'))),207)
  def test_every_native_package_plan_runs_without_credentials_or_network(self):
   data=json.loads((ROOT/'dist/catalog.json').read_text(encoding='utf-8'));tested=set()
   for d in data:

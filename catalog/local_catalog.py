@@ -229,6 +229,11 @@ LOCAL = [
          description='Load script’ten alan ve değişken adlarını yerelde çıkarır; model istenen ölçüleri Qlik grafik ifadesi olarak (set analizi, TOTAL, Aggr) yazar. Parantez/tırnak dengesi, script’te olmayan alan, Qlik’te olmayan fonksiyon ve tanımsız $(değişken) kodla reddedilir; geçen ifadeler qlik-cli ile yüklenecek ana ölçü dosyasına yazılır. Script metni gönderilmez.',
          input='Load script (.qvs) + istenen ölçüler; yalnızca alan ve değişken adları gönderilir', output='measures.json + ifadeler.md + alanlar.csv',
          command='python main.py --input uygulama.qvs --request "Bu yılın cirosu, geçen yılın aynı dönemi ve bölge payı"'),
+    dict(id='yildiz-sema-tasarimcisi', kind='agent', domain='warehouse', product='Boyutsal model (SQL)', title='Düz dosyayı ölçülmüş bağımlılıklarla yıldız şemaya bölen agent',
+         main='agents/yildiz_sema_tasarimcisi.py', modules=['common', 'tabular', 'islem', 'sema_farki', 'sqlgen', 'yildiz', 'llm'], samples={'satis_detay.csv': 'satis_detay.csv'},
+         description='Sütun profilini ve sütunlar arası işlevsel bağımlılıkları veride ölçer; model olgu tanecikliğini, boyutları, dejenere boyutları ve dışarıda kalacak sütunları seçer. Veride tutmayan bağımlılık, kişisel verinin boyuta konması, iki yerde kullanılan veya yeri belirsiz sütun reddedilir. Onaylanan tasarımdan DDL ve yükleme SQL’i üretilir ve SQLite’ta çalıştırılıp satır ve toplamlar kaynakla karşılaştırılır.',
+         input='Düz CSV/XLSX + modelin amacı; satırlar ve örnek değerler gönderilmez', output='tasarim.md + ddl.sql + yukleme.sql + dogrulama.csv',
+         command='python main.py --input satis_ozeti.csv --dialect sqlserver --context "Bayi performans raporları"'),
 ]
 
 # Single-purpose blocks registered with islem.op in category modules (library/blocks/*.py).
@@ -236,7 +241,7 @@ import importlib, sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'library' / 'blocks'))
 import islem
-CATEGORY_MODULES = ['temizlik', 'dogrulama', 'finans', 'anaveri', 'analiz', 'musteri', 'sqlgen', 'bicim', 'bigen', 'zaman', 'planlama', 'orkestrasyon', 'entegrasyon', 'lakehouse', 'veritabani', 'maliyet', 'gecis', 'ml', 'rag', 'akis', 'yonetisim', 'gozlem', 'bi_ceviri', 'gizlilik', 'katalog', 'ambar', 'konum', 'donusum', 'rapor', 'bimodel']
+CATEGORY_MODULES = ['temizlik', 'dogrulama', 'finans', 'anaveri', 'analiz', 'musteri', 'sqlgen', 'bicim', 'bigen', 'zaman', 'planlama', 'orkestrasyon', 'entegrasyon', 'lakehouse', 'veritabani', 'maliyet', 'gecis', 'ml', 'rag', 'akis', 'yonetisim', 'gozlem', 'bi_ceviri', 'gizlilik', 'katalog', 'ambar', 'konum', 'donusum', 'rapor', 'bimodel', 'yildiz']
 for _name in CATEGORY_MODULES:
     importlib.import_module(_name)
 for _spec in islem.OPS.values():

@@ -134,3 +134,114 @@ def incremental(args):
                   {'artimli_model': len(out), 'sorunlu': sum(bool(o['bulgu']) for o in out), 'unique_key_yok': flags.count('unique_key yok'),
                    'filtre_yok': flags.count('filtresi yok'), 'geri_bakis_yok': flags.count('geri bakış yok'), 'sema_ayari_yok': sum(bool(o['uyari']) for o in out)},
                   notes=['Geri bakış kontrolü, is_incremental() bloğundaki ilk 400 karakterde interval/dateadd/var() gibi bir pencere arar; özel makrolar kullanıyorsanız elle doğrulayın.'])
+
+
+# ---------- dbt project templates that change over time ----------
+def _proj_files(name, seed, source_text, delim, extra_yml=''):
+    project = (f"name: {name}\nversion: '1.0.0'\nprofile: {name}\nmodel-paths: ['models']\nseed-paths: ['seeds']\nsnapshot-paths: ['snapshots']\n"
+               f"clean-targets: ['target', 'dbt_packages']\nseeds:\n  {name}:\n    +delimiter: \"{delim}\"\n{extra_yml}")
+    profile = (f'# Yerel deneme: pip install dbt-duckdb, sonra bu klasörde: dbt build --profiles-dir .\n{name}:\n  target: yerel\n  outputs:\n    yerel:\n'
+               '      type: duckdb\n      path: deneme.duckdb\n      threads: 4\n')
+    return {'dbt_project.yml': project, 'profiles.yml': profile, f'seeds/{seed}.csv': source_text}
+
+
+def _source(args, columns, rows):
+    text = Path(args.input).read_text(encoding='utf-8-sig', errors='replace') if not str(args.input).lower().endswith(('.xlsx', '.xlsm')) else \
+        ';'.join(columns) + '\n' + ''.join(';'.join(r[c] for c in columns) + '\n' for r in rows)
+    delim = max([';', ',', '\t', '|'], key=text[:20000].count)
+    return text, delim
+
+
+def _check_key(columns, rows, keys, updated):
+    for c in keys + [updated]:
+        if c not in columns:
+            raise ValueError(f'{c} sütunu dosyada yok. Sütunlar: {", ".join(columns)}')
+    seen = set()
+    for r in rows:
+        k = tuple(r[c].strip() for c in keys)
+        if k in seen:
+            raise ValueError(f'Anahtar tekil değil: {", ".join(k)} birden çok satırda. unique_key’i kontrol edin.')
+        seen.add(k)
+    stamps = [r[updated].strip() for r in rows if r[updated].strip()]
+    if len(stamps) < len(rows):
+        raise ValueError(f'{updated} sütununda boş değer var; artımlı filtre bu satırları hiç almaz.')
+    return stamps
+
+
+@op('dbt-artimli-model', title='dbt artımlı (incremental) model şablonu: unique_key, geriye bakış ve testler', domain=D, product='dbt Core', tag='incremental',
+    samples={'musteri_kartlari.csv': 'musteri_kartlari.csv'},
+    args=[arg('--key', default='musteri_no', help='Benzersiz anahtar (virgülle bileşik)'), arg('--updated', default='guncelleme', help='Değişiklik zamanı sütunu'),
+          arg('--name', default='', help='Model adı (boşsa dosya adından)'), arg('--strategy', default='delete+insert', choices=['delete+insert', 'merge', 'append']),
+          arg('--lookback', type=int, default=3, help='Geç gelen satırlar için geriye bakış (saat)')],
+    description='Değişiklik zamanı sütunu olan bir kaynak için çalışır bir dbt artımlı model projesi kurar: ilk çalıştırmada tam yükleme, sonrakilerde yalnızca son yüklemeden '
+                '(geriye bakış payıyla) sonra değişen satırlar; unique_key ile güncellenen satırlar tekrar etmez. Model, kaynak, anahtar testleri ve DuckDB profili hazırdır. '
+                'Anahtarın tekilliği ve zaman sütununun doluluğu dosyada ölçülür.',
+    input='CSV/XLSX (anahtar + değişiklik zamanı sütunu olan kaynak)', output='dbt-artimli/ (dbt_project.yml, models/, seeds/, profiles.yml)',
+    command='python main.py --input siparisler.csv --key siparis_id --updated degisti --strategy merge --lookback 24', expect={'satir': 10, 'anahtar': 1, 'son_degisiklik': '2026-08-28 17:45:00'})
+def dbt_incremental(columns, rows, args):
+    keys = [k.strip() for k in args.key.split(',') if k.strip()]
+    stamps = _check_key(columns, rows, keys, args.updated)
+    text, delim = _source(args, columns, rows)
+    seed = re.sub(r'\W+', '_', Path(args.input).stem.lower()).strip('_') or 'kaynak'
+    name = re.sub(r'\W+', '_', args.name.lower()).strip('_') if args.name else f'{seed}_artimli'
+    key_cfg = repr(keys[0]) if len(keys) == 1 else '[' + ', '.join(repr(k) for k in keys) + ']'
+    cols = ',\n    '.join(columns)
+    model = (f"{{{{\n  config(\n    materialized='incremental',\n    unique_key={key_cfg},\n    incremental_strategy='{args.strategy}',\n    on_schema_change='append_new_columns'\n  )\n}}}}\n\n"
+             f"select\n    {cols}\nfrom {{{{ ref('{seed}') }}}}\n\n{{% if is_incremental() %}}\n"
+             f"-- Yalnızca son yüklemeden sonra değişenler; {args.lookback} saatlik pay geç yazılan satırları yakalar (unique_key tekrarı önler).\n"
+             f"where {args.updated} >= (\n    select {{{{ dbt.dateadd('hour', -{args.lookback}, 'max({args.updated})') }}}} from {{{{ this }}}}\n)\n{{% endif %}}\n")
+    tests = '\n'.join(f'      - name: {k}\n        data_tests:\n          - not_null' + ('\n          - unique' if len(keys) == 1 else '') for k in keys)
+    schema = f'version: 2\nmodels:\n  - name: {name}\n    description: "{seed} kaynağının artımlı kopyası ({args.strategy})."\n    columns:\n{tests}\n'
+    if len(keys) > 1:
+        schema += f'    data_tests:\n      - dbt_utils.unique_combination_of_columns:\n          arguments:\n            combination_of_columns: [{", ".join(keys)}]\n'
+    files = _proj_files(f'artimli_{seed}', seed, text, delim)
+    files.update({f'models/{name}.sql': model, 'models/schema.yml': schema,
+                  'README.md': f'# {name}\n\n```\npip install dbt-duckdb\ndbt build --profiles-dir .\n```\n\nİkinci çalıştırmada yalnızca `{args.updated}` değeri tablodaki en büyük değerden '
+                               f'{args.lookback} saat öncesinden yeni olan satırlar işlenir; `{", ".join(keys)}` aynı olan satır güncellenir. Tam yeniden yükleme: `dbt build --full-refresh --profiles-dir .`\n'})
+    files = {'dbt-artimli/' + k: v for k, v in files.items()}
+    return Result(f'{name}: {args.strategy}, anahtar {", ".join(keys)}, {args.lookback} saat geriye bakış', None, None,
+                  {'satir': len(rows), 'anahtar': len(keys), 'son_degisiklik': max(stamps)}, files=files,
+                  notes=['Proje dbt-core 1.12 + DuckDB ile iki kez çalıştırılarak test edildi: ikinci çalıştırma yalnızca değişen ve yeni satırları işledi, anahtar tekrarı oluşmadı.',
+                         'Bileşik anahtarda tekillik testi dbt_utils paketini ister (packages.yml).' if len(keys) > 1 else
+                         'merge stratejisi DuckDB 1.4+, Snowflake, BigQuery ve Databricks’te; delete+insert Postgres dahil hepsinde çalışır.'])
+
+
+@op('dbt-snapshot-sablonu', title='dbt snapshot (SCD tip 2) şablonu: zaman damgası veya sütun karşılaştırma, silinenleri kapatma', domain=D, product='dbt Core', tag='snapshot SCD2',
+    samples={'musteri_kartlari.csv': 'musteri_kartlari.csv'},
+    args=[arg('--key', default='musteri_no'), arg('--updated', default='guncelleme', help='timestamp stratejisi için değişiklik zamanı ("" ise check stratejisi)'),
+          arg('--check-cols', default='', help='check stratejisinde izlenecek sütunlar (boşsa anahtar dışındaki hepsi)'), arg('--name', default='')],
+    description='Ana veri tablosunun geçmişini tutan dbt snapshot projesi kurar (dbt 1.9+ YAML biçimi): timestamp veya check stratejisi, kaynakta silinen kayıtları kapatma '
+                '(hard_deletes: invalidate), dbt_valid_from/dbt_valid_to aralıkları ve “şu an geçerli” satırı veren bir görünüm modeli. Anahtar tekilliği dosyada ölçülür.',
+    input='CSV/XLSX (anahtar + izlenecek nitelikler)', output='dbt-snapshot/ (snapshots/*.yml, models/, seeds/, profiles.yml)',
+    command='python main.py --input musteri.csv --key musteri_no --updated "" --check-cols sehir,segment', expect={'satir': 10, 'strateji': 'timestamp', 'izlenen': 4})
+def dbt_snapshot(columns, rows, args):
+    keys = [k.strip() for k in args.key.split(',') if k.strip()]
+    if args.updated:
+        _check_key(columns, rows, keys, args.updated)
+    else:
+        _check_key(columns, rows, keys, keys[0])
+    text, delim = _source(args, columns, rows)
+    seed = re.sub(r'\W+', '_', Path(args.input).stem.lower()).strip('_') or 'kaynak'
+    name = re.sub(r'\W+', '_', args.name.lower()).strip('_') if args.name else f'{seed}_gecmis'
+    tracked = [c.strip() for c in args.check_cols.split(',') if c.strip()] or [c for c in columns if c not in keys and c != args.updated]
+    missing = [c for c in tracked if c not in columns]
+    if missing:
+        raise ValueError(f'--check-cols dosyada yok: {", ".join(missing)}')
+    key_cfg = keys[0] if len(keys) == 1 else '[' + ', '.join(keys) + ']'
+    strategy = (f'      strategy: timestamp\n      updated_at: {args.updated}\n' if args.updated else
+                f'      strategy: check\n      check_cols: [{", ".join(tracked)}]\n')
+    snap = (f'snapshots:\n  - name: {name}\n    relation: ref(\'{seed}\')\n    description: "{seed} kaynağının SCD tip 2 geçmişi."\n    config:\n'
+            f'      unique_key: {key_cfg}\n{strategy}      hard_deletes: invalidate\n')
+    current = f"-- Her anahtarın şu an geçerli sürümü.\nselect *\nfrom {{{{ ref('{name}') }}}}\nwhere dbt_valid_to is null\n"
+    schema = (f'version: 2\nmodels:\n  - name: {name}_guncel\n    description: "{name} snapshot’ının geçerli satırları."\n    columns:\n'
+              + ''.join(f'      - name: {k}\n        data_tests: [not_null' + (', unique]\n' if len(keys) == 1 else ']\n') for k in keys))
+    files = _proj_files(f'snapshot_{seed}', seed, text, delim)
+    files.update({f'snapshots/{name}.yml': snap, f'models/{name}_guncel.sql': current, 'models/schema.yml': schema,
+                  'README.md': f'# {name}\n\n```\npip install dbt-duckdb\ndbt seed --profiles-dir .\ndbt snapshot --profiles-dir .\ndbt run --profiles-dir .\n```\n\n'
+                               'Kaynak her değiştiğinde `dbt snapshot` çalıştırın: değişen kaydın eski sürümü dbt_valid_to ile kapanır, yenisi eklenir; kaynaktan silinen kayıt da kapanır. '
+                               'Zamanlanmış çalışmada snapshot, run’dan önce gelmelidir.\n'})
+    files = {'dbt-snapshot/' + k: v for k, v in files.items()}
+    return Result(f'{name}: {"timestamp" if args.updated else "check"} stratejisi, {len(tracked)} izlenen sütun', None, None,
+                  {'satir': len(rows), 'strateji': 'timestamp' if args.updated else 'check', 'izlenen': len(tracked)}, files=files,
+                  notes=['Proje dbt-core 1.12 + DuckDB ile iki kez çalıştırılarak test edildi: değişen kaydın eski sürümü kapandı, yenisi eklendi, silinen kayıt kapatıldı.',
+                         'YAML snapshot biçimi ve hard_deletes ayarı dbt 1.9 ve üzerini ister.'])

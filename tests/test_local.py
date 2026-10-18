@@ -59,8 +59,8 @@ class LocalTestCase(unittest.TestCase):
 
 class PackageShape(LocalTestCase):
     def test_every_local_package_is_self_contained_and_has_no_network_code(self):
-        self.assertEqual(len([i for i in LOCAL if not i.get('op')]), 44)
-        self.assertEqual(sum(i['kind'] == 'agent' for i in LOCAL), 32)
+        self.assertEqual(len([i for i in LOCAL if not i.get('op')]), 45)
+        self.assertEqual(sum(i['kind'] == 'agent' for i in LOCAL), 33)
         self.assertEqual(len({i['id'] for i in LOCAL}), len(LOCAL))
         for item in LOCAL:
             names = local_package.files(item)
@@ -521,6 +521,32 @@ class SinglePurposeBlocks(LocalTestCase):
         self.assertIn("TO_TIMESTAMP('$(vSonDegisiklik)', 'YYYY-MM-DD HH24:MI:SS')", text)
         self.assertEqual([t['name'] for t in qlik_parse(text)['tables']], ['Siparis', 'Siparis'])
 
+    def test_star_schema_and_dbt_change_templates(self):
+        p = self.package('yildiz-sema')
+        self.ok(p.run('--dims', 'kategori=kategori,urun;bolge=bolge'))
+        self.assertEqual(p.json('ozet.json')['bagimlilik_ihlali'], 4)  # a category does not determine the product
+        dirty = self.package('yildiz-sema')
+        self.ok(dirty.run('--input', str(ROOT / 'library' / 'samples' / 'satislar.csv'), '--dims', 'urun=urun_kodu,urun_adi;bolge=bolge', '--keep', 'siparis_no,durum,musteri_no',
+                          '--dialect', 'sqlserver'))
+        checks = {r['kontrol']: r for r in dirty.csv('sonuc.csv')}
+        self.assertEqual(checks['dim_bolge: “bilinmiyor”a düşen satır']['yildiz_sema'], '1')  # the row with an empty region
+        self.assertEqual({r['sonuc'] for r in checks.values()}, {'tamam'})
+        self.assertIn('SET IDENTITY_INSERT dim_bolge ON;', dirty.out('yukleme.sql').read_text(encoding='utf-8'))
+        inc = self.package('dbt-artimli-model')
+        self.ok(inc.run())
+        model = inc.out('dbt-artimli/models/musteri_kartlari_artimli.sql').read_text(encoding='utf-8')
+        self.assertIn("{{ dbt.dateadd('hour', -3, 'max(guncelleme)') }} from {{ this }}", model)
+        self.assertIn("unique_key='musteri_no'", model)
+        bad = self.package('dbt-artimli-model')
+        done = bad.run('--input', str(ROOT / 'library' / 'samples' / 'satis_detay.csv'), '--key', 'bolge', '--updated', 'siparis_tarihi')
+        self.assertEqual(done.returncode, 1)
+        self.assertIn('Anahtar tekil değil', done.stderr)
+        snap = self.package('dbt-snapshot-sablonu')
+        self.ok(snap.run())
+        yml = snap.out('dbt-snapshot/snapshots/musteri_kartlari_gecmis.yml').read_text(encoding='utf-8')
+        self.assertIn('hard_deletes: invalidate', yml)
+        self.assertIn('updated_at: guncelleme', yml)
+
     def test_sql_formatter_never_turns_code_into_a_comment(self):
         p = self.package('sql-bicimlendir')
         (p.dir / 'x.sql').write_text("SELECT a -- not\nFROM t WHERE b = 'x -- y'; /* c */ DELETE FROM u WHERE id = 1", encoding='utf-8')
@@ -703,6 +729,8 @@ GOOD['sube-planlayici'] = {'ozet': 'En büyük iki kapsama dışı küme için �
 GOOD['rapor-tasarimcisi'] = {'baslik': 'Bölge Satış Raporu', 'olculer': [{'sutun': 'tutar', 'toplama': 'toplam'}, {'sutun': 'adet', 'toplama': 'toplam'}], 'boyutlar': ['bolge', 'kanal'], 'tarih': 'siparis_tarihi', 'araclar': ['qlik', 'powerbi'], 'gerekce': 'Ciro tutar sütunundan; sipariş adedi için farklı sipariş sayısı eklenir.', 'sorular': ['Ciro KDV dahil mi?']}
 GOOD['qlik-ifade-yazari'] = {'ifadeler': [{'ad': 'Ciro YTD', 'ifade': 'Sum({<[Yil]=, [Tarih]={">=$(=Date(YearStart(Max([Tarih]))))<=$(=Date(Max([Tarih])))"}>} [Tutar])', 'aciklama': 'Yıl başından son tarihe ciro.'}, {'ad': 'Ciro GY YTD', 'ifade': 'Sum({<[Yil]=, [Tarih]={">=$(=Date(AddYears(YearStart(Max([Tarih])), -1)))<=$(=Date(AddYears(Max([Tarih]), -1)))"}>} [Tutar])', 'aciklama': 'Geçen yılın aynı dönemi.'}, {'ad': 'Sipariş Başına Ciro', 'ifade': 'Sum([Tutar]) / Count(DISTINCT [SiparisNo])', 'aciklama': ''}, {'ad': 'Kategori Payı', 'ifade': 'Sum([Tutar]) / Sum({<[Kategori]=>} TOTAL [Tutar])', 'aciklama': 'Seçili kategorinin tüm kategoriler içindeki payı.'}, {'ad': '3+ Siparişli Müşteri', 'ifade': 'Count({<[MusteriNo]={"=Count(DISTINCT [SiparisNo])>=3"}>} DISTINCT [MusteriNo])', 'aciklama': ''}], 'varsayimlar': ['Tarih alanı tarih (dual) olarak yükleniyor.']}
 OUTPUTS['qlik-ifade-yazari'] = 'ifadeler.md'
+GOOD['yildiz-sema-tasarimcisi'] = {'olgu_adi': 'satis', 'taneciklik': 'Her satır bir sipariş satırıdır (siparis_no tekil).', 'boyutlar': [{'ad': 'urun', 'sutunlar': ['urun', 'kategori']}, {'ad': 'bolge', 'sutunlar': ['bolge']}, {'ad': 'kanal', 'sutunlar': ['kanal']}], 'tarih': 'siparis_tarihi', 'olguda_kalan': ['siparis_no'], 'cikarilacaklar': ['musteri_eposta'], 'gerekce': 'Ürün kategoriyi belirliyor; bölge ve kanal bağımsız kırılımlar.'}
+OUTPUTS['yildiz-sema-tasarimcisi'] = 'tasarim.md'
 OUTPUTS.update({'deney-analisti': 'deney-raporu.md', 'sube-planlayici': 'sube-plani.md', 'rapor-tasarimcisi': 'tasarim.md'})
 OUTPUTS.update({'veri-sozlesmesi-yazari': 'veri_sozlesmesi.json', 'butce-sapma-yorumu': 'butce-yorumu.md', 'hesap-plani-esleyici': 'hesap-eslemesi.csv',
                 'json-esleme-yazari': 'duz_tablo.csv', 'bolumleme-danismani': 'bolumleme.md'})
@@ -924,6 +952,21 @@ class Agents(LocalTestCase):
         self.assertNotIn('SatisDB.dbo', sent)  # only field and variable names leave the machine
         self.assertEqual([m['qMeasure']['qLabel'] for m in p.json('measures.json')][:2], ['Ciro YTD', 'Ciro GY YTD'])
 
+    def test_star_schema_agent_checks_dependencies_against_the_data(self):
+        bad = {**GOOD['yildiz-sema-tasarimcisi'], 'boyutlar': [{'ad': 'kategori', 'sutunlar': ['kategori', 'urun']}, {'ad': 'musteri', 'sutunlar': ['musteri_eposta']}],
+               'cikarilacaklar': []}
+        p, done = self.run_agent('yildiz-sema-tasarimcisi', '--yes', answers=[bad, GOOD['yildiz-sema-tasarimcisi']])
+        self.ok(done)
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        self.assertIn('kategori → urun bağımlılığı veride tutmuyor', retry)
+        self.assertIn('musteri_eposta kişisel veri', retry)
+        self.assertIn('yeri belirtilmemiş metin sütunu: bolge, kanal', retry)
+        sent = self.model.requests[-2]['body']['messages'][-1]['content']
+        self.assertIn('- urun → kategori', sent)
+        self.assertNotIn('S00001', sent)
+        self.assertEqual({r['sonuc'] for r in p.csv('dogrulama.csv')}, {'tamam'})
+        self.assertIn('CREATE TABLE dim_urun', p.out('ddl.sql').read_text(encoding='utf-8'))
+
     def test_invalid_answer_gets_one_corrective_retry(self):
         bad = {'sql': 'SELECT s.KalemlerToplamCiro FROM dbo.Siparisler s'}
         p, done = self.run_agent('sql-yazari', '--yes', answers=[bad, GOOD['sql-yazari']])
@@ -962,7 +1005,8 @@ class Agents(LocalTestCase):
                              ('deney-analisti', {**GOOD['deney-analisti'], 'test': 'welch-t'}),
                              ('sube-planlayici', {**GOOD['sube-planlayici'], 'oneriler': []}),
                              ('rapor-tasarimcisi', {**GOOD['rapor-tasarimcisi'], 'boyutlar': ['musteri_eposta']}),
-                             ('qlik-ifade-yazari', {'ifadeler': [{'ad': 'Ciro', 'ifade': 'Sum([Ciro])'}]})]:
+                             ('qlik-ifade-yazari', {'ifadeler': [{'ad': 'Ciro', 'ifade': 'Sum([Ciro])'}]}),
+                             ('yildiz-sema-tasarimcisi', {**GOOD['yildiz-sema-tasarimcisi'], 'cikarilacaklar': []})]:
             with self.subTest(item_id):
                 p, done = self.run_agent(item_id, '--yes', answers=[bad, bad])
                 self.assertEqual(done.returncode, 1)

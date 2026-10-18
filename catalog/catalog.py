@@ -5,7 +5,7 @@ DOMAINS = [
  ('erp','ERP & İş Uygulamaları','Finans, operasyon ve ana veri uzlaştırma','▦',[
  ('SAP',['S/4HANA','ECC','Business One']),('Logo',['Tiger 3','GO 3','Netsis','j-Platform']),('Oracle',['Fusion Cloud ERP','E-Business Suite']),('Microsoft',['Dynamics 365 Finance','Business Central']),('Odoo',['Odoo']),('IFS',['IFS Cloud']),('Workday',['Workday']),('Genel',['Muhasebe dışa aktarımları'])], 'reconcile','Kaynak ve hedef veri mutabakatı','ERP veri dönüşümü ve eşleme planı'),
  ('warehouse','Veri Ambarı','Analitik depolama, modeller ve sorgular','▤',[
- ('Google',['BigQuery']),('Snowflake',['Snowflake']),('Microsoft',['Fabric Warehouse','Azure Synapse']),('Amazon',['Redshift']),('Oracle',['Autonomous Data Warehouse']),('Teradata',['Vantage']),('ClickHouse',['ClickHouse'])], 'schema','Şema değişikliği karşılaştırma','Boyutsal model ve veri ambarı tasarımı'),
+ ('Google',['BigQuery']),('Snowflake',['Snowflake']),('Microsoft',['Fabric Warehouse','Azure Synapse']),('Amazon',['Redshift']),('Oracle',['Autonomous Data Warehouse']),('Teradata',['Vantage']),('ClickHouse',['ClickHouse']),('Genel',['Boyutsal model (SQL)'])], 'schema','Şema değişikliği karşılaştırma','Boyutsal model ve veri ambarı tasarımı'),
  ('lakehouse','Data Lake & Lakehouse','Açık tablo biçimleri ve veri katmanları','◈',[
  ('Databricks',['Databricks Lakehouse','Unity Catalog']),('Microsoft',['Fabric Lakehouse','OneLake']),('Amazon',['S3 / Lake Formation']),('Google',['Cloud Storage / BigLake']),('Apache',['Iceberg','Hudi']),('Delta Lake',['Delta Lake']),('Dremio',['Dremio'])], 'schema','Katmanlar arası şema kontrolü','Bronze / Silver / Gold mimarisi'),
  ('integration','Veri Entegrasyonu','ETL, ELT, aktarım ve eşleme','⇄',[
