@@ -1,0 +1,6 @@
+tablo;canli_satir;gunluk_olu_satir;gunluk_degisim
+public.siparis;48000000;1200000;1800000
+public.oturum;2500000;2400000;4800000
+public.urun;85000;900;1200
+public.audit_log;310000000;0;5200000
+public.ayarlar;400;30;30

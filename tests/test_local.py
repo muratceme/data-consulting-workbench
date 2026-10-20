@@ -59,8 +59,8 @@ class LocalTestCase(unittest.TestCase):
 
 class PackageShape(LocalTestCase):
     def test_every_local_package_is_self_contained_and_has_no_network_code(self):
-        self.assertEqual(len([i for i in LOCAL if not i.get('op')]), 84)
-        self.assertEqual(sum(i['kind'] == 'agent' for i in LOCAL), 72)
+        self.assertEqual(len([i for i in LOCAL if not i.get('op')]), 92)
+        self.assertEqual(sum(i['kind'] == 'agent' for i in LOCAL), 80)
         self.assertEqual(len({i['id'] for i in LOCAL}), len(LOCAL))
         for item in LOCAL:
             names = local_package.files(item)
@@ -874,6 +874,22 @@ GOOD['veri-sahibi-onerici'] = {'oneriler': [{'tablo': 'dwh.fct_satis', 'ekip': '
 OUTPUTS['veri-sahibi-onerici'] = 'veri-sahipligi.md'
 GOOD['grafik-secici'] = {'grafikler': [{'soru': 'Aylık ciro', 'tur': 'cizgi', 'x': 'siparis_tarihi', 'y': 'tutar', 'toplama': 'sum', 'renk': None, 'zaman': 'ay'}, {'soru': 'Bölge', 'tur': 'yatay_cubuk', 'x': 'bolge', 'y': 'tutar', 'toplama': 'sum', 'renk': None, 'zaman': None}, {'soru': 'Kanal payı', 'tur': 'pasta', 'x': 'kanal', 'y': 'tutar', 'toplama': 'sum', 'renk': None, 'zaman': None}, {'soru': 'Toplam ciro', 'tur': 'kpi', 'x': None, 'y': 'tutar', 'toplama': 'sum', 'renk': None, 'zaman': None}]}
 OUTPUTS['grafik-secici'] = 'grafik-secimi.md'
+GOOD['rota-gun-atayici'] = {'atamalar': [{'musteri': 'B01', 'gun': 'Pzt'}, {'musteri': 'B02', 'gun': 'Pzt'}, {'musteri': 'B03', 'gun': 'Cum'}, {'musteri': 'B04', 'gun': 'Pzt'}, {'musteri': 'B05', 'gun': 'Pzt'}, {'musteri': 'B06', 'gun': 'Pzt'}, {'musteri': 'B07', 'gun': 'Pzt'}, {'musteri': 'B08', 'gun': 'Pzt'}, {'musteri': 'B09', 'gun': 'Sal'}, {'musteri': 'B10', 'gun': 'Sal'}, {'musteri': 'B11', 'gun': 'Sal'}, {'musteri': 'B12', 'gun': 'Sal'}, {'musteri': 'B13', 'gun': 'Sal'}, {'musteri': 'B14', 'gun': 'Sal'}, {'musteri': 'B15', 'gun': 'Sal'}, {'musteri': 'B16', 'gun': 'Sal'}, {'musteri': 'B17', 'gun': 'Çar'}, {'musteri': 'B18', 'gun': 'Çar'}, {'musteri': 'B19', 'gun': 'Çar'}, {'musteri': 'B20', 'gun': 'Çar'}, {'musteri': 'B21', 'gun': 'Çar'}, {'musteri': 'B22', 'gun': 'Çar'}, {'musteri': 'B23', 'gun': 'Çar'}, {'musteri': 'B24', 'gun': 'Çar'}, {'musteri': 'B25', 'gun': 'Per'}, {'musteri': 'B26', 'gun': 'Per'}, {'musteri': 'B27', 'gun': 'Per'}, {'musteri': 'B28', 'gun': 'Per'}, {'musteri': 'B29', 'gun': 'Per'}, {'musteri': 'B30', 'gun': 'Per'}, {'musteri': 'B31', 'gun': 'Per'}, {'musteri': 'B32', 'gun': 'Per'}, {'musteri': 'B33', 'gun': 'Cum'}, {'musteri': 'B34', 'gun': 'Cum'}, {'musteri': 'B35', 'gun': 'Cum'}, {'musteri': 'B36', 'gun': 'Cum'}, {'musteri': 'B37', 'gun': 'Cum'}, {'musteri': 'B38', 'gun': 'Cum'}, {'musteri': 'B39', 'gun': 'Cum'}, {'musteri': 'B40', 'gun': 'Cum'}], 'aciklama': 'Her gün bir ilçe kümesi.'}
+OUTPUTS['rota-gun-atayici'] = 'teslimat-gunleri.md'
+GOOD['yeniden-deneme-politikasi'] = {'gorevler': [{'dag': 'satis_gunluk', 'gorev': 'extract_erp', 'retries': 2, 'retry_delay_dk': 5, 'timeout_dk': 10, 'gerekce': 'ERP bağlantısı ara sıra kopuyor; 6 çalışma yeniden denemeyle kurtuldu.'}, {'dag': 'satis_gunluk', 'gorev': 'load_dwh', 'retries': 1, 'retry_delay_dk': 10, 'timeout_dk': 30, 'gerekce': 'Hatalar kalıcı; tekrar denemek süre yakar.'}, {'dag': 'satis_gunluk', 'gorev': 'refresh_pbi', 'retries': 1, 'retry_delay_dk': 5, 'timeout_dk': 10, 'gerekce': ''}, {'dag': 'crm_gunluk', 'gorev': 'api_cek', 'retries': 3, 'retry_delay_dk': 10, 'timeout_dk': 25, 'gerekce': 'API zaman aşımları geçici.'}]}
+OUTPUTS['yeniden-deneme-politikasi'] = 'yeniden-deneme.md'
+GOOD['autovacuum-ayarlayici'] = {'tablolar': [{'tablo': 'public.siparis', 'vacuum_scale_factor': 0.01, 'vacuum_threshold': 10000, 'analyze_scale_factor': 0.01, 'gerekce': 'günlük değişime göre'}, {'tablo': 'public.oturum', 'vacuum_scale_factor': 0.05, 'vacuum_threshold': 1000, 'analyze_scale_factor': 0.05, 'gerekce': 'günlük değişime göre'}, {'tablo': 'public.urun', 'vacuum_scale_factor': 0.005, 'vacuum_threshold': 50, 'analyze_scale_factor': 0.01, 'gerekce': 'günlük değişime göre'}, {'tablo': 'public.audit_log', 'vacuum_scale_factor': 0.2, 'vacuum_threshold': 50, 'analyze_scale_factor': 0.01, 'gerekce': 'günlük değişime göre'}, {'tablo': 'public.ayarlar', 'vacuum_scale_factor': 0.2, 'vacuum_threshold': 50, 'analyze_scale_factor': 0.1, 'gerekce': 'günlük değişime göre'}]}
+OUTPUTS['autovacuum-ayarlayici'] = 'autovacuum.md'
+GOOD['parca-boyutu-secici'] = {'parca_boyu': 400, 'ortusme': 40, 'gerekce': 'En küçük %100 kapsama veren boy; 200 ve 300’de bazı cevaplar bölünüyor.'}
+OUTPUTS['parca-boyutu-secici'] = 'parca-boyutu.md'
+GOOD['masraf-politika-denetcisi'] = {'atamalar': [{'aciklama': 'Ankara otel 1 gece', 'kategori': 'konaklama', 'gerekce': ''}, {'aciklama': 'Akşam yemeği', 'kategori': 'yemek', 'gerekce': ''}, {'aciklama': 'Taksi havalimanı', 'kategori': 'ulasim', 'gerekce': ''}, {'aciklama': 'Öğle yemeği', 'kategori': 'yemek', 'gerekce': ''}, {'aciklama': 'İstanbul-İzmir uçak bileti', 'kategori': 'ucak', 'gerekce': ''}, {'aciklama': 'İzmir otel 1 gece', 'kategori': 'konaklama', 'gerekce': ''}, {'aciklama': 'Müşteri yemeği (Deniz Gıda, 3 kişi)', 'kategori': 'musteri_agirlama', 'gerekce': ''}, {'aciklama': 'Otopark', 'kategori': 'ulasim', 'gerekce': ''}, {'aciklama': 'Hız cezası', 'kategori': 'kapsam_disi', 'gerekce': 'Trafik cezaları şirketçe karşılanmaz.'}, {'aciklama': 'Veri mühendisliği konferansı kaydı', 'kategori': 'egitim', 'gerekce': ''}, {'aciklama': 'akşam yemeği', 'kategori': 'yemek', 'gerekce': ''}, {'aciklama': 'Kişisel market alışverişi', 'kategori': 'kapsam_disi', 'gerekce': 'Kişisel harcama.'}]}
+OUTPUTS['masraf-politika-denetcisi'] = 'masraf-denetimi.md'
+GOOD['baslik-birlestirici'] = {'kolonlar': ['tarih', 'musteri', 'bolge', 'kanal', 'tutar', 'iskonto'], 'eslemeler': {'2026_07_satis.csv': {'Tarih': 'tarih', 'Müşteri': 'musteri', 'Bölge': 'bolge', 'Tutar TL': 'tutar', 'Not': None}, '2026_08_satis.csv': {'tarih': 'tarih', 'musteri_adi': 'musteri', 'bolge': 'bolge', 'kanal': 'kanal', 'tutar': 'tutar', 'iskonto': 'iskonto'}, '2026_09_sales.csv': {'Date': 'tarih', 'Customer': 'musteri', 'Region': 'bolge', 'Channel': 'kanal', 'Amount': 'tutar', 'Discount': 'iskonto', 'Sales Rep': None}}}
+OUTPUTS['baslik-birlestirici'] = 'baslik-birlestirme.md'
+GOOD['siparis-onerici'] = {'hizmet_seviyeleri': {'A': 0.98, 'B': 0.95, 'C': 0.9}, 'siparisler': [{'urun': 'Dizüstü Bilgisayar', 'miktar': 100, 'gerekce': 'ROP altında'}, {'urun': 'Kulaklık', 'miktar': 300, 'gerekce': 'ROP altında'}, {'urun': 'Monitör', 'miktar': 130, 'gerekce': 'ROP altında'}, {'urun': 'USB Bellek', 'miktar': 600, 'gerekce': 'ROP altında'}]}
+OUTPUTS['siparis-onerici'] = 'siparis-onerileri.md'
+GOOD['maliyet-anomali-aciklayici'] = {'anomaliler': [{'tarih': '2026-09-18', 'ana_servis': 'AWS Glue', 'ana_kaynak': 'glue-satis', 'aciklama': 'Günlük maliyet 1072.36, beklenen 787.28 (%36.2 fazla). Artışın neredeyse tamamı AWS Glue’dan (+294.86); en büyük katkı glue-satis işi (+172.26).', 'aksiyon': 'glue-satis işinin o günkü DPU sayısını ve tekrar çalışmalarını kontrol edin; iş için maliyet alarmı kurun.'}]}
+OUTPUTS['maliyet-anomali-aciklayici'] = 'maliyet-anomalileri.md'
 GOOD['tableau-hesap-yazari'] = {'alanlar': [{'ad': 'Son Tarih', 'formul': '{FIXED : MAX([Siparis Tarihi])}', 'tip': 'date', 'rol': 'dimension', 'aciklama': 'Verideki son sipariş tarihi.'}, {'ad': 'Ciro YTD', 'formul': "SUM(IF [Siparis Tarihi] >= DATETRUNC('year', [Son Tarih]) AND [Siparis Tarihi] <= [Son Tarih] THEN [Tutar] END)", 'tip': 'real', 'rol': 'measure', 'aciklama': 'Yıl başından son tarihe.'}, {'ad': 'Ciro GY YTD', 'formul': "SUM(IF [Siparis Tarihi] >= DATEADD('year', -1, DATETRUNC('year', [Son Tarih])) AND [Siparis Tarihi] <= DATEADD('year', -1, [Son Tarih]) THEN [Tutar] END)", 'tip': 'real', 'rol': 'measure', 'aciklama': 'Geçen yılın aynı dönemi.'}, {'ad': 'Sipariş Başına Ciro', 'formul': 'SUM([Tutar]) / COUNTD([Siparis No])', 'tip': 'real', 'rol': 'measure', 'aciklama': ''}, {'ad': 'Bölge Payı', 'formul': 'SUM({FIXED [Bolge] : SUM([Tutar])}) / SUM({FIXED : SUM([Tutar])})', 'tip': 'real', 'rol': 'measure', 'aciklama': ''}], 'varsayimlar': ['Ciro, Tutar alanının toplamıdır.']}
 OUTPUTS['tableau-hesap-yazari'] = 'hesaplanan-alanlar.md'
 OUTPUTS.update({'deney-analisti': 'deney-raporu.md', 'sube-planlayici': 'sube-plani.md', 'rapor-tasarimcisi': 'tasarim.md'})
@@ -1794,6 +1810,115 @@ class Agents(LocalTestCase):
         self.assertEqual(line['encoding']['x']['type'], 'temporal')
         self.assertIn('vegaEmbed("#g1"', p.out('grafikler.html').read_text(encoding='utf-8'))
 
+    def test_delivery_days_respect_capacity_and_geography(self):
+        days = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum']
+        scattered = {'atamalar': [{'musteri': a['musteri'], 'gun': 'Cum' if a['musteri'] == 'B03' else days[i % 5]} for i, a in enumerate(GOOD['rota-gun-atayici']['atamalar'])]}
+        p, done = self.run_agent('rota-gun-atayici', '--yes', answers=[scattered, GOOD['rota-gun-atayici']])
+        self.ok(done)
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        self.assertIn('kapasite (3000 kg) aşılıyor: Cum 3039 kg', retry)
+        self.assertIn('günler coğrafi olarak dağınık: toplam ortalama uzaklık 57.2 km, kapasiteye uyan basit süpürme çözümü 16.8 km', retry)
+        rows = p.csv('gun_atamasi.csv')
+        self.assertEqual(next(r['gun'] for r in rows if r['musteri'] == 'B03'), 'Cum')
+        gj = json.loads(p.out('gunler.geojson').read_text(encoding='utf-8'))
+        self.assertEqual(len(gj['features']), 40)
+
+    def test_retry_policy_follows_run_history(self):
+        r = lambda d, t, n, de, to: {'dag': d, 'gorev': t, 'retries': n, 'retry_delay_dk': de, 'timeout_dk': to}
+        bad = {'gorevler': [r('satis_gunluk', 'extract_erp', 2, 5, 5), r('satis_gunluk', 'load_dwh', 3, 10, 30), r('crm_gunluk', 'api_cek', 0, 10, 25)]}
+        p, done = self.run_agent('yeniden-deneme-politikasi', '--yes', answers=[bad, GOOD['yeniden-deneme-politikasi']])
+        self.ok(done)
+        sent = self.model.requests[-2]['body']['messages'][-1]['content']
+        self.assertIn('- satis_gunluk.load_dwh: 30 · 0 · 2 · ', sent)
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        for text in ('zaman aşımı 5 dk, en uzun başarılı deneme 5.9 dk; en az 7.1 dk olmalı', 'load_dwh: hiçbir çalışma yeniden denemeyle kurtulmamış, 2 kalıcı hata var',
+                     'api_cek: 6 çalışma yeniden denemeyle kurtulmuş; retries ≥ 1 olmalı', 'ayarı yazılmayan görev: satis_gunluk.refresh_pbi'):
+            self.assertIn(text, retry)
+        py = p.out('retry_ayarlari.py').read_text(encoding='utf-8')
+        compile(py, 'retry_ayarlari.py', 'exec')
+        self.assertIn('"crm_gunluk.api_cek": {"retries": 3, "retry_delay": timedelta(minutes=10), "retry_exponential_backoff": True, "execution_timeout": timedelta(minutes=25)}', py)
+
+    def test_autovacuum_trigger_fits_daily_churn(self):
+        v = lambda t, sf, th, a: {'tablo': t, 'vacuum_scale_factor': sf, 'vacuum_threshold': th, 'analyze_scale_factor': a}
+        bad = {'tablolar': [v('public.siparis', 0.2, 50, 0.1), v('public.oturum', 0.001, 50, 0.05), v('public.urun', 0.5, 50, 0.01), v('public.audit_log', 0.2, 50, 0.1)]}
+        p, done = self.run_agent('autovacuum-ayarlayici', '--yes', answers=[bad, GOOD['autovacuum-ayarlayici']])
+        self.ok(done)
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        for text in ('public.siparis: vacuum eşiği 9,600,050 ölü satır, günlük ölü satır 1,200,000', 'public.oturum: vacuum eşiği 2,550, saatlik ölü satır 100,000',
+                     'public.urun: scale_factor 0–0,2 arasında olmalı', 'ayarı yazılmayan tablo: public.ayarlar'):
+            self.assertIn(text, retry)
+        sql = p.out('autovacuum.sql').read_text(encoding='utf-8')
+        self.assertIn('ALTER TABLE public.siparis SET (autovacuum_vacuum_scale_factor = 0.01, autovacuum_vacuum_threshold = 10000, autovacuum_analyze_scale_factor = 0.01);', sql)
+        rows = {r['tablo']: r for r in p.csv('autovacuum_plani.csv')}
+        self.assertEqual((rows['public.siparis']['tetik_olu_satir'], rows['public.siparis']['gunde_tahmini_vacuum']), ('490000', '2.4'))
+
+    def test_chunk_size_is_chosen_from_measured_coverage(self):
+        p, done = self.run_agent('parca-boyutu-secici', '--yes', answers=[{'parca_boyu': 200, 'ortusme': 20}, GOOD['parca-boyutu-secici']])
+        self.ok(done)
+        sent = self.model.requests[-2]['body']['messages'][-1]['content']
+        self.assertIn('400 · 40 · 100.0', sent)
+        self.assertNotIn('Hijyen ürünleri', sent)  # document text is not sent
+        self.assertIn('200/20 ayarında cevapların %67’i tek parçaya sığıyor (gereken %95)', self.model.requests[-1]['body']['messages'][-1]['content'])
+        cfg = p.json('parcalama.json')
+        self.assertEqual((cfg['parca_boyu_karakter'], cfg['ortusme_karakter'], cfg['kapsama']), (400, 40, 1.0))
+        self.assertEqual(len(p.csv('kapsama_tablosu.csv')), 28)
+
+    def test_expense_rules_are_applied_in_code(self):
+        a = lambda d, k, g='': {'aciklama': d, 'kategori': k, 'gerekce': g}
+        bad = {'atamalar': [x if x['aciklama'] != 'akşam yemeği' else a('akşam yemeği', 'musteri_agirlama') for x in GOOD['masraf-politika-denetcisi']['atamalar']] + []}
+        bad['atamalar'] = [x if x['aciklama'] != 'Taksi havalimanı' else a('Taksi havalimanı', 'taksi') for x in bad['atamalar']]
+        p, done = self.run_agent('masraf-politika-denetcisi', '--yes', answers=[bad, GOOD['masraf-politika-denetcisi']])
+        self.ok(done)
+        sent = self.model.requests[-2]['body']['messages'][-1]['content']
+        self.assertNotIn('Ayşe K.', sent)
+        self.assertNotIn('3.200,00', sent)
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        self.assertIn('“Taksi havalimanı”: taksi politikada yok', retry)
+        self.assertIn('aynı açıklama farklı kategoriye gitmiş: aksam yemegi', retry)
+        issues = sorted((r['personel'], r['sorun'].split(' (')[0]) for r in p.csv('ihlaller.csv'))
+        self.assertEqual(issues, [('Ayşe K.', 'yemek kişi-gün limiti 750 aşıldı'), ('Mehmet D.', 'kapsam dışı: Trafik cezaları şirketçe karşılanmaz.'),
+                                  ('Mehmet D.', 'konaklama kişi-gün limiti 3500 aşıldı'), ('Zeynep A.', 'fiş yok'), ('Zeynep A.', 'fiş yok'),
+                                  ('Zeynep A.', 'kapsam dışı: Kişisel harcama.')])
+
+    def test_period_files_are_merged_with_consistent_types(self):
+        bad = json.loads(json.dumps(GOOD['baslik-birlestirici']))
+        bad['eslemeler']['2026_09_sales.csv'].update({'Discount': None, 'Sales Rep': 'iskonto'})
+        p, done = self.run_agent('baslik-birlestirici', '--yes', answers=[bad, GOOD['baslik-birlestirici']])
+        self.ok(done)
+        self.assertIn('farklı tipte veriyi aynı kolona bağlıyor: iskonto (2026_08_satis.csv: sayi, 2026_09_sales.csv: metin)', self.model.requests[-1]['body']['messages'][-1]['content'])
+        rows = p.csv('birlesik.csv')
+        self.assertEqual(len(rows), 9)
+        self.assertEqual([r['musteri'] for r in rows if r['kaynak_dosya'] == '2026_09_sales.csv'], ['Ada Gıda', 'Ege Tekstil', 'Deniz Lojistik'])
+        self.assertEqual(rows[0]['kanal'], '')  # July has no channel column
+        self.assertIn('2026_07_satis.csv: Not', p.out('baslik-birlestirme.md').read_text(encoding='utf-8'))
+
+    def test_purchase_orders_follow_reorder_point_and_pack_rules(self):
+        o = lambda u, q: {'urun': u, 'miktar': q}
+        bad = {'hizmet_seviyeleri': {'A': 0.98, 'B': 0.95, 'C': 0.9}, 'siparisler': [o('Dizüstü Bilgisayar', 95), o('Kablosuz Fare', 100), o('Kulaklık', 300), o('USB Bellek', 1500)]}
+        p, done = self.run_agent('siparis-onerici', '--yes', answers=[bad, GOOD['siparis-onerici']])
+        self.ok(done)
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        for text in ('Dizüstü Bilgisayar (95): 10 koli katı değil', 'Kablosuz Fare: pozisyon 380 > ROP 332; bu dönem sipariş gerekmez',
+                     'Monitör: pozisyon 60 ≤ ROP 145; sipariş gerekli', 'USB Bellek (1500): sipariş sonrası 1710, hedefi (717) gereğinden çok aşıyor'):
+            self.assertIn(text, retry)
+        rows = {r['urun']: r for r in p.csv('siparis_onerileri.csv')}
+        self.assertEqual((rows['Kulaklık']['rop'], rows['Kulaklık']['emniyet_stoku'], rows['Klavye']['siparis']), ('419', '69', '0'))
+        p2, done = self.run_agent('siparis-onerici', '--yes', answers=[{**GOOD['siparis-onerici'], 'hizmet_seviyeleri': {'A': 0.9, 'B': 0.95, 'C': 0.9}}] * 2)
+        self.assertIn('A ≥ B ≥ C', self.model.requests[-1]['body']['messages'][-1]['content'])
+
+    def test_cost_anomaly_explanation_matches_contributors(self):
+        bad = {'anomaliler': [{'tarih': '2026-09-18', 'ana_servis': 'Amazon EC2', 'ana_kaynak': 'glue-pazarlama', 'aciklama': 'Maliyet 1500 oldu.', 'aksiyon': 'x'}]}
+        p, done = self.run_agent('maliyet-anomali-aciklayici', '--yes', answers=[bad, GOOD['maliyet-anomali-aciklayici']])
+        self.ok(done)
+        sent = self.model.requests[-2]['body']['messages'][-1]['content']
+        self.assertIn('2026-09-18: maliyet 1072.36, beklenen (medyan) 787.28, fark 285.08 (%36.2)', sent)
+        self.assertIn('servis katkısı: AWS Glue +294.86', sent)
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        for text in ('artışa en çok katkı yapan kaynak glue-pazarlama değil', 'artışa en çok katkı yapan servis Amazon EC2 değil', 'hesaplanmayan sayılar: 1500'):
+            self.assertIn(text, retry)
+        rows = p.csv('anomaliler.csv')
+        self.assertEqual([(r['tarih'], r['ana_kaynak'], r['kaynak_katkisi']) for r in rows], [('2026-09-18', 'glue-satis', '172.26')])
+
     def test_invalid_answer_gets_one_corrective_retry(self):
         bad = {'sql': 'SELECT s.KalemlerToplamCiro FROM dbo.Siparisler s'}
         p, done = self.run_agent('sql-yazari', '--yes', answers=[bad, GOOD['sql-yazari']])
@@ -1872,7 +1997,15 @@ class Agents(LocalTestCase):
                              ('kod-listesi-eslestirici', {'eslemeler': [{**e, 'kod': 'YOK'} for e in GOOD['kod-listesi-eslestirici']['eslemeler']]}),
                              ('sorgu-indeks-onerici', {'indeksler': [{'sql': 'CREATE INDEX ix_x ON siparis (tutar)'}]}),
                              ('veri-sahibi-onerici', {'oneriler': [{**o, 'ekip': 'Yok Ekibi'} for o in GOOD['veri-sahibi-onerici']['oneriler']]}),
-                             ('grafik-secici', {'grafikler': [{**g, 'tur': 'cizgi', 'x': 'bolge'} for g in GOOD['grafik-secici']['grafikler']]})]:
+                             ('grafik-secici', {'grafikler': [{**g, 'tur': 'cizgi', 'x': 'bolge'} for g in GOOD['grafik-secici']['grafikler']]}),
+                             ('rota-gun-atayici', {'atamalar': [{**a, 'gun': 'Pzt'} for a in GOOD['rota-gun-atayici']['atamalar']]}),
+                             ('yeniden-deneme-politikasi', {'gorevler': [{**g, 'timeout_dk': 1} for g in GOOD['yeniden-deneme-politikasi']['gorevler']]}),
+                             ('autovacuum-ayarlayici', {'tablolar': [{**t, 'vacuum_scale_factor': 0.9} for t in GOOD['autovacuum-ayarlayici']['tablolar']]}),
+                             ('parca-boyutu-secici', {'parca_boyu': 100, 'ortusme': 0}),
+                             ('masraf-politika-denetcisi', {'atamalar': [{**a, 'kategori': 'diger'} for a in GOOD['masraf-politika-denetcisi']['atamalar']]}),
+                             ('baslik-birlestirici', {**GOOD['baslik-birlestirici'], 'kolonlar': ['Tarih']}),
+                             ('siparis-onerici', {**GOOD['siparis-onerici'], 'siparisler': []}),
+                             ('maliyet-anomali-aciklayici', {'anomaliler': [{**a, 'ana_kaynak': 'yok'} for a in GOOD['maliyet-anomali-aciklayici']['anomaliler']]})]:
             with self.subTest(item_id):
                 p, done = self.run_agent(item_id, '--yes', answers=[bad, bad])
                 self.assertEqual(done.returncode, 1)

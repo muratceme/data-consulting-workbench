@@ -1,0 +1,7 @@
+kategori;gunluk_limit;fis_zorunlu;aciklama
+konaklama;3.500;evet;Şehir dışı görevde otel
+yemek;750;evet;Görevdeki kişisel yemek
+musteri_agirlama;;evet;Müşteriyle iş yemeği (katılımcılar yazılmalı)
+ulasim;;hayır;Taksi, toplu taşıma, otopark, köprü-otoyol
+ucak;;evet;Uçak bileti
+egitim;;evet;Onaylı eğitim ve konferans
