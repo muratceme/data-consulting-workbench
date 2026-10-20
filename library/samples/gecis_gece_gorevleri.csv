@@ -1,0 +1,10 @@
+gorev;sure_dk;bagimli;ekip;geri_alinabilir;dogrulama
+Kullanıcı erişimini kapat;10;;Uygulama;evet;hayır
+Son yedek;60;Kullanıcı erişimini kapat;DBA;evet;hayır
+Delta veri aktarımı;90;Son yedek;Veri;evet;hayır
+Satır sayısı mutabakatı;30;Delta veri aktarımı;Veri;evet;evet
+Bakiye mutabakatı;45;Delta veri aktarımı;Finans;evet;evet
+Entegrasyonları yeni sisteme çevir;40;Satır sayısı mutabakatı|Bakiye mutabakatı;Uygulama;hayır;hayır
+Eski sistemi salt okunur yap;15;Entegrasyonları yeni sisteme çevir;DBA;hayır;hayır
+Duman testleri;30;Entegrasyonları yeni sisteme çevir;Uygulama;evet;evet
+Kullanıcı erişimini aç;10;Duman testleri|Eski sistemi salt okunur yap;Uygulama;evet;hayır

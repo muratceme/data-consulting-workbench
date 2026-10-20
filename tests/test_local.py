@@ -59,8 +59,8 @@ class LocalTestCase(unittest.TestCase):
 
 class PackageShape(LocalTestCase):
     def test_every_local_package_is_self_contained_and_has_no_network_code(self):
-        self.assertEqual(len([i for i in LOCAL if not i.get('op')]), 76)
-        self.assertEqual(sum(i['kind'] == 'agent' for i in LOCAL), 64)
+        self.assertEqual(len([i for i in LOCAL if not i.get('op')]), 84)
+        self.assertEqual(sum(i['kind'] == 'agent' for i in LOCAL), 72)
         self.assertEqual(len({i['id'] for i in LOCAL}), len(LOCAL))
         for item in LOCAL:
             names = local_package.files(item)
@@ -858,6 +858,22 @@ GOOD['delta-bakim-plani'] = {'tablolar': [{'tablo': 'satis.fct_siparis', 'optimi
 OUTPUTS['delta-bakim-plani'] = 'tablo-bakimi.md'
 GOOD['kohort-yorumlayici'] = {'en_iyi_kohort': '2026-04', 'en_kotu_kohort': '2026-03', 'egilim': 'yatay', 'ozet': '1. ay tutundurma kohortlar arasında %18,2 ile %70 arasında dalgalanıyor; belirgin bir eğilim yok. En iyi 2026-04 kohortu (%70), en zayıf 2026-03 kohortu (%18,2).', 'oneriler': ['2026-04 kohortunun ilk ayında hangi kampanyanın çalıştığını inceleyin.', 'İlk siparişten sonraki ay için hatırlatma akışı kurun.']}
 OUTPUTS['kohort-yorumlayici'] = 'kohort-yorumu.md'
+GOOD['sabit-genislik-cozucu'] = {'alanlar': [{'alan': 'hesap_no', 'baslangic': 1, 'uzunluk': 10, 'tip': 'metin'}, {'alan': 'islem_tarihi', 'baslangic': 11, 'uzunluk': 8, 'tip': 'tarih:%Y%m%d'}, {'alan': 'islem_tipi', 'baslangic': 19, 'uzunluk': 3, 'tip': 'metin'}, {'alan': 'yon', 'baslangic': 22, 'uzunluk': 1, 'tip': 'metin'}, {'alan': 'tutar', 'baslangic': 23, 'uzunluk': 13, 'tip': 'sayi:2'}, {'alan': 'aciklama', 'baslangic': 36, 'uzunluk': 20, 'tip': 'metin'}, {'alan': 'sube_kodu', 'baslangic': 56, 'uzunluk': 4, 'tip': 'metin'}]}
+OUTPUTS['sabit-genislik-cozucu'] = 'sabit-genislik.md'
+GOOD['capraz-kural-yazari'] = {'kurallar': [{'kural': 'empty(teslim_tarihi) or teslim_tarihi >= siparis_tarihi', 'tur': 'kesin', 'aciklama': 'Teslimat siparişten önce olamaz.'}, {'kural': 'abs(tutar - (adet * birim_fiyat - indirim_tutari)) < 0.01', 'tur': 'kesin', 'aciklama': 'Tutar adet × fiyat − indirimdir.'}, {'kural': "durum != 'iptal' or not empty(iptal_tarihi)", 'tur': 'kesin', 'aciklama': 'İptal edilen siparişin iptal tarihi dolu olmalı.'}, {'kural': "durum != 'teslim' or not empty(teslim_tarihi)", 'tur': 'kesin', 'aciklama': 'Teslim edilen siparişin teslim tarihi olmalı.'}]}
+OUTPUTS['capraz-kural-yazari'] = 'capraz-kurallar.md'
+GOOD['scd-tipi-onerici'] = {'kolonlar': {'ad': 1, 'dogum_yili': 0, 'segment': 2, 'il': 2, 'telefon': 1, 'puan': 1}, 'gerekceler': {'segment': 'Raporlar geçmiş segmente göre analiz eder.', 'il': 'Bölge raporları taşınmadan önceki ile göre.', 'puan': 'Her ay değişir; tarihçe tabloyu büyütür.'}}
+OUTPUTS['scd-tipi-onerici'] = 'scd-plani.md'
+GOOD['kesinti-plani'] = {'plan': [{'gorev': 'Kullanıcı erişimini kapat', 'baslangic': '22:00'}, {'gorev': 'Son yedek', 'baslangic': '22:10'}, {'gorev': 'Delta veri aktarımı', 'baslangic': '23:10'}, {'gorev': 'Satır sayısı mutabakatı', 'baslangic': '00:40'}, {'gorev': 'Bakiye mutabakatı', 'baslangic': '00:40'}, {'gorev': 'Entegrasyonları yeni sisteme çevir', 'baslangic': '01:30'}, {'gorev': 'Eski sistemi salt okunur yap', 'baslangic': '02:10'}, {'gorev': 'Duman testleri', 'baslangic': '02:10'}, {'gorev': 'Kullanıcı erişimini aç', 'baslangic': '02:40'}], 'karar_noktasi': '01:30', 'notlar': 'Mutabakatlar bittikten sonra karar.'}
+OUTPUTS['kesinti-plani'] = 'kesinti-plani.md'
+GOOD['kod-listesi-eslestirici'] = {'eslemeler': [{'deger': 'K.Kartı', 'kod': 'KREDI_KARTI', 'gerekce': 'Kısaltma.'}, {'deger': 'KK', 'kod': 'KREDI_KARTI', 'gerekce': 'Kredi kartı kısaltması.'}, {'deger': 'Havale', 'kod': 'BANKA_TRANSFERI', 'gerekce': ''}, {'deger': 'EFT', 'kod': 'BANKA_TRANSFERI', 'gerekce': ''}, {'deger': 'Havale/EFT', 'kod': 'BANKA_TRANSFERI', 'gerekce': ''}, {'deger': 'FAST', 'kod': 'BANKA_TRANSFERI', 'gerekce': ''}, {'deger': 'Banka Kartı', 'kod': 'KREDI_KARTI', 'gerekce': 'Kod açıklamasında banka kartı da var.'}, {'deger': 'Çek', 'kod': 'eşlenemez', 'gerekce': 'Banka çeki; hediye çeki değil ve listede karşılığı yok.'}, {'deger': 'Karma', 'kod': 'eşlenemez', 'gerekce': 'Birden fazla ödeme tipi; satır bazında ayrılmalı.'}]}
+OUTPUTS['kod-listesi-eslestirici'] = 'kod-esleme.md'
+GOOD['sorgu-indeks-onerici'] = {'indeksler': [{'sql': 'CREATE INDEX ix_siparis_musteri_tarih ON siparis (musteri_id, siparis_tarihi)', 'gerekce': 'Sipariş geçmişi sayfası: eşitlik + sıralama.'}, {'sql': 'CREATE UNIQUE INDEX ux_musteri_eposta ON musteri (eposta)', 'gerekce': 'Giriş sorgusu; e-posta tekil olmalı.'}, {'sql': 'CREATE INDEX ix_kalem_urun ON siparis_kalem (urun_id)', 'gerekce': 'Ürünün geçtiği siparişler.'}]}
+OUTPUTS['sorgu-indeks-onerici'] = 'indeks-onerileri.md'
+GOOD['veri-sahibi-onerici'] = {'oneriler': [{'tablo': 'dwh.fct_satis', 'ekip': 'Veri Mühendisliği', 'sorumlu': 'can.o', 'gerekce': 'Tabloyu ETL servisi ve can.o yazıyor.'}, {'tablo': 'dwh.dim_urun', 'ekip': 'Veri Mühendisliği', 'sorumlu': 'zeynep.a', 'gerekce': ''}, {'tablo': 'mart.kampanya_performans', 'ekip': 'Pazarlama', 'sorumlu': 'elif.s', 'gerekce': 'Yazan yok; en çok Pazarlama kullanıyor.'}, {'tablo': 'stg.crm_musteri', 'ekip': 'Veri Mühendisliği', 'sorumlu': 'can.o', 'gerekce': ''}]}
+OUTPUTS['veri-sahibi-onerici'] = 'veri-sahipligi.md'
+GOOD['grafik-secici'] = {'grafikler': [{'soru': 'Aylık ciro', 'tur': 'cizgi', 'x': 'siparis_tarihi', 'y': 'tutar', 'toplama': 'sum', 'renk': None, 'zaman': 'ay'}, {'soru': 'Bölge', 'tur': 'yatay_cubuk', 'x': 'bolge', 'y': 'tutar', 'toplama': 'sum', 'renk': None, 'zaman': None}, {'soru': 'Kanal payı', 'tur': 'pasta', 'x': 'kanal', 'y': 'tutar', 'toplama': 'sum', 'renk': None, 'zaman': None}, {'soru': 'Toplam ciro', 'tur': 'kpi', 'x': None, 'y': 'tutar', 'toplama': 'sum', 'renk': None, 'zaman': None}]}
+OUTPUTS['grafik-secici'] = 'grafik-secimi.md'
 GOOD['tableau-hesap-yazari'] = {'alanlar': [{'ad': 'Son Tarih', 'formul': '{FIXED : MAX([Siparis Tarihi])}', 'tip': 'date', 'rol': 'dimension', 'aciklama': 'Verideki son sipariş tarihi.'}, {'ad': 'Ciro YTD', 'formul': "SUM(IF [Siparis Tarihi] >= DATETRUNC('year', [Son Tarih]) AND [Siparis Tarihi] <= [Son Tarih] THEN [Tutar] END)", 'tip': 'real', 'rol': 'measure', 'aciklama': 'Yıl başından son tarihe.'}, {'ad': 'Ciro GY YTD', 'formul': "SUM(IF [Siparis Tarihi] >= DATEADD('year', -1, DATETRUNC('year', [Son Tarih])) AND [Siparis Tarihi] <= DATEADD('year', -1, [Son Tarih]) THEN [Tutar] END)", 'tip': 'real', 'rol': 'measure', 'aciklama': 'Geçen yılın aynı dönemi.'}, {'ad': 'Sipariş Başına Ciro', 'formul': 'SUM([Tutar]) / COUNTD([Siparis No])', 'tip': 'real', 'rol': 'measure', 'aciklama': ''}, {'ad': 'Bölge Payı', 'formul': 'SUM({FIXED [Bolge] : SUM([Tutar])}) / SUM({FIXED : SUM([Tutar])})', 'tip': 'real', 'rol': 'measure', 'aciklama': ''}], 'varsayimlar': ['Ciro, Tutar alanının toplamıdır.']}
 OUTPUTS['tableau-hesap-yazari'] = 'hesaplanan-alanlar.md'
 OUTPUTS.update({'deney-analisti': 'deney-raporu.md', 'sube-planlayici': 'sube-plani.md', 'rapor-tasarimcisi': 'tasarim.md'})
@@ -1647,6 +1663,137 @@ class Agents(LocalTestCase):
         dup = [k for k, n in Counter(i['id'] for i in LOCAL).items() if n > 1]
         self.assertEqual(dup, [])
 
+    def test_fixed_width_layout_is_applied_to_the_whole_file(self):
+        a = lambda n, s, l, t='metin': {'alan': n, 'baslangic': s, 'uzunluk': l, 'tip': t}
+        bad = {'alanlar': [a('hesap_no', 1, 10), a('islem_tarihi', 11, 8, 'tarih:%Y%m%d'), a('islem_tipi', 19, 3), a('yon', 22, 1), a('tutar', 23, 12, 'sayi:2'),
+                           a('aciklama', 36, 20, 'sayi'), a('sube_kodu', 56, 4)]}
+        p, done = self.run_agent('sabit-genislik-cozucu', '--yes', answers=[bad, GOOD['sabit-genislik-cozucu']])
+        self.ok(done)
+        sent = self.model.requests[-2]['body']['messages'][-1]['content']
+        self.assertNotIn('KIRA', sent)  # only the shape (9/A) of the lines is sent
+        self.assertIn('999999999999999999AAAA9999999999999AAAA', sent)
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        self.assertIn('hiçbir alana girmeyen dolu karakterler: sütun 35', retry)
+        self.assertIn('alan değeri çevrilemedi: satır 1 aciklama', retry)
+        rows = p.csv('sonuc.csv')
+        self.assertEqual((len(rows), rows[0]['islem_tarihi'], rows[0]['aciklama']), (40, '2026-09-09', 'KIRA'))
+        self.assertEqual(rows[0]['tutar'], '63113.37')  # 0000006311337 with two decimals
+        spec = p.csv('alan_tanimi.csv')
+        self.assertEqual([r['alan'] for r in spec], ['hesap_no', 'islem_tarihi', 'islem_tipi', 'yon', 'tutar', 'aciklama', 'sube_kodu'])
+
+    def test_cross_column_rules_must_say_something(self):
+        k = lambda r, t: {'kural': r, 'tur': t}
+        bad = {'kurallar': [k('teslim_tarihi >= siparis_tarihi', 'kesin'), k('adet > 0', 'kesin'), k('tutar = adet * birim_fiyat', 'kesin')]}
+        p, done = self.run_agent('capraz-kural-yazari', '--yes', answers=[bad, GOOD['capraz-kural-yazari']])
+        self.ok(done)
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        self.assertIn('“teslim_tarihi >= siparis_tarihi” satırların %70.0’inde tutuyor', retry)
+        self.assertIn('“adet > 0” kolonlar karıştırılınca da tutuyor', retry)
+        self.assertIn('“tutar = adet * birim_fiyat” satırların %58.8’inde tutuyor', retry)
+        viol = p.csv('ihlaller.csv')
+        self.assertEqual(sorted((r['siparis_no'], r['kural'][:8]) for r in viol), [('S0017', 'empty(te'), ('S0044', 'abs(tuta')])  # the two planted errors
+        rules = p.out('kurallar.txt').read_text(encoding='utf-8').strip()
+        blk = self.package('satir-kurallari')
+        self.ok(blk.run('--input', str(p.dir / 'ornek' / 'siparis_teslimat.csv'), '--rules', rules))
+        self.assertEqual(blk.json('ozet.json')['ihlal'], 2)  # the same rules run unchanged in the satir-kurallari block
+
+    def test_scd_types_follow_measured_changes(self):
+        bad = {'kolonlar': {'ad': 0, 'dogum_yili': 0, 'segment': 1, 'il': 2, 'telefon': 0, 'puan': 1}}
+        p, done = self.run_agent('scd-tipi-onerici', '--yes', answers=[bad, GOOD['scd-tipi-onerici']])
+        self.ok(done)
+        sent = self.model.requests[-2]['body']['messages'][-1]['content']
+        self.assertNotIn('Müşteri 1', sent)  # values stay local
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        self.assertIn('segment: tarihçesi zorunlu (--history); tip 2 olmalı', retry)
+        self.assertIn('telefon: 17 değişiklik görülmüş; tip 0 (değişmez) olamaz', retry)
+        self.assertIn('      check_cols: [segment, il]', p.out('snapshot.yml').read_text(encoding='utf-8'))
+        grow = {'kolonlar': {**GOOD['scd-tipi-onerici']['kolonlar'], 'puan': 2}}
+        p2, done = self.run_agent('scd-tipi-onerici', '--yes', answers=[grow, grow])
+        self.assertEqual(done.returncode, 1)
+        self.assertIn('yeni sürüm üretir (sınır %50)', self.model.requests[-1]['body']['messages'][-1]['content'])
+
+    def test_cutover_plan_respects_dependencies_teams_and_gate(self):
+        pl = lambda g, b: {'gorev': g, 'baslangic': b}
+        bad = {'plan': [{**x, 'baslangic': {'Bakiye mutabakatı': '00:30', 'Duman testleri': '01:50'}.get(x['gorev'], x['baslangic'])} for x in GOOD['kesinti-plani']['plan']],
+               'karar_noktasi': '02:00'}
+        p, done = self.run_agent('kesinti-plani', '--yes', answers=[bad, GOOD['kesinti-plani']])
+        self.ok(done)
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        for text in ('Bakiye mutabakatı 00:30’da başlıyor ama bağımlı olduğu Delta veri aktarımı 00:40’da bitiyor', 'Uygulama ekibi aynı anda iki görevde',
+                     'karar noktası 02:00, geri alınamaz ilk görev 01:30’da başlıyor'):
+            self.assertIn(text, retry)
+        rows = p.csv('kesinti_plani.csv')
+        self.assertEqual((rows[-1]['gorev'], rows[-1]['bitis']), ('Kullanıcı erişimini aç', '02:50'))
+        md = p.out('kesinti-plani.md').read_text(encoding='utf-8')
+        self.assertIn('Devam / geri dön :milestone, 2026-11-15 01:30, 0m', md)  # after midnight: next day
+        self.assertIn('Entegrasyonları yeni sisteme çevir :crit, 2026-11-15 01:30, 40m', md)
+
+    def test_code_list_mapping_uses_target_codes(self):
+        e = lambda v, k, g='x': {'deger': v, 'kod': k, 'gerekce': g}
+        bad = {'eslemeler': [{**x, 'kod': 'KK'} if x['deger'] == 'KK' else x for x in GOOD['kod-listesi-eslestirici']['eslemeler']]}
+        p, done = self.run_agent('kod-listesi-eslestirici', '--yes', answers=[bad, GOOD['kod-listesi-eslestirici']])
+        self.ok(done)
+        sent = self.model.requests[-2]['body']['messages'][-1]['content']
+        self.assertIn('Kuralla eşlenenler (değiştirme): Kredi Kartı=KREDI_KARTI, KREDI KARTI=KREDI_KARTI', sent)
+        self.assertNotIn('- Nakit (', sent)
+        self.assertIn('“KK”: KK hedef kod listesinde yok', self.model.requests[-1]['body']['messages'][-1]['content'])
+        rows = {r['deger']: r for r in p.csv('kod_esleme.csv')}
+        self.assertEqual((rows['Kapida Odeme']['kod'], rows['Kapida Odeme']['kaynak'], rows['Çek']['kaynak']), ('KAPIDA_ODEME', 'kural', 'eşlenemedi'))
+        sql = p.out('kod_esleme.sql').read_text(encoding='utf-8')
+        self.assertIn("WHEN 'Havale/EFT' THEN 'BANKA_TRANSFERI'", sql)
+        import sqlite3
+        con = sqlite3.connect(':memory:')
+        self.assertEqual(con.execute(f"SELECT {sql.strip()} FROM (SELECT ' KK ' AS odeme_tipi)").fetchone()[0], 'KREDI_KARTI')
+
+    def test_index_suggestions_are_used_by_the_planner(self):
+        i = lambda s: {'sql': s}
+        bad = {'indeksler': [i('CREATE INDEX ix_siparis_tutar ON siparis (tutar)'), i('CREATE INDEX ix_siparis_durum2 ON siparis (durum)'), i('CREATE INDEX ix_kalem_urun ON siparis_kalem (urun_id)')]}
+        p, done = self.run_agent('sorgu-indeks-onerici', '--yes', answers=[bad, GOOD['sorgu-indeks-onerici']])
+        self.ok(done)
+        sent = self.model.requests[-2]['body']['messages'][-1]['content']
+        self.assertIn('-- Plan: SCAN siparis | USE TEMP B-TREE FOR ORDER BY', sent)
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        self.assertIn('ix_siparis_tutar (siparis: tutar) hiçbir sorgunun planında kullanılmıyor', retry)
+        self.assertIn('ix_siparis_durum2 (durum) ix_siparis_durum (durum) indeksinin baş kolonlarını tekrarlıyor', retry)
+        rows = p.csv('plan_karsilastirma.csv')
+        self.assertEqual([r['iyilesti'] for r in rows], ['evet', 'evet', 'evet', 'hayır', 'hayır'])
+        self.assertIn('USING INDEX ix_siparis_musteri_tarih', rows[0]['sonra'])
+        self.assertNotIn('TEMP B-TREE', rows[0]['sonra'])  # the index also serves ORDER BY
+
+    def test_owner_suggestions_follow_query_log(self):
+        o = lambda t, e, s: {'tablo': t, 'ekip': e, 'sorumlu': s}
+        bad = {'oneriler': [o('dwh.fct_satis', 'Satış Analitiği', 'ayse.k'), o('dwh.dim_urun', 'Veri Mühendisliği', 'eski.calisan'), o('mart.kampanya_performans', 'Veri Mühendisliği', 'zeynep.a')]}
+        p, done = self.run_agent('veri-sahibi-onerici', '--yes', answers=[bad, GOOD['veri-sahibi-onerici']])
+        self.ok(done)
+        sent = self.model.requests[-2]['body']['messages'][-1]['content']
+        self.assertIn('dwh.fct_satis: yazma Veri Mühendisliği 32; okuma Satış Analitiği 235', sent)
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        for text in ('Satış Analitiği yazmaların %0’ini yapıyor', 'sorumlu eski.calisan Veri Mühendisliği ekibinin aktif üyesi değil',
+                     'sahip en çok okuyan iki ekipten biri olmalı (Pazarlama, Satış Analitiği)', 'öneri yazılmayan tablo: stg.crm_musteri'):
+            self.assertIn(text, retry)
+        rows = {r['tablo']: r for r in p.csv('sahiplik_onerileri.csv')}
+        self.assertEqual((rows['dwh.fct_satis']['yazma_payi_%'], rows['mart.kampanya_performans']['yazma_payi_%']), ('100', ''))
+
+    def test_chart_choice_matches_field_types(self):
+        g = lambda t, x, y, agg='sum': {'tur': t, 'x': x, 'y': y, 'toplama': agg}
+        bad = {'grafikler': [g('cizgi', 'bolge', 'tutar'), g('cubuk', 'siparis_no', 'tutar'), g('pasta', 'urun', 'tutar', 'mean'), g('kpi', None, 'kanal')]}
+        p, done = self.run_agent('grafik-secici', '--yes', answers=[bad, GOOD['grafik-secici']])
+        self.ok(done)
+        sent = self.model.requests[-2]['body']['messages'][-1]['content']
+        self.assertNotIn('@ornek.test', sent)
+        self.assertIn('musteri_eposta: metin, 57 farklı değer (kişisel veri)', sent)
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        for text in ('çizgi grafiğin x’i tarih olmalı (bolge metin)', 'çubuk grafiğin x’i en fazla 25 kategorili boyut olmalı (siparis_no: 240 değer)',
+                     'pasta en fazla 6 kategori', '4. soru (kpi): ölçü (y) sayısal olmalı'):
+            self.assertIn(text, retry)
+        kpi = json.loads(p.out('grafikler/4.vl.json').read_text(encoding='utf-8'))
+        self.assertEqual(kpi['data']['values'], [{'deger': 5912910.0}])  # total of satis_detay
+        pie = json.loads(p.out('grafikler/3.vl.json').read_text(encoding='utf-8'))
+        self.assertEqual((pie['mark']['type'], len(pie['data']['values'])), ('arc', 3))
+        line = json.loads(p.out('grafikler/1.vl.json').read_text(encoding='utf-8'))
+        self.assertEqual(line['encoding']['x']['type'], 'temporal')
+        self.assertIn('vegaEmbed("#g1"', p.out('grafikler.html').read_text(encoding='utf-8'))
+
     def test_invalid_answer_gets_one_corrective_retry(self):
         bad = {'sql': 'SELECT s.KalemlerToplamCiro FROM dbo.Siparisler s'}
         p, done = self.run_agent('sql-yazari', '--yes', answers=[bad, GOOD['sql-yazari']])
@@ -1717,7 +1864,15 @@ class Agents(LocalTestCase):
                              ('kayma-yorumlayici', {**GOOD['kayma-yorumlayici'], 'yeniden_egit': False}),
                              ('sss-yazari', {**GOOD['sss-yazari'], 'celiskiler': []}),
                              ('delta-bakim-plani', {'tablolar': [{**t, 'vacuum_saat': 1} for t in GOOD['delta-bakim-plani']['tablolar']]}),
-                             ('kohort-yorumlayici', {**GOOD['kohort-yorumlayici'], 'egilim': 'artıyor'})]:
+                             ('kohort-yorumlayici', {**GOOD['kohort-yorumlayici'], 'egilim': 'artıyor'}),
+                             ('sabit-genislik-cozucu', {'alanlar': [{'alan': 'tum_satir', 'baslangic': 1, 'uzunluk': 10, 'tip': 'metin'}]}),
+                             ('capraz-kural-yazari', {'kurallar': [{'kural': 'adet > 0', 'tur': 'kesin'}, {'kural': 'tutar > 0', 'tur': 'kesin'}]}),
+                             ('scd-tipi-onerici', {'kolonlar': {k: 0 for k in GOOD['scd-tipi-onerici']['kolonlar']}}),
+                             ('kesinti-plani', {**GOOD['kesinti-plani'], 'karar_noktasi': '05:00'}),
+                             ('kod-listesi-eslestirici', {'eslemeler': [{**e, 'kod': 'YOK'} for e in GOOD['kod-listesi-eslestirici']['eslemeler']]}),
+                             ('sorgu-indeks-onerici', {'indeksler': [{'sql': 'CREATE INDEX ix_x ON siparis (tutar)'}]}),
+                             ('veri-sahibi-onerici', {'oneriler': [{**o, 'ekip': 'Yok Ekibi'} for o in GOOD['veri-sahibi-onerici']['oneriler']]}),
+                             ('grafik-secici', {'grafikler': [{**g, 'tur': 'cizgi', 'x': 'bolge'} for g in GOOD['grafik-secici']['grafikler']]})]:
             with self.subTest(item_id):
                 p, done = self.run_agent(item_id, '--yes', answers=[bad, bad])
                 self.assertEqual(done.returncode, 1)

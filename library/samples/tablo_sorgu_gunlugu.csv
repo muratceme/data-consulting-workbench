@@ -1,0 +1,16 @@
+kullanici;tablo;islem;adet
+etl_servis;dwh.fct_satis;MERGE;30
+can.o;dwh.fct_satis;UPDATE;2
+ayse.k;dwh.fct_satis;SELECT;140
+mehmet.d;dwh.fct_satis;SELECT;95
+elif.s;dwh.fct_satis;SELECT;20
+zeynep.a;dwh.fct_satis;SELECT;12
+etl_servis;dwh.dim_urun;MERGE;30
+zeynep.a;dwh.dim_urun;SELECT;8
+ayse.k;dwh.dim_urun;SELECT;60
+elif.s;mart.kampanya_performans;SELECT;85
+burak.y;mart.kampanya_performans;SELECT;40
+ayse.k;mart.kampanya_performans;SELECT;15
+etl_servis;stg.crm_musteri;INSERT;30
+can.o;stg.crm_musteri;SELECT;25
+eski.calisan;stg.crm_musteri;SELECT;5
