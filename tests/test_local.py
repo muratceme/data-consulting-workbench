@@ -59,8 +59,8 @@ class LocalTestCase(unittest.TestCase):
 
 class PackageShape(LocalTestCase):
     def test_every_local_package_is_self_contained_and_has_no_network_code(self):
-        self.assertEqual(len([i for i in LOCAL if not i.get('op')]), 92)
-        self.assertEqual(sum(i['kind'] == 'agent' for i in LOCAL), 80)
+        self.assertEqual(len([i for i in LOCAL if not i.get('op')]), 100)
+        self.assertEqual(sum(i['kind'] == 'agent' for i in LOCAL), 88)
         self.assertEqual(len({i['id'] for i in LOCAL}), len(LOCAL))
         for item in LOCAL:
             names = local_package.files(item)
@@ -890,6 +890,22 @@ GOOD['siparis-onerici'] = {'hizmet_seviyeleri': {'A': 0.98, 'B': 0.95, 'C': 0.9}
 OUTPUTS['siparis-onerici'] = 'siparis-onerileri.md'
 GOOD['maliyet-anomali-aciklayici'] = {'anomaliler': [{'tarih': '2026-09-18', 'ana_servis': 'AWS Glue', 'ana_kaynak': 'glue-satis', 'aciklama': 'Günlük maliyet 1072.36, beklenen 787.28 (%36.2 fazla). Artışın neredeyse tamamı AWS Glue’dan (+294.86); en büyük katkı glue-satis işi (+172.26).', 'aksiyon': 'glue-satis işinin o günkü DPU sayısını ve tekrar çalışmalarını kontrol edin; iş için maliyet alarmı kurun.'}]}
 OUTPUTS['maliyet-anomali-aciklayici'] = 'maliyet-anomalileri.md'
+GOOD['gecerli-aralik-onerici'] = {'kolonlar': [{'kolon': 'fiyat', 'min': 0.01, 'max': None, 'uc_degerler_gecerli': True, 'gerekce': 'Fiyat pozitif olmalı; 2.000 TL üstü ürünler premium segmentte, geçerli.'}, {'kolon': 'agirlik_kg', 'min': 0.05, 'max': 50, 'uc_degerler_gecerli': False, 'gerekce': 'Kargo ürünleri 50 kg altında; 9999 gram/kg karışıklığı.'}, {'kolon': 'stok', 'min': 0, 'max': None, 'uc_degerler_gecerli': True, 'gerekce': 'Stok negatif olamaz; yüksek stoklu hızlı ürünler geçerli.'}, {'kolon': 'indirim_orani', 'min': 0, 'max': 100, 'uc_degerler_gecerli': False, 'gerekce': 'Oran yüzde olarak 0–100.'}, {'kolon': 'garanti_ay', 'min': 0, 'max': 60, 'uc_degerler_gecerli': False, 'gerekce': 'Garanti en fazla 5 yıl.'}]}
+OUTPUTS['gecerli-aralik-onerici'] = 'gecerli-araliklar.md'
+GOOD['hipotez-testi-secici'] = {'hedef': 'cozum_suresi_saat', 'grup': 'kanal', 'test': 'kruskal', 'gerekce': 'Üç kanal, çözüm süreleri sağa çarpık; parametrik olmayan test.'}
+OUTPUTS['hipotez-testi-secici'] = 'hipotez-testi.md'
+GOOD['filigran-onerici'] = {'kaynaklar': [{'kaynak': 'mobil', 'watermark_sn': 300, 'izinli_gecikme_sn': 600, 'gerekce': 'Mobil uygulama çevrimdışıyken olaylar 15 dakikaya kadar gecikiyor; pencereyi 5 dk bekleyip geç olayları 10 dk kabul et.'}, {'kaynak': 'pos', 'watermark_sn': 5, 'izinli_gecikme_sn': 5, 'gerekce': 'POS gecikmesi birkaç saniye.'}, {'kaynak': 'web', 'watermark_sn': 15, 'izinli_gecikme_sn': 10, 'gerekce': 'Web gecikmesi 25 sn altında.'}]}
+OUTPUTS['filigran-onerici'] = 'filigran.md'
+GOOD['incremental-strateji-onerici'] = {'modeller': [{'tablo': 'magazalar', 'materialized': 'table', 'unique_key': None, 'strateji': None, 'geriye_bakis_gun': 0, 'gerekce': '12 mağazalık küçük boyut tablosu; her yüklemede tam görüntü geliyor.'}, {'tablo': 'siparisler', 'materialized': 'incremental', 'unique_key': ['siparis_id'], 'strateji': 'merge', 'geriye_bakis_gun': 3, 'gerekce': 'Siparişler durum değiştikçe yeniden geliyor; 70 saate varan gecikme için 3 gün geriye bak.'}, {'tablo': 'web_olaylari', 'materialized': 'incremental', 'unique_key': ['olay_id'], 'strateji': 'merge', 'geriye_bakis_gun': 3, 'gerekce': 'Olaylar güncellenmiyor ama 60 saate kadar geç geliyor; geriye bakışla tekrar seçilenler merge ile tekilleşir.'}]}
+OUTPUTS['incremental-strateji-onerici'] = 'incremental-strateji.md'
+GOOD['katman-atayici'] = {'tablolar': [{'tablo': 'crm.musteri', 'katman': 'bronze', 'yeni_ad': 'bronze.crm_musteri', 'gerekce': ''}, {'tablo': 'stg.musteri', 'katman': 'silver', 'yeni_ad': 'silver.musteri', 'gerekce': ''}, {'tablo': 'dwh.dim_musteri', 'katman': 'gold', 'yeni_ad': 'gold.dim_musteri', 'gerekce': ''}, {'tablo': 'erp.siparis', 'katman': 'bronze', 'yeni_ad': 'bronze.erp_siparis', 'gerekce': ''}, {'tablo': 'stg.siparis', 'katman': 'silver', 'yeni_ad': 'silver.siparis', 'gerekce': ''}, {'tablo': 'erp.siparis_kalem', 'katman': 'bronze', 'yeni_ad': 'bronze.erp_siparis_kalem', 'gerekce': ''}, {'tablo': 'stg.siparis_kalem', 'katman': 'silver', 'yeni_ad': 'silver.siparis_kalem', 'gerekce': ''}, {'tablo': 'dwh.fct_siparis', 'katman': 'gold', 'yeni_ad': 'gold.fct_siparis', 'gerekce': ''}, {'tablo': 'erp.urun', 'katman': 'bronze', 'yeni_ad': 'bronze.erp_urun', 'gerekce': ''}, {'tablo': 'stg.urun', 'katman': 'silver', 'yeni_ad': 'silver.urun', 'gerekce': ''}, {'tablo': 'dwh.dim_urun', 'katman': 'gold', 'yeni_ad': 'gold.dim_urun', 'gerekce': ''}, {'tablo': 'mart.satis_ozet', 'katman': 'gold', 'yeni_ad': 'gold.satis_ozet', 'gerekce': ''}, {'tablo': 'mart.musteri_ozet', 'katman': 'gold', 'yeni_ad': 'gold.musteri_ozet', 'gerekce': ''}, {'tablo': 'pazarlama.kampanya', 'katman': 'bronze', 'yeni_ad': 'bronze.pazarlama_kampanya', 'gerekce': ''}, {'tablo': 'mart.kampanya_performans', 'katman': 'gold', 'yeni_ad': 'gold.kampanya_performans', 'gerekce': ''}, {'tablo': 'web.olay', 'katman': 'bronze', 'yeni_ad': 'bronze.web_olay', 'gerekce': ''}, {'tablo': 'stg.web_olay', 'katman': 'silver', 'yeni_ad': 'silver.web_olay', 'gerekce': ''}, {'tablo': 'dwh.fct_oturum', 'katman': 'gold', 'yeni_ad': 'gold.fct_oturum', 'gerekce': ''}, {'tablo': 'mart.donusum_hunisi', 'katman': 'gold', 'yeni_ad': 'gold.donusum_hunisi', 'gerekce': ''}], 'ara_tablolar': [{'kaynak': 'pazarlama.kampanya', 'hedef': 'mart.kampanya_performans', 'ad': 'silver.kampanya', 'gerekce': 'Kampanya verisi temizlenmeden rapora gidiyor.'}]}
+OUTPUTS['katman-atayici'] = 'katman-atama.md'
+GOOD['baglanti-havuzu-boyutlandirici'] = {'servisler': [{'servis': 'siparis-api', 'havuz_max': 5, 'havuz_min': 2, 'baglanti_bekleme_ms': 2000, 'gerekce': 'p95’te ~3 eşzamanlı sorgu; 4 instance × 5 = 20.'}, {'servis': 'odeme-api', 'havuz_max': 7, 'havuz_min': 2, 'baglanti_bekleme_ms': 3000, 'gerekce': 'p95’te ~5; ödeme kesintisine tolerans yok.'}, {'servis': 'katalog-api', 'havuz_max': 4, 'havuz_min': 1, 'baglanti_bekleme_ms': 1000, 'gerekce': ''}, {'servis': 'raporlama', 'havuz_max': 15, 'havuz_min': 2, 'baglanti_bekleme_ms': 10000, 'gerekce': 'Uzun rapor sorguları; ayrı ve sınırlı havuz.'}, {'servis': 'bildirim-worker', 'havuz_max': 3, 'havuz_min': 1, 'baglanti_bekleme_ms': 1000, 'gerekce': ''}]}
+OUTPUTS['baglanti-havuzu-boyutlandirici'] = 'baglanti-havuzu.md'
+GOOD['geofence-yaricap-onerici'] = {'magazalar': [{'magaza': 'MG01', 'yaricap_m': 170, 'gerekce': 'Çarşı içi; Moda’ya 697 m.'}, {'magaza': 'MG02', 'yaricap_m': 210, 'gerekce': ''}, {'magaza': 'MG03', 'yaricap_m': 300, 'gerekce': 'AVM otoparkı geniş.'}, {'magaza': 'MG04', 'yaricap_m': 290, 'gerekce': ''}, {'magaza': 'MG05', 'yaricap_m': 280, 'gerekce': ''}, {'magaza': 'MG06', 'yaricap_m': 270, 'gerekce': ''}]}
+OUTPUTS['geofence-yaricap-onerici'] = 'geofence.md'
+GOOD['esik-secici'] = {'esik': 0.45, 'aciklama': '0,45 eşiğinde 218 alarm üretiliyor; 111 gerçek vakanın 99’u yakalanıyor (duyarlılık 0,8919) ve toplam maliyet 4180. 0,5 eşiğinde maliyet 4370’e çıkıyor çünkü kaçan vaka 19’a yükseliyor.'}
+OUTPUTS['esik-secici'] = 'esik-secimi.md'
 GOOD['tableau-hesap-yazari'] = {'alanlar': [{'ad': 'Son Tarih', 'formul': '{FIXED : MAX([Siparis Tarihi])}', 'tip': 'date', 'rol': 'dimension', 'aciklama': 'Verideki son sipariş tarihi.'}, {'ad': 'Ciro YTD', 'formul': "SUM(IF [Siparis Tarihi] >= DATETRUNC('year', [Son Tarih]) AND [Siparis Tarihi] <= [Son Tarih] THEN [Tutar] END)", 'tip': 'real', 'rol': 'measure', 'aciklama': 'Yıl başından son tarihe.'}, {'ad': 'Ciro GY YTD', 'formul': "SUM(IF [Siparis Tarihi] >= DATEADD('year', -1, DATETRUNC('year', [Son Tarih])) AND [Siparis Tarihi] <= DATEADD('year', -1, [Son Tarih]) THEN [Tutar] END)", 'tip': 'real', 'rol': 'measure', 'aciklama': 'Geçen yılın aynı dönemi.'}, {'ad': 'Sipariş Başına Ciro', 'formul': 'SUM([Tutar]) / COUNTD([Siparis No])', 'tip': 'real', 'rol': 'measure', 'aciklama': ''}, {'ad': 'Bölge Payı', 'formul': 'SUM({FIXED [Bolge] : SUM([Tutar])}) / SUM({FIXED : SUM([Tutar])})', 'tip': 'real', 'rol': 'measure', 'aciklama': ''}], 'varsayimlar': ['Ciro, Tutar alanının toplamıdır.']}
 OUTPUTS['tableau-hesap-yazari'] = 'hesaplanan-alanlar.md'
 OUTPUTS.update({'deney-analisti': 'deney-raporu.md', 'sube-planlayici': 'sube-plani.md', 'rapor-tasarimcisi': 'tasarim.md'})
@@ -1919,6 +1935,131 @@ class Agents(LocalTestCase):
         rows = p.csv('anomaliler.csv')
         self.assertEqual([(r['tarih'], r['ana_kaynak'], r['kaynak_katkisi']) for r in rows], [('2026-09-18', 'glue-satis', '172.26')])
 
+    def test_valid_ranges_must_exclude_outliers(self):
+        k = lambda c, lo, hi: {'kolon': c, 'min': lo, 'max': hi}
+        bad = {'kolonlar': [k('fiyat', 0.01, None), k('agirlik_kg', 0, None), k('stok', 0, None), k('indirim_orani', 0, 100), k('garanti_ay', 0, 60), k('urun_kodu', 0, 1)]}
+        p, done = self.run_agent('gecerli-aralik-onerici', '--yes', answers=[bad, GOOD['gecerli-aralik-onerici']])
+        self.ok(done)
+        sent = self.model.requests[-2]['body']['messages'][-1]['content']
+        self.assertIn('- agirlik_kg: 200 · 0.22 · ', sent)
+        self.assertNotIn('U0089', sent)  # rows are not sent
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        for text in ('fiyat: aralık uç değerleri kabul ediyor (2035.83, 2193.44, 3210.61', 'agirlik_kg: aralık uç değerleri kabul ediyor (9999; Tukey dış sınırı -15.9–27.5)',
+                     'kolon “urun_kodu” profilde yok'):
+            self.assertIn(text, retry)
+        self.assertEqual(sorted((r['anahtar'], r['kolon']) for r in p.csv('aralik_ihlalleri.csv')),
+                         [('U0018', 'fiyat'), ('U0065', 'garanti_ay'), ('U0089', 'agirlik_kg'), ('U0121', 'indirim_orani'), ('U0152', 'stok')])
+        self.assertIn('CHECK (indirim_orani IS NULL OR (indirim_orani >= 0 AND indirim_orani <= 100))', p.out('aralik_kontrolleri.sql').read_text(encoding='utf-8'))
+        self.assertEqual(len(p.json('aralik_kurallari.json')['expectations']), 5)
+
+    def test_hypothesis_test_choice_follows_assumptions(self):
+        p, done = self.run_agent('hipotez-testi-secici', '--yes', answers=[{'hedef': 'cozum_suresi_saat', 'grup': 'kanal', 'test': 'anova'}, GOOD['hipotez-testi-secici']])
+        self.ok(done)
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        self.assertIn('çarpık gruplar: canli_destek (3.35), eposta (2.18), telefon (2.16)', retry)
+        self.assertIn('en büyük/en küçük varyans oranı 12.5', retry)
+        res = p.json('test_sonucu.json')
+        self.assertEqual((res['test'], res['deger'], res['sd']), ('kruskal', 71.0119, 2))  # scipy.stats.kruskal: H = 71.0119
+        self.assertIn(['canli_destek – telefon', 1736.5, 0.003, 0.009, 'anlamlı (p<0,05)'], res['ikili'])
+        q = 'Yeniden açılma kanala bağlı mı?'
+        p2, done = self.run_agent('hipotez-testi-secici', '--yes', '--question', q,
+                                  answers=[{'hedef': 'yeniden_acildi', 'grup': 'kanal', 'test': 'mann_whitney'}, {'hedef': 'yeniden_acildi', 'grup': 'kanal', 'test': 'ki_kare'}])
+        self.ok(done)
+        self.assertIn('mann_whitney sayısal hedef ister; yeniden_acildi kategorik', self.model.requests[-1]['body']['messages'][-1]['content'])
+        res = p2.json('test_sonucu.json')
+        self.assertEqual((res['test'], res['deger'], res['p'], res['soru']), ('ki_kare', 0.428, 0.807276, q))  # scipy chi2_contingency: 0.4282, p 0.8073
+
+    def test_watermark_covers_measured_lateness(self):
+        w = lambda k, wm, al: {'kaynak': k, 'watermark_sn': wm, 'izinli_gecikme_sn': al}
+        p, done = self.run_agent('filigran-onerici', '--yes', answers=[{'kaynaklar': [w('mobil', 30, 0), w('pos', 60, 0), w('web', 15, 10)]}, GOOD['filigran-onerici']])
+        self.ok(done)
+        self.assertIn('- mobil: 477 · 6.0/25.4/279.3/843.9/873.5/883.9 · 886.0', self.model.requests[-2]['body']['messages'][-1]['content'])
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        for text in ('mobil: watermark’tan sonra gelen olay payı %8.8 (en fazla %5)', 'mobil: watermark + izinli gecikmeden sonra gelip atılan olay payı %8.81',
+                     'pos: watermark 60 sn, p95 gecikme 4.2 sn; 2×p95’ten uzun'):
+            self.assertIn(text, retry)
+        self.assertIn("WATERMARK FOR olay_zamani AS olay_zamani - INTERVAL '300' SECOND", p.out('watermark.sql').read_text(encoding='utf-8'))
+        self.assertIn('mobil_df = mobil_df.withWatermark("olay_zamani", "900 seconds")', p.out('spark_watermark.py').read_text(encoding='utf-8'))
+        rows = {r['kaynak']: r for r in p.csv('filigran_plani.csv')}
+        self.assertEqual((rows['mobil']['gec_olay_orani'], rows['mobil']['atilan_olay_orani']), ('0.0482', '0.0'))
+
+    def test_incremental_strategy_is_replayed_over_loads(self):
+        m = lambda t, mat, key, st, lb: {'tablo': t, 'materialized': mat, 'unique_key': key, 'strateji': st, 'geriye_bakis_gun': lb}
+        bad = {'modeller': [m('magazalar', 'incremental', ['magaza_id'], 'merge', 0), m('siparisler', 'incremental', ['siparis_id', 'durum'], 'merge', 3),
+                            m('web_olaylari', 'incremental', None, 'append', 0)]}
+        p, done = self.run_agent('incremental-strateji-onerici', '--yes', answers=[bad, GOOD['incremental-strateji-onerici']])
+        self.ok(done)
+        self.assertIn('siparis_id değerlerinin 181/630 kadarı birden fazla yüklemede geliyor', self.model.requests[-2]['body']['messages'][-1]['content'])
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        # dbt-duckdb replay of the same configs gives the same counts (append without lookback keeps 1411 of 1540 events)
+        for text in ('magazalar: 84 satırlık küçük tablo', 'siparisler: merge + 3 gün geriye bakış 7 yükleme simülasyonunda 214 yinelenen, 0 eksik',
+                     'web_olaylari: append + 0 gün geriye bakış 7 yükleme simülasyonunda 0 yinelenen, 129 eksik'):
+            self.assertIn(text, retry)
+        sql = p.out('models/siparisler.sql').read_text(encoding='utf-8')
+        self.assertIn("{{ config(materialized='incremental', incremental_strategy='merge', unique_key='siparis_id', on_schema_change='append_new_columns') }}", sql)
+        self.assertIn("where guncellenme > (select max(guncellenme) from {{ this }}) - interval '3 days'", sql)
+        self.assertIn("materialized='table'", p.out('models/magazalar.sql').read_text(encoding='utf-8'))
+        self.assertIn('      - name: web_olaylari', p.out('sources.yml').read_text(encoding='utf-8'))
+
+    def test_medallion_assignment_passes_layer_rules(self):
+        no_bridge = {'tablolar': GOOD['katman-atayici']['tablolar']}
+        p, done = self.run_agent('katman-atayici', '--yes', answers=[no_bridge, GOOD['katman-atayici']])
+        self.ok(done)
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        self.assertIn('pazarlama.kampanya → mart.kampanya_performans (bronze.pazarlama_kampanya → gold.kampanya_performans): katman atlama', retry)
+        rows = {r['eski_ad']: r for r in p.csv('katman_haritasi.csv')}
+        self.assertEqual(len(rows), 19)
+        self.assertEqual(rows['web.olay']['yeni_ad'], 'bronze.web_olay')
+        self.assertIn('CREATE TABLE IF NOT EXISTS silver.kampanya AS SELECT * FROM bronze.pazarlama_kampanya;', p.out('gecis.sql').read_text(encoding='utf-8'))
+        self.assertIn('["silver.kampanya"]:::silver', p.out('soy.mmd').read_text(encoding='utf-8'))
+        bronze = [t if t['tablo'] != 'stg.web_olay' else {**t, 'katman': 'bronze', 'yeni_ad': 'bronze.stg_web_olay'} for t in GOOD['katman-atayici']['tablolar']]
+        self.run_agent('katman-atayici', '--yes', answers=[{**GOOD['katman-atayici'], 'tablolar': bronze}] * 2)
+        self.assertIn('stg.web_olay başka tablolardan besleniyor (web.olay); bronze ham veridir', self.model.requests[-1]['body']['messages'][-1]['content'])
+
+    def test_connection_pools_fit_the_database_budget(self):
+        h = lambda s, mx, w: {'servis': s, 'havuz_max': mx, 'havuz_min': 1, 'baglanti_bekleme_ms': w}
+        bad = {'servisler': [h('siparis-api', 50, 30000), h('odeme-api', 4, 30), h('katalog-api', 30, 30000), h('raporlama', 40, 30000), h('bildirim-worker', 25, 30000)]}
+        p, done = self.run_agent('baglanti-havuzu-boyutlandirici', '--yes', answers=[bad, GOOD['baglanti-havuzu-boyutlandirici']])
+        self.ok(done)
+        self.assertIn('- odeme-api: 2 · 60 · 4 · 9/40 · 1.08/4.80 · 20', self.model.requests[-2]['body']['messages'][-1]['content'])
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        for text in ('siparis-api: instance başına havuz 50, gereken 2.97; 11 üstü boşta bağlantı tutar', 'odeme-api: instance başına havuz 4, tepe yükte p95 eşzamanlılık 4.80; en az 5 olmalı',
+                     'odeme-api: bağlantı bekleme 30 ms', 'toplam bağlantı 388 (havuz × instance), kullanılabilir 90'):
+            self.assertIn(text, retry)
+        self.assertIn('    maximum-pool-size: 15\n    minimum-idle: 2\n    connection-timeout: 10000', p.out('havuz_ayarlari.yaml').read_text(encoding='utf-8'))
+        self.assertEqual(sum(int(r['toplam_baglanti']) for r in p.csv('havuz_plani.csv')), 67)
+
+    def test_geofence_radius_covers_visits_without_overlap(self):
+        g = lambda m, r: {'magaza': m, 'yaricap_m': r}
+        bad = {'magazalar': [g('MG01', 400), g('MG02', 400), g('MG03', 120), g('MG04', 290), g('MG05', 280), g('MG06', 270)]}
+        p, done = self.run_agent('geofence-yaricap-onerici', '--yes', answers=[bad, GOOD['geofence-yaricap-onerici']])
+        self.ok(done)
+        sent = self.model.requests[-2]['body']['messages'][-1]['content']
+        self.assertIn('- MG01 (Kadıköy Çarşı): 80 · 42/108/146/381 · MG02 697 m', sent)
+        self.assertNotIn('cihaz-', sent)
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        for text in ('MG01: 400 m, p90 mesafesinin (146 m) 1,5 katını aşıyor', 'MG03: 120 m yarıçapın kapsadığı ziyaret pingi payı %56 (en az %85)',
+                     'MG01 (400 m) ile MG02 (400 m) çakışıyor; mağazalar arası 697 m'):
+            self.assertIn(text, retry)
+        gj = p.json('geofence.geojson')
+        self.assertEqual([len(f['geometry']['coordinates'][0]) for f in gj['features']], [33] * 6)
+        self.assertEqual({r['magaza']: r['kapsama'] for r in p.csv('geofence_plani.csv')}['MG01'], '0.925')
+
+    def test_threshold_choice_is_checked_against_cost_curve(self):
+        bad = {'esik': 0.6, 'aciklama': '0,6 eşiği F1 açısından en iyisi; maliyet yaklaşık 5000 ve 3500 yanlış alarm önleniyor.'}
+        p, done = self.run_agent('esik-secici', '--yes', answers=[bad, GOOD['esik-secici']])
+        self.ok(done)
+        self.assertIn('0.45 · 218 · 99 · 119 · 12 · 0.4541 · 0.8919 · 0.6018 · 4180', self.model.requests[-2]['body']['messages'][-1]['content'])
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        self.assertIn('eşik 0.6: maliyet 5210, kısıtlar altındaki en düşük maliyet 4180 (eşik 0.45)', retry)
+        self.assertIn('açıklamada taramada olmayan sayılar: 5000, 3500', retry)
+        res = p.json('esik.json')
+        self.assertEqual((res['esik'], res['metrikler']['maliyet'], res['en_dusuk_maliyetli_esik']), (0.45, 4180, 0.45))
+        self.assertEqual(len(p.csv('esik_taramasi.csv')), 91)
+        p2, done = self.run_agent('esik-secici', '--yes', '--max-alerts', '150', answers=[GOOD['esik-secici']] * 2)
+        self.assertNotEqual(done.returncode, 0)
+        self.assertIn('eşik 0.45: 218 alarm, kapasite 150', self.model.requests[-1]['body']['messages'][-1]['content'])
+
     def test_invalid_answer_gets_one_corrective_retry(self):
         bad = {'sql': 'SELECT s.KalemlerToplamCiro FROM dbo.Siparisler s'}
         p, done = self.run_agent('sql-yazari', '--yes', answers=[bad, GOOD['sql-yazari']])
@@ -2005,7 +2146,15 @@ class Agents(LocalTestCase):
                              ('masraf-politika-denetcisi', {'atamalar': [{**a, 'kategori': 'diger'} for a in GOOD['masraf-politika-denetcisi']['atamalar']]}),
                              ('baslik-birlestirici', {**GOOD['baslik-birlestirici'], 'kolonlar': ['Tarih']}),
                              ('siparis-onerici', {**GOOD['siparis-onerici'], 'siparisler': []}),
-                             ('maliyet-anomali-aciklayici', {'anomaliler': [{**a, 'ana_kaynak': 'yok'} for a in GOOD['maliyet-anomali-aciklayici']['anomaliler']]})]:
+                             ('maliyet-anomali-aciklayici', {'anomaliler': [{**a, 'ana_kaynak': 'yok'} for a in GOOD['maliyet-anomali-aciklayici']['anomaliler']]}),
+                             ('gecerli-aralik-onerici', {'kolonlar': [{**k, 'uc_degerler_gecerli': False} for k in GOOD['gecerli-aralik-onerici']['kolonlar']]}),
+                             ('hipotez-testi-secici', {**GOOD['hipotez-testi-secici'], 'test': 'student_t'}),
+                             ('filigran-onerici', {'kaynaklar': [{**k, 'watermark_sn': 0, 'izinli_gecikme_sn': 0} for k in GOOD['filigran-onerici']['kaynaklar']]}),
+                             ('incremental-strateji-onerici', {'modeller': [{**m, 'geriye_bakis_gun': 0} for m in GOOD['incremental-strateji-onerici']['modeller']]}),
+                             ('katman-atayici', {'tablolar': [{**t, 'katman': 'gold'} for t in GOOD['katman-atayici']['tablolar']]}),
+                             ('baglanti-havuzu-boyutlandirici', {'servisler': [{**v, 'havuz_max': 1} for v in GOOD['baglanti-havuzu-boyutlandirici']['servisler']]}),
+                             ('geofence-yaricap-onerici', {'magazalar': [{**g, 'yaricap_m': 30} for g in GOOD['geofence-yaricap-onerici']['magazalar']]}),
+                             ('esik-secici', {**GOOD['esik-secici'], 'esik': 0.9})]:
             with self.subTest(item_id):
                 p, done = self.run_agent(item_id, '--yes', answers=[bad, bad])
                 self.assertEqual(done.returncode, 1)

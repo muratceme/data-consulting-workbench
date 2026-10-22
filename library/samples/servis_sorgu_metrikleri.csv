@@ -1,0 +1,6 @@
+servis;instance;tepe_istek_sn;istek_basina_sorgu;ort_sorgu_ms;p95_sorgu_ms;mevcut_havuz
+siparis-api;4;220;3;6;18;50
+odeme-api;2;60;4;9;40;20
+katalog-api;3;400;2;2.5;7;30
+raporlama;1;3;1;900;4200;40
+bildirim-worker;2;80;1;4;12;25
