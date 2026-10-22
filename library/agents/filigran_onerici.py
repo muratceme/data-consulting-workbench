@@ -16,12 +16,14 @@ QS = (.5, .9, .95, .99, .995, .999)
 
 def validator(lat, max_late, max_drop):
     def validate(obj):
+        seen = set()
         problems, out = [], {}
         for e in obj.get('kaynaklar') or []:
             k = str(e.get('kaynak', '')).strip()
-            if k not in lat or k in out:
+            if k not in lat or k in seen:
                 problems.append(f'kaynak “{k}” yok ya da iki kez yazıldı')
                 continue
+            seen.add(k)
             try:
                 wm, allowed = int(e.get('watermark_sn')), int(e.get('izinli_gecikme_sn', 0))
             except (TypeError, ValueError):
@@ -39,7 +41,7 @@ def validator(lat, max_late, max_drop):
             if wm > max(2 * p95, 1):
                 problems.append(f'{k}: watermark {wm} sn, p95 gecikme {p95:.1f} sn; 2×p95’ten uzun watermark sonuçları gereksiz geciktirir, geç olaylar için izinli gecikme kullan')
             out[k] = (wm, allowed, str(e.get('gerekce', '')).strip(), late, drop)
-        missing = [k for k in lat if k not in out]
+        missing = [k for k in lat if k not in seen]
         if missing:
             problems.append('ayarı yazılmayan kaynak: ' + ', '.join(missing))
         if problems:

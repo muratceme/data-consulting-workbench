@@ -1,0 +1,7 @@
+uc_nokta;kayit_sayisi;max_sayfa_boyutu;ort_yanit_ms;artimli_destek;gunluk_degisen
+/musteriler;480000;500;900;evet;6000
+/siparisler;2600000;1000;1400;evet;52000
+/urunler;42000;200;600;hayir;0
+/faturalar;1100000;500;1600;evet;21000
+/stok;90000;1000;1200;hayir;0
+/kampanyalar;1500;100;300;hayir;0

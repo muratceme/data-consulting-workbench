@@ -16,12 +16,14 @@ LAYERS = ('bronze', 'silver', 'gold')
 
 def validator(tables, edges, upstream):
     def validate(obj):
+        seen = set()
         problems, layer, name = [], {}, {}
         for e in obj.get('tablolar') or []:
             t, k, n = str(e.get('tablo', '')).strip(), str(e.get('katman', '')).strip().lower(), str(e.get('yeni_ad', '')).strip()
-            if t not in tables or t in layer:
+            if t not in tables or t in seen:
                 problems.append(f'tablo “{t}” soy ağacında yok ya da iki kez yazıldı')
                 continue
+            seen.add(t)
             if k not in LAYERS:
                 problems.append(f'{t}: katman bronze, silver ya da gold olmalı')
                 continue
@@ -32,7 +34,7 @@ def validator(tables, edges, upstream):
             if not n.startswith(k + '.') or len(n) <= len(k) + 1:
                 problems.append(f'{t}: yeni ad “{n}” {k}. ile başlamalı')
             layer[t], name[t] = k, n
-        missing = [t for t in tables if t not in layer]
+        missing = [t for t in tables if t not in seen]
         if missing:
             problems.append('katmanı yazılmayan tablo: ' + ', '.join(missing))
         extra = []

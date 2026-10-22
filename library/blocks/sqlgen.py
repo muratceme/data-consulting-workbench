@@ -307,13 +307,26 @@ def lint(args):
 FK = re.compile(r'(?:FOREIGN\s+KEY\s*\(([^)]+)\)\s*)?REFERENCES\s+([\w.\[\]"`]+)\s*\(([^)]+)\)', re.I)
 
 
+def top_level_parts(body):
+    """Split a CREATE TABLE body on commas outside parentheses (NUMERIC(12,2) and one-line tables stay intact)."""
+    parts, depth, cur = [], 0, ''
+    for ch in body:
+        if ch == ',' and depth == 0:
+            parts.append(cur)
+            cur = ''
+            continue
+        depth += (ch == '(') - (ch == ')')
+        cur += ch
+    return parts + [cur]
+
+
 def relationships(text, tables):
     """Explicit REFERENCES plus inferred ones (column named like another table's single-column primary key)."""
     rels = []
     clean = re.sub(r'--[^\n]*|/\*.*?\*/', '', text, flags=re.S)
     for m in re.finditer(r'CREATE\s+(?:OR\s+REPLACE\s+)?TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([\w.\[\]"`]+)\s*\((.*?)\)\s*;', clean, re.I | re.S):
         child = '.'.join(p.strip('[]"`') for p in re.split(r'\s*\.\s*', m.group(1)))
-        for line in re.split(r',\s*\n', m.group(2)):
+        for line in top_level_parts(m.group(2)):
             for f in FK.finditer(line):
                 col = (f.group(1) or line.strip().split()[0]).strip().strip('[]"`')
                 rels.append((child, col, '.'.join(p.strip('[]"`') for p in f.group(2).split('.')), f.group(3).strip().strip('[]"`'), 'tanımlı'))

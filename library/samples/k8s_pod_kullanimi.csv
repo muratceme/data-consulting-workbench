@@ -1,0 +1,7 @@
+namespace;deployment;replika;cpu_p50_m;cpu_p95_m;cpu_max_m;mem_p95_mib;mem_max_mib;cpu_request_m;mem_request_mib;mem_limit_mib
+satis;siparis-api;4;180;420;610;610;700;1000;2048;2048
+satis;sepet-api;3;90;210;380;380;450;500;512;512
+katalog;arama;2;900;1700;2100;2600;3100;1000;2048;3072
+katalog;resim-isleyici;2;40;650;1900;300;900;2000;1024;1024
+veri;etl-worker;1;300;800;950;1500;1700;4000;8192;8192
+ortak;bildirim;2;20;45;70;120;140;500;1024;1024

@@ -27,12 +27,14 @@ def circle(center, r, n=32):
 
 def validator(stores, d, min_cov):
     def validate(obj):
+        seen = set()
         problems, out = [], {}
         for e in obj.get('magazalar') or []:
             k = str(e.get('magaza', '')).strip()
-            if k not in stores or k in out:
+            if k not in stores or k in seen:
                 problems.append(f'mağaza “{k}” yok ya da iki kez yazıldı')
                 continue
+            seen.add(k)
             try:
                 r = float(e.get('yaricap_m'))
             except (TypeError, ValueError):
@@ -48,7 +50,7 @@ def validator(stores, d, min_cov):
             if r > cap:
                 problems.append(f'{k}: {r:g} m, p90 mesafesinin ({quantile(v, .9):.0f} m) 1,5 katını aşıyor; yoldan geçenler ziyaret sayılır')
             out[k] = (r, cov, str(e.get('gerekce', '')).strip())
-        missing = [k for k in stores if k not in out]
+        missing = [k for k in stores if k not in seen]
         if missing:
             problems.append('yarıçapı yazılmayan mağaza: ' + ', '.join(missing))
         keys = sorted(out)

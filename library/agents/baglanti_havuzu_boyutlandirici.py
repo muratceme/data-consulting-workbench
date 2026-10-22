@@ -17,12 +17,14 @@ def need_of(s):
 
 def validator(svc, budget):
     def validate(obj):
+        seen = set()
         problems, out = [], {}
         for e in obj.get('servisler') or []:
             k = str(e.get('servis', '')).strip()
-            if k not in svc or k in out:
+            if k not in svc or k in seen:
                 problems.append(f'servis “{k}” yok ya da iki kez yazıldı')
                 continue
+            seen.add(k)
             try:
                 mx, mn, wait = int(e.get('havuz_max')), int(e.get('havuz_min')), int(e.get('baglanti_bekleme_ms'))
             except (TypeError, ValueError):
@@ -40,7 +42,7 @@ def validator(svc, budget):
             if wait < s['p95'] or wait > 30000:
                 problems.append(f'{k}: bağlantı bekleme {wait} ms; p95 sorgu süresi ({s["p95"]:g} ms) ile 30000 ms arasında olmalı')
             out[k] = (mx, mn, wait, str(e.get('gerekce', '')).strip())
-        missing = [k for k in svc if k not in out]
+        missing = [k for k in svc if k not in seen]
         if missing:
             problems.append('havuzu yazılmayan servis: ' + ', '.join(missing))
         total = sum(v[0] * svc[k]['inst'] for k, v in out.items())

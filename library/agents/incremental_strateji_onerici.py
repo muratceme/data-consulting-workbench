@@ -66,12 +66,14 @@ def check(rows, ident, target):
 
 def validator(tables, min_rows):
     def validate(obj):
+        seen = set()
         problems, out = [], {}
         for e in obj.get('modeller') or []:
             t = str(e.get('tablo', '')).strip()
-            if t not in tables or t in out:
+            if t not in tables or t in seen:
                 problems.append(f'tablo “{t}” yok ya da iki kez yazıldı')
                 continue
+            seen.add(t)
             info = tables[t]
             mat, strat = str(e.get('materialized', '')).strip(), str(e.get('strateji', '') or '').strip()
             key = [str(k).strip() for k in (e.get('unique_key') or [])] if isinstance(e.get('unique_key'), list) else [s.strip() for s in str(e.get('unique_key') or '').split(',') if s.strip()]
@@ -106,7 +108,7 @@ def validator(tables, min_rows):
             if dup or missing or stale:
                 problems.append(f'{t}: {strat} + {lb} gün geriye bakış {len(info["by_load"])} yükleme simülasyonunda {dup} yinelenen, {missing} eksik, '
                                 f'{stale} eski sürümde kalan {info["ident"]} üretiyor')
-        missing_t = [t for t in tables if t not in out]
+        missing_t = [t for t in tables if t not in seen]
         if missing_t:
             problems.append('modeli yazılmayan tablo: ' + ', '.join(missing_t))
         if problems:

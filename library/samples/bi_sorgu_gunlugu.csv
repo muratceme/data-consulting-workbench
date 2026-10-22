@@ -1,0 +1,11 @@
+sorgu;boyutlar;olcumler;calisma_sayisi
+Q01;ay|bolge;sum(tutar)|sum(adet);1200
+Q02;ay|kategori;sum(tutar);950
+Q03;ay|bolge|kategori;sum(tutar);640
+Q04;ay|kanal;sum(tutar)|count(*);520
+Q05;tarih|magaza;sum(tutar);410
+Q06;ay|magaza;sum(tutar)|sum(adet);380
+Q07;ay;count_distinct(musteri);300
+Q08;urun|musteri;sum(tutar);45
+Q09;ay|bolge|kanal;sum(adet);260
+Q10;bolge;max(tutar);90

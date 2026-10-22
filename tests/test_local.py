@@ -59,8 +59,8 @@ class LocalTestCase(unittest.TestCase):
 
 class PackageShape(LocalTestCase):
     def test_every_local_package_is_self_contained_and_has_no_network_code(self):
-        self.assertEqual(len([i for i in LOCAL if not i.get('op')]), 100)
-        self.assertEqual(sum(i['kind'] == 'agent' for i in LOCAL), 88)
+        self.assertEqual(len([i for i in LOCAL if not i.get('op')]), 108)
+        self.assertEqual(sum(i['kind'] == 'agent' for i in LOCAL), 96)
         self.assertEqual(len({i['id'] for i in LOCAL}), len(LOCAL))
         for item in LOCAL:
             names = local_package.files(item)
@@ -906,6 +906,22 @@ GOOD['geofence-yaricap-onerici'] = {'magazalar': [{'magaza': 'MG01', 'yaricap_m'
 OUTPUTS['geofence-yaricap-onerici'] = 'geofence.md'
 GOOD['esik-secici'] = {'esik': 0.45, 'aciklama': '0,45 eşiğinde 218 alarm üretiliyor; 111 gerçek vakanın 99’u yakalanıyor (duyarlılık 0,8919) ve toplam maliyet 4180. 0,5 eşiğinde maliyet 4370’e çıkıyor çünkü kaçan vaka 19’a yükseliyor.'}
 OUTPUTS['esik-secici'] = 'esik-secimi.md'
+GOOD['k8s-kaynak-ayarlayici'] = {'deploymentlar': [{'deployment': 'siparis-api', 'cpu_request_m': 450, 'cpu_limit_m': None, 'mem_request_mib': 640, 'mem_limit_mib': 800, 'gerekce': 'p95 420m; 1 çekirdek request yarı yarıya boş.'}, {'deployment': 'sepet-api', 'cpu_request_m': 230, 'cpu_limit_m': None, 'mem_request_mib': 400, 'mem_limit_mib': 512, 'gerekce': ''}, {'deployment': 'arama', 'cpu_request_m': 1800, 'cpu_limit_m': None, 'mem_request_mib': 2700, 'mem_limit_mib': 3500, 'gerekce': 'Bellek limiti 3072 MiB en yüksek kullanımın (3100) altında; OOMKilled riski.'}, {'deployment': 'resim-isleyici', 'cpu_request_m': 300, 'cpu_limit_m': None, 'mem_request_mib': 512, 'mem_limit_mib': 1024, 'gerekce': 'Ani CPU tepeleri için limit konmadı.'}, {'deployment': 'etl-worker', 'cpu_request_m': 800, 'cpu_limit_m': None, 'mem_request_mib': 1600, 'mem_limit_mib': 2048, 'gerekce': '4 çekirdek ve 8 GiB büyük ölçüde boşta.'}, {'deployment': 'bildirim', 'cpu_request_m': 50, 'cpu_limit_m': None, 'mem_request_mib': 128, 'mem_limit_mib': 256, 'gerekce': ''}]}
+OUTPUTS['k8s-kaynak-ayarlayici'] = 'k8s-kaynaklari.md'
+GOOD['toplu-cekim-planlayici'] = {'uc_noktalar': [{'uc_nokta': '/musteriler', 'mod': 'artimli', 'sayfa_boyutu': 500, 'dakikada_istek': 2, 'gerekce': ''}, {'uc_nokta': '/siparisler', 'mod': 'artimli', 'sayfa_boyutu': 1000, 'dakikada_istek': 5, 'gerekce': 'Günde 52.000 değişen sipariş; tam çekim 2.600 istek.'}, {'uc_nokta': '/urunler', 'mod': 'tam', 'sayfa_boyutu': 200, 'dakikada_istek': 10, 'gerekce': 'Artımlı destek yok; 210 istek.'}, {'uc_nokta': '/faturalar', 'mod': 'artimli', 'sayfa_boyutu': 500, 'dakikada_istek': 3, 'gerekce': ''}, {'uc_nokta': '/stok', 'mod': 'tam', 'sayfa_boyutu': 1000, 'dakikada_istek': 5, 'gerekce': ''}, {'uc_nokta': '/kampanyalar', 'mod': 'tam', 'sayfa_boyutu': 100, 'dakikada_istek': 2, 'gerekce': ''}]}
+OUTPUTS['toplu-cekim-planlayici'] = 'toplu-cekim.md'
+GOOD['backfill-planlayici'] = {'daglar': [{'dag': 'musteri_bakiye', 'max_active_runs': 1, 'sira': 'eskiden_yeniye', 'oncelik': 1, 'gerekce': 'depends_on_past; 181 dk seri iş, en uzun zincir önce başlamalı.'}, {'dag': 'kpi_ozet', 'max_active_runs': 1, 'sira': 'eskiden_yeniye', 'oncelik': 2, 'gerekce': 'depends_on_past.'}, {'dag': 'satis_gunluk', 'max_active_runs': 2, 'sira': 'eskiden_yeniye', 'oncelik': 3, 'gerekce': ''}, {'dag': 'stok_snapshot', 'max_active_runs': 2, 'sira': 'yeniden_eskiye', 'oncelik': 4, 'gerekce': 'Güncel stok raporları önce düzelsin.'}]}
+OUTPUTS['backfill-planlayici'] = 'backfill.md'
+GOOD['butce-fazlandirici'] = {'hesaplar': [{'hesap': '770', 'agirliklar': [0.196662, 0.070684, 0.072841, 0.071066, 0.070415, 0.072881, 0.076682, 0.075817, 0.075557, 0.071558, 0.073875, 0.071962], 'istisna_aylar': [1], 'gerekce': 'Ocak’ta 150.000 TL peşin lisans; kalan geçen yıl dağılımıyla.'}, {'hesap': '760', 'agirliklar': [0.045796, 0.053063, 0.121102, 0.082284, 0.073356, 0.065065, 0.04877, 0.053545, 0.085152, 0.095896, 0.153408, 0.122563], 'istisna_aylar': [3], 'gerekce': 'Mart’ta fuar için 40.000 TL; Kasım kampanyası geçen yılla aynı.'}, {'hesap': '600', 'agirliklar': [0.069163, 0.063877, 0.075753, 0.084718, 0.083338, 0.088665, 0.091375, 0.079868, 0.086908, 0.086332, 0.092054, 0.097949], 'istisna_aylar': [], 'gerekce': ''}, {'hesap': '621', 'agirliklar': [0.069224, 0.066986, 0.077678, 0.086024, 0.0832, 0.090657, 0.092348, 0.082557, 0.080315, 0.08151, 0.094302, 0.095199], 'istisna_aylar': [], 'gerekce': ''}]}
+OUTPUTS['butce-fazlandirici'] = 'butce-fazlandirma.md'
+GOOD['k-anonimlik-genellestirici'] = {'kolonlar': [{'kolon': 'yas', 'tip': 'aralik', 'deger': 20, 'gerekce': '20 yıllık yaş grupları'}, {'kolon': 'cinsiyet', 'tip': 'koru', 'deger': 0, 'gerekce': ''}, {'kolon': 'posta_kodu', 'tip': 'onek', 'deger': 2, 'gerekce': 'İl düzeyi'}, {'kolon': 'meslek', 'tip': 'gizle', 'deger': 0, 'gerekce': '11 meslek küçük grup oluşturuyor'}]}
+OUTPUTS['k-anonimlik-genellestirici'] = 'k-anonimlik.md'
+GOOD['yukleme-sirasi-planlayici'] = {'sira': ['ulke', 'sehir', 'urun', 'departman', 'calisan', 'musteri', 'siparis', 'siparis_kalem', 'fatura'], 'ertelenen': [{'tablo': 'departman', 'kolon': 'mudur_id', 'gerekce': 'departman ↔ calisan döngüsü'}, {'tablo': 'calisan', 'kolon': 'yonetici_id', 'gerekce': 'kendine referans'}]}
+OUTPUTS['yukleme-sirasi-planlayici'] = 'yukleme-sirasi.md'
+GOOD['ozet-tablo-onerici'] = {'ozet_tablolar': [{'ad': 'agg_ay_bolge_kategori_kanal', 'boyutlar': ['ay', 'bolge', 'kategori', 'kanal'], 'olcumler': ['sum(tutar)', 'sum(adet)', 'count(*)', 'max(tutar)'], 'gerekce': 'Q01, Q02, Q03, Q04, Q09, Q10 bu tablodan toplanır.'}, {'ad': 'agg_ay_magaza', 'boyutlar': ['ay', 'magaza'], 'olcumler': ['sum(tutar)', 'sum(adet)'], 'gerekce': 'Mağaza bazında aylık rapor (Q06).'}, {'ad': 'agg_ay_tekil_musteri', 'boyutlar': ['ay'], 'olcumler': ['count_distinct(musteri)'], 'gerekce': 'Tekil müşteri yeniden toplanamaz; ay düzeyinde ayrı tutulur.'}]}
+OUTPUTS['ozet-tablo-onerici'] = 'ozet-tablolar.md'
+GOOD['rol-madenciligi'] = {'roller': [{'ad': 'satis_temel', 'yetkiler': ['crm.okuma', 'crm.yazma', 'rapor.satis', 'siparis.okuma', 'siparis.yazma']}, {'ad': 'finans_temel', 'yetkiler': ['fatura.okuma', 'fatura.yazma', 'odeme.okuma', 'rapor.finans', 'siparis.okuma']}, {'ad': 'destek', 'yetkiler': ['crm.okuma', 'destek.yazma', 'siparis.okuma']}, {'ad': 'analist_okuma', 'yetkiler': ['crm.okuma', 'fatura.okuma', 'rapor.finans', 'rapor.satis', 'siparis.okuma']}, {'ad': 'dwh_okuma', 'yetkiler': ['dwh.okuma']}, {'ad': 'satis_yonetici_ek', 'yetkiler': ['siparis.onay', 'rapor.yonetim']}, {'ad': 'finans_yonetici_ek', 'yetkiler': ['odeme.onay', 'rapor.yonetim']}], 'atamalar': [{'kume': 'K1', 'roller': ['satis_temel']}, {'kume': 'K2', 'roller': ['finans_temel']}, {'kume': 'K3', 'roller': ['destek']}, {'kume': 'K4', 'roller': ['analist_okuma', 'dwh_okuma']}, {'kume': 'K5', 'roller': ['satis_temel', 'satis_yonetici_ek']}, {'kume': 'K6', 'roller': ['satis_temel', 'dwh_okuma']}, {'kume': 'K7', 'roller': ['finans_temel', 'finans_yonetici_ek']}]}
+OUTPUTS['rol-madenciligi'] = 'rol-madenciligi.md'
 GOOD['tableau-hesap-yazari'] = {'alanlar': [{'ad': 'Son Tarih', 'formul': '{FIXED : MAX([Siparis Tarihi])}', 'tip': 'date', 'rol': 'dimension', 'aciklama': 'Verideki son sipariş tarihi.'}, {'ad': 'Ciro YTD', 'formul': "SUM(IF [Siparis Tarihi] >= DATETRUNC('year', [Son Tarih]) AND [Siparis Tarihi] <= [Son Tarih] THEN [Tutar] END)", 'tip': 'real', 'rol': 'measure', 'aciklama': 'Yıl başından son tarihe.'}, {'ad': 'Ciro GY YTD', 'formul': "SUM(IF [Siparis Tarihi] >= DATEADD('year', -1, DATETRUNC('year', [Son Tarih])) AND [Siparis Tarihi] <= DATEADD('year', -1, [Son Tarih]) THEN [Tutar] END)", 'tip': 'real', 'rol': 'measure', 'aciklama': 'Geçen yılın aynı dönemi.'}, {'ad': 'Sipariş Başına Ciro', 'formul': 'SUM([Tutar]) / COUNTD([Siparis No])', 'tip': 'real', 'rol': 'measure', 'aciklama': ''}, {'ad': 'Bölge Payı', 'formul': 'SUM({FIXED [Bolge] : SUM([Tutar])}) / SUM({FIXED : SUM([Tutar])})', 'tip': 'real', 'rol': 'measure', 'aciklama': ''}], 'varsayimlar': ['Ciro, Tutar alanının toplamıdır.']}
 OUTPUTS['tableau-hesap-yazari'] = 'hesaplanan-alanlar.md'
 OUTPUTS.update({'deney-analisti': 'deney-raporu.md', 'sube-planlayici': 'sube-plani.md', 'rapor-tasarimcisi': 'tasarim.md'})
@@ -2060,6 +2076,162 @@ class Agents(LocalTestCase):
         self.assertNotEqual(done.returncode, 0)
         self.assertIn('eşik 0.45: 218 alarm, kapasite 150', self.model.requests[-1]['body']['messages'][-1]['content'])
 
+    def test_k8s_requests_follow_usage_percentiles(self):
+        k = lambda d, cr, mr, ml, cl=None: {'deployment': d, 'cpu_request_m': cr, 'cpu_limit_m': cl, 'mem_request_mib': mr, 'mem_limit_mib': ml}
+        bad = {'deploymentlar': [k('siparis-api', 100, 640, 800), k('sepet-api', 230, 400, 512, 300), k('arama', 1800, 2700, 3072), k('resim-isleyici', 'x', 512, 1024),
+                                 k('etl-worker', 800, 1600, 2048), k('bildirim', 500, 100, 256)]}
+        p, done = self.run_agent('k8s-kaynak-ayarlayici', '--yes', answers=[bad, GOOD['k8s-kaynak-ayarlayici']])
+        self.ok(done)
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        for text in ('siparis-api: CPU request 100m, medyan kullanım 180m', 'sepet-api: CPU limiti 300m, en yüksek kullanım 380m; throttling olur',
+                     'arama: bellek limiti 3072 MiB, en yüksek kullanım 3100 MiB; en az 3410 MiB olmalı (OOMKilled)', 'bildirim: CPU request 500m, p95 kullanım 45m; en fazla 58m olmalı',
+                     'bildirim: bellek request 100 MiB, p95 kullanım 120 MiB', 'resim-isleyici: değerler tam sayı'):
+            self.assertIn(text, retry)
+        self.assertNotIn('ayarı yazılmayan', retry)  # an invalid answer is not also reported as missing
+        rows = {r['deployment']: r for r in p.csv('kaynak_plani.csv')}
+        self.assertEqual((rows['etl-worker']['aylik_once'], rows['etl-worker']['aylik_sonra']), ('128.0', '25.47'))
+        self.assertEqual(round(sum(float(r['fark']) for r in rows.values()), 2), -270.84)
+        self.assertIn('                memory: 3500Mi', p.out('kaynak_yamalari.yaml').read_text(encoding='utf-8'))
+
+    def test_api_pull_plan_fits_rate_limit_and_window(self):
+        e = lambda u, m, s, r: {'uc_nokta': u, 'mod': m, 'sayfa_boyutu': s, 'dakikada_istek': r}
+        bad = {'uc_noktalar': [e('/musteriler', 'artimli', 500, 30), e('/siparisler', 'tam', 1000, 40), e('/urunler', 'artimli', 200, 10), e('/faturalar', 'artimli', 500, 3),
+                               e('/stok', 'tam', 2000, 5), e('/kampanyalar', 'tam', 100, 2)]}
+        p, done = self.run_agent('toplu-cekim-planlayici', '--yes', answers=[bad, GOOD['toplu-cekim-planlayici']])
+        self.ok(done)
+        self.assertIn('- /siparisler: 2600000 · 1000 · 1400 · evet · 52000 · 2600 · 52', self.model.requests[-2]['body']['messages'][-1]['content'])
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        for text in ('/siparisler: artımlı çekim destekleniyor; tam çekim 2600 istek, artımlı 52 istek', '/siparisler: 2600 istek dakikada 40 istekle 65.0 dk sürer; pencere 30 dk',
+                     '/urunler: API artımlı çekimi (updated_since) desteklemiyor', '/stok: sayfa boyutu 1–1000 olmalı', 'dakikalık istek payları toplamı 75, API hız sınırı 60'):
+            self.assertIn(text, retry)
+        self.assertNotIn('planı yazılmayan', retry)
+        rows = {r['uc_nokta']: r for r in p.csv('cekim_plani.csv')}
+        self.assertEqual((rows['/urunler']['istek'], rows['/urunler']['sure_dk']), ('210', '21.0'))
+        self.assertIn('  - yol: "/siparisler"\n    mod: artimli', p.out('cekim_plani.yaml').read_text(encoding='utf-8'))
+
+    def test_backfill_plan_is_simulated_with_shared_slots(self):
+        d = lambda g, m, s, o: {'dag': g, 'max_active_runs': m, 'sira': s, 'oncelik': o}
+        bad = {'daglar': [d('musteri_bakiye', 2, 'eskiden_yeniye', 1), d('kpi_ozet', 1, 'yeniden_eskiye', 2), d('satis_gunluk', 2, 'eskiden_yeniye', 3), d('stok_snapshot', 2, 'eskiden_yeniye', 4)]}
+        p, done = self.run_agent('backfill-planlayici', '--yes', answers=[bad, GOOD['backfill-planlayici']])
+        self.ok(done)
+        self.assertIn('- musteri_bakiye: 15 · 2026-09-01–2026-09-29 · 12.1 · 181 · evet', self.model.requests[-2]['body']['messages'][-1]['content'])
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        self.assertIn('musteri_bakiye: depends_on_past=True; her bölüm bir öncekini bekler', retry)
+        self.assertIn('kpi_ozet: depends_on_past=True', retry)
+        sh = p.out('backfill.sh').read_text(encoding='utf-8')
+        self.assertIn('airflow backfill create --dag-id stok_snapshot --from-date 2026-09-01 --to-date 2026-10-10 --max-active-runs 2 --reprocess-behavior none --run-backwards', sh)
+        rows = p.csv('backfill_takvimi.csv')
+        self.assertEqual(len(rows), 75)
+        self.assertEqual(max(float(r['bitis_dk']) for r in rows), 255.5)
+        serial = [r for r in rows if r['dag'] == 'musteri_bakiye']
+        self.assertTrue(all(float(a['bitis_dk']) <= float(b['baslangic_dk']) for a, b in zip(serial, serial[1:])))
+        slow = {'daglar': [d(g, 1, 'eskiden_yeniye', i) for i, g in enumerate(('satis_gunluk', 'stok_snapshot', 'musteri_bakiye', 'kpi_ozet'), 1)]}
+        self.run_agent('backfill-planlayici', '--yes', answers=[slow, GOOD['backfill-planlayici']])
+        self.assertIn('simülasyonda backfill 6.31 saat sürüyor, pencere 4.5 saat; DAG bitişleri: satis_gunluk 6.31 sa', self.model.requests[-1]['body']['messages'][-1]['content'])
+
+    def test_budget_phasing_follows_history_and_notes(self):
+        bad = json.loads(json.dumps(GOOD['butce-fazlandirici']))
+        bad['hesaplar'][0]['istisna_aylar'] = []
+        bad['hesaplar'][1].update({'agirliklar': [round(1 / 12, 6)] * 11 + [round(1 - 11 * round(1 / 12, 6), 6)], 'istisna_aylar': [7]})
+        bad['hesaplar'][3]['agirliklar'] = bad['hesaplar'][3]['agirliklar'][:11]
+        p, done = self.run_agent('butce-fazlandirici', '--yes', answers=[bad, GOOD['butce-fazlandirici']])
+        self.ok(done)
+        self.assertIn('- 770 Genel Yönetim Giderleri: 1,200,000 · 8.2/8.1/', self.model.requests[-2]['body']['messages'][-1]['content'])
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        for text in ('770 Ocak: pay %19.7, geçen yıl %8.2', '760: Temmuz istisna denmiş ama hesabın notunda bu ay geçmiyor', '760 Kasım: pay %8.3, geçen yıl %16.1',
+                     '621: 12 negatif olmayan ağırlık gerekli'):
+            self.assertIn(text, retry)
+        rows = p.csv('aylik_butce.csv')
+        self.assertEqual(len(rows), 48)
+        totals = {}
+        for r in rows:
+            totals[r['hesap']] = round(totals.get(r['hesap'], 0) + float(r['tutar']), 2)
+        self.assertEqual(totals, {'770': 1200000.0, '760': 900000.0, '600': 24000000.0, '621': 14400000.0})
+        self.assertEqual(next(r['tutar'] for r in rows if (r['hesap'], r['donem']) == ('770', '2026-01')), '235994.4')
+
+    def test_k_anonymity_is_reached_with_minimal_generalisation(self):
+        a = lambda c, t, d=0: {'kolon': c, 'tip': t, 'deger': d}
+        coarse = {'kolonlar': [a('yas', 'aralik', 10), a('cinsiyet', 'gizle'), a('posta_kodu', 'gizle'), a('meslek', 'gizle')]}
+        p, done = self.run_agent('k-anonimlik-genellestirici', '--yes', answers=[coarse, GOOD['k-anonimlik-genellestirici']])
+        self.ok(done)
+        sent = self.model.requests[-2]['body']['messages'][-1]['content']
+        self.assertIn('- posta_kodu: metin · 14 · en fazla 5 karakter', sent)  # 06420 is a code, not a number
+        self.assertNotIn('P0001', sent)
+        self.assertIn('yas (aralik 10 yerine aralik 5 ile de k=5 sağlanıyor, bastırma %0.0); cinsiyet (gizle yerine koru ile de k=5 sağlanıyor, bastırma %1.0)',
+                      self.model.requests[-1]['body']['messages'][-1]['content'])
+        rows = p.csv('anonim_veri.csv')
+        self.assertEqual(len(rows), 394)
+        self.assertNotIn('katilimci_id', rows[0])
+        from collections import Counter
+        classes = Counter((r['yas'], r['cinsiyet'], r['posta_kodu'], r['meslek']) for r in rows)
+        self.assertGreaterEqual(min(classes.values()), 5)
+        self.assertEqual(p.json('genellestirme.json')['bastirilan_satir'], 6)
+        raw = {'kolonlar': [a('yas', 'koru'), a('cinsiyet', 'koru'), a('posta_kodu', 'onek', 3), a('meslek', 'koru')]}
+        self.run_agent('k-anonimlik-genellestirici', '--yes', answers=[raw, GOOD['k-anonimlik-genellestirici']])
+        self.assertIn('364 eşdeğerlik sınıfından 362 tanesi 5 kişiden küçük; bastırılacak satır payı %97.5', self.model.requests[-1]['body']['messages'][-1]['content'])
+
+    def test_load_order_respects_foreign_keys_and_breaks_cycles(self):
+        bad = {'sira': ['ulke', 'sehir', 'urun', 'departman', 'calisan', 'siparis', 'musteri', 'siparis_kalem', 'fatura'],
+               'ertelenen': [{'tablo': 'departman', 'kolon': 'mudur_id'}, {'tablo': 'siparis', 'kolon': 'musteri_id'}, {'tablo': 'fatura', 'kolon': 'siparis_id'}]}
+        p, done = self.run_agent('yukleme-sirasi-planlayici', '--yes', answers=[bad, GOOD['yukleme-sirasi-planlayici']])
+        self.ok(done)
+        sent = self.model.requests[-2]['body']['messages'][-1]['content']
+        for text in ('- musteri.sehir_id → sehir · evet', '- departman.mudur_id → calisan · evet', '- siparis.musteri_id → musteri · hayır (NOT NULL)'):
+            self.assertIn(text, sent)  # one-line CREATE TABLE and ALTER TABLE foreign keys are read
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        for text in ('siparis.musteri_id NOT NULL; ertelenemez', 'fatura.siparis_id → siparis bir döngüde değil; ertelemek gereksiz',
+                     'calisan.yonetici_id tablonun kendisine referans veriyor; ertelenmeli'):
+            self.assertIn(text, retry)
+        rows = {r['tablo']: r for r in p.csv('yukleme_sirasi.csv')}
+        self.assertEqual([rows[t]['dalga'] for t in ('ulke', 'urun', 'departman', 'calisan', 'fatura')], ['1', '1', '3', '4', '7'])
+        self.assertIn('ALTER TABLE departman ADD CONSTRAINT fk_departman_mudur_id FOREIGN KEY (mudur_id) REFERENCES calisan;', p.out('yukleme_plani.sql').read_text(encoding='utf-8'))
+
+    def test_aggregate_tables_answer_logged_queries(self):
+        o = lambda a, d, m: {'ad': a, 'boyutlar': d, 'olcumler': m}
+        bad = {'ozet_tablolar': [o('agg_gun_magaza_kategori', ['tarih', 'magaza', 'kategori'], ['sum(tutar)']), o('agg_ay_bolge', ['ay', 'bolge'], ['count_distinct(musteri)'])]}
+        p, done = self.run_agent('ozet-tablo-onerici', '--yes', answers=[bad, GOOD['ozet-tablo-onerici']])
+        self.ok(done)
+        self.assertIn('İşlevsel bağımlılıklar (x → türetilebilen): tarih → ay; magaza → bolge; urun → kategori', self.model.requests[-2]['body']['messages'][-1]['content'])
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        self.assertIn('agg_gun_magaza_kategori: 5242 satır, olgu tablosunun %87’i (en fazla %20)', retry)
+        self.assertIn('agg_ay_bolge: hiçbir sorguyu karşılamıyor', retry)
+        route = {r['sorgu']: r['ozet_tablo'] for r in p.csv('sorgu_yonlendirme.csv')}
+        self.assertEqual((route['Q01'], route['Q07'], route['Q05']), ('agg_ay_magaza', 'agg_ay_tekil_musteri', ''))
+        # the generated SQL runs and the aggregates add up to the fact table
+        import sqlite3
+        db = sqlite3.connect(':memory:')
+        cols, facts = tabular.read(p.dir / 'ornek' / 'satis_olgu.csv')
+        db.execute(f'CREATE TABLE satis_olgu ({", ".join(cols)})')
+        db.executemany(f'INSERT INTO satis_olgu VALUES ({",".join("?" * len(cols))})', [[float(r[c]) if c in ('adet', 'tutar') else r[c] for c in cols] for r in facts])
+        db.executescript(p.out('ozet_tablolar.sql').read_text(encoding='utf-8'))
+        self.assertEqual(db.execute('SELECT COUNT(*), SUM(satir_sayisi) FROM agg_ay_bolge_kategori_kanal').fetchone(), (432, 6000))
+        self.assertAlmostEqual(db.execute('SELECT SUM(tutar_sum) FROM agg_ay_magaza').fetchone()[0], db.execute('SELECT SUM(tutar) FROM satis_olgu').fetchone()[0], places=2)
+        self.assertEqual(db.execute("SELECT musteri_count_distinct FROM agg_ay_tekil_musteri WHERE ay = '2026-03'").fetchone(),
+                         db.execute("SELECT COUNT(DISTINCT musteri) FROM satis_olgu WHERE ay = '2026-03'").fetchone())
+
+    def test_roles_reproduce_each_users_access_exactly(self):
+        bad = json.loads(json.dumps(GOOD['rol-madenciligi']))
+        bad['atamalar'][4]['roller'] = ['satis_temel']
+        bad['atamalar'][5]['roller'] = ['satis_temel', 'analist_okuma', 'dwh_okuma']
+        p, done = self.run_agent('rol-madenciligi', '--yes', answers=[bad, GOOD['rol-madenciligi']])
+        self.ok(done)
+        sent = self.model.requests[-2]['body']['messages'][-1]['content']
+        self.assertIn('- K6: 1 · Satış 1 · crm.okuma, crm.yazma, dwh.okuma, rapor.satis, siparis.okuma, siparis.yazma', sent)
+        self.assertNotIn('@firma.com.tr', sent)
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        for text in ('K5: eksik yetki: rapor.yonetim, siparis.onay', 'K6: fazla yetki (en az yetki ilkesi): fatura.okuma, rapor.finans', 'hiçbir kümeye atanmayan rol: satis_yonetici_ek'):
+            self.assertIn(text, retry)
+        roles = {}
+        for r in p.csv('rol_yetkileri.csv'):
+            roles.setdefault(r['rol'], set()).add(r['yetki'])
+        got = {}
+        for r in p.csv('kullanici_rolleri.csv'):
+            got.setdefault(r['kullanici'], set()).update(roles[r['rol']])
+        want = {}
+        for r in tabular.read(p.dir / 'ornek' / 'kullanici_yetkileri.csv')[1]:
+            want.setdefault(r['kullanici'], set()).add(r['yetki'])
+        self.assertEqual(got, want)
+
     def test_invalid_answer_gets_one_corrective_retry(self):
         bad = {'sql': 'SELECT s.KalemlerToplamCiro FROM dbo.Siparisler s'}
         p, done = self.run_agent('sql-yazari', '--yes', answers=[bad, GOOD['sql-yazari']])
@@ -2154,7 +2326,15 @@ class Agents(LocalTestCase):
                              ('katman-atayici', {'tablolar': [{**t, 'katman': 'gold'} for t in GOOD['katman-atayici']['tablolar']]}),
                              ('baglanti-havuzu-boyutlandirici', {'servisler': [{**v, 'havuz_max': 1} for v in GOOD['baglanti-havuzu-boyutlandirici']['servisler']]}),
                              ('geofence-yaricap-onerici', {'magazalar': [{**g, 'yaricap_m': 30} for g in GOOD['geofence-yaricap-onerici']['magazalar']]}),
-                             ('esik-secici', {**GOOD['esik-secici'], 'esik': 0.9})]:
+                             ('esik-secici', {**GOOD['esik-secici'], 'esik': 0.9}),
+                             ('k8s-kaynak-ayarlayici', {'deploymentlar': [{**d, 'mem_limit_mib': 64} for d in GOOD['k8s-kaynak-ayarlayici']['deploymentlar']]}),
+                             ('toplu-cekim-planlayici', {'uc_noktalar': [{**u, 'dakikada_istek': 50} for u in GOOD['toplu-cekim-planlayici']['uc_noktalar']]}),
+                             ('backfill-planlayici', {'daglar': [{**d, 'max_active_runs': 4} for d in GOOD['backfill-planlayici']['daglar']]}),
+                             ('butce-fazlandirici', {'hesaplar': [{**h, 'istisna_aylar': []} for h in GOOD['butce-fazlandirici']['hesaplar']]}),
+                             ('k-anonimlik-genellestirici', {'kolonlar': [{**c, 'tip': 'koru'} for c in GOOD['k-anonimlik-genellestirici']['kolonlar']]}),
+                             ('yukleme-sirasi-planlayici', {**GOOD['yukleme-sirasi-planlayici'], 'sira': GOOD['yukleme-sirasi-planlayici']['sira'][::-1]}),
+                             ('ozet-tablo-onerici', {'ozet_tablolar': GOOD['ozet-tablo-onerici']['ozet_tablolar'][2:]}),
+                             ('rol-madenciligi', {**GOOD['rol-madenciligi'], 'atamalar': GOOD['rol-madenciligi']['atamalar'][:3]})]:
             with self.subTest(item_id):
                 p, done = self.run_agent(item_id, '--yes', answers=[bad, bad])
                 self.assertEqual(done.returncode, 1)

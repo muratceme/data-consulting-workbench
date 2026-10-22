@@ -39,12 +39,14 @@ def num(v):
 
 def validator(prof, max_out):
     def validate(obj):
+        seen = set()
         problems, out = [], {}
         for e in obj.get('kolonlar') or []:
             c = str(e.get('kolon', '')).strip()
-            if c not in prof or c in out:
+            if c not in prof or c in seen:
                 problems.append(f'kolon “{c}” profilde yok ya da iki kez yazıldı')
                 continue
+            seen.add(c)
             try:
                 lo, hi = num(e.get('min')), num(e.get('max'))
             except (TypeError, ValueError):
@@ -64,7 +66,7 @@ def validator(prof, max_out):
             if ok_uc and not why:
                 problems.append(f'{c}: uç değerler geçerli denmiş ama gerekçe yok')
             out[c] = (lo, hi, why)
-        missing = [c for c in prof if c not in out]
+        missing = [c for c in prof if c not in seen]
         if missing:
             problems.append('aralığı yazılmayan kolon: ' + ', '.join(missing))
         if problems:

@@ -1,0 +1,113 @@
+kullanici;departman;yetki
+ayse.1@firma.com.tr;Satış;crm.okuma
+ayse.1@firma.com.tr;Satış;crm.yazma
+ayse.1@firma.com.tr;Satış;siparis.okuma
+ayse.1@firma.com.tr;Satış;siparis.yazma
+ayse.1@firma.com.tr;Satış;rapor.satis
+mehmet.2@firma.com.tr;Satış;crm.okuma
+mehmet.2@firma.com.tr;Satış;crm.yazma
+mehmet.2@firma.com.tr;Satış;siparis.okuma
+mehmet.2@firma.com.tr;Satış;siparis.yazma
+mehmet.2@firma.com.tr;Satış;rapor.satis
+zeynep.3@firma.com.tr;Satış;crm.okuma
+zeynep.3@firma.com.tr;Satış;crm.yazma
+zeynep.3@firma.com.tr;Satış;siparis.okuma
+zeynep.3@firma.com.tr;Satış;siparis.yazma
+zeynep.3@firma.com.tr;Satış;rapor.satis
+ali.4@firma.com.tr;Satış;crm.okuma
+ali.4@firma.com.tr;Satış;crm.yazma
+ali.4@firma.com.tr;Satış;siparis.okuma
+ali.4@firma.com.tr;Satış;siparis.yazma
+ali.4@firma.com.tr;Satış;rapor.satis
+ali.4@firma.com.tr;Satış;dwh.okuma
+elif.5@firma.com.tr;Satış;crm.okuma
+elif.5@firma.com.tr;Satış;crm.yazma
+elif.5@firma.com.tr;Satış;siparis.okuma
+elif.5@firma.com.tr;Satış;siparis.yazma
+elif.5@firma.com.tr;Satış;rapor.satis
+can.6@firma.com.tr;Satış;crm.okuma
+can.6@firma.com.tr;Satış;crm.yazma
+can.6@firma.com.tr;Satış;siparis.okuma
+can.6@firma.com.tr;Satış;siparis.yazma
+can.6@firma.com.tr;Satış;rapor.satis
+deniz.7@firma.com.tr;Satış;crm.okuma
+deniz.7@firma.com.tr;Satış;crm.yazma
+deniz.7@firma.com.tr;Satış;siparis.okuma
+deniz.7@firma.com.tr;Satış;siparis.yazma
+deniz.7@firma.com.tr;Satış;rapor.satis
+burak.8@firma.com.tr;Satış;crm.okuma
+burak.8@firma.com.tr;Satış;crm.yazma
+burak.8@firma.com.tr;Satış;siparis.okuma
+burak.8@firma.com.tr;Satış;siparis.yazma
+burak.8@firma.com.tr;Satış;rapor.satis
+burak.8@firma.com.tr;Satış;siparis.onay
+burak.8@firma.com.tr;Satış;rapor.yonetim
+selin.9@firma.com.tr;Satış;crm.okuma
+selin.9@firma.com.tr;Satış;crm.yazma
+selin.9@firma.com.tr;Satış;siparis.okuma
+selin.9@firma.com.tr;Satış;siparis.yazma
+selin.9@firma.com.tr;Satış;rapor.satis
+selin.9@firma.com.tr;Satış;siparis.onay
+selin.9@firma.com.tr;Satış;rapor.yonetim
+emre.10@firma.com.tr;Finans;fatura.okuma
+emre.10@firma.com.tr;Finans;fatura.yazma
+emre.10@firma.com.tr;Finans;odeme.okuma
+emre.10@firma.com.tr;Finans;rapor.finans
+emre.10@firma.com.tr;Finans;siparis.okuma
+ece.11@firma.com.tr;Finans;fatura.okuma
+ece.11@firma.com.tr;Finans;fatura.yazma
+ece.11@firma.com.tr;Finans;odeme.okuma
+ece.11@firma.com.tr;Finans;rapor.finans
+ece.11@firma.com.tr;Finans;siparis.okuma
+murat.12@firma.com.tr;Finans;fatura.okuma
+murat.12@firma.com.tr;Finans;fatura.yazma
+murat.12@firma.com.tr;Finans;odeme.okuma
+murat.12@firma.com.tr;Finans;rapor.finans
+murat.12@firma.com.tr;Finans;siparis.okuma
+derya.13@firma.com.tr;Finans;fatura.okuma
+derya.13@firma.com.tr;Finans;fatura.yazma
+derya.13@firma.com.tr;Finans;odeme.okuma
+derya.13@firma.com.tr;Finans;rapor.finans
+derya.13@firma.com.tr;Finans;siparis.okuma
+kerem.14@firma.com.tr;Finans;fatura.okuma
+kerem.14@firma.com.tr;Finans;fatura.yazma
+kerem.14@firma.com.tr;Finans;odeme.okuma
+kerem.14@firma.com.tr;Finans;rapor.finans
+kerem.14@firma.com.tr;Finans;siparis.okuma
+gizem.15@firma.com.tr;Finans;fatura.okuma
+gizem.15@firma.com.tr;Finans;fatura.yazma
+gizem.15@firma.com.tr;Finans;odeme.okuma
+gizem.15@firma.com.tr;Finans;rapor.finans
+gizem.15@firma.com.tr;Finans;siparis.okuma
+gizem.15@firma.com.tr;Finans;odeme.onay
+gizem.15@firma.com.tr;Finans;rapor.yonetim
+okan.16@firma.com.tr;Analitik;crm.okuma
+okan.16@firma.com.tr;Analitik;siparis.okuma
+okan.16@firma.com.tr;Analitik;fatura.okuma
+okan.16@firma.com.tr;Analitik;rapor.satis
+okan.16@firma.com.tr;Analitik;rapor.finans
+okan.16@firma.com.tr;Analitik;dwh.okuma
+pinar.17@firma.com.tr;Analitik;crm.okuma
+pinar.17@firma.com.tr;Analitik;siparis.okuma
+pinar.17@firma.com.tr;Analitik;fatura.okuma
+pinar.17@firma.com.tr;Analitik;rapor.satis
+pinar.17@firma.com.tr;Analitik;rapor.finans
+pinar.17@firma.com.tr;Analitik;dwh.okuma
+tolga.18@firma.com.tr;Analitik;crm.okuma
+tolga.18@firma.com.tr;Analitik;siparis.okuma
+tolga.18@firma.com.tr;Analitik;fatura.okuma
+tolga.18@firma.com.tr;Analitik;rapor.satis
+tolga.18@firma.com.tr;Analitik;rapor.finans
+tolga.18@firma.com.tr;Analitik;dwh.okuma
+nazli.19@firma.com.tr;Müşteri Hizmetleri;crm.okuma
+nazli.19@firma.com.tr;Müşteri Hizmetleri;siparis.okuma
+nazli.19@firma.com.tr;Müşteri Hizmetleri;destek.yazma
+serkan.20@firma.com.tr;Müşteri Hizmetleri;crm.okuma
+serkan.20@firma.com.tr;Müşteri Hizmetleri;siparis.okuma
+serkan.20@firma.com.tr;Müşteri Hizmetleri;destek.yazma
+ayse.21@firma.com.tr;Müşteri Hizmetleri;crm.okuma
+ayse.21@firma.com.tr;Müşteri Hizmetleri;siparis.okuma
+ayse.21@firma.com.tr;Müşteri Hizmetleri;destek.yazma
+mehmet.22@firma.com.tr;Müşteri Hizmetleri;crm.okuma
+mehmet.22@firma.com.tr;Müşteri Hizmetleri;siparis.okuma
+mehmet.22@firma.com.tr;Müşteri Hizmetleri;destek.yazma
