@@ -1,0 +1,30 @@
+{"event": "Product Viewed", "properties": {"product_id": "P100", "price": 199.9, "category": "kupa"}, "type": "track", "timestamp": "2026-10-15T10:00:00Z"}
+{"event": "Product Viewed", "properties": {"product_id": "P101", "price": 200.9, "category": "kupa"}, "type": "track", "timestamp": "2026-10-15T10:01:00Z"}
+{"event": "Product Viewed", "properties": {"product_id": "P102", "price": 201.9, "category": "kupa"}, "type": "track", "timestamp": "2026-10-15T10:02:00Z"}
+{"event": "Product Viewed", "properties": {"product_id": "P103", "price": "199.90", "category": "kupa"}, "type": "track", "timestamp": "2026-10-15T10:03:00Z"}
+{"event": "Product Viewed", "properties": {"product_id": "P104", "price": 203.9, "category": "kupa"}, "type": "track", "timestamp": "2026-10-15T10:04:00Z"}
+{"event": "Product Viewed", "properties": {"product_id": "P105", "price": 204.9, "category": "kupa"}, "type": "track", "timestamp": "2026-10-15T10:05:00Z"}
+{"event": "Product Viewed", "properties": {"product_id": "P106", "price": 205.9, "category": "kupa"}, "type": "track", "timestamp": "2026-10-15T10:06:00Z"}
+{"event": "Product Viewed", "properties": {"product_id": "P107", "price": "199.90", "category": "kupa"}, "type": "track", "timestamp": "2026-10-15T10:07:00Z"}
+{"event": "Product Viewed", "properties": {"product_id": "P108", "price": 207.9, "category": "kupa"}, "type": "track", "timestamp": "2026-10-15T10:08:00Z"}
+{"event": "Product Viewed", "properties": {"product_id": "P109", "price": 208.9, "category": "kupa"}, "type": "track", "timestamp": "2026-10-15T10:09:00Z"}
+{"event": "Product Viewed", "properties": {"product_id": "P110", "price": 209.9, "category": "kupa"}, "type": "track", "timestamp": "2026-10-15T10:10:00Z"}
+{"event": "Product Viewed", "properties": {"product_id": "P111", "price": 210.9, "category": "kupa"}, "type": "track", "timestamp": "2026-10-15T10:11:00Z"}
+{"event": "Order Completed", "properties": {"order_id": "O900", "revenue": 450.0, "currency": "TRY"}, "type": "track", "timestamp": "2026-10-15T10:12:00Z"}
+{"event": "Order Completed", "properties": {"order_id": "O901", "revenue": 460.0, "currency": "TRY"}, "type": "track", "timestamp": "2026-10-15T10:13:00Z"}
+{"event": "Order Completed", "properties": {"revenue": 470.0, "currency": "TRY"}, "type": "track", "timestamp": "2026-10-15T10:14:00Z"}
+{"event": "Order Completed", "properties": {"order_id": "O903", "revenue": 480.0, "currency": "TRY"}, "type": "track", "timestamp": "2026-10-15T10:15:00Z"}
+{"event": "Order Completed", "properties": {"order_id": "O904", "revenue": 490.0, "currency": "TL"}, "type": "track", "timestamp": "2026-10-15T10:16:00Z"}
+{"event": "Order Completed", "properties": {"order_id": "O905", "revenue": 500.0, "currency": "TRY"}, "type": "track", "timestamp": "2026-10-15T10:17:00Z"}
+{"event": "Order Completed", "properties": {"order_id": "O906", "revenue": 510.0, "currency": "TRY", "odeme_tipi": "kart"}, "type": "track", "timestamp": "2026-10-15T10:18:00Z"}
+{"event": "Order Completed", "properties": {"order_id": "O907", "revenue": 520.0, "currency": "TRY"}, "type": "track", "timestamp": "2026-10-15T10:19:00Z"}
+{"event": "Signed Up", "properties": {"method": "email"}, "type": "track", "timestamp": "2026-10-15T10:20:00Z"}
+{"event": "Signed Up", "properties": {"method": "google"}, "type": "track", "timestamp": "2026-10-15T10:21:00Z"}
+{"event": "Signed Up", "properties": {"method": "apple"}, "type": "track", "timestamp": "2026-10-15T10:22:00Z"}
+{"event": "Signed Up", "properties": {"method": "facebook"}, "type": "track", "timestamp": "2026-10-15T10:23:00Z"}
+{"event": "Signed Up", "properties": {"method": "email"}, "type": "track", "timestamp": "2026-10-15T10:24:00Z"}
+{"event": "orderCompleted", "properties": {"order_id": "O950", "total": 300}, "type": "track", "timestamp": "2026-10-15T10:25:00Z"}
+{"event": "orderCompleted", "properties": {"order_id": "O951", "total": 300}, "type": "track", "timestamp": "2026-10-15T10:26:00Z"}
+{"event": "orderCompleted", "properties": {"order_id": "O952", "total": 300}, "type": "track", "timestamp": "2026-10-15T10:27:00Z"}
+{"event": "page_view", "properties": {"path": "/"}, "type": "track", "timestamp": "2026-10-15T10:28:00Z"}
+{"event": "page_view", "properties": {"path": "/"}, "type": "track", "timestamp": "2026-10-15T10:29:00Z"}

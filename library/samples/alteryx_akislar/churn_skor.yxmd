@@ -1,0 +1,127 @@
+<?xml version="1.0"?>
+<AlteryxDocument yxmdVer="2023.2">
+  <Nodes>
+    <Node ToolID="1">
+      <GuiSettings Plugin="AlteryxBasePluginsGui.DbFileInput.DbFileInput"><Position x="90" y="100" /></GuiSettings>
+      <Properties>
+        <Configuration><File RecordLimit="" FileFormat="0">C:\Veri\musteri_hareket.csv</File></Configuration>
+        <Annotation DisplayMode="0"><Name /></Annotation>
+      </Properties>
+      <EngineSettings EngineDll="AlteryxBasePluginsEngine.dll" EngineDllEntryPoint="AlteryxDbFileInput" />
+    </Node>
+    <Node ToolID="2">
+      <GuiSettings Plugin="AlteryxBasePluginsGui.Formula.Formula"><Position x="180" y="100" /></GuiSettings>
+      <Properties>
+        <Configuration><FormulaFields><FormulaField expression="DateTimeDiff(DateTimeNow(),[son_siparis],&quot;days&quot;)" field="gun" /></FormulaFields></Configuration>
+        <Annotation DisplayMode="0"><Name /></Annotation>
+      </Properties>
+      <EngineSettings EngineDll="AlteryxBasePluginsEngine.dll" EngineDllEntryPoint="AlteryxFormula" />
+    </Node>
+    <Node ToolID="3">
+      <GuiSettings Plugin="AlteryxBasePluginsGui.MultiRowFormula.MultiRowFormula"><Position x="270" y="100" /></GuiSettings>
+      <Properties>
+        <Configuration><Expression>[Row-1:ciro]</Expression></Configuration>
+        <Annotation DisplayMode="0"><Name /></Annotation>
+      </Properties>
+      <EngineSettings EngineDll="AlteryxBasePluginsEngine.dll" EngineDllEntryPoint="AlteryxMultiRowFormula" />
+    </Node>
+    <Node ToolID="4">
+      <GuiSettings Plugin="AlteryxBasePluginsGui.CrossTab.CrossTab"><Position x="360" y="100" /></GuiSettings>
+      <Properties>
+        <Configuration><GroupFields><Field field="musteri_no" /></GroupFields></Configuration>
+        <Annotation DisplayMode="0"><Name /></Annotation>
+      </Properties>
+      <EngineSettings EngineDll="AlteryxBasePluginsEngine.dll" EngineDllEntryPoint="AlteryxCrossTab" />
+    </Node>
+    <Node ToolID="5">
+      <GuiSettings Plugin="AlteryxBasePluginsGui.RegEx.RegEx"><Position x="450" y="100" /></GuiSettings>
+      <Properties>
+        <Configuration><Expression>(\d+)</Expression></Configuration>
+        <Annotation DisplayMode="0"><Name /></Annotation>
+      </Properties>
+      <EngineSettings EngineDll="AlteryxBasePluginsEngine.dll" EngineDllEntryPoint="AlteryxRegEx" />
+    </Node>
+    <Node ToolID="6">
+      <GuiSettings><Position x="0" y="0" /></GuiSettings>
+      <Properties>
+        <Configuration></Configuration>
+        <Annotation DisplayMode="0"><Name /></Annotation>
+      </Properties>
+      <EngineSettings Macro="Predictive Tools\Logistic_Regression.yxmc" />
+    </Node>
+    <Node ToolID="7">
+      <GuiSettings><Position x="0" y="0" /></GuiSettings>
+      <Properties>
+        <Configuration></Configuration>
+        <Annotation DisplayMode="0"><Name /></Annotation>
+      </Properties>
+      <EngineSettings Macro="Predictive Tools\Score.yxmc" />
+    </Node>
+    <Node ToolID="8">
+      <GuiSettings Plugin="AlteryxBasePluginsGui.JupyterCode.JupyterCode"><Position x="720" y="100" /></GuiSettings>
+      <Properties>
+        <Configuration><WorkflowName>churn_skor</WorkflowName></Configuration>
+        <Annotation DisplayMode="0"><Name /></Annotation>
+      </Properties>
+      <EngineSettings EngineDll="AlteryxJupyterPluginEngine.dll" EngineDllEntryPoint="AlteryxJupyterCode" />
+    </Node>
+    <Node ToolID="9">
+      <GuiSettings Plugin="AlteryxBasePluginsGui.DbFileOutput.DbFileOutput"><Position x="810" y="100" /></GuiSettings>
+      <Properties>
+        <Configuration><File FileFormat="0">C:\Cikti\churn_skorlari.csv</File></Configuration>
+        <Annotation DisplayMode="0"><Name /></Annotation>
+      </Properties>
+      <EngineSettings EngineDll="AlteryxBasePluginsEngine.dll" EngineDllEntryPoint="AlteryxDbFileOutput" />
+    </Node>
+    <Node ToolID="10">
+      <GuiSettings Plugin="AlteryxBasePluginsGui.BrowseV2.BrowseV2"><Position x="900" y="100" /></GuiSettings>
+      <Properties>
+        <Configuration></Configuration>
+        <Annotation DisplayMode="0"><Name /></Annotation>
+      </Properties>
+      <EngineSettings EngineDll="AlteryxBasePluginsEngine.dll" EngineDllEntryPoint="AlteryxBrowseV2" />
+    </Node>
+  </Nodes>
+  <Connections>
+    <Connection>
+      <Origin ToolID="1" Connection="Output" />
+      <Destination ToolID="2" Connection="Input" />
+    </Connection>
+    <Connection>
+      <Origin ToolID="2" Connection="Output" />
+      <Destination ToolID="3" Connection="Input" />
+    </Connection>
+    <Connection>
+      <Origin ToolID="3" Connection="Output" />
+      <Destination ToolID="4" Connection="Input" />
+    </Connection>
+    <Connection>
+      <Origin ToolID="4" Connection="Output" />
+      <Destination ToolID="5" Connection="Input" />
+    </Connection>
+    <Connection>
+      <Origin ToolID="5" Connection="Output" />
+      <Destination ToolID="6" Connection="Input" />
+    </Connection>
+    <Connection>
+      <Origin ToolID="6" Connection="Output" />
+      <Destination ToolID="7" Connection="Input" />
+    </Connection>
+    <Connection>
+      <Origin ToolID="5" Connection="Output" />
+      <Destination ToolID="7" Connection="Input" />
+    </Connection>
+    <Connection>
+      <Origin ToolID="7" Connection="Output" />
+      <Destination ToolID="8" Connection="Input" />
+    </Connection>
+    <Connection>
+      <Origin ToolID="8" Connection="Output" />
+      <Destination ToolID="9" Connection="Input" />
+    </Connection>
+    <Connection>
+      <Origin ToolID="8" Connection="Output" />
+      <Destination ToolID="10" Connection="Input" />
+    </Connection>
+  </Connections>
+</AlteryxDocument>

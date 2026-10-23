@@ -1,7 +1,8 @@
 """Satış ve müşteri analitiği blokları: RFM, kohort, ABC/XYZ, sepet, churn riski, müşteri değeri, huni, oturum, ürün performansı, stok politikası."""
-import itertools, math
+import itertools, json, math, re
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta
+from pathlib import Path
 from statistics import NormalDist
 import tabular
 from islem import op, arg, Result, need, numbers, fmt, tr_money, tr_sort_key
@@ -481,3 +482,145 @@ def nps(columns, rows, args):
     return Result(f'NPS {fmt(t["nps"])} (±{fmt(t["hata_payi"])}), {t["yanit"]} yanıt', ['segment', 'yanit', 'nps', 'hata_payi', 'tesvikci_%', 'pasif_%', 'kotuleyen_%'], out,
                   {'yanit': t['yanit'], 'nps': t['nps'], 'tesvikci_%': t['tesvikci_%'], 'kotuleyen_%': t['kotuleyen_%'], 'hata_payi': t['hata_payi'], 'gecersiz': bad},
                   notes=['Hata payı %95 güvenle NPS’in ± kaç puan oynayabileceğidir; iki segmentin farkı hata paylarından küçükse fark kanıtlanmış sayılmaz. Az yanıtlı segmentleri yorumlarken dikkatli olun.'])
+
+
+GA4_RESERVED = ('ga_', 'google_', 'firebase_')
+PII_URL = re.compile(r'[?&][^=&]*=([^&]*%40|[^&]*@)[^&]*|[?&](email|eposta|e-posta|telefon|phone|tckn)=', re.I)
+
+
+@op('ga4-export-denetimi', title='GA4 BigQuery dışa aktarım denetimi: boş günler, eksik oturum ve satın alma alanları, URL’de kişisel veri', domain='product', product='GA4', tag='GA4 export',
+    samples={'ga4_olaylar.csv': 'ga4_olaylar.csv'},
+    args=[arg('--drop', type=float, default=50.0, help='Günlük olay sayısı medyanın bu yüzdesinin altına düşerse eksik gün sayılır')],
+    description='GA4’ün BigQuery dışa aktarımından düzleştirilmiş olay satırlarını (event_date, event_name, user_pseudo_id, ga_session_id, page_location, transaction_id, value, currency) denetler: hiç veri gelmeyen veya olay sayısı medyanın altına düşen günler, oturum kimliği eksik olaylar, transaction_id’si boş veya tekrar eden purchase olayları, değeri ya da para birimi olmayan satın almalar, GA4 adlandırma kurallarını çiğneyen olay adları (40 karakter, harf ile başlama, ayrılmış önekler) ve page_location’da e-posta/telefon gibi kişisel veri (Google politikası gereği gönderilmemeli). Denetim GA4 arayüzü yerine ham veri üzerinde yapılır.',
+    input='GA4 olay dışa aktarımı (düzleştirilmiş CSV)', output='sonuc.csv (bulgular) + günlük olay sayısı', command='python main.py --input ga4_events_20261001_20261014.csv',
+    expect={'olay': 120, 'gun': 14, 'eksik_gun': 2, 'bulgu': 9})
+def ga4_audit(columns, rows, args):
+    for c in ('event_date', 'event_name', 'user_pseudo_id'):
+        need(c, columns, 'GA4 dışa aktarımı')
+    g = lambda r, c: r.get(c, '').strip()
+    days = Counter()
+    for r in rows:
+        d = g(r, 'event_date').replace('-', '')
+        days[d] += 1
+    parsed = sorted(datetime.strptime(d, '%Y%m%d') for d in days if re.fullmatch(r'\d{8}', d))
+    span = [parsed[0] + timedelta(i) for i in range((parsed[-1] - parsed[0]).days + 1)] if parsed else []
+    counts = [days.get(d.strftime('%Y%m%d'), 0) for d in span]
+    nonzero = sorted(c for c in counts if c)
+    median = nonzero[len(nonzero) // 2] if nonzero else 0
+    low = [(d, c) for d, c in zip(span, counts) if c < median * args.drop / 100]
+    out = []
+    add = lambda sev, check, detail, n: out.append({'onem': sev, 'kontrol': check, 'ayrinti': detail, 'etkilenen': n})
+    for d, c in low:
+        add('yüksek' if c == 0 else 'orta', 'eksik gün', f'{d:%Y-%m-%d}: {c} olay (medyan {median}); dışa aktarım veya etiket kesintisi', c)
+    if 'ga_session_id' in columns:
+        miss = sum(1 for r in rows if not g(r, 'ga_session_id') and g(r, 'event_name') not in ('first_visit',))
+        if miss:
+            add('orta', 'oturum kimliği yok', f'{miss} olayda ga_session_id boş: oturum ve kaynak/ortam raporları eksik kalır', miss)
+    purchases = [r for r in rows if g(r, 'event_name') == 'purchase']
+    if purchases and 'transaction_id' in columns:
+        no_id = sum(1 for r in purchases if not g(r, 'transaction_id') or g(r, 'transaction_id') == '(not set)')
+        if no_id:
+            add('yüksek', 'transaction_id yok', f'{no_id}/{len(purchases)} satın almada transaction_id boş: tekilleştirilemez, gelir şişebilir', no_id)
+        dup = Counter(g(r, 'transaction_id') for r in purchases if g(r, 'transaction_id'))
+        dups = {k: v for k, v in dup.items() if v > 1}
+        if dups:
+            add('yüksek', 'tekrar eden satın alma', f'{len(dups)} transaction_id birden çok kez gönderilmiş ({", ".join(list(dups)[:5])}); sipariş onay sayfası yenilemesi', sum(v - 1 for v in dups.values()))
+    if purchases and 'value' in columns:
+        bad = sum(1 for r in purchases if not g(r, 'value') or ('currency' in columns and not g(r, 'currency')))
+        if bad:
+            add('orta', 'değer/para birimi yok', f'{bad} satın almada value veya currency boş: gelir raporu eksik', bad)
+    names = Counter(g(r, 'event_name') for r in rows)
+    wrong = [n for n in names if len(n) > 40 or not re.fullmatch(r'[A-Za-z][A-Za-z0-9_]*', n) or n.lower().startswith(GA4_RESERVED)]
+    if wrong:
+        add('orta', 'olay adı kuralı', f'{", ".join(wrong)}: en fazla 40 karakter, harfle başlayan harf/rakam/alt çizgi; ga_/google_/firebase_ önekleri ayrılmış', sum(names[n] for n in wrong))
+    case = defaultdict(set)
+    for n in names:
+        case[n.lower()].add(n)
+    split = [sorted(v) for v in case.values() if len(v) > 1]
+    if split:
+        add('düşük', 'büyük/küçük harf farkıyla ayrı olay', '; '.join(' / '.join(v) for v in split) + ': GA4 bunları farklı olay sayar', sum(names[n] for v in split for n in v))
+    if 'page_location' in columns:
+        pii = sum(1 for r in rows if PII_URL.search(g(r, 'page_location')))
+        if pii:
+            add('yüksek', 'URL’de kişisel veri', f'{pii} olayın page_location’ında e-posta/telefon parametresi var: Google politikasına aykırı, etiketi düzeltin ve geçmiş veriyi silme talebi açın', pii)
+    order = {'yüksek': 0, 'orta': 1, 'düşük': 2}
+    out.sort(key=lambda o: (order[o['onem']], o['kontrol']))
+    return Result(f'{len(rows)} olay, {len(span)} gün, {len(names)} olay adı; {len(out)} bulgu', ['onem', 'kontrol', 'ayrinti', 'etkilenen'], out,
+                  {'olay': len(rows), 'gun': len(span), 'eksik_gun': len(low), 'bulgu': len(out)},
+                  tables=[('Günlük olay sayısı', ['Gün', 'Olay'], [[f'{d:%Y-%m-%d}', c] for d, c in zip(span, counts)]),
+                          ('Olay adları', ['Olay', 'Adet'], names.most_common())],
+                  notes=['BigQuery dışa aktarımı yalnızca bağlantının açıldığı günden itibaren veri tutar; geçmiş geri gelmez. Günlük dışa aktarımda tablolar events_YYYYMMDD adıyla gelir.'])
+
+
+TYPES = {'string': str, 'metin': str, 'number': (int, float), 'sayi': (int, float), 'sayı': (int, float), 'integer': int, 'boolean': bool, 'bool': bool, 'array': list, 'object': dict}
+
+
+def title_case_event(name):
+    return bool(re.fullmatch(r'[A-Z][a-z0-9]*( [A-Z][a-z0-9]*)+', name))
+
+
+@op('tracking-plan-uyumu', title='Tracking plan uyumu: plansız olaylar, eksik ve yanlış tipli özellikler', domain='product', product='Segment', tag='tracking plan', kind='file',
+    samples={'segment_olaylar.jsonl': 'segment_olaylar.jsonl', 'tracking_plan.csv': 'tracking_plan.csv'},
+    args=[arg('--plan', default='@ornek/tracking_plan.csv', help='Tracking plan (olay, ozellik, tip, zorunlu, izinli_degerler)'),
+          arg('--style', default='object-action', choices=['object-action', 'snake'], help='Olay adı kuralı: "Order Completed" veya "order_completed"')],
+    description='Segment / Amplitude / Mixpanel olay dışa aktarımını (JSON Lines: event, properties) tracking plan tablosuyla karşılaştırır: plana hiç girmemiş olaylar, plandaki ama hiç gelmeyen olaylar, zorunlu özelliği eksik olaylar, plandakinden farklı tipte gelen özellikler, izinli değer listesi dışındaki değerler, plansız (fazladan) özellikler ve adlandırma kuralına (Object Action veya snake_case) uymayan olay adları. Olay bazında uyum yüzdesi verir.',
+    input='Olaylar JSON Lines + tracking plan CSV’si', output='sonuc.csv (olay bazında uyum) + bulgular', command='python main.py --input events.jsonl --plan tracking_plan.csv --style snake',
+    expect={'olay': 30, 'olay_adi': 5, 'uyum_%': 63.3, 'plansiz_olay': 2, 'gelmeyen_olay': 1})
+def tracking_plan(args):
+    pcols, prows = tabular.read(args.plan)
+    for c in ('olay', 'ozellik', 'tip'):
+        need(c, pcols, '--plan')
+    plan = defaultdict(dict)
+    for r in prows:
+        allowed = [x.strip() for x in r.get('izinli_degerler', '').split('|') if x.strip()]
+        plan[r['olay'].strip()][r['ozellik'].strip()] = (r['tip'].strip().lower(), r.get('zorunlu', '').strip().lower() in ('evet', 'true', '1', 'e', 'yes'), allowed)
+    events = []
+    for n, line in enumerate(Path(args.input).read_text(encoding='utf-8-sig').splitlines(), 1):
+        if line.strip():
+            try:
+                events.append(json.loads(line))
+            except ValueError:
+                raise ValueError(f'{n}. satır JSON değil.') from None
+    stats = defaultdict(lambda: {'n': 0, 'ok': 0, 'issues': Counter()})
+    for e in events:
+        name, props = e.get('event', ''), e.get('properties') or {}
+        s = stats[name]
+        s['n'] += 1
+        if name not in plan:
+            s['issues']['plansız olay'] += 1
+            continue
+        problems = []
+        for prop, (typ, required, allowed) in plan[name].items():
+            if prop not in props or props[prop] in (None, ''):
+                if required:
+                    problems.append(f'zorunlu “{prop}” eksik')
+                continue
+            v = props[prop]
+            want = TYPES.get(typ)
+            if want and (not isinstance(v, want) or isinstance(v, bool) and want in (int, (int, float))):
+                problems.append(f'“{prop}” {typ} olmalı ({type(v).__name__} geldi)')
+            elif allowed and str(v) not in allowed:
+                problems.append(f'“{prop}” izinli değil: {v}')
+        extra = sorted(set(props) - set(plan[name]))
+        if extra:
+            problems.append('plansız özellik: ' + ', '.join(extra))
+        for p_ in problems:
+            s['issues'][p_] += 1
+        if not problems:
+            s['ok'] += 1
+    style_ok = title_case_event if args.style == 'object-action' else (lambda n: bool(re.fullmatch(r'[a-z][a-z0-9]*(_[a-z0-9]+)+', n)))
+    out = []
+    for name, s in sorted(stats.items(), key=lambda kv: -kv[1]['n']):
+        notes = [f'{k} ({v})' for k, v in s['issues'].most_common()]
+        if not style_ok(name):
+            notes.append(f'ad {args.style} kuralına uymuyor')
+        out.append({'olay': name, 'adet': s['n'], 'planda': 'evet' if name in plan else 'hayır', 'uyumlu': s['ok'], 'uyum_%': round(100 * s['ok'] / s['n'], 1), 'sorunlar': '; '.join(notes)})
+    missing = sorted(set(plan) - set(stats))
+    for name in missing:
+        out.append({'olay': name, 'adet': 0, 'planda': 'evet', 'uyumlu': 0, 'uyum_%': '', 'sorunlar': 'planda var ama hiç gelmedi: etiket eksik veya kaldırılmış'})
+    total_ok = sum(s['ok'] for s in stats.values())
+    return Result(f'{len(events)} olay, {len(stats)} olay adı; genel uyum %{100 * total_ok / (len(events) or 1):.1f}, {sum(1 for n in stats if n not in plan)} plansız olay, {len(missing)} gelmeyen olay',
+                  list(out[0]), out,
+                  {'olay': len(events), 'olay_adi': len(stats), 'uyum_%': round(100 * total_ok / (len(events) or 1), 1),
+                   'plansiz_olay': sum(1 for n in stats if n not in plan), 'gelmeyen_olay': len(missing)},
+                  notes=['Segment Protocols, Amplitude Data ve Mixpanel Lexicon aynı kontrolleri canlı olarak yapar; bu blok dışa aktarılmış örnek üzerinde geçiş öncesi denetim içindir.'])

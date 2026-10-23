@@ -4,7 +4,7 @@ from collections import Counter, defaultdict
 import tabular
 from common import pii_kind
 import turkiye as tr
-from islem import op, arg, Result, need, col_list, fold, fmt, tr_title, tr_lower, tr_sort_key
+from islem import op, arg, Result, need, numbers, col_list, fold, fmt, tr_title, tr_lower, tr_sort_key
 
 REQUIRES = ['turkiye']
 D, P = 'mdm', 'Ana veri temizliği'
@@ -548,3 +548,60 @@ def attributes(columns, rows, args):
                   {'urun': len(products), 'eksik_zorunlu': c['zorunlu özellik eksik'], 'bilinmeyen_ozellik': c['şablonda olmayan özellik'], 'birim_farkli': c['birim farklı'],
                    'sayi_degil': c['sayı değil'], 'kategorisiz': c['kategori şablonda yok'], 'sorunsuz_urun': len(products) - len({o['urun'] for o in out})},
                   notes=['Birim karşılaştırması büyük/küçük harf duyarsızdır ve dönüşüm yapmaz: 4000 g ile 4 kg aynı değer olsa da “birim farklı” sayılır; standart birime çevirip yeniden yükleyin.'])
+
+
+MATCH = {'eslesme', 'eşleşme', 'ayni', 'aynı', 'match', 'evet', '1', 'true'}
+NONMATCH = {'farkli', 'farklı', 'nonmatch', 'non-match', 'hayir', 'hayır', '0', 'false'}
+
+
+@op('eslestirme-kalibrasyonu', title='MDM eşleştirme eşiği kalibrasyonu: otomatik birleştirme, inceleme ve ret bölgeleri', domain='mdm', product='MDM SaaS', tag='match tuning',
+    samples={'eslesme_ornek_ciftler.csv': 'eslesme_ornek_ciftler.csv'}, test_args=['--current', '0.8'],
+    args=[arg('--precision', type=float, default=0.98, help='Otomatik birleştirmede istenen en düşük kesinlik'),
+          arg('--miss', type=float, default=0.02, help='Ret bölgesinde kalmasına izin verilen gerçek eşleşme payı'),
+          arg('--current', type=float, default=None, help='Şu an kullanılan otomatik birleştirme eşiği (varsa)')],
+    description='Veri sorumlularının etiketlediği aday çiftlerden (kayit_a, kayit_b, skor, etiket: eşleşme/farklı) her eşik için kesinlik, duyarlılık ve F1’i hesaplar; istenen kesinliği sağlayan en düşük otomatik birleştirme eşiğini (yanlış birleştirme / over-merge riski) ve gerçek eşleşmelerin en fazla belirli payını kaçıran en yüksek ret eşiğini (eksik birleştirme / under-merge) seçer, aradaki çiftleri insan incelemesine bırakır. Mevcut eşik verilirse onunla oluşan yanlış birleştirmeleri ve kaçan eşleşmeleri listeler; inceleme kuyruğunun payını verir.',
+    input='Etiketli aday çiftler (kayit_a, kayit_b, skor, etiket)', output='sonuc.csv (eşik tablosu) + bölgeler ve hatalı birleştirmeler', command='python main.py --input stewards_sample.csv --precision 0.99 --current 0.80',
+    expect={'cift': 40, 'otomatik_esik': 0.9, 'ret_esigi': 0.61, 'inceleme_%': 45.0, 'yanlis_birlesme_mevcut': 3})
+def match_calibration(columns, rows, args):
+    for c in ('kayit_a', 'kayit_b', 'skor', 'etiket'):
+        need(c, columns, 'aday çiftler')
+    scores = numbers(rows, 'skor')
+    pairs = []
+    for r, s in zip(rows, scores):
+        lab = fold(r['etiket'])
+        if s is None or lab not in {fold(x) for x in MATCH | NONMATCH}:
+            continue
+        pairs.append((s / 100 if s > 1 else s, lab in {fold(x) for x in MATCH}, r['kayit_a'].strip(), r['kayit_b'].strip()))
+    if not pairs:
+        raise ValueError('Skoru ve etiketi (eşleşme/farklı) dolu çift yok.')
+    positives = sum(m for _, m, _, _ in pairs)
+    thresholds = sorted({round(s, 2) for s, _, _, _ in pairs})
+    out = []
+    for t in thresholds:
+        tp = sum(1 for s, m, _, _ in pairs if s >= t and m)
+        fp = sum(1 for s, m, _, _ in pairs if s >= t and not m)
+        fn = positives - tp
+        prec = tp / (tp + fp) if tp + fp else 1.0
+        rec = tp / positives if positives else 0.0
+        out.append({'esik': t, 'birlesen': tp + fp, 'dogru_birlesme': tp, 'yanlis_birlesme': fp, 'kacan_eslesme': fn, 'kesinlik': round(prec, 3), 'duyarlilik': round(rec, 3),
+                    'f1': round(2 * prec * rec / (prec + rec), 3) if prec + rec else 0.0})
+    auto = next((o['esik'] for o in out if o['kesinlik'] >= args.precision and all(x['kesinlik'] >= args.precision for x in out if x['esik'] >= o['esik'])), None)
+    reject = max((t for t in thresholds if sum(1 for s, m, _, _ in pairs if s < t and m) <= args.miss * positives), default=thresholds[0])
+    if auto is not None and reject > auto:
+        reject = auto
+    review = [p for p in pairs if (auto is None or p[0] < auto) and p[0] >= reject]
+    tables = []
+    wrong = []
+    if args.current is not None:
+        wrong = [[a, b, f'{s:.2f}', 'yanlış birleşme (farklı kayıtlar birleşiyor)'] for s, m, a, b in pairs if s >= args.current and not m]
+        wrong += [[a, b, f'{s:.2f}', 'kaçan eşleşme (aynı kayıt ayrı kalıyor)'] for s, m, a, b in pairs if s < args.current and m and s < reject]
+        tables.append((f'Mevcut eşik {args.current:g} ile hatalar', ['Kayıt A', 'Kayıt B', 'Skor', 'Hata'], wrong))
+    zones = [['otomatik birleştir', f'≥ {auto:g}' if auto is not None else '— (istenen kesinliğe ulaşılamadı)', sum(1 for p in pairs if auto is not None and p[0] >= auto)],
+             ['insan incelemesi', f'{reject:g} – {auto if auto is not None else 1:g}', len(review)], ['otomatik reddet', f'< {reject:g}', sum(1 for p in pairs if p[0] < reject)]]
+    tables.insert(0, ('Bölgeler', ['Bölge', 'Skor', 'Çift'], zones))
+    share = 100 * len(review) / len(pairs)
+    return Result(f'{len(pairs)} etiketli çift; otomatik birleştirme ≥ {auto if auto is not None else "—"}, ret < {reject:g}; çiftlerin %{share:.1f} kadarı incelemeye düşer',
+                  list(out[0]), out,
+                  {'cift': len(pairs), 'otomatik_esik': auto, 'ret_esigi': reject, 'inceleme_%': round(share, 1),
+                   'yanlis_birlesme_mevcut': sum(1 for w in wrong if w[3].startswith('yanlış'))}, tables=tables,
+                  notes=['Etiketli örnek, tüm aday çiftlerin skor dağılımını temsil etmeli (her skor diliminden örnek alın). Yanlış birleştirme geri alması zor olduğundan kesinlik hedefi duyarlılıktan önce gelir.'])

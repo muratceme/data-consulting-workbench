@@ -1,0 +1,10 @@
+olay,ozellik,tip,zorunlu,izinli_degerler
+Product Viewed,product_id,string,evet,
+Product Viewed,price,number,evet,
+Product Viewed,category,string,hayır,
+Order Completed,order_id,string,evet,
+Order Completed,revenue,number,evet,
+Order Completed,currency,string,evet,TRY|USD|EUR
+Order Completed,coupon,string,hayır,
+Signed Up,method,string,evet,email|google|apple
+Cart Viewed,cart_id,string,evet,

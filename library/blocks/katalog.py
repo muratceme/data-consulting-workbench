@@ -545,3 +545,108 @@ def unused_grants(columns, rows, args):
                   {'yetki': len(rows), 'kullanilmayan': sum(not o['bulgu'].startswith('yalnızca') for o in out), 'hic_erisimi_olmayan_kullanici': len(users - users_seen),
                    'fazla_yetki': sum(o['bulgu'].startswith('yalnızca') for o in out)},
                   notes=['Erişim günlüğünün saklama süresi --days’ten kısaysa kullanılmıyor görünen yetkiler aslında kullanılmış olabilir. Yıllık/çeyreklik raporları besleyen hizmet hesaplarını geri almadan önce sorun.'])
+
+
+PURVIEW_STATUS = {'taslak': 'Draft', 'draft': 'Draft', 'onaylı': 'Approved', 'onayli': 'Approved', 'approved': 'Approved', 'uyarı': 'Alert', 'uyari': 'Alert', 'alert': 'Alert',
+                  'süresi dolmuş': 'Expired', 'suresi dolmus': 'Expired', 'expired': 'Expired'}
+PURVIEW_COLUMNS = ['Name', 'Nick Name', 'Status', 'Definition', 'Acronym', 'Resources', 'Related Terms', 'Synonyms', 'Stewards', 'Experts', 'Parent Term Name',
+                   'IsDefinitionRichText', 'Term Template Names']
+MAIL = re.compile(r'^[^@\s;:]+@[^@\s;:]+\.[A-Za-z]{2,}$')
+
+
+@op('sozluk-ice-aktarim', title='İş sözlüğünü Microsoft Purview içe aktarma dosyasına çevir ve hiyerarşiyi doğrula', domain=D, product='Purview', tag='glossary import',
+    samples={'purview_sozluk_taslak.csv': 'purview_sozluk_taslak.csv'},
+    description='Excel’de hazırlanmış iş sözlüğünü (terim, tanım, durum, üst terim, eş anlamlılar, ilgili terimler, sorumlu ve uzman e-postası, kısaltma, kaynak bağlantısı) Purview veri haritası sözlük içe aktarma CSV’sine çevirir. Önce doğrular: aynı üst terim altında tekrar eden adlar, olmayan üst terim, döngüsel hiyerarşi, olmayan eş anlamlı/ilgili terim başvurusu, geçersiz sorumlu e-postası, tanınmayan durum ve boş tanım. Hatalı terimleri (ve onlara bağlı alt terimleri) dosyaya koymaz; üst terimler alt terimlerden önce gelecek şekilde sıralar.',
+    input='Sözlük CSV/XLSX', output='sonuc.csv (bulgular) + purview_sozluk.csv', command='python main.py --input is_sozlugu_taslak.xlsx',
+    expect={'terim': 14, 'aktarilan': 9, 'hata': 5, 'uyari': 4, 'derinlik': 3})
+def purview_glossary(columns, rows, args):
+    for c in ('terim', 'tanim', 'ust_terim'):
+        need(c, columns, 'sözlük')
+    g = lambda r, c: r.get(c, '').strip()
+    split = lambda v: [x.strip() for x in re.split(r'[;,]', v) if x.strip()]
+    names = Counter(fold(g(r, 'terim')) for r in rows if g(r, 'terim'))
+    by_key = {}
+    findings, bad = [], set()
+    for i, r in enumerate(rows, 2):
+        t = g(r, 'terim')
+        if not t:
+            findings.append({'satir': i, 'terim': '', 'tur': 'hata', 'bulgu': 'terim adı boş'})
+            continue
+        key = (fold(g(r, 'ust_terim')), fold(t))
+        if key in by_key:
+            findings.append({'satir': i, 'terim': t, 'tur': 'hata', 'bulgu': f'aynı üst terim altında tekrar ediyor (satır {by_key[key][0]})'})
+            bad.add(i)
+            continue
+        by_key[key] = (i, r)
+    rows_by = {i: r for (_, _), (i, r) in by_key.items()}
+    parent_of = {i: g(r, 'ust_terim') for i, r in rows_by.items()}
+    first_row = {}
+    for i, r in rows_by.items():
+        first_row.setdefault(fold(g(r, 'terim')), i)
+    for i, r in sorted(rows_by.items()):
+        t = g(r, 'terim')
+        add = lambda kind, text: findings.append({'satir': i, 'terim': t, 'tur': kind, 'bulgu': text})
+        p = parent_of[i]
+        if p and fold(p) not in first_row:
+            add('hata', f'üst terim “{p}” sözlükte yok')
+            bad.add(i)
+        seen, cur = {i}, i
+        while parent_of.get(cur) and fold(parent_of[cur]) in first_row:
+            cur = first_row[fold(parent_of[cur])]
+            if cur in seen:
+                add('hata', 'döngüsel hiyerarşi: terim kendi üst terimlerinden birinin altında')
+                bad.add(i)
+                break
+            seen.add(cur)
+        for ref in split(g(r, 'esanlamlilar')) + split(g(r, 'ilgili_terimler')):
+            if fold(ref) not in names:
+                add('uyarı', f'“{ref}” sözlükte yok; Purview’da bağlantı kurulamaz')
+        for col in ('sahip', 'uzman'):
+            for mail in split(g(r, col)):
+                if not MAIL.match(mail):
+                    add('hata', f'{col} e-postası geçersiz: {mail}')
+                    bad.add(i)
+        st = g(r, 'durum').lower()
+        if st and st not in PURVIEW_STATUS:
+            add('uyarı', f'durum “{g(r, "durum")}” tanınmadı; Draft olarak aktarılacak')
+        if not g(r, 'tanim'):
+            add('uyarı', 'tanım boş')
+    changed = True
+    while changed:  # children of rejected terms cannot be imported either
+        changed = False
+        for i, p in parent_of.items():
+            if i not in bad and p and fold(p) in first_row and first_row[fold(p)] in bad:
+                bad.add(i)
+                findings.append({'satir': i, 'terim': g(rows_by[i], 'terim'), 'tur': 'hata', 'bulgu': f'üst terim “{p}” aktarılamadığı için aktarılmadı'})
+                changed = True
+    depth = {}
+
+    def level(i):
+        if i not in depth:
+            p = parent_of[i]
+            depth[i] = 1 if not p or fold(p) not in first_row or first_row[fold(p)] == i else 1 + level(first_row[fold(p)])
+        return depth[i]
+    ok = sorted((i for i in rows_by if i not in bad), key=lambda i: (level(i), i))
+    exported = {fold(g(rows_by[i], 'terim')) for i in ok}
+    for i in ok:
+        for ref in split(g(rows_by[i], 'esanlamlilar')) + split(g(rows_by[i], 'ilgili_terimler')):
+            if fold(ref) in names and fold(ref) not in exported:
+                findings.append({'satir': i, 'terim': g(rows_by[i], 'terim'), 'tur': 'uyarı', 'bulgu': f'“{ref}” hata nedeniyle aktarılmadığı için bağlantı atlandı'})
+    export = []
+    for i in ok:
+        r = rows_by[i]
+        export.append({'Name': g(r, 'terim'), 'Nick Name': '', 'Status': PURVIEW_STATUS.get(g(r, 'durum').lower(), 'Draft'), 'Definition': g(r, 'tanim'),
+                       'Acronym': g(r, 'kisaltma'), 'Resources': ';'.join(f'Kaynak:{u}' for u in split(g(r, 'kaynak'))),
+                       'Related Terms': ';'.join(x for x in split(g(r, 'ilgili_terimler')) if fold(x) in exported),
+                       'Synonyms': ';'.join(x for x in split(g(r, 'esanlamlilar')) if fold(x) in exported),
+                       'Stewards': ';'.join(f'{m}:' for m in split(g(r, 'sahip'))), 'Experts': ';'.join(f'{m}:' for m in split(g(r, 'uzman'))),
+                       'Parent Term Name': g(r, 'ust_terim'), 'IsDefinitionRichText': 'false', 'Term Template Names': 'System default'})
+    errors = len({f['satir'] for f in findings if f['tur'] == 'hata'})
+    warnings = sum(f['tur'] == 'uyarı' for f in findings)
+    findings.sort(key=lambda f: (f['tur'] != 'hata', f['satir']))
+    return Result(f'{len(rows)} terim; {len(export)} terim içe aktarma dosyasında, {errors} terim hata nedeniyle dışarıda, {warnings} uyarı',
+                  ['satir', 'terim', 'tur', 'bulgu'], findings,
+                  {'terim': len(rows), 'aktarilan': len(export), 'hata': errors, 'uyari': warnings, 'derinlik': max((level(i) for i in ok), default=0)},
+                  files={'purview_sozluk.csv': (PURVIEW_COLUMNS, export)},
+                  notes=['Sütunlar Purview veri haritası (klasik) sözlük içe aktarma şablonundadır; sorumlu ve uzmanlar Purview’da kayıtlı Entra ID kullanıcısı olmalıdır. '
+                         'Önce birkaç terimle deneyin; Unified Catalog iş terimleri ayrı bir içe aktarma kullanır.'])

@@ -1,5 +1,5 @@
 """Veri doğrulama blokları: Türkiye'ye özgü kimlik/finans alanları ve tablolar arası tutarlılık kuralları."""
-import hashlib, itertools, json, re
+import hashlib, itertools, json, math, re
 from collections import Counter, defaultdict
 from pathlib import Path
 import tabular
@@ -356,3 +356,130 @@ def satir_kurallari(columns, rows, args):
         table.append([text, bad])
     return Result(f'{len(out)} kural ihlali', ['satir', 'kural', columns[0]], out, {'ihlal': len(out)},
                   tables=[('Kurallar', ['Kural', 'İhlal'], table)], code=2 if out and args.strict else 0)
+
+
+KEYLIKE = re.compile(r'(^|_)(id|no|kod|kodu|numara|numarasi)$', re.I)
+ISO_DATE = r'^\d{4}-\d{2}-\d{2}$'
+
+
+def infer_rules(columns, rows, args):
+    n = len(rows)
+    rules = [('satır sayısı', None, 'row_count', (math.floor(n * (1 - args.volume)), math.ceil(n * (1 + args.volume))))]
+    for c in columns:
+        vals = [r[c].strip() for r in rows]
+        filled = [v for v in vals if v]
+        if not filled:
+            continue
+        if len(filled) == n:
+            rules.append(('boş olamaz', c, 'not_null', None))
+        nums = numbers(rows, c)
+        numeric = all(x is not None for x, v in zip(nums, vals) if v)
+        if len(set(filled)) == len(filled) and KEYLIKE.search(c):
+            rules.append(('benzersiz', c, 'unique', None))
+        if numeric and not KEYLIKE.search(c):
+            got = [x for x in nums if x is not None]
+            lo = 0 if min(got) >= 0 else math.floor(min(got))
+            hi = math.ceil(max(got) * (1 + args.margin)) if max(got) > 0 else math.ceil(max(got))
+            rules.append(('aralık', c, 'between', (lo, hi)))
+        elif all(EMAIL.match(v) for v in filled):
+            rules.append(('e-posta biçimi', c, 'email', None))
+        elif all(re.match(ISO_DATE, v) for v in filled):
+            rules.append(('tarih biçimi (YYYY-AA-GG)', c, 'regex', ISO_DATE))
+        elif not numeric and len(set(filled)) <= args.max_values and n >= 3 * len(set(filled)):
+            rules.append(('izinli değerler', c, 'in_set', sorted(set(filled))))
+    return rules
+
+
+def rule_fails(rule, columns, rows):
+    _, c, kind, param = rule
+    if kind == 'row_count':
+        return 0 if param[0] <= len(rows) <= param[1] else 1
+    if c not in columns:
+        return len(rows)
+    vals = [r[c].strip() for r in rows]
+    if kind == 'not_null':
+        return sum(not v for v in vals)
+    if kind == 'unique':
+        seen = Counter(v for v in vals if v)
+        return sum(k - 1 for k in seen.values() if k > 1)
+    filled = [v for v in vals if v]
+    if kind == 'between':
+        nums = [tabular.parse_number(v) for v in filled]
+        return sum(x is None or not param[0] <= x <= param[1] for x in nums)
+    if kind == 'email':
+        return sum(not EMAIL.match(v) for v in filled)
+    if kind == 'regex':
+        return sum(not re.match(param, v) for v in filled)
+    if kind == 'in_set':
+        return sum(v not in param for v in filled)
+    return 0
+
+
+def gx_suite(name, rules):
+    exp = []
+    for _, c, kind, p in rules:
+        if kind == 'row_count':
+            exp.append({'type': 'expect_table_row_count_to_be_between', 'kwargs': {'min_value': p[0], 'max_value': p[1]}})
+        elif kind == 'not_null':
+            exp.append({'type': 'expect_column_values_to_not_be_null', 'kwargs': {'column': c}})
+        elif kind == 'unique':
+            exp.append({'type': 'expect_column_values_to_be_unique', 'kwargs': {'column': c}})
+        elif kind == 'between':
+            exp.append({'type': 'expect_column_values_to_be_between', 'kwargs': {'column': c, 'min_value': p[0], 'max_value': p[1]}})
+        elif kind == 'email':
+            exp.append({'type': 'expect_column_values_to_match_regex', 'kwargs': {'column': c, 'regex': EMAIL.pattern}})
+        elif kind == 'regex':
+            exp.append({'type': 'expect_column_values_to_match_regex', 'kwargs': {'column': c, 'regex': p}})
+        elif kind == 'in_set':
+            exp.append({'type': 'expect_column_values_to_be_in_set', 'kwargs': {'column': c, 'value_set': p}})
+    return {'name': name, 'expectations': exp, 'meta': {'olusturan': 'gx-soda-kurallari (veri profilinden)'}}
+
+
+def soda_yaml(table, rules):
+    q = lambda v: "'" + str(v).replace("'", "''") + "'"
+    lines = [f'checks for {table}:']
+    for _, c, kind, p in rules:
+        if kind == 'row_count':
+            lines.append(f'  - row_count between {p[0]} and {p[1]}')
+        elif kind == 'not_null':
+            lines.append(f'  - missing_count({c}) = 0')
+        elif kind == 'unique':
+            lines.append(f'  - duplicate_count({c}) = 0')
+        elif kind == 'between':
+            lines += [f'  - invalid_count({c}) = 0:', f'      valid min: {p[0]}', f'      valid max: {p[1]}']
+        elif kind == 'email':
+            lines += [f'  - invalid_count({c}) = 0:', '      valid format: email']
+        elif kind == 'regex':
+            lines += [f'  - invalid_count({c}) = 0:', f'      valid regex: {q(p)}']
+        elif kind == 'in_set':
+            lines += [f'  - invalid_count({c}) = 0:', f'      valid values: [{", ".join(q(v) for v in p)}]']
+    return '\n'.join(lines) + '\n'
+
+
+@op('gx-soda-kurallari', title='Veri profilinden Great Expectations ve Soda kontrolleri üret, yeni veride dene', domain='quality', product='GX', tag='GX / SodaCL',
+    samples={'siparis_referans.csv': 'siparis_referans.csv', 'siparis_yeni_gun.csv': 'siparis_yeni_gun.csv'},
+    args=[arg('--table', default='siparisler', help='Soda’da kontrol edilecek tablo adı'), arg('--check', default='@ornek/siparis_yeni_gun.csv', help='Kuralların deneneceği yeni dosya (boş bırakılabilir)'),
+          arg('--margin', type=float, default=0.5, help='Sayısal üst sınır payı (gözlenen en yüksek değer × (1 + pay))'), arg('--volume', type=float, default=0.5, help='Satır sayısı için ± pay'),
+          arg('--max-values', type=int, default=10, help='İzinli değer listesi çıkarılacak en fazla farklı değer')],
+    description='Temiz kabul edilen referans dosyanın profilinden kalite kurallarını çıkarır: satır sayısı aralığı, boş olamaz, anahtar adlı kolonlarda benzersizlik, sayısal aralık (negatif değer yoksa alt sınır 0), e-posta ve ISO tarih biçimi, az sayıda değer alan metin kolonlarında izinli değer listesi. Kuralları Great Expectations 1.x expectation suite JSON’u ve SodaCL checks YAML’ı olarak yazar; yeni bir dosya verilirse her kuralı onda çalıştırıp ihlal sayılarını raporlar. Kurallar verinin bugünkü hâlini anlatır; iş kuralı olarak onaylanmadan üretime alınmamalıdır.',
+    input='Referans CSV/XLSX (+ isteğe bağlı yeni dosya)', output='sonuc.csv (kurallar ve ihlaller) + gx_suite.json + soda_checks.yml', command='python main.py --input dun.csv --check bugun.csv --table satis.siparisler',
+    expect={'kural': 17, 'ihlal_eden_kural': 6, 'ihlal': 8})
+def gx_soda(columns, rows, args):
+    rules = infer_rules(columns, rows, args)
+    check = None
+    if args.check and Path(args.check).is_file():
+        ccols, crows = tabular.read(args.check)
+        check = (ccols, crows)
+    out = []
+    for rule in rules:
+        label, c, kind, p = rule
+        detail = (f'{p[0]} – {p[1]}' if kind in ('row_count', 'between') else ', '.join(p) if kind == 'in_set' else p if kind == 'regex' else '')
+        fails = rule_fails(rule, *check) if check else ''
+        out.append({'kural': label, 'kolon': c or '(tablo)', 'parametre': detail, 'referansta_ihlal': rule_fails(rule, columns, rows), 'yeni_dosyada_ihlal': fails})
+    bad = [o for o in out if o['yeni_dosyada_ihlal']]
+    files = {'gx_suite.json': json.dumps(gx_suite(args.table, rules), ensure_ascii=False, indent=2) + '\n', 'soda_checks.yml': soda_yaml(args.table, rules)}
+    head = f'{len(rules)} kural üretildi'
+    if check:
+        head += f'; yeni dosyada {len(bad)} kural ihlal edildi ({sum(o["yeni_dosyada_ihlal"] for o in bad)} ihlal)'
+    return Result(head, list(out[0]), out, {'kural': len(rules), 'ihlal_eden_kural': len(bad), 'ihlal': sum(o['yeni_dosyada_ihlal'] for o in bad)}, files=files,
+                  notes=['Referans dosyada her kural sağlanır (referansta_ihlal 0). İzinli değer ve aralıklar veri sahibiyle gözden geçirilmeli. gx_suite.json GX 1.x expectation suite biçimindedir; soda_checks.yml soda scan ile çalışır.'])

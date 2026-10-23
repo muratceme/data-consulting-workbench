@@ -1,0 +1,13 @@
+alan,aciklama,zorunlu,tip,uzunluk,izinli_degerler,anahtar
+KUNNR,Müşteri numarası,evet,C,10,,evet
+BU_GROUP,İş ortağı gruplaması,evet,C,4,Z001|Z002,
+NAME1,Ad 1,evet,C,40,,
+SORT1,Arama terimi,hayır,C,20,,
+CITY1,Şehir,evet,C,40,,
+POST_CODE1,Posta kodu,hayır,C,10,,
+COUNTRY,Ülke,evet,C,3,TR|DE|US|GB|NL,
+TAXNUM,Vergi numarası,hayır,N,11,,
+BUKRS,Şirket kodu,evet,C,4,1000|2000,
+AKONT,Mutabakat hesabı,evet,N,10,1200000|1200100,
+ZTERM,Ödeme koşulu,hayır,C,4,0001|NT30|NT60,
+ERDAT,Kayıt tarihi,hayır,D,8,,

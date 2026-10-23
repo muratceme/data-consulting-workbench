@@ -1,6 +1,7 @@
 """Veri migrasyonu blokları: kaynak–hedef alan eşleme kontrolü, tablo satır sayısı mutabakatı, kodlama ve uzunluk riski, sütun profili karşılaştırması,
 SQL sorgularını PostgreSQL’e çevirme ve geçiş dalgası planı. Hiçbir veritabanına bağlanmaz."""
 import heapq, re
+from datetime import datetime
 from pathlib import Path
 from collections import Counter, defaultdict
 import tabular
@@ -652,3 +653,67 @@ def mojibake(columns, rows, args):
                   {'satir': len(rows), 'bozuk_deger': len(out), 'onarilabilen': sum(bool(o['onarim']) for o in out), 'sutun': len(per_col)},
                   tables=[('Sütun bazında', ['Sütun', 'Bozuk değer'], per_col.most_common())],
                   notes=['Onarım önerisi yalnızca tahmindir: ÃŸ gibi diziler UTF-8 metnin yanlış okunduğunu gösterir; asıl çözüm, aktarımın karakter kümesi ayarını (UTF-8) düzeltip veriyi yeniden yüklemektir. “�” içeren değerlerde bilgi kaybolmuştur, kaynaktan yeniden alınmalıdır.'])
+
+
+@op('sap-sablon-dogrulama', title='SAP Migration Cockpit şablonunu yükleme öncesi alan kurallarıyla doğrula', domain='migration', product='Migration Cockpit', tag='S/4HANA geçiş şablonu',
+    samples={'sap_musteri_sablonu.csv': 'sap_musteri_sablonu.csv', 'sap_musteri_alanlari.csv': 'sap_musteri_alanlari.csv'},
+    args=[arg('--spec', default='@ornek/sap_musteri_alanlari.csv', help='Alan kuralları (alan, aciklama, zorunlu, tip C/N/D, uzunluk, izinli_degerler, anahtar)')],
+    description='Migration Cockpit (Migrate Your Data) şablonunun doldurulmuş sayfasını (CSV/XLSX olarak kaydedilmiş) alan kuralları tablosuyla satır satır denetler: zorunlu alanın boş olması, SAP alan uzunluğunu aşan değerler, sayısal (N) alanda harf, tarih (D) alanında YYYYMMDD dışı biçim, izinli değer listesinde (ülke, ödeme koşulu, mutabakat hesabı gibi kontrol tablosu değerleri) olmayan değerler, anahtar alanda tekrar ve şablonda olup kural tablosunda olmayan sütunlar. Hatasız satır oranını ve alan bazında hata sayısını verir; yükleme simülasyonundan önce hataları kaynakta düzeltmek için.',
+    input='Doldurulmuş şablon sayfası + alan kuralları CSV’si', output='sonuc.csv (satır × alan hataları) + alan özeti', command='python main.py --input "Customer - General Data.csv" --spec musteri_alanlari.csv',
+    expect={'satir': 12, 'hatasiz_satir': 4, 'hata': 9, 'alan': 12})
+def sap_template(columns, rows, args):
+    scols, srows = tabular.read(args.spec)
+    for c in ('alan', 'zorunlu', 'tip', 'uzunluk'):
+        need(c, scols, '--spec')
+    yes = lambda v: v.strip().lower() in ('evet', 'x', 'true', '1', 'e', 'yes')
+    spec = {r['alan'].strip(): {'req': yes(r['zorunlu']), 'type': r['tip'].strip().upper()[:1], 'len': int(tabular.parse_number(r['uzunluk']) or 0),
+                                'allowed': {x.strip() for x in r.get('izinli_degerler', '').split('|') if x.strip()}, 'key': yes(r.get('anahtar', '')),
+                                'desc': r.get('aciklama', '').strip()} for r in srows if r['alan'].strip()}
+    unknown = [c for c in columns if c not in spec]
+    missing_cols = [f for f, s in spec.items() if s['req'] and f not in columns]
+    if missing_cols:
+        raise ValueError(f'Şablonda zorunlu sütun yok: {", ".join(missing_cols)}')
+    out, bad_rows = [], set()
+    keys = Counter()
+    key_fields = [f for f, s in spec.items() if s['key'] and f in columns]
+    for r in rows:
+        if key_fields:
+            keys[tuple(r[f].strip() for f in key_fields)] += 1
+    for i, r in enumerate(rows, 2):
+        for f, s in spec.items():
+            if f not in columns:
+                continue
+            v = r[f].strip()
+            err = None
+            if not v:
+                err = 'zorunlu alan boş' if s['req'] else None
+            elif s['type'] == 'N' and not re.fullmatch(r'-?\d+([.,]\d+)?', v):
+                err = 'sayısal alanda sayı dışı değer'
+            elif s['type'] == 'D' and not (re.fullmatch(r'\d{8}', v) and _valid_ymd(v)):
+                err = 'tarih YYYYMMDD olmalı'
+            elif s['len'] and len(v) > s['len']:
+                err = f'uzunluk {len(v)} > {s["len"]}'
+            elif s['allowed'] and v not in s['allowed']:
+                err = 'izinli değerlerde yok'
+            if err:
+                out.append({'satir': i, 'alan': f, 'aciklama': s['desc'], 'deger': v, 'hata': err})
+                bad_rows.add(i)
+        if key_fields and keys[tuple(r[f].strip() for f in key_fields)] > 1:
+            out.append({'satir': i, 'alan': '+'.join(key_fields), 'aciklama': 'anahtar', 'deger': '/'.join(r[f].strip() for f in key_fields), 'hata': 'anahtar tekrar ediyor'})
+            bad_rows.add(i)
+    per_field = Counter(o['alan'] for o in out)
+    clean = len(rows) - len(bad_rows)
+    notes = ['Kontrol tablosu değerleri (ülke, ödeme koşulu, mutabakat hesabı, şirket kodu) hedef sistemden alınmalıdır; Migration Cockpit simülasyonu ayrıca değer eşleme (mapping) adımında hata verebilir.']
+    if unknown:
+        notes.append('Kural tablosunda olmayan sütun (denetlenmedi): ' + ', '.join(unknown))
+    return Result(f'{len(rows)} satır, {len(spec)} alan kuralı; {clean} satır hatasız (%{100 * clean / (len(rows) or 1):.0f}), {len(out)} hata', ['satir', 'alan', 'aciklama', 'deger', 'hata'], out,
+                  {'satir': len(rows), 'hatasiz_satir': clean, 'hata': len(out), 'alan': len(spec)},
+                  tables=[('Alan bazında hata', ['Alan', 'Açıklama', 'Hata'], [[f, spec.get(f, {}).get('desc', ''), n] for f, n in per_field.most_common()])], notes=notes)
+
+
+def _valid_ymd(v):
+    try:
+        datetime.strptime(v, '%Y%m%d')
+        return True
+    except ValueError:
+        return False

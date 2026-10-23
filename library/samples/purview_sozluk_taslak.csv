@@ -1,0 +1,15 @@
+terim,tanim,durum,ust_terim,esanlamlilar,ilgili_terimler,sahip,uzman,kisaltma,kaynak
+Müşteri,Son 24 ayda en az bir faturası olan gerçek veya tüzel kişi.,onaylı,,,,ayse.kaya@kurum.com.tr,can.demir@kurum.com.tr,,https://wiki.kurum.local/musteri
+Aktif Müşteri,Son 90 günde en az bir siparişi olan müşteri.,onaylı,Müşteri,,,ayse.kaya@kurum.com.tr,,,
+Kayıp Müşteri,"Son 180 günde siparişi olmayan, daha önce aktif olan müşteri.",taslak,Müşteri,,Churn Oranı,ayse.kaya@kurum.com.tr,,,
+Churn Oranı,Dönem başındaki aktif müşterilerden dönem içinde kayıp müşteriye dönüşenlerin payı.,taslak,Kayıp Müşteri,,Aktif Müşteri,ayse.kaya@kurum.com.tr,,,
+Ciro,Faturalanan satışların KDV hariç toplamı.,onaylı,,,,mehmet.oz@kurum.com.tr,,,
+Net Ciro,Ciro eksi iade ve iskontolar.,onaylı,Ciro,Net Satış,İade,mehmet.oz@kurum.com.tr,,,
+Brüt Ciro,İade ve iskonto düşülmeden önceki fatura toplamı.,onaylı,Ciro,,,mehmet.oz@kurum.com.tr,,,
+Sipariş,Müşterinin onayladığı ve stok ayrılan satış talebi.,onaylı,,,,zeynep.ak@kurum.com.tr,,,
+İade,Teslim edilen ürünün müşteri tarafından geri gönderilmesi.,taslak,Sipariş,,,zeynep.ak@kurum,,,
+İade Oranı,İade edilen sipariş tutarının ciroya oranı.,taslak,İade,,Ciro,zeynep.ak@kurum.com.tr,,,
+Kampanya,Belirli dönem ve kanalda uygulanan indirim kurgusu.,taslak,Pazarlama,,,selin.er@kurum.com.tr,,,
+Teslim Süresi,Sipariş onayından teslimata kadar geçen gün.,onaylı,Lojistik Süre,,,deniz.su@kurum.com.tr,,,
+Lojistik Süre,Lojistik süreçlerde ölçülen süreler.,taslak,Teslim Süresi,,,deniz.su@kurum.com.tr,,,
+Sepet Ortalaması,,yayında,,,Ciro,mehmet.oz@kurum.com.tr,,AOV,
