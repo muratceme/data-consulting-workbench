@@ -1,0 +1,10 @@
+name,state_desc,recovery_model_desc,log_reuse_wait_desc,page_verify_option_desc,is_auto_shrink_on,is_auto_close_on,is_auto_create_stats_on,is_auto_update_stats_on,compatibility_level
+master,ONLINE,SIMPLE,NOTHING,CHECKSUM,0,0,1,1,160
+tempdb,ONLINE,SIMPLE,NOTHING,CHECKSUM,0,0,1,1,160
+model,ONLINE,FULL,NOTHING,CHECKSUM,0,0,1,1,160
+msdb,ONLINE,SIMPLE,NOTHING,CHECKSUM,0,0,1,1,160
+ERP,ONLINE,FULL,LOG_BACKUP,CHECKSUM,0,0,1,1,130
+DWH,ONLINE,SIMPLE,NOTHING,CHECKSUM,1,0,1,1,160
+Portal,ONLINE,SIMPLE,NOTHING,TORN_PAGE_DETECTION,0,1,1,1,160
+Arsiv,OFFLINE,SIMPLE,NOTHING,CHECKSUM,0,0,1,1,160
+Test,ONLINE,SIMPLE,NOTHING,CHECKSUM,0,0,1,0,160

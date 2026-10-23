@@ -1,0 +1,64 @@
+<html lang="en"><head><title>AWR Report for DB: ERPPRD, Inst: ERPPRD1, Snaps: 4512-4513</title></head><body class="awr">
+<h1 class="awr">WORKLOAD REPOSITORY report for</h1>
+<table border="0" class="tdiff" summary="This table displays database instance information">
+<tr><th class="awrbg" scope="col">DB Name</th><th class="awrbg" scope="col">DB Id</th><th class="awrbg" scope="col">Instance</th><th class="awrbg" scope="col">Inst num</th><th class="awrbg" scope="col">Release</th><th class="awrbg" scope="col">RAC</th></tr>
+<tr><td class='awrc'>ERPPRD</td><td class='awrc'>1844211932</td><td class='awrc'>ERPPRD1</td><td class='awrc'>1</td><td class='awrc'>19.0.0.0.0</td><td class='awrc'>NO</td></tr>
+</table><p />
+
+<table border="0" class="tdiff" summary="This table displays host information">
+<tr><th class="awrbg" scope="col">Host Name</th><th class="awrbg" scope="col">Platform</th><th class="awrbg" scope="col">CPUs</th><th class="awrbg" scope="col">Cores</th><th class="awrbg" scope="col">Sockets</th><th class="awrbg" scope="col">Memory (GB)</th></tr>
+<tr><td class='awrc'>db01.kurum.local</td><td class='awrc'>Linux x86 64-bit</td><td class='awrc'>8</td><td class='awrc'>4</td><td class='awrc'>1</td><td class='awrc'>64.00</td></tr>
+</table><p />
+
+<table border="0" class="tdiff" summary="This table displays snapshot information">
+<tr><th class="awrbg" scope="col"></th><th class="awrbg" scope="col">Snap Id</th><th class="awrbg" scope="col">Snap Time</th><th class="awrbg" scope="col">Sessions</th><th class="awrbg" scope="col">Cursors/Session</th></tr>
+<tr><td class='awrc'>Begin Snap:</td><td class='awrc'>4512</td><td class='awrc'>20-Oct-26 09:00:12</td><td class='awrc'>412</td><td class='awrc'>2.1</td></tr>
+<tr><td class='awrc'>End Snap:</td><td class='awrc'>4513</td><td class='awrc'>20-Oct-26 10:00:13</td><td class='awrc'>455</td><td class='awrc'>2.3</td></tr>
+<tr><td class='awrc'>Elapsed:</td><td class='awrc'>&#160;</td><td class='awrc'>60.02 (mins)</td><td class='awrc'>&#160;</td><td class='awrc'>&#160;</td></tr>
+<tr><td class='awrc'>DB Time:</td><td class='awrc'>&#160;</td><td class='awrc'>588.40 (mins)</td><td class='awrc'>&#160;</td><td class='awrc'>&#160;</td></tr>
+</table><p />
+
+<h3 class="awr">Load Profile</h3>
+<table border="0" class="tdiff" summary="This table displays load profile">
+<tr><th class="awrbg" scope="col"></th><th class="awrbg" scope="col">Per Second</th><th class="awrbg" scope="col">Per Transaction</th><th class="awrbg" scope="col">Per Exec</th><th class="awrbg" scope="col">Per Call</th></tr>
+<tr><td class='awrc'>DB Time(s):</td><td class='awrc'>9.8</td><td class='awrc'>0.1</td><td class='awrc'>0.00</td><td class='awrc'>0.01</td></tr>
+<tr><td class='awrc'>DB CPU(s):</td><td class='awrc'>3.1</td><td class='awrc'>0.0</td><td class='awrc'>0.00</td><td class='awrc'>0.00</td></tr>
+<tr><td class='awrc'>Redo size (bytes):</td><td class='awrc'>1,845,220.4</td><td class='awrc'>21,708.5</td><td class='awrc'>&#160;</td><td class='awrc'>&#160;</td></tr>
+<tr><td class='awrc'>Logical read (blocks):</td><td class='awrc'>412,880.1</td><td class='awrc'>4,857.4</td><td class='awrc'>&#160;</td><td class='awrc'>&#160;</td></tr>
+<tr><td class='awrc'>Physical read (blocks):</td><td class='awrc'>38,410.2</td><td class='awrc'>451.9</td><td class='awrc'>&#160;</td><td class='awrc'>&#160;</td></tr>
+<tr><td class='awrc'>Parses (SQL):</td><td class='awrc'>850.2</td><td class='awrc'>10.0</td><td class='awrc'>&#160;</td><td class='awrc'>&#160;</td></tr>
+<tr><td class='awrc'>Hard parses (SQL):</td><td class='awrc'>140.5</td><td class='awrc'>1.7</td><td class='awrc'>&#160;</td><td class='awrc'>&#160;</td></tr>
+<tr><td class='awrc'>Executes (SQL):</td><td class='awrc'>4,200.7</td><td class='awrc'>49.4</td><td class='awrc'>&#160;</td><td class='awrc'>&#160;</td></tr>
+<tr><td class='awrc'>Transactions:</td><td class='awrc'>85.0</td><td class='awrc'>&#160;</td><td class='awrc'>&#160;</td><td class='awrc'>&#160;</td></tr>
+</table><p />
+
+<table border="0" class="tdiff" summary="This table displays instance efficiency percentages">
+<tr><td class='awrc'>Buffer Nowait %:</td><td class='awrc'>99.98</td><td class='awrc'>Redo NoWait %:</td><td class='awrc'>100.00</td></tr>
+<tr><td class='awrc'>Buffer Hit %:</td><td class='awrc'>97.10</td><td class='awrc'>In-memory Sort %:</td><td class='awrc'>100.00</td></tr>
+<tr><td class='awrc'>Library Hit %:</td><td class='awrc'>91.20</td><td class='awrc'>Soft Parse %:</td><td class='awrc'>83.47</td></tr>
+<tr><td class='awrc'>Execute to Parse %:</td><td class='awrc'>79.76</td><td class='awrc'>Latch Hit %:</td><td class='awrc'>99.90</td></tr>
+</table><p />
+
+<h3 class="awr">Top 10 Foreground Events by Total Wait Time</h3>
+<table border="0" class="tdiff" summary="This table displays top 10 wait events by total wait time">
+<tr><th class="awrbg" scope="col">Event</th><th class="awrbg" scope="col">Waits</th><th class="awrbg" scope="col">Total Wait Time (sec)</th><th class="awrbg" scope="col">Wait Avg(ms)</th><th class="awrbg" scope="col">% DB time</th><th class="awrbg" scope="col">Wait Class</th></tr>
+<tr><td class='awrc'>db file sequential read</td><td class='awrc'>28,410,552</td><td class='awrc'>14,545</td><td class='awrc'>0.51</td><td class='awrc'>41.2</td><td class='awrc'>User I/O</td></tr>
+<tr><td class='awrc'>DB CPU</td><td class='awrc'>&#160;</td><td class='awrc'>11,160</td><td class='awrc'>&#160;</td><td class='awrc'>31.6</td><td class='awrc'>&#160;</td></tr>
+<tr><td class='awrc'>enq: TX - row lock contention</td><td class='awrc'>1,204</td><td class='awrc'>2,154</td><td class='awrc'>1789.03</td><td class='awrc'>6.1</td><td class='awrc'>Application</td></tr>
+<tr><td class='awrc'>log file sync</td><td class='awrc'>305,118</td><td class='awrc'>1,871</td><td class='awrc'>6.13</td><td class='awrc'>5.3</td><td class='awrc'>Commit</td></tr>
+<tr><td class='awrc'>library cache: mutex X</td><td class='awrc'>88,410</td><td class='awrc'>1,130</td><td class='awrc'>12.78</td><td class='awrc'>3.2</td><td class='awrc'>Concurrency</td></tr>
+<tr><td class='awrc'>direct path read</td><td class='awrc'>41,220</td><td class='awrc'>706</td><td class='awrc'>17.13</td><td class='awrc'>2.0</td><td class='awrc'>User I/O</td></tr>
+</table><p />
+
+<h3 class="awr">SQL ordered by Elapsed Time</h3>
+<table border="0" class="tdiff" summary="This table displays top SQL by elapsed time">
+<tr><th class="awrbg" scope="col">Elapsed Time (s)</th><th class="awrbg" scope="col">Executions</th><th class="awrbg" scope="col">Elapsed Time per Exec (s)</th><th class="awrbg" scope="col">%Total</th><th class="awrbg" scope="col">%CPU</th><th class="awrbg" scope="col">%IO</th><th class="awrbg" scope="col">SQL Id</th><th class="awrbg" scope="col">SQL Module</th><th class="awrbg" scope="col">SQL Text</th></tr>
+<tr><td class='awrc'>13,592.1</td><td class='awrc'>2,104</td><td class='awrc'>6.46</td><td class='awrc'>38.5</td><td class='awrc'>22.1</td><td class='awrc'>76.4</td><td class='awrc'>8vq2kzm4p1a7c</td><td class='awrc'>SIPARIS_RAPOR</td><td class='awrc'>SELECT S.SIPARIS_NO, M.UNVAN, SUM(K.TUTAR) FROM SIPARIS S JOIN MUSTERI M ON ...</td></tr>
+<tr><td class='awrc'>4,108.6</td><td class='awrc'>1,402,551</td><td class='awrc'>0.00</td><td class='awrc'>11.6</td><td class='awrc'>61.0</td><td class='awrc'>35.2</td><td class='awrc'>a1b7x9tq0m2wd</td><td class='awrc'>JDBC Thin Client</td><td class='awrc'>SELECT FIYAT FROM URUN_FIYAT WHERE URUN_ID = :B1 AND TARIH = :B2</td></tr>
+<tr><td class='awrc'>2,950.3</td><td class='awrc'>18</td><td class='awrc'>163.91</td><td class='awrc'>8.4</td><td class='awrc'>12.5</td><td class='awrc'>85.0</td><td class='awrc'>3fz8w2k1n6c0p</td><td class='awrc'>ETL_GECE</td><td class='awrc'>INSERT /*+ APPEND */ INTO DW_SATIS SELECT ...</td></tr>
+<tr><td class='awrc'>1,622.0</td><td class='awrc'>96,210</td><td class='awrc'>0.02</td><td class='awrc'>4.6</td><td class='awrc'>40.2</td><td class='awrc'>55.1</td><td class='awrc'>7uy4r1e9d2s3m</td><td class='awrc'>STOK_SERVIS</td><td class='awrc'>UPDATE STOK SET MIKTAR = MIKTAR - :1 WHERE URUN_ID = :2</td></tr>
+<tr><td class='awrc'>980.4</td><td class='awrc'>1</td><td class='awrc'>980.40</td><td class='awrc'>2.8</td><td class='awrc'>15.0</td><td class='awrc'>82.3</td><td class='awrc'>0kq5t7v2b8n4h</td><td class='awrc'>SQL*Plus</td><td class='awrc'>SELECT COUNT(*) FROM HAREKET_ARSIV WHERE ...</td></tr>
+<tr><td class='awrc'>611.7</td><td class='awrc'>4,820</td><td class='awrc'>0.13</td><td class='awrc'>1.7</td><td class='awrc'>70.4</td><td class='awrc'>20.1</td><td class='awrc'>9ce3m1x5z7p2r</td><td class='awrc'>PORTAL</td><td class='awrc'>SELECT * FROM KAMPANYA WHERE AKTIF = 1</td></tr>
+</table><p />
+
+</body></html>

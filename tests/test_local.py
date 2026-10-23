@@ -318,6 +318,14 @@ class SinglePurposeBlocks(LocalTestCase):
                 self.assertTrue(p.out('rapor.md').is_file())
                 self.assertTrue(spec['expect'], f"{item['id']} has no expected values")
 
+    def test_oracle_awr_reads_html_and_text_reports_alike(self):
+        p = self.package('oracle-awr')  # the package ships the text report; the HTML form of the same report must give the same result
+        done = p.run('--input', str(ROOT / 'library' / 'samples' / 'oracle_awr.html'))
+        self.assertEqual(done.returncode, 0, done.stderr + done.stdout)
+        s = p.json('ozet.json')
+        self.assertEqual((s['aas'], s['cpu'], s['bulgu'], s['sql']), (9.8, 8, 5, 6))
+        self.assertEqual(p.csv('sonuc.csv')[0]['sql_id'], '8vq2kzm4p1a7c')
+
     def test_bad_input_is_a_readable_error(self):
         for item_id, args, message in [('filtrele', ['--where', '__import__("os")'], 'yalnızca şu fonksiyonlar'), ('filtrele', ['--where', 'yok > 1'], 'bilinmeyen ad'),
                                        ('grupla', ['--by', 'olmayan'], 'dosyada olmayan'), ('tckn-dogrula', ['--column', 'yok'], 'sütunu dosyada yok')]:

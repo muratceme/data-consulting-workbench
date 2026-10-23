@@ -1,0 +1,83 @@
+WORKLOAD REPOSITORY report for
+
+DB Name         DB Id    Unique Name DB Role          Edition Release    RAC CDB
+------------ ----------- ----------- ---------------- ------- ---------- --- ---
+ERPPRD        1844211932 ERPPRD      PRIMARY          EE      19.0.0.0.0 NO  NO
+
+Host Name        Platform                         CPUs Cores Sockets Memory(GB)
+---------------- -------------------------------- ---- ----- ------- ----------
+db01.kurum.local Linux x86 64-bit                    8     4       1      64.00
+
+              Snap Id      Snap Time      Sessions Curs/Sess
+            --------- ------------------- -------- ---------
+Begin Snap:      4512 20-Oct-26 09:00:12       412       2.1
+  End Snap:      4513 20-Oct-26 10:00:13       455       2.3
+   Elapsed:               60.02 (mins)
+   DB Time:              588.40 (mins)
+
+Load Profile                    Per Second   Per Transaction  Per Exec  Per Call
+~~~~~~~~~~~~~~~            ---------------   --------------- --------- ---------
+             DB Time(s):               9.8               0.1      0.00      0.01
+              DB CPU(s):               3.1               0.0      0.00      0.00
+      Redo size (bytes):       1,845,220.4          21,708.5
+  Logical read (blocks):         412,880.1           4,857.4
+ Physical read (blocks):          38,410.2             451.9
+           Parses (SQL):             850.2              10.0
+      Hard parses (SQL):             140.5               1.7
+         Executes (SQL):           4,200.7              49.4
+           Transactions:              85.0
+
+Instance Efficiency Percentages (Target 100%)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            Buffer Nowait %:   99.98       Redo NoWait %:  100.00
+            Buffer  Hit   %:   97.10    In-memory Sort %:  100.00
+            Library Hit   %:   91.20        Soft Parse %:   83.47
+         Execute to Parse %:   79.76         Latch Hit %:   99.90
+
+Top 10 Foreground Events by Total Wait Time
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                                           Total Wait       Avg   % DB Wait
+Event                                Waits Time (sec)      Wait   time Class
+------------------------------ ----------- ---------- --------- ------ ------------
+db file sequential read         28,410,552      14.5K     .51ms   41.2 User I/O
+DB CPU                                          11.2K             31.6
+enq: TX - row lock contention        1,204       2154    1.79 s    6.1 Application
+log file sync                      305,118       1871    6.13ms    5.3 Commit
+library cache: mutex X              88,410       1130   12.78ms    3.2 Concurrency
+direct path read                    41,220        706   17.13ms    2.0 User I/O
+
+SQL ordered by Elapsed Time               DB/Inst: ERPPRD/ERPPRD1  Snaps: 4512-4513
+-> % Total DB Time is the Elapsed Time of the SQL statement divided
+   into the Total Database Time multiplied by 100
+
+         Elapsed                 Elapsed Time
+        Time (s)     Executions  per Exec (s) %Total   %CPU    %IO SQL Id
+---------------- -------------- ------------- ------ ------ ------ -------------
+        13,592.1          2,104          6.46   38.5   22.1   76.4 8vq2kzm4p1a7c
+Module: SIPARIS_RAPOR
+SELECT S.SIPARIS_NO, M.UNVAN, SUM(K.TUTAR) FROM SIPARIS S JOIN MUSTERI M ON ...
+
+         4,108.6      1,402,551          0.00   11.6   61.0   35.2 a1b7x9tq0m2wd
+Module: JDBC Thin Client
+SELECT FIYAT FROM URUN_FIYAT WHERE URUN_ID = :B1 AND TARIH = :B2
+
+         2,950.3             18        163.91    8.4   12.5   85.0 3fz8w2k1n6c0p
+Module: ETL_GECE
+INSERT /*+ APPEND */ INTO DW_SATIS SELECT ...
+
+         1,622.0         96,210          0.02    4.6   40.2   55.1 7uy4r1e9d2s3m
+Module: STOK_SERVIS
+UPDATE STOK SET MIKTAR = MIKTAR - :1 WHERE URUN_ID = :2
+
+           980.4              1        980.40    2.8   15.0   82.3 0kq5t7v2b8n4h
+Module: SQL*Plus
+SELECT COUNT(*) FROM HAREKET_ARSIV WHERE ...
+
+           611.7          4,820          0.13    1.7   70.4   20.1 9ce3m1x5z7p2r
+Module: PORTAL
+SELECT * FROM KAMPANYA WHERE AKTIF = 1
+
+          -------------------------------------------------------------
+
+SQL ordered by CPU Time
+

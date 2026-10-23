@@ -1,0 +1,25 @@
+name,setting,unit,source
+shared_buffers,16384,8kB,configuration file
+effective_cache_size,524288,8kB,configuration file
+work_mem,65536,kB,configuration file
+max_connections,2500,,configuration file
+maintenance_work_mem,65536,kB,configuration file
+random_page_cost,4,,configuration file
+statement_timeout,0,ms,configuration file
+idle_in_transaction_session_timeout,0,ms,configuration file
+lock_timeout,0,ms,configuration file
+autovacuum,on,,configuration file
+fsync,on,,configuration file
+full_page_writes,on,,configuration file
+max_wal_size,1024,MB,configuration file
+log_min_duration_statement,-1,ms,configuration file
+shared_preload_libraries,,,configuration file
+track_io_timing,off,,configuration file
+checkpoint_timeout,300,s,configuration file
+wal_level,replica,,configuration file
+synchronous_commit,on,,configuration file
+autovacuum_max_workers,3,,configuration file
+autovacuum_vacuum_scale_factor,0.2,,configuration file
+default_statistics_target,100,,configuration file
+max_parallel_workers_per_gather,2,,configuration file
+jit,on,,configuration file

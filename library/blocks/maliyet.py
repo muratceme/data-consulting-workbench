@@ -1,6 +1,6 @@
-"""Veri ambarı kullanım ve bulut maliyeti blokları: Snowflake sorgu geçmişi ve kredi tüketimi, BigQuery iş maliyeti, bulut fatura özeti ve ay sonu tahmini.
+"""Veri ambarı kullanım ve bulut maliyeti blokları: Snowflake sorgu geçmişi ve kredi tüketimi, BigQuery iş maliyeti, Databricks system.billing, Fabric kapasite ölçümleri, bulut fatura özeti ve ay sonu tahmini.
 Fiyatlar parametredir; kurumunuzun sözleşme fiyatıyla çalıştırın. Hiçbir hesaba bağlanmaz."""
-import calendar, math, re
+import calendar, json, math, re
 from collections import Counter, defaultdict
 from datetime import timedelta
 import tabular
@@ -506,3 +506,163 @@ def egress(columns, rows, args):
                    'internet_maliyet_%': round(100 * by_kind['internet'][1] / total, 2) if total else 0},
                   tables=[('Türe göre', ['Tür', 'GB', 'Maliyet'], [[k, round(v[0], 2), money(v[1])] for k, v in sorted(by_kind.items(), key=lambda kv: -kv[1][1])])],
                   notes=['Varsayılan fiyatlar örnektir; sağlayıcınızın güncel fiyat listesini ve kademeli indirimleri --price-* ile girin. Ücretsiz ilk GB’lar ve özel bağlantı (Direct Connect, ExpressRoute) fiyatları hesaba katılmaz.'])
+
+
+def sku_group(sku):
+    s = sku.upper()
+    for key, name in (('ALL_PURPOSE', 'all-purpose'), ('JOBS', 'jobs'), ('DLT', 'DLT'), ('SQL', 'SQL ambarı'), ('MODEL_SERVING', 'model sunma'), ('SERVERLESS', 'serverless')):
+        if key in s:
+            return name
+    return 'diğer'
+
+
+@op('databricks-faturalama', title='Databricks system.billing: all-purpose’ta çalışan işler, hafta sonu açık kümeler, etiketsiz kullanım', domain='finops', product='System Tables', tag='system.billing',
+    samples={'databricks_kullanim.csv': 'databricks_kullanim.csv', 'databricks_liste_fiyat.csv': 'databricks_liste_fiyat.csv'},
+    args=[arg('--prices', default='@ornek/databricks_liste_fiyat.csv', help='system.billing.list_prices dışa aktarımı (sku_name, price_usd)'),
+          arg('--tag', default='ekip', help='Maliyet sahibini gösteren zorunlu etiket (custom_tags içinde)')],
+    description='system.billing.usage dışa aktarımını (usage_date, sku_name, usage_quantity, job_id, cluster_id, warehouse_id, custom_tags) liste fiyatlarıyla çarpıp maliyeti SKU grubu, iş ve küme bazında çıkarır; zamanlanmış işlerin all-purpose (etkileşimli) kümede çalıştığı ve jobs compute’a taşınınca kazanılacak tutarı, hafta sonu DBU harcayan etkileşimli kümeleri (otomatik sonlandırma eksikliği) ve zorunlu etiketi olmayan kullanımın payını hesaplar. Bulut sanal makine maliyeti bu tabloda yoktur.',
+    input='system.billing.usage CSV’si + list_prices CSV’si', output='sonuc.csv (iş/küme bazında maliyet ve bulgular)', command='python main.py --input billing_usage.csv --prices list_prices.csv --tag cost_center',
+    expect={'kaynak': 8, 'toplam_usd': 3780.0, 'tasima_tasarrufu_usd': 912.0, 'etiketsiz_%': 17.9})
+def databricks_billing(columns, rows, args):
+    rows = [{k.strip().lower(): (v or '').strip() for k, v in r.items()} for r in rows]
+    cols = [c.strip().lower() for c in columns]
+    for c in ('usage_date', 'sku_name', 'usage_quantity'):
+        need(c, cols, 'system.billing.usage')
+    pcols, prows = tabular.read(args.prices)
+    prows = [{k.strip().lower(): (v or '').strip() for k, v in r.items()} for r in prows]
+    for c in ('sku_name', 'price_usd'):
+        need(c, [c_.strip().lower() for c_ in pcols], '--prices')
+    price = {r['sku_name'].upper(): tabular.parse_number(r['price_usd']) or 0.0 for r in prows}
+    missing = sorted({r['sku_name'] for r in rows if r['sku_name'].upper() not in price})
+    if missing:
+        raise ValueError(f'Liste fiyatı olmayan SKU: {", ".join(missing)}')
+    res = defaultdict(lambda: {'dbu': 0.0, 'usd': 0.0, 'sku': Counter(), 'weekend': 0.0, 'tagged': True, 'move': 0.0})
+    total, untagged = 0.0, 0.0
+    for r in rows:
+        dbu = tabular.parse_number(r['usage_quantity']) or 0.0
+        sku = r['sku_name'].upper()
+        usd = dbu * price[sku]
+        total += usd
+        tags = r.get('custom_tags', '')
+        try:
+            tagd = json.loads(tags) if tags else {}
+        except ValueError:
+            tagd = {}
+        has_tag = bool(str(tagd.get(args.tag, '')).strip())
+        if not has_tag:
+            untagged += usd
+        if r.get('job_id'):
+            key = ('iş', r['job_id'])
+        elif r.get('warehouse_id'):
+            key = ('SQL ambarı', r['warehouse_id'])
+        elif r.get('cluster_id'):
+            key = ('küme', r['cluster_id'])
+        else:
+            key = ('diğer', sku_group(sku))
+        e = res[key]
+        e['dbu'] += dbu
+        e['usd'] += usd
+        e['sku'][sku_group(sku)] += usd
+        e['tagged'] = e['tagged'] and has_tag
+        e['team'] = tagd.get(args.tag, '') or e.get('team', '')
+        d = tabular.parse_date(r['usage_date'])
+        if d and d[0].weekday() >= 5 and key[0] == 'küme' and sku_group(sku) == 'all-purpose':
+            e['weekend'] += usd
+        if key[0] == 'iş' and sku_group(sku) == 'all-purpose':
+            jobs_sku = sku.replace('ALL_PURPOSE', 'JOBS')
+            if jobs_sku in price:
+                e['move'] += usd - dbu * price[jobs_sku]
+    out = []
+    for (kind, ident), e in res.items():
+        issues = []
+        if e['move'] > 0:
+            issues.append(f'zamanlanmış iş all-purpose kümede çalışıyor: jobs compute ile ≈ ${e["move"]:,.0f} daha ucuz')
+        if e['weekend'] > 0:
+            issues.append(f'hafta sonu ${e["weekend"]:,.0f} harcayan etkileşimli küme: otomatik sonlandırmayı (auto-termination) kısaltın')
+        if not e['tagged']:
+            issues.append(f'"{args.tag}" etiketi yok: maliyet sahibine yazılamıyor')
+        out.append({'tur': kind, 'kimlik': ident, 'sku_grubu': ', '.join(k for k, _ in e['sku'].most_common()), args.tag: e.get('team', ''),
+                    'dbu': round(e['dbu'], 1), 'maliyet_usd': round(e['usd'], 2), 'pay_%': round(100 * e['usd'] / (total or 1), 1),
+                    'tasima_tasarrufu_usd': round(e['move'], 2), 'bulgular': '; '.join(issues)})
+    out.sort(key=lambda o: -o['maliyet_usd'])
+    by_group = Counter()
+    for (_, _), e in res.items():
+        for g, v in e['sku'].items():
+            by_group[g] += v
+    saving = sum(o['tasima_tasarrufu_usd'] for o in out)
+    return Result(f'{len(out)} kaynak, toplam ${total:,.2f}; işleri jobs compute’a taşımak ≈ ${saving:,.0f} kazandırır; etiketsiz pay %{100 * untagged / (total or 1):.1f}',
+                  list(out[0]), out,
+                  {'kaynak': len(out), 'toplam_usd': round(total, 2), 'tasima_tasarrufu_usd': round(saving, 2), 'etiketsiz_%': round(100 * untagged / (total or 1), 1)},
+                  tables=[('SKU grupları', ['Grup', 'USD', 'Pay'], [[g, f'{v:,.2f}', f'%{100 * v / (total or 1):.1f}'] for g, v in by_group.most_common()])],
+                  notes=['Liste fiyatıdır; anlaşmalı indirim ve bulut sanal makine (VM) maliyeti dahil değildir. Classic compute’ta VM maliyeti çoğu zaman DBU maliyetine yakın veya üstündedir.'])
+
+
+SKUS = [2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048]
+
+
+def runs(flags):
+    """[(start_index, end_index)] of consecutive True values."""
+    out, start = [], None
+    for i, f in enumerate(flags + [False]):
+        if f and start is None:
+            start = i
+        elif not f and start is not None:
+            out.append((start, i - 1))
+            start = None
+    return out
+
+
+@op('fabric-kapasite', title='Fabric kapasite: kısıtlama (throttling) pencereleri, en çok CU harcayan öğeler ve SKU önerisi', domain='finops', product='Fabric Capacity Metrics', tag='CU',
+    samples={'fabric_kapasite_zaman.csv': 'fabric_kapasite_zaman.csv', 'fabric_kapasite_ogeler.csv': 'fabric_kapasite_ogeler.csv'},
+    args=[arg('--items', default='@ornek/fabric_kapasite_ogeler.csv', help='Öğe bazında CU dışa aktarımı (oge, calisma_alani, is_yuku, tur, cu_saniye)'),
+          arg('--sku', default='F64', help='Mevcut kapasite SKU’su (F2…F2048)'), arg('--busy', type=float, default=80.0, help='Yoğun sayılan kullanım yüzdesi')],
+    description='Fabric Capacity Metrics uygulamasının zaman noktası dışa aktarımından (zaman, kullanım %, interaktif gecikme %, interaktif red %, arka plan red %) kısıtlamanın başladığı ardışık pencereleri, kullanımın p50/p95/en yüksek değerini ve yoğun saatleri; öğe dışa aktarımından en çok CU harcayan öğeleri ve interaktif/arka plan dağılımını çıkarır. Kısıtlama varsa arka plan işlerini sakin saatlere kaydırmayı veya bir üst SKU’yu, kullanım sürekli düşükse bir alt SKU’yu önerir. Gecikme %100’ü geçince interaktif işlemler 20 sn bekletilir, interaktif red %100’ü geçince reddedilir.',
+    input='Zaman noktası CSV’si + öğe CSV’si', output='sonuc.csv (kısıtlama pencereleri) + öğe tablosu', command='python main.py --input timepoints.csv --items items.csv --sku F32',
+    expect={'zaman_noktasi': 48, 'kisitlama_penceresi': 2, 'p95_kullanim_%': 154.0, 'oneri': 'arka plan işlerini kaydır veya F128'})
+def fabric_capacity(columns, rows, args):
+    for c in ('zaman', 'kullanim_yuzde', 'interaktif_gecikme_yuzde', 'interaktif_red_yuzde', 'arkaplan_red_yuzde'):
+        need(c, columns, 'zaman noktası dışa aktarımı')
+    m = re.fullmatch(r'F(\d+)', args.sku.strip().upper())
+    if not m or int(m.group(1)) not in SKUS:
+        raise ValueError(f'--sku F2…F2048 olmalı: {args.sku}')
+    cu = int(m.group(1))
+    rows = sorted(rows, key=lambda r: r['zaman'])
+    use, delay, rej, bg = (numbers(rows, c) for c in ('kullanim_yuzde', 'interaktif_gecikme_yuzde', 'interaktif_red_yuzde', 'arkaplan_red_yuzde'))
+    use = [u or 0 for u in use]
+    throttled = [(d or 0) > 100 or (r_ or 0) > 100 or (b or 0) > 100 for d, r_, b in zip(delay, rej, bg)]
+    out = []
+    for a, b in runs(throttled):
+        peak = lambda s: max(x or 0 for x in s[a:b + 1])
+        stage = 'arka plan reddi' if peak(bg) > 100 else 'interaktif red' if peak(rej) > 100 else 'interaktif gecikme'
+        out.append({'baslangic': rows[a]['zaman'], 'bitis': rows[b]['zaman'], 'zaman_noktasi': b - a + 1, 'en_yuksek_kullanim_%': round(max(use[a:b + 1]), 1),
+                    'en_kotu_asama': stage, 'en_yuksek_gecikme_%': fmt(peak(delay)), 'en_yuksek_interaktif_red_%': fmt(peak(rej)), 'en_yuksek_arkaplan_red_%': fmt(peak(bg))})
+    srt = sorted(use)
+    pct = lambda q: srt[min(len(srt) - 1, int(q * (len(srt) - 1) + 0.5))]
+    p50, p95 = pct(0.5), pct(0.95)
+    hours = Counter()
+    for r, u in zip(rows, use):
+        d = tabular.parse_date(r['zaman'])
+        if d and u >= args.busy:
+            hours[d[0].hour] += 1
+    icols, irows = tabular.read(args.items)
+    for c in ('oge', 'is_yuku', 'tur', 'cu_saniye'):
+        need(c, icols, '--items')
+    icu = numbers(irows, 'cu_saniye')
+    itotal = sum(x or 0 for x in icu) or 1
+    items = sorted(((r, x or 0) for r, x in zip(irows, icu)), key=lambda t: -t[1])
+    background = sum(x for r, x in items if r['tur'].strip().lower().startswith('arka')) / itotal
+    idx = SKUS.index(cu)
+    if out:
+        up = f'F{SKUS[min(idx + 1, len(SKUS) - 1)]}'
+        advice = f'arka plan işlerini kaydır veya {up}' if background >= 0.5 else f'{up} veya interaktif yükü azalt'
+    elif p95 < 40 and idx > 0:
+        advice = f'F{SKUS[idx - 1]} yeterli olabilir'
+    else:
+        advice = 'mevcut SKU uygun'
+    return Result(f'{len(rows)} zaman noktası; {len(out)} kısıtlama penceresi, kullanım p50 %{p50:.0f} / p95 %{p95:.0f}; arka plan payı %{100 * background:.0f}; öneri: {advice}',
+                  list(out[0]) if out else ['baslangic', 'bitis'], out,
+                  {'zaman_noktasi': len(rows), 'kisitlama_penceresi': len(out), 'p95_kullanim_%': round(p95, 1), 'oneri': advice},
+                  tables=[('En çok CU harcayan öğeler', ['Öğe', 'Çalışma alanı', 'İş yükü', 'Tür', 'CU (s)', 'Pay'],
+                           [[r['oge'], r.get('calisma_alani', ''), r['is_yuku'], r['tur'], f'{x:,.0f}', f'%{100 * x / itotal:.1f}'] for r, x in items[:15]]),
+                          ('Yoğun saatler', ['Saat', f'%{args.busy:g} üstü zaman noktası'], [[f'{h:02d}:00', n] for h, n in sorted(hours.items())])],
+                  notes=['Kullanım %100’ü geçebilir: Fabric gelecekteki kapasiteyi borç alır (smoothing). Asıl ölçü kısıtlama grafiğidir; arka plan işlemleri 24 saate yayıldığından gece çalıştırmak tepe kullanımı düşürür.'])

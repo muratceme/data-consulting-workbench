@@ -1,0 +1,13 @@
+name,value,value_in_use
+max server memory (MB),2147483647,2147483647
+min server memory (MB),0,0
+max degree of parallelism,0,0
+cost threshold for parallelism,5,5
+optimize for ad hoc workloads,0,0
+backup compression default,0,0
+remote admin connections,0,0
+xp_cmdshell,1,1
+priority boost,0,0
+lightweight pooling,0,0
+fill factor (%),0,0
+clr enabled,0,0

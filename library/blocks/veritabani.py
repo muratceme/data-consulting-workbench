@@ -1,8 +1,9 @@
 """Veritabanı performans blokları: SQL Server sorgu planı, bekleme istatistikleri, indeks kullanımı ve deadlock grafiği; PostgreSQL EXPLAIN,
-pg_stat_statements ve tablo şişmesi; MySQL slow query log.
+pg_stat_statements, tablo şişmesi ve yapılandırma; SQL Server yapılandırması; Oracle AWR raporu; MongoDB profiler ve $indexStats; MySQL slow query log.
 Veritabanına bağlanmaz; DBA’nın dışa aktardığı plan/DMV/istatistik dosyalarını okur."""
 import json, re
 import xml.etree.ElementTree as ET
+from html.parser import HTMLParser
 from collections import Counter, defaultdict
 from pathlib import Path
 import tabular
@@ -634,3 +635,428 @@ def duplicate_indexes(columns, rows, args):
                   {'indeks': len(idx), 'tekrar': sum(o['bulgu'] == 'tekrar' for o in out), 'kapsanan': sum(o['bulgu'] != 'tekrar' for o in out)},
                   files={'kaldir.sql': '-- İNCELEME İÇİN: komutlar yorum satırıdır. Kaldırmadan önce indeks-kullanim-analizi ile kullanılmadığını ve kısıt (constraint) desteklemediğini doğrulayın.\n' + sql + '\n'},
                   notes=['Kapsanan indeks, daha küçük olduğu için bazı sorgularda tercih ediliyor olabilir; kullanım istatistiğiyle birlikte karar verin. Yabancı anahtar sütunlarındaki indeksleri kaldırmak silme işlemlerini yavaşlatabilir.'])
+
+
+class _Tables(HTMLParser):
+    """Collect every <table> of an HTML report as (summary, rows of cell texts)."""
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.tables, self.stack, self.cell = [], [], None
+
+    def handle_starttag(self, tag, attrs):
+        if tag == 'table':
+            self.stack.append([dict(attrs).get('summary', ''), []])
+        elif tag == 'tr' and self.stack:
+            self.stack[-1][1].append([])
+        elif tag in ('td', 'th') and self.stack and self.stack[-1][1]:
+            self.cell = []
+
+    def handle_endtag(self, tag):
+        if tag in ('td', 'th') and self.cell is not None and self.stack and self.stack[-1][1]:
+            self.stack[-1][1][-1].append(re.sub(r'\s+', ' ', ''.join(self.cell)).strip())
+            self.cell = None
+        elif tag == 'table' and self.stack:
+            self.tables.append(tuple(self.stack.pop()))
+
+    def handle_data(self, data):
+        if self.cell is not None:
+            self.cell.append(data)
+
+
+def awr_table(tables, *words):
+    for summary, rows in tables:
+        if all(w in summary.lower() for w in words):
+            return [r for r in rows if r]
+    return []
+
+
+AWR_WAITS = [
+    (r'^db file sequential read', 'tek blok okuma (indeks erişimi): en çok okuyan SQL’leri ayarlayın, buffer cache yeterli mi bakın'),
+    (r'^db file scattered read|^direct path read', 'tam tablo taraması: eksik indeks veya bölümleme; büyük taramaları yapan SQL’lere bakın'),
+    (r'^log file sync', 'commit bekleme: çok sık commit veya yavaş redo diski; toplu commit ve redo log diskini inceleyin'),
+    (r'^log file switch', 'redo log dosyaları küçük: log dosyası boyutunu büyütün'),
+    (r'^enq: TX - row lock', 'satır kilidi çakışması: uygulama aynı satırları eşzamanlı güncelliyor'),
+    (r'^(latch|mutex|cursor: pin|library cache)', 'ayrıştırma çakışması: bağ değişkeni (bind variable) kullanmayan SQL'),
+    (r'^gc ', 'RAC ara bağlantı beklemesi: aynı blokları farklı node’lar kullanıyor'),
+    (r'^DB CPU', 'CPU üzerinde çalışma: en çok CPU harcayan SQL’leri ayarlayın'),
+    (r'^resmgr:cpu quantum', 'Resource Manager CPU kısıtlaması: plan sınırlarını kontrol edin'),
+]
+
+
+def awr_num(text):
+    text = (text or '').replace(',', '').strip()
+    m = re.match(r'-?[\d.]+', text)
+    if not m:
+        return None
+    return float(m.group(0)) * {'K': 1e3, 'M': 1e6, 'G': 1e9}.get(text[m.end():m.end() + 1].upper(), 1)
+
+
+def fixed_width(lines, dash):
+    """Cut lines into columns at the spans of a ---- ---- dash line (AWR text tables)."""
+    spans = [(m.start(), m.end()) for m in re.finditer(r'-+', dash)]
+    out = []
+    for line in lines:
+        cells = [line[a:(spans[i + 1][0] if i + 1 < len(spans) else len(line))].strip() for i, (a, _) in enumerate(spans)]
+        out.append(cells)
+    return out
+
+
+def awr_text(text):
+    """Turn a text AWR report (awrrpt_*.txt) into the same (summary, rows) tables the HTML report gives."""
+    lines = text.splitlines()
+    tables = []
+
+    def block(start):
+        """Rows after the first dash line following `start`, up to the next blank line."""
+        for i in range(start, min(start + 8, len(lines))):
+            if re.match(r'^\s*-{3,}(\s+-{2,})+\s*$', lines[i]):
+                rows = []
+                for ln in lines[i + 1:]:
+                    if not ln.strip():
+                        break
+                    rows.append(ln)
+                return lines[i], rows
+        return None, []
+    for i, ln in enumerate(lines):
+        if re.match(r'^Host Name\s', ln):
+            dash, rows = block(i)
+            if dash:
+                tables.append(('host information', [fixed_width([ln], dash)[0]] + fixed_width(rows, dash)))
+    snap = [[m.group(1) + ':', m.group(2)] for m in re.finditer(r'^\s*(Elapsed|DB Time):\s+([\d,.]+)\s*\(mins\)', text, re.M)]
+    tables.append(('snapshot information', snap))
+    for i, ln in enumerate(lines):
+        if ln.startswith('Load Profile'):
+            rows = []
+            for x in lines[i + 2:]:
+                m = re.match(r'^\s*(.+?):\s+([\d,.]+)\s*([\d,.]*)', x)
+                if not m:
+                    break
+                rows.append([m.group(1) + ':', m.group(2), m.group(3)])
+            tables.append(('load profile', rows))
+        if ln.startswith('Instance Efficiency Percentages'):
+            rows = []
+            for x in lines[i + 2:]:
+                pairs = re.findall(r'([A-Za-z][A-Za-z -]*%):\s+([\d.]+)', x)
+                if not pairs:
+                    break
+                rows.append([c for k, v in pairs for c in (k.strip() + ':', v)])
+            tables.append(('instance efficiency percentages', rows))
+        if re.match(r'^Top \d+ (Foreground Events|Timed)', ln):
+            dash, rows = block(i)
+            if dash:
+                cells = fixed_width(rows, dash)
+                tables.append(('top 10 wait events', [['Event', 'Waits', 'Total Wait Time (sec)', 'Wait Avg(ms)', '% DB time', 'Wait Class']] + [c[:6] + [''] * (6 - len(c)) for c in cells]))
+        if ln.startswith('SQL ordered by Elapsed Time'):
+            dash, _ = block(i)
+            start = lines.index(dash, i) + 1 if dash else len(lines)
+            rows, cur = [], None
+            for x in lines[start:]:
+                m = re.match(r'^\s*([\d,.]+)\s+([\d,.]+)\s+([\d,.N/A]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+(\w{13})\s*$', x)
+                if m:
+                    cur = list(m.groups()) + ['', '']
+                    rows.append(cur)
+                elif cur is not None and x.startswith('Module:'):
+                    cur[7] = x[7:].strip()
+                elif cur is not None and x.strip() and not cur[8]:
+                    cur[8] = x.strip()
+                elif not x.strip() and cur is not None and cur[8]:
+                    cur = None
+                if re.match(r'^\s*-{5,}\s*$', x) or x.startswith('SQL ordered by CPU'):
+                    break
+            tables.append(('top sql by elapsed time', [['Elapsed Time (s)', 'Executions', 'Elapsed Time per Exec (s)', '%Total', '%CPU', '%IO', 'SQL Id', 'SQL Module', 'SQL Text']] + rows))
+    return tables
+
+
+@op('oracle-awr', title='Oracle AWR raporu: yük profili, en çok bekleme olayları ve en pahalı SQL', domain='database', product='Oracle Database', tag='AWR', kind='file',
+    samples={'oracle_awr.txt': 'oracle_awr.txt'},
+    description='AWR raporundan (HTML veya metin: awrrpt_*.html / .txt) anlık görüntü aralığını, DB Time ve ortalama aktif oturumu (AAS) CPU sayısıyla, yük profilini (redo, mantıksal/fiziksel okuma, ayrıştırma), örnek verimliliği yüzdelerini, en çok bekleme olaylarını ve geçen süreye göre en pahalı SQL’leri çıkarır. AAS’in CPU sayısını aşmasını, bekleme olayının türüne göre olası nedenini (indeks okuma, tam tarama, commit, kilit, ayrıştırma, RAC), yüksek hard parse oranını ve DB Time’ın büyük kısmını tüketen tek SQL’leri işaretler.',
+    input='AWR raporu (HTML veya metin)', output='sonuc.csv (en pahalı SQL’ler) + bulgular ve bekleme olayları', command='python main.py --input awrrpt_1_4512_4513.html',
+    expect={'aas': 9.8, 'cpu': 8, 'bulgu': 5, 'sql': 6})
+def oracle_awr(args):
+    text = Path(args.input).read_text(encoding='utf-8', errors='replace')
+    if '<table' in text.lower():
+        p = _Tables()
+        p.feed(text)
+        tables = p.tables
+    else:
+        tables = awr_text(text)
+    snaps = awr_table(tables, 'snapshot')
+    elapsed = dbtime = None
+    for r in snaps:
+        label = r[0].lower()
+        value = next((awr_num(c) for c in r[1:] if awr_num(c) is not None), None)
+        if label.startswith('elapsed'):
+            elapsed = value
+        if label.startswith('db time'):
+            dbtime = value
+    host = awr_table(tables, 'host')
+    cpus = None
+    if len(host) > 1 and 'CPUs' in host[0]:
+        cpus = int(awr_num(host[1][host[0].index('CPUs')]) or 0) or None
+    if not elapsed or not dbtime:
+        raise ValueError('AWR raporunda Elapsed / DB Time bulunamadı; awrrpt.sql ile alınmış HTML veya metin AWR raporu verin.')
+    aas = dbtime / elapsed
+    findings = []
+    if cpus and aas > cpus:
+        findings.append(['yüksek', f'Ortalama aktif oturum {aas:.1f}, CPU sayısı {cpus}: veritabanı bu aralıkta doymuş; bekleyen iş birikmiş.'])
+    load = {r[0].rstrip(':').strip(): r[1:] for r in awr_table(tables, 'load profile') if len(r) > 1 and r[0].strip()}
+    lp = lambda k, i=0: awr_num(load.get(k, [None])[i]) if k in load else None
+    parses, hard = lp('Parses (SQL)'), lp('Hard parses (SQL)')
+    if parses and hard is not None and hard / parses > 0.1:
+        findings.append(['orta', f'Hard parse oranı %{100 * hard / parses:.0f} (saniyede {hard:g}): bağ değişkeni kullanmayan SQL’ler var; cursor_sharing veya uygulama düzeltmesi.'])
+    eff = {}
+    for r in awr_table(tables, 'instance efficiency'):
+        for i in range(0, len(r) - 1, 2):
+            if r[i].endswith(':'):
+                eff[r[i].rstrip(':').strip()] = awr_num(r[i + 1])
+    if eff.get('Soft Parse %') is not None and eff['Soft Parse %'] < 90:
+        findings.append(['orta', f'Soft Parse %{eff["Soft Parse %"]:g}: %95 üstü beklenir.'])
+    waits = awr_table(tables, 'wait events')
+    wait_rows = []
+    if waits:
+        head = waits[0]
+        ix = {h: i for i, h in enumerate(head)}
+        for r in waits[1:]:
+            if len(r) < len(head):
+                continue
+            name = r[0]
+            pct = awr_num(r[ix.get('% DB time', ix.get('%DB time', len(r) - 2))])
+            why = next((w for rx, w in AWR_WAITS if re.match(rx, name, re.I)), '')
+            wait_rows.append([name, r[ix.get('Wait Class', len(r) - 1)], r[ix.get('Total Wait Time (sec)', 2)], fmt(pct), why])
+        top = [w for w in wait_rows if w[0] != 'DB CPU']
+        if top and awr_num(top[0][3]) and awr_num(top[0][3]) >= 20:
+            findings.append(['yüksek', f'En büyük bekleme “{top[0][0]}” DB Time’ın %{top[0][3]} kadarı: {top[0][4] or "olay türünü inceleyin"}.'])
+    sqls = awr_table(tables, 'sql', 'elapsed')
+    out = []
+    if sqls:
+        head = sqls[0]
+        ix = {h: i for i, h in enumerate(head)}
+        for r in sqls[1:]:
+            if len(r) < len(head):
+                continue
+            total_pct = awr_num(r[ix['%Total']]) if '%Total' in ix else None
+            execs = awr_num(r[ix['Executions']]) if 'Executions' in ix else None
+            note = []
+            if total_pct and total_pct >= 25:
+                note.append('DB Time’ın büyük kısmı tek SQL’de: ilk ayarlanacak SQL')
+            if execs and execs > 100_000:
+                note.append('çok sık çalışıyor: çağrı sayısını (döngü içinde SQL) azaltmak gerekebilir')
+            out.append({'sql_id': r[ix.get('SQL Id', len(r) - 3)], 'gecen_sure_sn': awr_num(r[0]), 'calisma': int(execs) if execs is not None else '', 'calisma_basi_sn': awr_num(r[ix['Elapsed Time per Exec (s)']]) if 'Elapsed Time per Exec (s)' in ix else '',
+                        'db_time_%': total_pct, 'cpu_%': awr_num(r[ix['%CPU']]) if '%CPU' in ix else '', 'io_%': awr_num(r[ix['%IO']]) if '%IO' in ix else '',
+                        'modul': r[ix['SQL Module']] if 'SQL Module' in ix else '', 'sql': r[ix['SQL Text']][:120] if 'SQL Text' in ix else '', 'not': '; '.join(note)})
+        heavy = [o for o in out if o['db_time_%'] and o['db_time_%'] >= 25]
+        if heavy:
+            findings.append(['yüksek', f'{heavy[0]["sql_id"]} tek başına DB Time’ın %{heavy[0]["db_time_%"]:g} kadarını kullanıyor: SQL Tuning Advisor / plan incelemesi.'])
+    lp_rows = [[k, *(v[:2])] for k, v in load.items()]
+    return Result(f'{elapsed:g} dk aralık, DB Time {dbtime:g} dk; ortalama aktif oturum {aas:.1f}' + (f' ({cpus} CPU)' if cpus else '') + f'; {len(findings)} bulgu',
+                  ['sql_id', 'gecen_sure_sn', 'calisma', 'calisma_basi_sn', 'db_time_%', 'cpu_%', 'io_%', 'modul', 'sql', 'not'], out,
+                  {'aas': round(aas, 1), 'cpu': cpus, 'bulgu': len(findings), 'sql': len(out)},
+                  tables=[('Bulgular', ['Önem', 'Bulgu'], findings), ('Bekleme olayları', ['Olay', 'Sınıf', 'Toplam bekleme (sn)', '% DB time', 'Olası neden'], wait_rows),
+                          ('Yük profili', ['Ölçü', 'Saniyede', 'İşlem başına'], lp_rows)],
+                  notes=['Tek bir AWR aralığı tek bir anı gösterir; normal bir günün raporuyla (baseline) karşılaştırın. AWR, Diagnostics Pack lisansı gerektirir; lisans yoksa Statspack kullanın.'])
+
+
+def pg_bytes(value, unit):
+    v = float(value)
+    mult = {'8kB': 8192, 'kB': 1024, 'MB': 1024 ** 2, 'GB': 1024 ** 3, 'B': 1, '': 1}.get(unit, 1)
+    return v * mult
+
+
+@op('pg-yapilandirma', title='PostgreSQL yapılandırma denetimi ve transaction ID wraparound riski', domain='database', product=PG, tag='pg_settings',
+    samples={'pg_settings.csv': 'pg_settings.csv', 'pg_veritabani_yasi.csv': 'pg_veritabani_yasi.csv'},
+    args=[arg('--ram-gb', type=float, default=64, help='Sunucu belleği (GB)'), arg('--ssd', default='evet', help='Veri diski SSD mi (evet/hayır)'),
+          arg('--age', default='@ornek/pg_veritabani_yasi.csv', help='İsteğe bağlı: SELECT datname, age(datfrozenxid) FROM pg_database çıktısı')],
+    description='pg_settings dışa aktarımını (name, setting, unit) sunucu belleği ve disk türüyle karşılaştırır: shared_buffers, effective_cache_size, work_mem × max_connections bellek riski, maintenance_work_mem, max_connections (bağlantı havuzu ihtiyacı), random_page_cost (SSD), kapalı statement/lock/idle_in_transaction zaman aşımları, kapalı autovacuum, sık checkpoint (max_wal_size), kapalı yavaş sorgu logu, pg_stat_statements yüklenmemesi, track_io_timing ve veri kaybı riski taşıyan fsync/full_page_writes. Veritabanı yaşı verilirse transaction ID wraparound’a yaklaşan veritabanlarını işaretler.',
+    input='pg_settings CSV’si (+ isteğe bağlı veritabanı yaşları)', output='sonuc.csv (parametre bazında bulgular)', command='python main.py --input pg_settings.csv --ram-gb 128 --age db_age.csv',
+    expect={'parametre': 24, 'bulgu': 15, 'yuksek': 2})
+def pg_config(columns, rows, args):
+    for c in ('name', 'setting'):
+        need(c, columns, 'pg_settings')
+    st = {r['name'].strip(): (r['setting'].strip(), r.get('unit', '').strip()) for r in rows}
+    ram = args.ram_gb * 1024 ** 3
+    out = []
+
+    def add(name, sev, advice):
+        v, u = st.get(name, ('', ''))
+        out.append({'parametre': name, 'deger': f'{v} {u}'.strip(), 'onem': sev, 'oneri': advice})
+
+    def b(name):
+        v, u = st.get(name, (None, ''))
+        return pg_bytes(v, u) if v not in (None, '', '-1') else None
+    def val(name):
+        return st.get(name, ('', ''))[0]
+    sb = b('shared_buffers')
+    if sb is not None and not 0.15 * ram <= sb <= 0.4 * ram:
+        add('shared_buffers', 'orta', f'Belleğin %{100 * sb / ram:.1f} kadarı; %25 civarı ({0.25 * args.ram_gb:g} GB) önerilir.')
+    ec = b('effective_cache_size')
+    if ec is not None and ec < 0.5 * ram:
+        add('effective_cache_size', 'düşük', f'Belleğin %{100 * ec / ram:.0f} kadarı; planlayıcı indeksleri az kullanır. %50–75 ({0.75 * args.ram_gb:g} GB) verin.')
+    wm, mc = b('work_mem'), int(val('max_connections') or 0)
+    if wm is not None and mc and wm * mc > 2 * ram:
+        add('work_mem', 'yüksek', f'work_mem × max_connections = {wm * mc / 1024 ** 3:,.0f} GB, bellek {args.ram_gb:g} GB: eşzamanlı sıralamalarda bellek taşar (OOM).')
+    mw = b('maintenance_work_mem')
+    if mw is not None and mw <= 64 * 1024 ** 2 and args.ram_gb >= 16:
+        add('maintenance_work_mem', 'düşük', 'Varsayılan 64 MB; VACUUM ve indeks oluşturma yavaş. 1–2 GB verin.')
+    if mc > 300:
+        add('max_connections', 'orta', f'{mc} bağlantı: her bağlantı ayrı süreçtir; PgBouncer gibi bir havuzla 100–200’e indirin.')
+    if val('random_page_cost') in ('4', '4.0') and args.ssd.lower().startswith('e'):
+        add('random_page_cost', 'orta', 'SSD’de 1.1 olmalı; 4 değeri planlayıcıyı tam taramaya iter.')
+    for name in ('statement_timeout', 'idle_in_transaction_session_timeout', 'lock_timeout'):
+        if val(name) == '0':
+            add(name, 'orta' if name != 'lock_timeout' else 'düşük', 'Kapalı (0): kaçak sorgu veya açık bırakılan işlem kilit ve şişme üretir; rol veya veritabanı düzeyinde bir sınır verin.')
+    if val('autovacuum') == 'off':
+        add('autovacuum', 'yüksek', 'Kapalı: ölü satırlar temizlenmez ve wraparound koruması yalnızca acil vacuum’a kalır.')
+    if val('fsync') == 'off' or val('full_page_writes') == 'off':
+        add('fsync' if val('fsync') == 'off' else 'full_page_writes', 'yüksek', 'Kapalı: çökme anında veri bozulur. Yalnız atılabilir test ortamında kabul edilebilir.')
+    mx = b('max_wal_size')
+    if mx is not None and mx <= 1024 ** 3:
+        add('max_wal_size', 'orta', 'Varsayılan 1 GB: yazma yükünde checkpoint’ler sık ve ani I/O olur; 4–16 GB verin, pg_stat_bgwriter’da checkpoints_req’e bakın.')
+    if val('log_min_duration_statement') == '-1':
+        add('log_min_duration_statement', 'düşük', 'Yavaş sorgu logu kapalı; 1000 ms gibi bir eşik verin.')
+    if 'pg_stat_statements' not in val('shared_preload_libraries'):
+        add('shared_preload_libraries', 'orta', 'pg_stat_statements yüklenmemiş: hangi sorgunun pahalı olduğu ölçülemez.')
+    if val('track_io_timing') == 'off':
+        add('track_io_timing', 'düşük', 'Kapalı: sorgu planlarında I/O süresi görünmez.')
+    age_rows = []
+    if args.age and Path(args.age).is_file():
+        acols, arows = tabular.read(args.age)
+        need('datname', acols, '--age')
+        col = next((c for c in acols if c.lower().startswith('age')), None)
+        if col is None:
+            raise ValueError('--age dosyasında age sütunu yok.')
+        for r, a in zip(arows, numbers(arows, col)):
+            if a is None:
+                continue
+            sev = 'yüksek' if a > 1.5e9 else 'orta' if a > 1e9 else ''
+            age_rows.append([r['datname'], f'{a:,.0f}', f'%{100 * a / 2 ** 31:.0f}', sev or 'normal'])
+            if sev:
+                out.append({'parametre': f'veritabanı {r["datname"]}', 'deger': f'age {a:,.0f}', 'onem': sev,
+                            'oneri': f'Wraparound sınırının (2,1 milyar) %{100 * a / 2 ** 31:.0f} kadarında: en eski tablolarda VACUUM FREEZE planlayın, uzun açık işlem ve yetim replikasyon slotlarını kontrol edin.'})
+    order = {'yüksek': 0, 'orta': 1, 'düşük': 2}
+    out.sort(key=lambda o: (order[o['onem']], o['parametre']))
+    high = sum(o['onem'] == 'yüksek' for o in out)
+    return Result(f'{len(st)} parametre; {len(out)} bulgu ({high} yüksek)', ['parametre', 'deger', 'onem', 'oneri'], out,
+                  {'parametre': len(st), 'bulgu': len(out), 'yuksek': high},
+                  tables=[('Veritabanı yaşı (wraparound)', ['Veritabanı', 'age(datfrozenxid)', 'Sınıra oran', 'Durum'], age_rows)] if age_rows else [],
+                  notes=['Öneriler genel başlangıç değerleridir; iş yükü ölçülerek (pg_stat_statements, pg_stat_bgwriter) ayarlanmalıdır. Değişiklikleri önce test ortamında deneyin.'])
+
+
+SS_CONFIG = [
+    ('max server memory (MB)', lambda v, a: v >= 2147483647, 'yüksek', 'Sınırsız (varsayılan): SQL Server işletim sistemini belleksiz bırakır; toplam belleğin %80–90’ı kadar verin.'),
+    ('max degree of parallelism', lambda v, a: v == 0 and a.cpus > 8, 'orta', 'MAXDOP 0 ve 8’den çok çekirdek: tek sorgu tüm çekirdekleri alır; 8 veya NUMA düğümü başına çekirdek sayısı verin.'),
+    ('cost threshold for parallelism', lambda v, a: v <= 5, 'orta', 'Varsayılan 5: küçük sorgular da paralelleşir (CXPACKET); 50 civarından başlayın.'),
+    ('optimize for ad hoc workloads', lambda v, a: v == 0, 'düşük', 'Kapalı: tek kullanımlık planlar plan önbelleğini doldurur.'),
+    ('backup compression default', lambda v, a: v == 0, 'düşük', 'Kapalı: yedekler daha büyük ve yavaş.'),
+    ('remote admin connections', lambda v, a: v == 0, 'düşük', 'Uzak DAC kapalı: sunucu kilitlendiğinde uzaktan teşhis bağlantısı açılamaz.'),
+    ('xp_cmdshell', lambda v, a: v == 1, 'yüksek', 'Açık: SQL üzerinden işletim sistemi komutu çalıştırılabilir; kapatın.'),
+    ('priority boost', lambda v, a: v == 1, 'yüksek', 'Açık: işletim sistemini aç bırakabilir; Microsoft kapalı tutulmasını önerir.'),
+    ('lightweight pooling', lambda v, a: v == 1, 'orta', 'Fiber modu açık: çoğu iş yükünde yarardan çok sorun üretir.'),
+]
+
+
+@op('sqlserver-yapilandirma', title='SQL Server sunucu ve veritabanı yapılandırma denetimi', domain='database', product=SS, tag='sp_configure',
+    samples={'sqlserver_ayarlar.csv': 'sqlserver_ayarlar.csv', 'sqlserver_veritabanlari.csv': 'sqlserver_veritabanlari.csv'},
+    args=[arg('--databases', default='@ornek/sqlserver_veritabanlari.csv', help='sys.databases dışa aktarımı'), arg('--cpus', type=int, default=16, help='Mantıksal çekirdek sayısı'),
+          arg('--compat', type=int, default=160, help='Sunucunun desteklediği en yüksek uyumluluk düzeyi (2022: 160)')],
+    description='sys.configurations (name, value_in_use) ve sys.databases dışa aktarımlarını sağlık kontrolü kurallarıyla denetler: sınırsız max server memory, MAXDOP ve cost threshold for parallelism varsayılanları, optimize for ad hoc workloads, yedek sıkıştırma, uzak DAC, xp_cmdshell, priority boost; veritabanlarında AUTO_SHRINK, AUTO_CLOSE, CHECKSUM olmayan sayfa doğrulama, kapalı otomatik istatistik, FULL kurtarma modelinde log yedeği alınmadığı için büyüyen log (log_reuse_wait LOG_BACKUP), eski uyumluluk düzeyi ve çevrim dışı veritabanları.',
+    input='sys.configurations CSV’si + sys.databases CSV’si', output='sonuc.csv (bulgular)', command='python main.py --input configurations.csv --databases databases.csv --cpus 32 --compat 150',
+    expect={'bulgu': 14, 'yuksek': 5, 'veritabani': 5})
+def ss_config(columns, rows, args):
+    for c in ('name', 'value_in_use'):
+        need(c, columns, 'sys.configurations')
+    cfg = {r['name'].strip().lower(): r['value_in_use'] for r in rows}
+    out = []
+    for name, bad, sev, advice in SS_CONFIG:
+        if name.lower() in cfg:
+            v = tabular.parse_number(cfg[name.lower()])
+            if v is not None and bad(v, args):
+                out.append({'kapsam': 'sunucu', 'nesne': name, 'deger': cfg[name.lower()], 'onem': sev, 'oneri': advice})
+    dcols, drows = tabular.read(args.databases)
+    need('name', dcols, '--databases')
+    for r in drows:
+        db = r['name'].strip()
+        if db.lower() in ('master', 'model', 'msdb', 'tempdb'):
+            continue
+        g = lambda c: r.get(c, '').strip()
+        add = lambda field, value, sev, advice: out.append({'kapsam': 'veritabanı', 'nesne': f'{db}.{field}', 'deger': value, 'onem': sev, 'oneri': advice})
+        if g('state_desc') and g('state_desc').upper() != 'ONLINE':
+            add('state_desc', g('state_desc'), 'bilgi', 'Çevrim içi değil; bilinçli mi kontrol edin.')
+            continue
+        if g('is_auto_shrink_on') in ('1', 'True', 'true'):
+            add('auto_shrink', 'açık', 'yüksek', 'Sürekli küçültme parçalanma ve I/O üretir; kapatın.')
+        if g('is_auto_close_on') in ('1', 'True', 'true'):
+            add('auto_close', 'açık', 'orta', 'Her bağlantıda veritabanı yeniden açılır; kapatın.')
+        if g('page_verify_option_desc') and g('page_verify_option_desc').upper() != 'CHECKSUM':
+            add('page_verify', g('page_verify_option_desc'), 'yüksek', 'Sayfa bozulması fark edilmez; CHECKSUM yapın.')
+        if g('is_auto_create_stats_on') in ('0', 'False', 'false') or g('is_auto_update_stats_on') in ('0', 'False', 'false'):
+            add('auto_stats', 'kapalı', 'orta', 'Otomatik istatistik kapalı: planlar eskir; açın veya bakım işiyle güncelleyin.')
+        if g('recovery_model_desc').upper() == 'FULL' and g('log_reuse_wait_desc').upper() == 'LOG_BACKUP':
+            add('recovery_model', 'FULL', 'yüksek', 'Log yedeği alınmadığı için işlem günlüğü büyüyor (log_reuse_wait = LOG_BACKUP); log yedeği planlayın veya SIMPLE’a geçin.')
+        lvl = tabular.parse_number(g('compatibility_level')) if g('compatibility_level') else None
+        if lvl and lvl < args.compat:
+            add('compatibility_level', str(int(lvl)), 'düşük', f'Sunucu {args.compat} destekliyor; yeni optimizer özellikleri kapalı. Query Store ile test ederek yükseltin.')
+    order = {'yüksek': 0, 'orta': 1, 'düşük': 2, 'bilgi': 3}
+    out.sort(key=lambda o: (order[o['onem']], o['kapsam'], o['nesne']))
+    high = sum(o['onem'] == 'yüksek' for o in out)
+    dbs = sum(1 for r in drows if r['name'].strip().lower() not in ('master', 'model', 'msdb', 'tempdb'))
+    return Result(f'{len(out)} bulgu ({high} yüksek), {dbs} kullanıcı veritabanı', ['kapsam', 'nesne', 'deger', 'onem', 'oneri'], out,
+                  {'bulgu': len(out), 'yuksek': high, 'veritabani': dbs},
+                  notes=['Kurallar sp_Blitz ve Microsoft en iyi uygulamalarının en sık bulunan maddeleridir; yedek geçmişi için yedek-kontrolu, bekleme ve indeks için ilgili blokları da çalıştırın.'])
+
+
+def mongo_key(spec):
+    return list(spec.items()) if isinstance(spec, dict) else []
+
+
+@op('mongodb-indeks-kullanimi', title='MongoDB $indexStats: kullanılmayan ve önek olarak tekrar eden indeksler', domain='database', product='Atlas', tag='$indexStats', kind='file',
+    samples={'mongodb_indexstats.jsonl': 'mongodb_indexstats.jsonl'},
+    args=[arg('--as-of', default='2026-10-20', help='Kontrol tarihi'), arg('--days', type=int, default=30, help='Sayaç en az bu kadar gündür toplanıyor olmalı'),
+          arg('--max', type=int, default=10, help='Koleksiyon başına en fazla indeks')],
+    description='Her koleksiyonda db.koleksiyon.aggregate([{$indexStats: {}}]) çıktısının JSON Lines dışa aktarımını (ns alanı eklenmiş) okur: sayaç yeterince uzun süredir toplanıyorken hiç kullanılmayan indeksleri, anahtarı başka bir indeksin önekinden ibaret olan (gereksiz) indeksleri ve çok fazla indeksi olan (yazmayı yavaşlatan) koleksiyonları bulur. _id, unique, TTL ve kısmi (partial) indeksler silinme önerisinden ayrı tutulur.',
+    input='$indexStats JSON Lines (ns, name, key, accesses, spec)', output='sonuc.csv (indeks bazında kullanım ve öneri)', command='python main.py --input indexstats.jsonl --as-of 2026-10-20',
+    expect={'indeks': 16, 'kullanilmayan': 3, 'gereksiz_onek': 2, 'koleksiyon': 3})
+def mongo_indexes(args):
+    as_of = tabular.parse_date(args.as_of)[0]
+    items = []
+    for n, line in enumerate(Path(args.input).read_text(encoding='utf-8-sig').splitlines(), 1):
+        if not line.strip():
+            continue
+        try:
+            d = json.loads(line)
+        except ValueError:
+            raise ValueError(f'{n}. satır JSON değil.') from None
+        acc = d.get('accesses', {})
+        since = acc.get('since', '')
+        since = since.get('$date', '') if isinstance(since, dict) else since
+        ops = acc.get('ops', 0)
+        ops = int(ops.get('$numberLong', 0)) if isinstance(ops, dict) else int(ops or 0)
+        spec = d.get('spec', {})
+        items.append({'ns': d.get('ns', '?'), 'name': d.get('name', ''), 'key': mongo_key(d.get('key', {})), 'ops': ops, 'since': str(since)[:10],
+                      'special': bool(spec.get('unique') or spec.get('expireAfterSeconds') is not None or spec.get('partialFilterExpression') or d.get('name') == '_id_')})
+    by_ns = defaultdict(list)
+    for it in items:
+        by_ns[it['ns']].append(it)
+    out = []
+    for ns, idx in sorted(by_ns.items()):
+        for it in idx:
+            status, advice = 'kullanılıyor', ''
+            covering = [o for o in idx if o is not it and len(o['key']) > len(it['key']) and o['key'][:len(it['key'])] == it['key']]
+            d = tabular.parse_date(it['since'])
+            age = (as_of - d[0]).days if d else None
+            if covering and not it['special']:
+                status, advice = 'gereksiz önek', f'{covering[0]["name"]} aynı sorguları karşılar; silmeden önce hint kullanan sorgu var mı bakın'
+            elif it['ops'] == 0 and not it['special'] and age is not None and age >= args.days:
+                status, advice = 'kullanılmıyor', f'{age} gündür hiç kullanılmadı: önce db.koleksiyon.hideIndex() ile gizleyip izleyin, sonra silin'
+            elif it['ops'] == 0 and it['special']:
+                status, advice = 'kullanılmıyor (özel)', 'unique/TTL/partial/_id indeksi: kısıt veya temizlik için gerekli olabilir, silmeyin'
+            elif it['ops'] == 0:
+                status, advice = 'veri yetersiz', f'sayaç {age} gündür toplanıyor; en az {args.days} gün bekleyin'
+            out.append({'koleksiyon': ns, 'indeks': it['name'], 'anahtar': ', '.join(f'{k}:{v}' for k, v in it['key']), 'kullanim': it['ops'], 'sayac_baslangic': it['since'],
+                        'durum': status, 'oneri': advice})
+    many = [[ns, len(idx)] for ns, idx in sorted(by_ns.items()) if len(idx) > args.max]
+    unused = sum(o['durum'] == 'kullanılmıyor' for o in out)
+    redundant = sum(o['durum'] == 'gereksiz önek' for o in out)
+    return Result(f'{len(out)} indeks, {len(by_ns)} koleksiyon; {unused} kullanılmıyor, {redundant} gereksiz önek', list(out[0]), out,
+                  {'indeks': len(out), 'kullanilmayan': unused, 'gereksiz_onek': redundant, 'koleksiyon': len(by_ns)},
+                  tables=[('Çok indeksli koleksiyonlar', ['Koleksiyon', 'İndeks'], many)] if many else [],
+                  notes=['$indexStats sayaçları sunucu yeniden başlayınca ve replika setin her üyesinde ayrı tutulur; tüm üyelerin çıktısını birleştirin. Atlas’ta Performance Advisor da kullanılmayan indeksleri listeler.'])

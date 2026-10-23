@@ -1,0 +1,9 @@
+oge,calisma_alani,is_yuku,tur,cu_saniye
+Satis Semantik Model,Satış,Semantik model yenileme,arka plan,1840000
+nb_musteri_skor,Analitik,Notebook,arka plan,1210000
+df_erp_aktarim,Entegrasyon,Dataflow Gen2,arka plan,760000
+Satış Panosu,Satış,Rapor sorgusu,interaktif,690000
+Finans Panosu,Finans,Rapor sorgusu,interaktif,410000
+lh_ham_yukleme,Entegrasyon,Pipeline kopyalama,arka plan,380000
+wh_sql_analist,Analitik,Ambar sorgusu,interaktif,255000
+Stok Panosu,Lojistik,Rapor sorgusu,interaktif,95000

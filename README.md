@@ -4,7 +4,7 @@ Veri işleri için iki tür paket: **kod blokları** (aynı girdiden hep aynı s
 
 ## Güncel durum
 
-17 Ekim 2026: 23 alan / 207 ürün bağlamı. **494 indirilebilir paket**: 37 platform API paketi (36 kod bloğu + BigQuery agent) ve 457 yerel paket (342 kod bloğu + 115 agent). Toplam **378 kod bloğu, 116 agent**; 23 alanın hepsinde en az bir indirilebilir paket var. Diğer 372 görev **planlanan entegrasyon**; indirme bağlantıları yok.
+17 Ekim 2026: 23 alan / 207 ürün bağlamı. **502 indirilebilir paket**: 37 platform API paketi (36 kod bloğu + BigQuery agent) ve 465 yerel paket (350 kod bloğu + 115 agent). Toplam **386 kod bloğu, 116 agent**; 23 alanın hepsinde en az bir indirilebilir paket var. Diğer 372 görev **planlanan entegrasyon**; indirme bağlantıları yok.
 
 ### Yerel kod blokları (internet yok, Python standart kütüphanesi)
 
@@ -23,7 +23,7 @@ Veri işleri için iki tür paket: **kod blokları** (aynı girdiden hep aynı s
 | Tarih tablosu | Tarih aralığı + tatil dosyası | Türkçe takvim boyutu, resmî tatil, iş günü sırası, mali yıl; CSV + SQL |
 | Dosya birleştirme | CSV/XLSX klasörü | Tek tablo + kaynak dosya; şema kayması, ondalık ayırıcı farkı, mükerrer satır |
 
-### Tek amaçlı yerel kod blokları (330)
+### Tek amaçlı yerel kod blokları (338)
 
 Her blok tek bir işi yapar; `library/blocks/<kategori>.py` içinde `islem.op(...)` ile kaydedilir. Kayıt; katalog metnini, komut satırı seçeneklerini, örnek veriyi ve örnek veride **elle doğrulanmış beklenen sonucu** birlikte taşır. Paketteki `main.py` iki satırlık bir başlatıcıdır; ortak çalıştırıcı (`islem.py`) girdiyi okur, hiçbir dosyayı değiştirmez, ağa çıkmaz ve `output/` altına `sonuc.csv`, `rapor.md`, `ozet.json` yazar.
 
@@ -46,10 +46,10 @@ Her blok tek bir işi yapar; `library/blocks/<kategori>.py` içinde `islem.op(..
 | Konum (`konum.py`) | 8 | GeoJSON bölgelerine nokta atama (delikli/çoklu çokgen), araç GPS rota, durak ve sıçrama özeti, mesafe matrisi ve en yakın komşu, geofence giriş/çıkış, GPS durak tespiti, geohash ızgara yoğunluğu, mağaza kapsama alanı, DBSCAN konum kümeleme |
 | Bütçe ve planlama (`planlama.py`) | 13 | bütçe–gerçekleşen, bütçe dağıtımı, yıl sonu tahmini, senaryo, konsolidasyon + grup içi eliminasyon, çağrı merkezi personel ihtiyacı (Erlang C), fiyat–hacim–karma sapması, çok ürünlü başa baş noktası, formül tabanlı duyarlılık (tornado), personel maliyet planı, tahmin doğruluğu (WAPE, bias, FVA), kapasite planlama (doluluk, ek kapasite), ay içi satış hedef takibi |
 | Orkestrasyon (`orkestrasyon.py`) | 7 | cron açıklama + sonraki çalışmalar, Airflow DAG statik denetimi (ast), GitHub Actions güvenlik denetimi, iş bağımlılığı ve kritik yol, zamanlama eş zamanlılığı ve kendi üstüne binen işler, bakım penceresi çakışması, yeniden deneme ve kararsız görevler |
-| Entegrasyon (`entegrasyon.py`) | 2 | ADF/Synapse pipeline envanteri (Mermaid), SSIS .dtsx paket envanteri |
+| Entegrasyon (`entegrasyon.py`) | 4 | ADF/Synapse pipeline envanteri (Mermaid), SSIS .dtsx paket envanteri, PowerCenter repository envanteri ve IDMC geçiş karmaşıklığı, Fivetran MAR analizi (pahalı ve okunmayan tablolar) |
 | Lakehouse (`lakehouse.py`) | 8 | Delta _delta_log özeti, Iceberg metadata özeti, nesne depolamada küçük dosya analizi, Delta VACUUM tahmini, bölüm yolu tutarlılığı ve eksik tarihler, medallion katman kuralları, OPTIMIZE/VACUUM bakım planı, Hive metastore → Unity Catalog geçiş hazırlığı (SYNC / DEEP CLONE / CTAS, dalga planı ve SQL) |
-| Veritabanı (`veritabani.py`) | 14 | SQL Server plan (.sqlplan), bekleme istatistikleri, indeks kullanımı, deadlock XML; PostgreSQL EXPLAIN JSON, pg_stat_statements, tablo şişmesi/vacuum; MySQL slow query log, SQL Server eksik indeks önerileri, PostgreSQL kilit bekleme ağacı, yedek geçmişi denetimi, MongoDB profiler sorgu şekilleri, uzun işlemler ve idle in transaction, tekrar ve kapsanan indeksler |
-| Ambar ve FinOps (`maliyet.py`) | 14 | Snowflake sorgu geçmişi ve kredi, BigQuery iş maliyeti, bulut faturası özeti, ay sonu maliyet tahmini, zorunlu etiket uyumu, taahhüt (reserved/savings plan) önerisi, rightsizing, ortak maliyet dağıtımı (showback), birim maliyet trendi, depolama sınıfı (tier) önerisi, atıl kaynaklar, kullanılmayan lisanslar, egress maliyeti |
+| Veritabanı (`veritabani.py`) | 18 | Oracle AWR raporu (AAS, bekleme olayları, pahalı SQL), PostgreSQL yapılandırma ve wraparound, SQL Server yapılandırma denetimi (sp_Blitz benzeri), MongoDB $indexStats kullanılmayan/gereksiz indeks, SQL Server plan (.sqlplan), bekleme istatistikleri, indeks kullanımı, deadlock XML; PostgreSQL EXPLAIN JSON, pg_stat_statements, tablo şişmesi/vacuum; MySQL slow query log, SQL Server eksik indeks önerileri, PostgreSQL kilit bekleme ağacı, yedek geçmişi denetimi, MongoDB profiler sorgu şekilleri, uzun işlemler ve idle in transaction, tekrar ve kapsanan indeksler |
+| Ambar ve FinOps (`maliyet.py`) | 16 | Databricks system.billing (all-purpose’ta çalışan işler, hafta sonu kümeler, etiketsiz kullanım), Fabric kapasite kısıtlama pencereleri ve SKU önerisi, Snowflake sorgu geçmişi ve kredi, BigQuery iş maliyeti, bulut faturası özeti, ay sonu maliyet tahmini, zorunlu etiket uyumu, taahhüt (reserved/savings plan) önerisi, rightsizing, ortak maliyet dağıtımı (showback), birim maliyet trendi, depolama sınıfı (tier) önerisi, atıl kaynaklar, kullanılmayan lisanslar, egress maliyeti |
 | Ambar tasarımı (`ambar.py`) | 8 | Snowflake RBAC denetimi (ACCOUNTADMIN, rol hiyerarşisi, PUBLIC yetkileri, MANAGE GRANTS), Teradata DBQL iş yükü ve dönüştürülecek söz dizimi envanteri, Redshift dağıtım/sıralama/sıkıştırma denetimi, Snowflake Time Travel/Fail-safe/klon depolama, BigQuery bölümleme/kümeleme denetimi, sorgulanmayan tablolar, SCD2 bütünlüğü (çakışma, boşluk, çok güncel), Snowflake clustering derinliği |
 | Migrasyon (`gecis.py`) | 13 | alan eşleme doğrulama, tablo satır sayısı mutabakatı, hedef uzunluk/kodlama riski, anahtarsız sütun profili karşılaştırması, T-SQL/Oracle → PostgreSQL sorgu çevirisi, bağımlılık ve hacme göre geçiş dalgaları, anahtara göre satır mutabakatı, identity/sequence çakışma kontrolü, hedef tip uyumu (taşma, yuvarlama, geçersiz tarih), dalga bazında süre tahmini, saat dilimi kayması, boş/NULL dönüşümü, bozuk Türkçe karakter (mojibake) tespiti ve onarımı |
 | dbt (`donusum.py`) | 5 | manifest.json test ve doküman kapsamı, source freshness özeti, incremental model riskleri (unique_key, filtre, geri bakış), artımlı model şablonu (unique_key, geriye bakış), snapshot (SCD2, silinenleri kapatma) |
@@ -138,7 +138,7 @@ Platform paketi:
 
 Yeni/boş çıktı klasörü gerekir. Yazma ve LLM maliyeti olabilen işlemler README'de belirtilir. Şema ve proje bağlamı seçilen modele gönderilir; agent satır verisi çekmez. Kısmi çalışma kimlikleri `run-state.json`, dosya özeti `manifest.json` içindedir. Otomatik rollback veya üretimde otomatik model-kodu yürütme yoktur.
 
-Toplam **304 test** geçiyor (330 tek amaçlı blok, bir testin alt testleri olarak tek tek); tek amaçlı blokların her biri paketlenmiş kopyasıyla kendi örnek verisinde çalıştırılıp beklenen sonuçla karşılaştırılır. Yerel paket testleri (`tests/test_local.py`) paketlenmiş kopyayı örnek veriyle çalıştırır; agent’lar OpenAI/Anthropic/Ollama biçiminde konuşan sahte model sunucusuyla test edilir (maskeleme, onay, dry-run, düzeltme denemesi, HTTP hatası). İlk sekiz agent ayrıca yerel bir Ollama modeliyle (qwen3 14B) elle denendi; son yüz yedi agent yalnızca sahte model sunucusuyla test edildi. Test sayısı canlı tenant doğrulaması değildir.
+Toplam **305 test** geçiyor (338 tek amaçlı blok, bir testin alt testleri olarak tek tek); tek amaçlı blokların her biri paketlenmiş kopyasıyla kendi örnek verisinde çalıştırılıp beklenen sonuçla karşılaştırılır. Yerel paket testleri (`tests/test_local.py`) paketlenmiş kopyayı örnek veriyle çalıştırır; agent’lar OpenAI/Anthropic/Ollama biçiminde konuşan sahte model sunucusuyla test edilir (maskeleme, onay, dry-run, düzeltme denemesi, HTTP hatası). İlk sekiz agent ayrıca yerel bir Ollama modeliyle (qwen3 14B) elle denendi; son yüz yedi agent yalnızca sahte model sunucusuyla test edildi. Test sayısı canlı tenant doğrulaması değildir.
 
 ## Test katmanları
 
