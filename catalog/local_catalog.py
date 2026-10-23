@@ -560,6 +560,21 @@ LOCAL = [
          description='Kullanıcılara tek tek verilmiş yetkileri aynı yetki kümelerine göre gruplar; model az sayıda rol tasarlayıp kümelere atar. Kullanıcı adları gönderilmez. Bir kümenin erişimini eksik ya da fazla bırakan atama, rol sınırını aşan, kullanılmayan ya da olmayan yetki içeren rol reddedilir. Rol tanımları ve kullanıcı–rol listesi yazılır.',
          input='Yetki listesi (kullanici, departman, yetki)', output='roller.yaml + rol_yetkileri.csv + kullanici_rolleri.csv + rol-madenciligi.md',
          command='python main.py --input ad_grup_uyelikleri.csv --user sAMAccountName --permission grup --max-roles 10'),
+    dict(id='getirme-ayari-onerici', kind='agent', domain='ai', product='Doküman ve RAG verisi', title='RAG için top_k ve en düşük skor eşiği öneren agent',
+         main='agents/getirme_ayari_onerici.py', modules=['common', 'tabular', 'islem', 'rag', 'llm'], samples={'getirme_skorlari.csv': 'getirme_skorlari.csv'},
+         description='Değerlendirme setinde her (top_k, min_score) ayarı için doğru parçanın bağlama girme oranını (rag-geri-getirme-degerlendirme bloğuyla) ve ortalama bağlam tokenını hesaplar; model ayarı seçer. Hedef bulma oranının altında kalan, token bütçesini aşan ve bir küçüğü de yettiği halde büyük top_k reddedilir. Sorular ve parça içerikleri gönderilmez.',
+         input='Değerlendirme sonucu (soru, beklenen parça, sıralı getirilenler, skorlar)', output='getirme_ayari.json + ayar_taramasi.csv + bulunamayan_sorular.csv + getirme-ayari.md',
+         command='python main.py --input eval.csv --chunk-tokens 512 --token-budget 3000 --min-hit 0.95'),
+    dict(id='zaman-asimi-onerici', kind='agent', domain='database', product='PostgreSQL', title='Rol başına statement/lock timeout öneren agent',
+         main='agents/zaman_asimi_onerici.py', modules=['common', 'tabular', 'islem', 'analiz', 'llm'], samples={'sorgu_sure_gecmisi.csv': 'sorgu_sure_gecmisi.csv'},
+         description='Rol başına başarılı sorgu süreleri, kilit beklemeleri ve elle iptal edilmiş kaçak sorgulardan statement_timeout, lock_timeout ve idle_in_transaction_session_timeout önerir. Başarılı sorguların belirli payından fazlasını kesen, kaçak sorguyu durdurmayan ya da p99,9’un çok üstündeki süre, normal kilit beklemesini kesen lock_timeout reddedilir. ALTER ROLE … SET komutları yazılır.',
+         input='Sorgu süre geçmişi (rol, sure_ms, durum, kilit_bekleme_ms)', output='zaman_asimlari.sql + zaman_asimi_plani.csv + zaman-asimi.md',
+         command='python main.py --input pg_sorgu_ozeti.csv --max-cut 0.0005'),
+    dict(id='kaynak-tazelik-onerici', kind='agent', domain='transform', product='dbt Core', title='Yükleme geçmişinden dbt source freshness eşiği öneren agent',
+         main='agents/kaynak_tazelik_onerici.py', modules=['common', 'tabular', 'islem', 'analiz', 'llm'], samples={'kaynak_yukleme_zamanlari.csv': 'kaynak_yukleme_zamanlari.csv'},
+         description='Kaynak başına yüklemeler arası sürelerden dbt freshness warn_after/error_after önerir; eşiklerin geçmişte kaç kez aşılacağı kodla sayılır. Geçmişte sınırdan fazla yanlış uyarı üreten warn, warn’dan kısa ya da kesintiyi geç fark edecek kadar uzun error reddedilir. sources.yml freshness blokları yazılır.',
+         input='Yükleme zamanları (kaynak, yuklenme_zamani)', output='sources.yml + tazelik_plani.csv + kaynak-tazelik.md',
+         command='python main.py --input load_log.csv --loaded-at-field _loaded_at --max-false 1'),
 ]
 
 # Single-purpose blocks registered with islem.op in category modules (library/blocks/*.py).

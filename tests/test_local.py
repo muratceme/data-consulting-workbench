@@ -59,8 +59,8 @@ class LocalTestCase(unittest.TestCase):
 
 class PackageShape(LocalTestCase):
     def test_every_local_package_is_self_contained_and_has_no_network_code(self):
-        self.assertEqual(len([i for i in LOCAL if not i.get('op')]), 108)
-        self.assertEqual(sum(i['kind'] == 'agent' for i in LOCAL), 96)
+        self.assertEqual(len([i for i in LOCAL if not i.get('op')]), 111)
+        self.assertEqual(sum(i['kind'] == 'agent' for i in LOCAL), 99)
         self.assertEqual(len({i['id'] for i in LOCAL}), len(LOCAL))
         for item in LOCAL:
             names = local_package.files(item)
@@ -922,6 +922,12 @@ GOOD['ozet-tablo-onerici'] = {'ozet_tablolar': [{'ad': 'agg_ay_bolge_kategori_ka
 OUTPUTS['ozet-tablo-onerici'] = 'ozet-tablolar.md'
 GOOD['rol-madenciligi'] = {'roller': [{'ad': 'satis_temel', 'yetkiler': ['crm.okuma', 'crm.yazma', 'rapor.satis', 'siparis.okuma', 'siparis.yazma']}, {'ad': 'finans_temel', 'yetkiler': ['fatura.okuma', 'fatura.yazma', 'odeme.okuma', 'rapor.finans', 'siparis.okuma']}, {'ad': 'destek', 'yetkiler': ['crm.okuma', 'destek.yazma', 'siparis.okuma']}, {'ad': 'analist_okuma', 'yetkiler': ['crm.okuma', 'fatura.okuma', 'rapor.finans', 'rapor.satis', 'siparis.okuma']}, {'ad': 'dwh_okuma', 'yetkiler': ['dwh.okuma']}, {'ad': 'satis_yonetici_ek', 'yetkiler': ['siparis.onay', 'rapor.yonetim']}, {'ad': 'finans_yonetici_ek', 'yetkiler': ['odeme.onay', 'rapor.yonetim']}], 'atamalar': [{'kume': 'K1', 'roller': ['satis_temel']}, {'kume': 'K2', 'roller': ['finans_temel']}, {'kume': 'K3', 'roller': ['destek']}, {'kume': 'K4', 'roller': ['analist_okuma', 'dwh_okuma']}, {'kume': 'K5', 'roller': ['satis_temel', 'satis_yonetici_ek']}, {'kume': 'K6', 'roller': ['satis_temel', 'dwh_okuma']}, {'kume': 'K7', 'roller': ['finans_temel', 'finans_yonetici_ek']}]}
 OUTPUTS['rol-madenciligi'] = 'rol-madenciligi.md'
+GOOD['getirme-ayari-onerici'] = {'top_k': 5, 'min_score': 0.7, 'gerekce': 'Bulma oranı %90’a ilk top_k 5’te ulaşıyor; 0,7 altındaki parçalar bağlamı büyütüyor ama doğru cevap getirmiyor.'}
+OUTPUTS['getirme-ayari-onerici'] = 'getirme-ayari.md'
+GOOD['zaman-asimi-onerici'] = {'roller': [{'rol': 'analist', 'statement_timeout_ms': 600000, 'lock_timeout_ms': 2000, 'idle_in_transaction_ms': 600000, 'gerekce': 'Ad-hoc sorgular 6 dakikaya kadar sürüyor; saatlerce süren kaçak sorgular 10 dakikada kesilir.'}, {'rol': 'app_batch', 'statement_timeout_ms': 60000, 'lock_timeout_ms': 5000, 'idle_in_transaction_ms': 300000, 'gerekce': ''}, {'rol': 'app_web', 'statement_timeout_ms': 2000, 'lock_timeout_ms': 500, 'idle_in_transaction_ms': 60000, 'gerekce': 'Web isteklerinde 30 sn kilit beklemesi kullanıcıyı bekletir.'}, {'rol': 'rapor', 'statement_timeout_ms': 400000, 'lock_timeout_ms': 3000, 'idle_in_transaction_ms': 600000, 'gerekce': ''}]}
+OUTPUTS['zaman-asimi-onerici'] = 'zaman-asimi.md'
+GOOD['kaynak-tazelik-onerici'] = {'kaynaklar': [{'kaynak': 'crm.musteriler', 'warn_after': {'count': 3, 'period': 'day'}, 'error_after': {'count': 4, 'period': 'day'}, 'gerekce': 'Gece yüklemesi ara sıra atlanıyor; tek atlama uyarı üretmesin.'}, {'kaynak': 'erp.siparisler', 'warn_after': {'count': 2, 'period': 'hour'}, 'error_after': {'count': 6, 'period': 'hour'}, 'gerekce': ''}, {'kaynak': 'finans.kur', 'warn_after': {'count': 36, 'period': 'hour'}, 'error_after': {'count': 2, 'period': 'day'}, 'gerekce': ''}, {'kaynak': 'web.olaylar', 'warn_after': {'count': 30, 'period': 'minute'}, 'error_after': {'count': 1, 'period': 'hour'}, 'gerekce': '15 dakikalık akış.'}]}
+OUTPUTS['kaynak-tazelik-onerici'] = 'kaynak-tazelik.md'
 GOOD['tableau-hesap-yazari'] = {'alanlar': [{'ad': 'Son Tarih', 'formul': '{FIXED : MAX([Siparis Tarihi])}', 'tip': 'date', 'rol': 'dimension', 'aciklama': 'Verideki son sipariş tarihi.'}, {'ad': 'Ciro YTD', 'formul': "SUM(IF [Siparis Tarihi] >= DATETRUNC('year', [Son Tarih]) AND [Siparis Tarihi] <= [Son Tarih] THEN [Tutar] END)", 'tip': 'real', 'rol': 'measure', 'aciklama': 'Yıl başından son tarihe.'}, {'ad': 'Ciro GY YTD', 'formul': "SUM(IF [Siparis Tarihi] >= DATEADD('year', -1, DATETRUNC('year', [Son Tarih])) AND [Siparis Tarihi] <= DATEADD('year', -1, [Son Tarih]) THEN [Tutar] END)", 'tip': 'real', 'rol': 'measure', 'aciklama': 'Geçen yılın aynı dönemi.'}, {'ad': 'Sipariş Başına Ciro', 'formul': 'SUM([Tutar]) / COUNTD([Siparis No])', 'tip': 'real', 'rol': 'measure', 'aciklama': ''}, {'ad': 'Bölge Payı', 'formul': 'SUM({FIXED [Bolge] : SUM([Tutar])}) / SUM({FIXED : SUM([Tutar])})', 'tip': 'real', 'rol': 'measure', 'aciklama': ''}], 'varsayimlar': ['Ciro, Tutar alanının toplamıdır.']}
 OUTPUTS['tableau-hesap-yazari'] = 'hesaplanan-alanlar.md'
 OUTPUTS.update({'deney-analisti': 'deney-raporu.md', 'sube-planlayici': 'sube-plani.md', 'rapor-tasarimcisi': 'tasarim.md'})
@@ -2200,6 +2206,7 @@ class Agents(LocalTestCase):
         # the generated SQL runs and the aggregates add up to the fact table
         import sqlite3
         db = sqlite3.connect(':memory:')
+        self.addCleanup(db.close)
         cols, facts = tabular.read(p.dir / 'ornek' / 'satis_olgu.csv')
         db.execute(f'CREATE TABLE satis_olgu ({", ".join(cols)})')
         db.executemany(f'INSERT INTO satis_olgu VALUES ({",".join("?" * len(cols))})', [[float(r[c]) if c in ('adet', 'tutar') else r[c] for c in cols] for r in facts])
@@ -2231,6 +2238,51 @@ class Agents(LocalTestCase):
         for r in tabular.read(p.dir / 'ornek' / 'kullanici_yetkileri.csv')[1]:
             want.setdefault(r['kullanici'], set()).add(r['yetki'])
         self.assertEqual(got, want)
+
+    def test_retrieval_setting_is_smallest_that_meets_hit_rate(self):
+        p, done = self.run_agent('getirme-ayari-onerici', '--yes', answers=[{'top_k': 6, 'min_score': 0}, GOOD['getirme-ayari-onerici']])
+        self.ok(done)
+        sent = self.model.requests[-2]['body']['messages'][-1]['content']
+        self.assertIn('5 · 0.7 · 0.9 · 0.7175 · 1850', sent)
+        self.assertNotIn('dok17#4', sent)  # chunk ids and questions are not sent
+        self.assertIn('top_k 5 ile de bulma oranı %90.0; top_k gereğinden büyük', self.model.requests[-1]['body']['messages'][-1]['content'])
+        cfg = p.json('getirme_ayari.json')
+        self.assertEqual((cfg['top_k'], cfg['min_score'], cfg['bulma_orani'], cfg['ort_baglam_token']), (5, 0.7, 0.9, 1850))
+        self.assertEqual(len(p.csv('bulunamayan_sorular.csv')), 4)
+        self.assertEqual(len(p.csv('ayar_taramasi.csv')), 60)
+        self.run_agent('getirme-ayari-onerici', '--yes', answers=[{'top_k': 3, 'min_score': 0.6}, GOOD['getirme-ayari-onerici']])
+        self.assertIn('top_k 3, min_score 0.6: doğru parçanın bağlamda olduğu soru payı %82.5 (en az %90)', self.model.requests[-1]['body']['messages'][-1]['content'])
+
+    def test_role_timeouts_spare_normal_queries_and_stop_runaways(self):
+        z = lambda r, st, lt, it: {'rol': r, 'statement_timeout_ms': st, 'lock_timeout_ms': lt, 'idle_in_transaction_ms': it}
+        bad = {'roller': [z('analist', 7200000, 2000, 600000), z('app_batch', 15000, 5000, 300000), z('app_web', 2000, 3000, 60000), z('rapor', 400000, 3000, 30000)]}
+        p, done = self.run_agent('zaman-asimi-onerici', '--yes', answers=[bad, GOOD['zaman-asimi-onerici']])
+        self.ok(done)
+        self.assertIn('- app_web: 2000 · 35/79/117/150/231 · 93/30000 · 31000', self.model.requests[-2]['body']['messages'][-1]['content'])
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        for text in ('analist: statement_timeout 7200000 ms, p99,9 süre 349089 ms; 10 katından uzun', 'analist: elle iptal edilen 3728696 ms’lik sorgu bu sürede de durmazdı',
+                     'app_batch: statement_timeout 15000 ms ile kesilecek başarılı sorgu payı %1.67 (en fazla %0.1)', 'app_web: lock_timeout 3000 ms; p99 kilit beklemesi (93 ms)',
+                     'rapor: idle_in_transaction 1 dk ile 1 saat arasında olmalı'):
+            self.assertIn(text, retry)
+        sql = p.out('zaman_asimlari.sql').read_text(encoding='utf-8')
+        self.assertIn("ALTER ROLE analist SET statement_timeout = '600000ms';", sql)
+        self.assertEqual({r['rol']: r['kesilecek_basarili'] for r in p.csv('zaman_asimi_plani.csv')}, {'analist': '0', 'app_batch': '0', 'app_web': '0', 'rapor': '0'})
+
+    def test_source_freshness_thresholds_are_replayed_on_history(self):
+        t = lambda k, w, wp, e, ep: {'kaynak': k, 'warn_after': {'count': w, 'period': wp}, 'error_after': {'count': e, 'period': ep}}
+        bad = {'kaynaklar': [t('crm.musteriler', 1, 'week', 2, 'week'), t('erp.siparisler', 1, 'hour', 6, 'hour'), t('finans.kur', 36, 'hour', 30, 'hour'),
+                             t('web.olaylar', 30, 'minute', 12, 'hour')]}
+        p, done = self.run_agent('kaynak-tazelik-onerici', '--yes', answers=[bad, GOOD['kaynak-tazelik-onerici']])
+        self.ok(done)
+        self.assertIn('- crm.musteriler: 23 · 31.72/46.59/63.31/67.75', self.model.requests[-2]['body']['messages'][-1]['content'])
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        for text in ('crm.musteriler: warn_after ve error_after', 'erp.siparisler: warn 1 sa; geçmiş 720 yükleme aralığının 339 tanesinde uyarı verirdi',
+                     'finans.kur: error_after (30 sa) warn_after’dan (36 sa) uzun olmalı', 'web.olaylar: error 12 sa, p95 aralık 0.27 sa'):
+            self.assertIn(text, retry)
+        self.assertNotIn('eşiği yazılmayan', retry)
+        yml = p.out('sources.yml').read_text(encoding='utf-8')
+        self.assertIn('  - name: erp\n    loaded_at_field: _yuklenme_zamani\n    tables:\n      - name: siparisler\n        freshness:\n          warn_after: {count: 2, period: hour}', yml)
+        self.assertEqual({r['kaynak']: r['gecmiste_uyari'] for r in p.csv('tazelik_plani.csv')}['crm.musteriler'], '0')
 
     def test_invalid_answer_gets_one_corrective_retry(self):
         bad = {'sql': 'SELECT s.KalemlerToplamCiro FROM dbo.Siparisler s'}
@@ -2334,7 +2386,10 @@ class Agents(LocalTestCase):
                              ('k-anonimlik-genellestirici', {'kolonlar': [{**c, 'tip': 'koru'} for c in GOOD['k-anonimlik-genellestirici']['kolonlar']]}),
                              ('yukleme-sirasi-planlayici', {**GOOD['yukleme-sirasi-planlayici'], 'sira': GOOD['yukleme-sirasi-planlayici']['sira'][::-1]}),
                              ('ozet-tablo-onerici', {'ozet_tablolar': GOOD['ozet-tablo-onerici']['ozet_tablolar'][2:]}),
-                             ('rol-madenciligi', {**GOOD['rol-madenciligi'], 'atamalar': GOOD['rol-madenciligi']['atamalar'][:3]})]:
+                             ('rol-madenciligi', {**GOOD['rol-madenciligi'], 'atamalar': GOOD['rol-madenciligi']['atamalar'][:3]}),
+                             ('getirme-ayari-onerici', {'top_k': 1, 'min_score': 0.9}),
+                             ('zaman-asimi-onerici', {'roller': [{**r, 'statement_timeout_ms': 10} for r in GOOD['zaman-asimi-onerici']['roller']]}),
+                             ('kaynak-tazelik-onerici', {'kaynaklar': [{**k, 'warn_after': {'count': 1, 'period': 'minute'}} for k in GOOD['kaynak-tazelik-onerici']['kaynaklar']]})]:
             with self.subTest(item_id):
                 p, done = self.run_agent(item_id, '--yes', answers=[bad, bad])
                 self.assertEqual(done.returncode, 1)
