@@ -1,0 +1,240 @@
+{
+ "metadata": {
+  "dbt_version": "1.10.4",
+  "project_name": "perakende"
+ },
+ "nodes": {
+  "model.perakende.stg_siparis": {
+   "resource_type": "model",
+   "name": "stg_siparis",
+   "unique_id": "model.perakende.stg_siparis",
+   "package_name": "perakende",
+   "original_file_path": "models/stg_siparis.sql",
+   "depends_on": {
+    "nodes": [
+     "source.perakende.erp.siparis"
+    ],
+    "macros": []
+   },
+   "raw_code": "select * from {{ source('erp', 'siparis') }}",
+   "config": {
+    "materialized": "view"
+   }
+  },
+  "model.perakende.stg_musteri": {
+   "resource_type": "model",
+   "name": "stg_musteri",
+   "unique_id": "model.perakende.stg_musteri",
+   "package_name": "perakende",
+   "original_file_path": "models/stg_musteri.sql",
+   "depends_on": {
+    "nodes": [
+     "source.perakende.erp.musteri"
+    ],
+    "macros": []
+   },
+   "raw_code": "select * from {{ source('erp', 'musteri') }}",
+   "config": {
+    "materialized": "view"
+   }
+  },
+  "model.perakende.stg_urun": {
+   "resource_type": "model",
+   "name": "stg_urun",
+   "unique_id": "model.perakende.stg_urun",
+   "package_name": "perakende",
+   "original_file_path": "models/stg_urun.sql",
+   "depends_on": {
+    "nodes": [
+     "source.perakende.erp.urun"
+    ],
+    "macros": []
+   },
+   "raw_code": "select * from {{ source('erp', 'urun') }}",
+   "config": {
+    "materialized": "view"
+   }
+  },
+  "model.perakende.stg_iade": {
+   "resource_type": "model",
+   "name": "stg_iade",
+   "unique_id": "model.perakende.stg_iade",
+   "package_name": "perakende",
+   "original_file_path": "models/stg_iade.sql",
+   "depends_on": {
+    "nodes": [
+     "source.perakende.erp.iade",
+     "source.perakende.erp.siparis"
+    ],
+    "macros": []
+   },
+   "raw_code": "select * from {{ source('erp', 'iade') }}, {{ source('erp', 'siparis') }}",
+   "config": {
+    "materialized": "view"
+   }
+  },
+  "model.perakende.int_siparis_kalem": {
+   "resource_type": "model",
+   "name": "int_siparis_kalem",
+   "unique_id": "model.perakende.int_siparis_kalem",
+   "package_name": "perakende",
+   "original_file_path": "models/int_siparis_kalem.sql",
+   "depends_on": {
+    "nodes": [
+     "model.perakende.stg_siparis",
+     "model.perakende.stg_urun"
+    ],
+    "macros": []
+   },
+   "raw_code": "select * from {{ ref('stg_siparis') }}, {{ ref('stg_urun') }}",
+   "config": {
+    "materialized": "view"
+   }
+  },
+  "model.perakende.fct_satis": {
+   "resource_type": "model",
+   "name": "fct_satis",
+   "unique_id": "model.perakende.fct_satis",
+   "package_name": "perakende",
+   "original_file_path": "models/fct_satis.sql",
+   "depends_on": {
+    "nodes": [
+     "model.perakende.int_siparis_kalem",
+     "model.perakende.stg_siparis"
+    ],
+    "macros": []
+   },
+   "raw_code": "select * from {{ ref('int_siparis_kalem') }}, {{ ref('stg_siparis') }}",
+   "config": {
+    "materialized": "table"
+   }
+  },
+  "model.perakende.dim_musteri": {
+   "resource_type": "model",
+   "name": "dim_musteri",
+   "unique_id": "model.perakende.dim_musteri",
+   "package_name": "perakende",
+   "original_file_path": "models/dim_musteri.sql",
+   "depends_on": {
+    "nodes": [
+     "model.perakende.stg_musteri"
+    ],
+    "macros": []
+   },
+   "raw_code": "select * from {{ ref('stg_musteri') }}",
+   "config": {
+    "materialized": "table"
+   }
+  },
+  "model.perakende.dim_urun": {
+   "resource_type": "model",
+   "name": "dim_urun",
+   "unique_id": "model.perakende.dim_urun",
+   "package_name": "perakende",
+   "original_file_path": "models/dim_urun.sql",
+   "depends_on": {
+    "nodes": [
+     "model.perakende.stg_urun"
+    ],
+    "macros": []
+   },
+   "raw_code": "select * from {{ ref('stg_urun') }}",
+   "config": {
+    "materialized": "table"
+   }
+  },
+  "model.perakende.fct_kampanya": {
+   "resource_type": "model",
+   "name": "fct_kampanya",
+   "unique_id": "model.perakende.fct_kampanya",
+   "package_name": "perakende",
+   "original_file_path": "models/fct_kampanya.sql",
+   "depends_on": {
+    "nodes": [
+     "model.perakende.stg_siparis",
+     "source.perakende.erp.kampanya"
+    ],
+    "macros": []
+   },
+   "raw_code": "select * from {{ ref('stg_siparis') }}, {{ source('erp', 'kampanya') }}",
+   "config": {
+    "materialized": "table"
+   }
+  },
+  "model.perakende.stg_teslimat": {
+   "resource_type": "model",
+   "name": "stg_teslimat",
+   "unique_id": "model.perakende.stg_teslimat",
+   "package_name": "perakende",
+   "original_file_path": "models/stg_teslimat.sql",
+   "depends_on": {
+    "nodes": [
+     "model.perakende.stg_siparis"
+    ],
+    "macros": []
+   },
+   "raw_code": "select * from {{ ref('stg_siparis') }}",
+   "config": {
+    "materialized": "view"
+   }
+  },
+  "model.perakende.rpt_eski_rapor": {
+   "resource_type": "model",
+   "name": "rpt_eski_rapor",
+   "unique_id": "model.perakende.rpt_eski_rapor",
+   "package_name": "perakende",
+   "original_file_path": "models/rpt_eski_rapor.sql",
+   "depends_on": {
+    "nodes": [],
+    "macros": []
+   },
+   "raw_code": "select bolge, sum(tutar) as ciro from dwh.eski_satis_ozet group by bolge",
+   "config": {
+    "materialized": "table"
+   }
+  }
+ },
+ "sources": {
+  "source.perakende.erp.siparis": {
+   "resource_type": "source",
+   "name": "siparis",
+   "source_name": "erp",
+   "unique_id": "source.perakende.erp.siparis",
+   "identifier": "siparis",
+   "schema": "erp"
+  },
+  "source.perakende.erp.musteri": {
+   "resource_type": "source",
+   "name": "musteri",
+   "source_name": "erp",
+   "unique_id": "source.perakende.erp.musteri",
+   "identifier": "musteri",
+   "schema": "erp"
+  },
+  "source.perakende.erp.urun": {
+   "resource_type": "source",
+   "name": "urun",
+   "source_name": "erp",
+   "unique_id": "source.perakende.erp.urun",
+   "identifier": "urun",
+   "schema": "erp"
+  },
+  "source.perakende.erp.iade": {
+   "resource_type": "source",
+   "name": "iade",
+   "source_name": "erp",
+   "unique_id": "source.perakende.erp.iade",
+   "identifier": "iade",
+   "schema": "erp"
+  },
+  "source.perakende.erp.kampanya": {
+   "resource_type": "source",
+   "name": "kampanya",
+   "source_name": "erp",
+   "unique_id": "source.perakende.erp.kampanya",
+   "identifier": "kampanya",
+   "schema": "erp"
+  }
+ },
+ "exposures": {}
+}

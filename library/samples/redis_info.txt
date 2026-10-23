@@ -1,0 +1,44 @@
+# Server
+redis_version:7.2.4
+redis_mode:standalone
+os:Linux 5.15.0-1051-azure x86_64
+uptime_in_days:41
+
+# Clients
+connected_clients:3980
+maxclients:4000
+blocked_clients:0
+
+# Memory
+used_memory:4026531840
+used_memory_human:3.75G
+used_memory_peak_human:3.98G
+maxmemory:4294967296
+maxmemory_human:4.00G
+maxmemory_policy:noeviction
+mem_fragmentation_ratio:1.82
+
+# Persistence
+loading:0
+rdb_changes_since_last_save:184220
+rdb_bgsave_in_progress:0
+rdb_last_save_time:1729321200
+rdb_last_bgsave_status:err
+aof_enabled:0
+
+# Stats
+total_connections_received:9120044
+total_commands_processed:3820019922
+instantaneous_ops_per_sec:24810
+rejected_connections:12
+expired_keys:5521003
+evicted_keys:0
+keyspace_hits:500000
+keyspace_misses:200000
+
+# Replication
+role:master
+connected_slaves:1
+
+# Keyspace
+db0:keys=1200000,expires=300000,avg_ttl=3600000

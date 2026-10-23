@@ -30,6 +30,8 @@ geçirmesi, mükerrer kayıt ve golden record, KVKK envanteri. Bunlar araştırm
 
 ## Eksik bulunan ve eklenen işler
 
+Toplam 32 iş, dört paket hâlinde eklendi (86430ac, d9e93c0, 01dd3f5 ve son paket). Hepsi örnek verisiyle testte çalışır; canlı platform üzerinde denenmedi.
+
 | Alan | Ürün | Danışmanın yaptığı iş | Eklenen paket |
 |---|---|---|---|
 | BI | Power BI Desktop | VertiPaq Analyzer ile model boyutu ve kardinalite incelemesi | `pbi-vertipaq` |
@@ -60,6 +62,10 @@ geçirmesi, mükerrer kayıt ve golden record, KVKK envanteri. Bunlar araştırm
 | Streaming | Kinesis / Event Hubs | Throughput'a göre shard / throughput unit boyutlandırma | `akis-kapasite` |
 | Orkestrasyon | Airflow | Havuz (pool) doygunluğu, kuyrukta bekleme ve zombi görevler | `airflow-havuz-analizi` |
 | Analytics engineering | dbt Core | dbt_project_evaluator modelleme kuralları (kaynak fan-out, yeniden birleşme vb.) | `dbt-modelleme-kurallari` |
+| BI | Power BI Service | Scanner API ile kiracı envanteri ve yönetişim | `pbi-tarayici-envanteri` |
+| Veritabanı | Redis | INFO çıktısıyla bellek, tahliye ve kalıcılık kontrolü | `redis-saglik` |
+| Ambar | ClickHouse | system.parts ile parça ve bölümleme analizi | `clickhouse-parca-analizi` |
+| Zaman serisi | InfluxDB | Seri kardinalitesi analizi | `influxdb-kardinalite` |
 
 ## Kaynaklar
 

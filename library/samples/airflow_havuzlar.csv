@@ -1,0 +1,4 @@
+pool,slots,description
+default_pool,128,Varsayılan
+etl_havuzu,4,Kaynak veritabanı bağlantı sınırı
+rapor_havuzu,8,Rapor sunucusu

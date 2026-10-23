@@ -495,3 +495,73 @@ def interval_coverage(columns, rows, args):
                    'winkler': t['winkler'], 'ters_aralik': swapped},
                   notes=['Winkler skoru = genişlik + (2/α) × aralık dışında kalma mesafesi; düşük olan daha iyidir ve iki yöntemi aynı veride karşılaştırmak için kullanılır.',
                          'Kapsama hedefin ±5 puanı dışındaysa durum işaretlenir. Az kayıtlı segmentlerde kapsama oranı oynaktır.'])
+
+
+@op('mlflow-denetimi', title='MLflow deney ve model kayıt defteri denetimi: soy kopukluğu, daha iyi aday, tekrarlanabilirlik', domain='ml', product='MLflow', tag='MLflow',
+    samples={'mlflow_calismalar.csv': 'mlflow_calismalar.csv', 'mlflow_model_surumleri.csv': 'mlflow_model_surumleri.csv'},
+    args=[arg('--models', default='@ornek/mlflow_model_surumleri.csv', help='Model kayıt defteri dışa aktarımı (name, version, stage veya alias, run_id, description)'),
+          arg('--metric', default='metrics.auc', help='Karşılaştırılacak metrik sütunu'), arg('--lower-is-better', action='store_true', help='Metrik küçükse daha iyi (RMSE gibi)'),
+          arg('--tolerance', type=float, default=0.01, help='Üretimdeki sürümden bu kadar daha iyi aday işaretlenir'), arg('--as-of', default='2026-10-20 12:00'),
+          arg('--stuck-hours', type=float, default=24, help='Bu süreden uzun RUNNING kalan çalışma takılmış sayılır')],
+    description='mlflow.search_runs() dışa aktarımını (run_id, experiment_id, status, start_time, metrics.*, params.*, tags.*) ve model kayıt defteri sürümlerini denetler: üretimdeki (Production / champion) sürümün çalışması bulunamayan veya başarısız olan soyu, aynı deneyde üretimdekinden metrikçe belirgin daha iyi aday çalışma, birden fazla Production sürümü olan model, açıklaması olmayan sürüm, git commit etiketi olmayan (tekrar üretilemeyen) çalışmaların payı, başarısız ve takılı (uzun süredir RUNNING) çalışmalar.',
+    input='Çalışmalar CSV’si + model sürümleri CSV’si', output='sonuc.csv (bulgular) + model sürümleri tablosu', command='python main.py --input runs.csv --models model_versions.csv --metric metrics.rmse --lower-is-better',
+    expect={'calisma': 14, 'model_surumu': 6, 'bulgu': 9, 'git_yok_%': 28.6})
+def mlflow_audit(columns, rows, args):
+    for c in ('run_id', 'experiment_id', 'status'):
+        need(c, columns, 'çalışma dışa aktarımı')
+    mcols, mrows = tabular.read(args.models)
+    for c in ('name', 'version', 'run_id'):
+        need(c, mcols, '--models')
+    runs = {r['run_id'].strip(): r for r in rows}
+    metric = (lambda r: tabular.parse_number(r.get(args.metric, '')) if r.get(args.metric, '').strip() else None)
+    better = (lambda a, b: a < b) if args.lower_is_better else (lambda a, b: a > b)
+    as_of = tabular.parse_date(args.as_of)[0]
+    out = []
+    add = lambda sev, check, obj, detail: out.append({'onem': sev, 'kontrol': check, 'nesne': obj, 'ayrinti': detail})
+    stage_col = 'stage' if 'stage' in mcols else 'alias' if 'alias' in mcols else None
+    prod = defaultdict(list)
+    versions = []
+    for r in mrows:
+        name, ver, rid = r['name'].strip(), r['version'].strip(), r['run_id'].strip()
+        stage = r.get(stage_col, '').strip() if stage_col else ''
+        is_prod = stage.lower() in ('production', 'champion', 'prod')
+        run = runs.get(rid)
+        m = metric(run) if run else None
+        versions.append([name, ver, stage or '—', rid, fmt(m) if m is not None else '—'])
+        if is_prod:
+            prod[name].append(ver)
+            if run is None:
+                add('yüksek', 'kopuk soy', f'{name} v{ver}', f'üretimdeki sürümün çalışması ({rid}) bulunamadı: hangi veri ve parametreyle eğitildiği izlenemiyor')
+            elif run['status'].strip().upper() != 'FINISHED':
+                add('yüksek', 'başarısız çalışmadan sürüm', f'{name} v{ver}', f'çalışma durumu {run["status"]}')
+            elif m is not None:
+                peers = [(metric(o), o['run_id']) for o in rows if o['experiment_id'] == run['experiment_id'] and o['status'].strip().upper() == 'FINISHED' and metric(o) is not None]
+                best = max(peers, key=lambda t: -t[0] if args.lower_is_better else t[0])
+                gap = abs(best[0] - m)
+                if best[1] != rid and better(best[0], m) and gap > args.tolerance:
+                    add('orta', 'daha iyi aday', f'{name} v{ver}', f'{args.metric} üretimde {fmt(m)}, aynı deneyde {best[1]} çalışması {fmt(best[0])}; terfi değerlendirmesi yapın (segment ve gecikme kontrolüyle)')
+        if not r.get('description', '').strip():
+            add('düşük', 'açıklamasız sürüm', f'{name} v{ver}', 'sürüm açıklaması yok: ne değiştiği bilinmiyor')
+    for name, vs in prod.items():
+        if len(vs) > 1:
+            add('orta', 'birden fazla üretim sürümü', name, f'sürümler {", ".join(vs)} aynı anda Production; hangisinin sunulduğu belirsiz')
+    git_col = 'tags.mlflow.source.git.commit'
+    no_git = sum(1 for r in rows if not r.get(git_col, '').strip())
+    if no_git:
+        add('orta', 'git commit etiketi yok', f'{no_git} çalışma', 'kod sürümü kaydedilmemiş: projeyi git deposundan çalıştırın veya mlflow.set_tag ile commit yazın')
+    failed = [r['run_id'] for r in rows if r['status'].strip().upper() in ('FAILED', 'KILLED')]
+    if failed:
+        add('düşük', 'başarısız çalışma', f'{len(failed)} çalışma', ', '.join(failed))
+    stuck = []
+    for r in rows:
+        d = tabular.parse_date(r.get('start_time', ''))
+        if r['status'].strip().upper() == 'RUNNING' and d and (as_of - d[0]).total_seconds() / 3600 > args.stuck_hours:
+            stuck.append(r['run_id'])
+    if stuck:
+        add('orta', 'takılı çalışma', f'{len(stuck)} çalışma', f'{args.stuck_hours:g} saatten uzun RUNNING: {", ".join(stuck)}; süreç ölmüş olabilir, end_run ile kapatın')
+    order = {'yüksek': 0, 'orta': 1, 'düşük': 2}
+    out.sort(key=lambda o: (order[o['onem']], o['kontrol'], o['nesne']))
+    return Result(f'{len(rows)} çalışma, {len(mrows)} model sürümü; {len(out)} bulgu', ['onem', 'kontrol', 'nesne', 'ayrinti'], out,
+                  {'calisma': len(rows), 'model_surumu': len(mrows), 'bulgu': len(out), 'git_yok_%': round(100 * no_git / (len(rows) or 1), 1)},
+                  tables=[('Model sürümleri', ['Model', 'Sürüm', 'Aşama', 'Çalışma', args.metric], versions)],
+                  notes=['Metrik karşılaştırması aynı deney içinde ve aynı doğrulama verisiyle anlamlıdır. Terfi kararı için model-terfi-karari agent’ı segment bazında bootstrap testi yapar.'])

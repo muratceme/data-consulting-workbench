@@ -5,7 +5,7 @@ from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 import tabular
-from islem import op, arg, Result, need, fmt
+from islem import op, arg, Result, need, numbers, fmt
 
 GENEL = 'Olay şemaları ve örnekleri'
 
@@ -618,3 +618,52 @@ def registry(args):
                   {'konu': len(out), 'global': glob, 'sorunlu': sum(bool(o['bulgu']) for o in out), 'uyumsuz_ayar': sum('uyumluluk' in o['bulgu'] for o in out),
                    'cok_surum': sum('sürüm' in o['bulgu'] and 'silinmiş' not in o['bulgu'] for o in out), 'adlandirma': sum('adlandırma' in o['bulgu'] for o in out)},
                   notes=['NONE uyumluluğu üreticinin tüketicileri kıran şema yayımlamasına izin verir. Çok sürüm genelde şemanın her dağıtımda yeniden kaydedilmesinden gelir; sema-uyumlulugu bloğuyla değişiklikleri inceleyin.'])
+
+
+STREAM_LIMITS = {
+    'kinesis': {'in_mb': 1.0, 'in_rec': 1000, 'out_mb': 2.0, 'unit': 'shard'},
+    'eventhubs': {'in_mb': 1.0, 'in_rec': 1000, 'out_mb': 2.0, 'unit': 'throughput unit'},
+}
+
+
+@op('akis-kapasite', title='Kinesis / Event Hubs kapasite boyutlandırma: shard ve throughput unit ihtiyacı', domain='stream', product='Kinesis', tag='shard',
+    samples={'akis_trafigi.csv': 'akis_trafigi.csv'},
+    args=[arg('--headroom', type=float, default=0.3, help='Tepe trafiğin üstüne bırakılacak pay'), arg('--unit-price', type=float, default=0.015, help='Shard veya TU başına saatlik USD')],
+    description='Akış başına tepe trafik ölçümünden (akis, platform kinesis/eventhubs, tepe_kayit_sn, ort_kayit_kb, tuketici_sayisi, efo, mevcut) gereken shard (Kinesis) veya throughput unit (Event Hubs) sayısını hesaplar: yazma tarafında birim başına 1 MB/sn veya 1.000 kayıt/sn, okuma tarafında birim başına 2 MB/sn (Kinesis enhanced fan-out tüketicileri bu okuma sınırını paylaşmaz). Hangi sınırın belirleyici olduğunu, mevcut kapasitenin yetersiz (throttling) veya fazla (gereksiz maliyet) olduğunu ve aylık maliyet farkını verir.',
+    input='Akış trafik CSV’si', output='sonuc.csv (akış bazında gereken ve mevcut kapasite)', command='python main.py --input stream_peaks.csv --headroom 0.5 --unit-price 0.015',
+    expect={'akis': 6, 'yetersiz': 2, 'fazla': 2, 'aylik_fark_usd': -109.5})
+def stream_capacity(columns, rows, args):
+    for c in ('akis', 'platform', 'tepe_kayit_sn', 'ort_kayit_kb', 'tuketici_sayisi', 'mevcut'):
+        need(c, columns, 'akış trafiği')
+    rec, kb, cons, cur = (numbers(rows, c) for c in ('tepe_kayit_sn', 'ort_kayit_kb', 'tuketici_sayisi', 'mevcut'))
+    out = []
+    for r, n, size, k, have in zip(rows, rec, kb, cons, cur):
+        plat = r['platform'].strip().lower().replace(' ', '').replace('-', '')
+        if plat not in STREAM_LIMITS:
+            raise ValueError(f'{r["akis"]}: platform kinesis veya eventhubs olmalı')
+        lim = STREAM_LIMITS[plat]
+        n, size, k, have = n or 0, size or 0, int(k or 1), int(have or 0)
+        efo = r.get('efo', '').strip().lower() in ('evet', 'true', '1', 'e', 'yes') and plat == 'kinesis'
+        peak = n * (1 + args.headroom)
+        mb_in = peak * size / 1024
+        need_in_mb, need_in_rec = math.ceil(mb_in / lim['in_mb']), math.ceil(peak / lim['in_rec'])
+        need_out = math.ceil(mb_in * (1 if efo else k) / lim['out_mb'])
+        need_ = max(1, need_in_mb, need_in_rec, need_out)
+        driver = max((('yazma MB/sn', need_in_mb), ('yazma kayıt/sn', need_in_rec), ('okuma MB/sn' + (' (EFO: tüketici başına ayrı)' if efo else f' ({k} tüketici paylaşıyor)'), need_out)), key=lambda t: t[1])[0]
+        status = 'yetersiz' if have < need_ else 'fazla' if have > 1.5 * need_ and have - need_ >= 2 else 'uygun'
+        diff = (need_ - have) * args.unit_price * 730 if status != 'uygun' else 0.0
+        advice = ''
+        if status == 'yetersiz':
+            advice = f'{need_} {lim["unit"]}’a çıkarın; aksi hâlde ProvisionedThroughputExceeded / ServerBusy hataları ve gecikme' if plat == 'kinesis' else f'{need_} TU’ya çıkarın veya otomatik şişirmeyi (auto-inflate) açın'
+            if plat == 'kinesis' and not efo and k > 2 and need_out == need_:
+                advice += '; okuma belirleyici: tüketicileri enhanced fan-out’a almak daha ucuz olabilir'
+        elif status == 'fazla':
+            advice = f'{need_} {lim["unit"]} yeterli; on-demand moda geçmeyi veya azaltmayı değerlendirin'
+        out.append({'akis': r['akis'], 'platform': plat, 'tepe_kayit_sn': int(n), 'tepe_mb_sn': round(n * size / 1024, 2), 'tuketici': k, 'efo': 'evet' if efo else 'hayır',
+                    'gereken': need_, 'mevcut': have, 'belirleyici': driver, 'durum': status, 'aylik_fark_usd': round(diff, 2), 'oneri': advice})
+    out.sort(key=lambda o: ({'yetersiz': 0, 'fazla': 1, 'uygun': 2}[o['durum']], o['akis']))
+    c = Counter(o['durum'] for o in out)
+    delta = sum(o['aylik_fark_usd'] for o in out)
+    return Result(f'{len(out)} akış; {c["yetersiz"]} yetersiz, {c["fazla"]} fazla kapasiteli; önerilen değişikliklerin aylık maliyet etkisi ${delta:,.2f}', list(out[0]), out,
+                  {'akis': len(out), 'yetersiz': c['yetersiz'], 'fazla': c['fazla'], 'aylik_fark_usd': round(delta, 2)},
+                  notes=['Sınırlar Kinesis provisioned shard ve Event Hubs Standard TU değerleridir; Event Hubs’ta bölüm (partition) sayısı oluşturulurken sabitlenir ve paralel tüketimi belirler. Tepe değeri en az bir haftalık dakika bazlı metrikten alın.'])

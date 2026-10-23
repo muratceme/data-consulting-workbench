@@ -1,4 +1,4 @@
-"""Dönüşüm (dbt) blokları: manifest.json’dan test ve doküman kapsamı, sources.json’dan kaynak tazeliği.
+"""Dönüşüm (dbt) blokları: manifest.json’dan test ve doküman kapsamı ve modelleme kuralları, sources.json’dan kaynak tazeliği.
 dbt’yi çalıştırmaz; target/ klasöründeki çıktı dosyalarını okur."""
 import json, re
 from collections import Counter, defaultdict
@@ -245,3 +245,66 @@ def dbt_snapshot(columns, rows, args):
                   {'satir': len(rows), 'strateji': 'timestamp' if args.updated else 'check', 'izlenen': len(tracked)}, files=files,
                   notes=['Proje dbt-core 1.12 + DuckDB ile iki kez çalıştırılarak test edildi: değişen kaydın eski sürümü kapandı, yenisi eklendi, silinen kayıt kapatıldı.',
                          'YAML snapshot biçimi ve hard_deletes ayarı dbt 1.9 ve üzerini ister.'])
+
+
+def layer(name):
+    for prefix, lay in (('stg_', 'staging'), ('base_', 'staging'), ('int_', 'intermediate'), ('fct_', 'marts'), ('dim_', 'marts'), ('mart_', 'marts'), ('rpt_', 'marts')):
+        if name.startswith(prefix):
+            return lay
+    return 'diğer'
+
+
+@op('dbt-modelleme-kurallari', title='dbt modelleme kuralları: kaynağa doğrudan join, kaynak yayılması, yeniden birleşme, kök modeller', domain=D, product='dbt Core', tag='project evaluator',
+    kind='file', samples={'manifest_modelleme.json': 'manifest_modelleme.json'},
+    args=[arg('--fanout', type=int, default=3, help='Bir modelin en fazla doğrudan alt model sayısı (model fanout)')],
+    description='manifest.json’daki bağımlılık grafiğini dbt Labs’in dbt_project_evaluator modelleme kurallarıyla denetler: aynı modelde hem kaynağa hem modele bağlanma (direct join to source), birden fazla kaynağı doğrudan birleştiren model, birden fazla modelin doğrudan okuduğu kaynak (source fanout), hiç üst bağımlılığı olmayan kök model, A→B→C varken C’nin A’yı da ayrıca okuması (rejoining of upstream concepts), staging modelinin başka bir staging’e veya alt katmana bağlanması ve çok sayıda doğrudan alt modeli olan (fanout) modeller. Her ihlal için önerilen düzeltmeyi yazar.',
+    input='target/manifest.json', output='sonuc.csv (kural ihlalleri)', command='python main.py --input target/manifest.json --fanout 4',
+    expect={'model': 11, 'ihlal': 7, 'kural': 7})
+def dbt_modeling(args):
+    m = load_json(args.input, 'manifest.json')
+    nodes = {k: v for k, v in m.get('nodes', {}).items() if v.get('resource_type') == 'model'}
+    if not nodes:
+        raise ValueError('manifest.json’da model yok.')
+    sources = m.get('sources', {})
+    name = lambda k: nodes[k]['name'] if k in nodes else '.'.join(k.split('.')[-2:])
+    parents = {k: [p for p in v.get('depends_on', {}).get('nodes', []) if p in nodes or p in sources] for k, v in nodes.items()}
+    children = defaultdict(set)
+    for k, ps in parents.items():
+        for p in ps:
+            children[p].add(k)
+    out = []
+    add = lambda rule, model, detail, fix: out.append({'kural': rule, 'model': model, 'ayrinti': detail, 'oneri': fix})
+    for k, ps in sorted(parents.items(), key=lambda kv: name(kv[0])):
+        n = name(k)
+        srcs = [p for p in ps if p in sources]
+        mods = [p for p in ps if p in nodes]
+        if srcs and mods:
+            add('kaynağa doğrudan join', n, f'hem kaynak ({", ".join(name(s) for s in srcs)}) hem model ({", ".join(name(x) for x in mods)}) okuyor', 'kaynak için bir staging modeli yazın ve onu ref() ile kullanın')
+        if len(srcs) > 1:
+            add('birden fazla kaynak birleştiriliyor', n, ', '.join(name(s) for s in srcs), 'her kaynağı kendi staging modelinde temizleyip sonra birleştirin')
+        if not nodes[k].get('depends_on', {}).get('nodes'):
+            add('kök model', n, 'hiç ref/source bağımlılığı yok (sabit tablo adı veya seed dışı veri)', 'okunan tabloyu source olarak tanımlayıp source() ile okuyun')
+        if layer(n) == 'staging':
+            bad = [x for x in mods if layer(name(x)) in ('staging', 'intermediate', 'marts')]
+            if bad:
+                add('staging başka modele bağlı', n, ', '.join(name(x) for x in bad), 'staging yalnızca kaynağı okumalı; birleştirmeyi intermediate katmana taşıyın')
+        ancestors_via = set()
+        for x in mods:
+            stack = list(parents.get(x, []))
+            while stack:
+                y = stack.pop()
+                if y not in ancestors_via:
+                    ancestors_via.add(y)
+                    stack.extend(parents.get(y, []))
+        rejoined = [x for x in mods if x in ancestors_via]
+        if rejoined:
+            add('üst kavramla yeniden birleşme', n, f'{", ".join(name(x) for x in rejoined)} hem doğrudan hem başka bir üst model üzerinden okunuyor', 'ara modeldeki kolonları kullanın veya ara modeli bu modele katın')
+        if len(children[k]) > args.fanout:
+            add('model yayılması (fanout)', n, f'{len(children[k])} doğrudan alt model', 'ortak mantığı bir ara modelde toplayın veya alt modelleri birleştirin')
+    for s in sorted(sources, key=name):
+        if len(children[s]) > 1:
+            add('kaynak yayılması', name(s), f'{len(children[s])} model doğrudan okuyor: {", ".join(sorted(name(x) for x in children[s]))}', 'kaynağı tek bir staging modeli okumalı; diğerleri onu ref() ile kullanmalı')
+    rules = Counter(o['kural'] for o in out)
+    return Result(f'{len(nodes)} model, {len(sources)} kaynak; {len(out)} ihlal ({len(rules)} kural)', ['kural', 'model', 'ayrinti', 'oneri'], out,
+                  {'model': len(nodes), 'ihlal': len(out), 'kural': len(rules)}, tables=[('Kural özeti', ['Kural', 'İhlal'], rules.most_common())],
+                  notes=['Kurallar dbt_project_evaluator paketinin modelleme bölümündendir; paket ambarda çalışır, bu blok yalnız manifest.json ile yerelde çalışır. Test ve doküman kapsamı için dbt-test-kapsami bloğuna bakın.'])

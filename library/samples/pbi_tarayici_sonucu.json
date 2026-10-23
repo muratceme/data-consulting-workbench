@@ -1,0 +1,420 @@
+{
+ "workspaces": [
+  {
+   "id": "ws-1",
+   "name": "Satış",
+   "type": "Workspace",
+   "state": "Active",
+   "isOnDedicatedCapacity": true,
+   "users": [
+    {
+     "emailAddress": "BI-Yoneticiler",
+     "groupUserAccessRight": "Admin",
+     "principalType": "Group",
+     "identifier": "BI-Yoneticiler"
+    },
+    {
+     "emailAddress": "ayse.kaya@kurum.com.tr",
+     "groupUserAccessRight": "Admin",
+     "principalType": "User",
+     "identifier": "ayse.kaya@kurum.com.tr"
+    },
+    {
+     "emailAddress": "satis.ekibi",
+     "groupUserAccessRight": "Viewer",
+     "principalType": "Group",
+     "identifier": "satis.ekibi"
+    }
+   ],
+   "datasets": [
+    {
+     "id": "ds-1",
+     "name": "Satis Modeli",
+     "configuredBy": "bi.ekip@kurum.com.tr",
+     "targetStorageMode": "Import",
+     "tables": [
+      {
+       "name": "Satislar",
+       "columns": [],
+       "measures": []
+      },
+      {
+       "name": "Musteri",
+       "columns": [],
+       "measures": []
+      },
+      {
+       "name": "Tarih",
+       "columns": [],
+       "measures": []
+      }
+     ],
+     "datasourceUsages": [
+      {
+       "datasourceInstanceId": "src-sql"
+      }
+     ],
+     "sensitivityLabel": {
+      "labelId": "3f6c8b1e-0b8e-4c55-9d3c-1a2b3c4d5e6f"
+     }
+    },
+    {
+     "id": "ds-2",
+     "name": "Eski Satis",
+     "configuredBy": "bi.ekip@kurum.com.tr",
+     "targetStorageMode": "Import",
+     "tables": [
+      {
+       "name": "Satislar",
+       "columns": [],
+       "measures": []
+      }
+     ],
+     "datasourceUsages": [
+      {
+       "datasourceInstanceId": "src-sql"
+      }
+     ]
+    }
+   ],
+   "reports": [
+    {
+     "id": "rp-1",
+     "name": "Satış Panosu",
+     "datasetId": "ds-1",
+     "createdDateTime": "2025-11-02T09:00:00Z",
+     "modifiedDateTime": "2026-09-14T15:20:00Z",
+     "sensitivityLabel": {
+      "labelId": "3f6c8b1e-0b8e-4c55-9d3c-1a2b3c4d5e6f"
+     }
+    },
+    {
+     "id": "rp-2",
+     "name": "Bölge Detay",
+     "datasetId": "ds-1",
+     "createdDateTime": "2025-11-02T09:00:00Z",
+     "modifiedDateTime": "2026-09-14T15:20:00Z",
+     "sensitivityLabel": {
+      "labelId": "3f6c8b1e-0b8e-4c55-9d3c-1a2b3c4d5e6f"
+     }
+    },
+    {
+     "id": "rp-3",
+     "name": "Kanal Analizi",
+     "datasetId": "ds-1",
+     "createdDateTime": "2025-11-02T09:00:00Z",
+     "modifiedDateTime": "2026-09-14T15:20:00Z"
+    }
+   ]
+  },
+  {
+   "id": "ws-2",
+   "name": "Finans",
+   "type": "Workspace",
+   "state": "Active",
+   "isOnDedicatedCapacity": true,
+   "users": [
+    {
+     "emailAddress": "mehmet.oz@kurum.com.tr",
+     "groupUserAccessRight": "Admin",
+     "principalType": "User",
+     "identifier": "mehmet.oz@kurum.com.tr"
+    },
+    {
+     "emailAddress": "finans.ekibi",
+     "groupUserAccessRight": "Member",
+     "principalType": "Group",
+     "identifier": "finans.ekibi"
+    }
+   ],
+   "datasets": [
+    {
+     "id": "ds-3",
+     "name": "Butce",
+     "configuredBy": "bi.ekip@kurum.com.tr",
+     "targetStorageMode": "Import",
+     "tables": [
+      {
+       "name": "Butce",
+       "columns": [],
+       "measures": []
+      },
+      {
+       "name": "Hesap",
+       "columns": [],
+       "measures": []
+      }
+     ],
+     "datasourceUsages": [
+      {
+       "datasourceInstanceId": "src-excel"
+      }
+     ],
+     "sensitivityLabel": {
+      "labelId": "3f6c8b1e-0b8e-4c55-9d3c-1a2b3c4d5e6f"
+     }
+    }
+   ],
+   "reports": [
+    {
+     "id": "rp-4",
+     "name": "Bütçe Takip",
+     "datasetId": "ds-3",
+     "createdDateTime": "2025-11-02T09:00:00Z",
+     "modifiedDateTime": "2026-09-14T15:20:00Z",
+     "sensitivityLabel": {
+      "labelId": "3f6c8b1e-0b8e-4c55-9d3c-1a2b3c4d5e6f"
+     }
+    },
+    {
+     "id": "rp-5",
+     "name": "Gider Analizi",
+     "datasetId": "ds-3",
+     "createdDateTime": "2025-11-02T09:00:00Z",
+     "modifiedDateTime": "2026-09-14T15:20:00Z",
+     "sensitivityLabel": {
+      "labelId": "3f6c8b1e-0b8e-4c55-9d3c-1a2b3c4d5e6f"
+     }
+    }
+   ]
+  },
+  {
+   "id": "ws-3",
+   "name": "Pazarlama",
+   "type": "Workspace",
+   "state": "Active",
+   "isOnDedicatedCapacity": false,
+   "users": [
+    {
+     "emailAddress": "selin.er@kurum.com.tr",
+     "groupUserAccessRight": "Member",
+     "principalType": "User",
+     "identifier": "selin.er@kurum.com.tr"
+    },
+    {
+     "emailAddress": "pazarlama.ekibi",
+     "groupUserAccessRight": "Viewer",
+     "principalType": "Group",
+     "identifier": "pazarlama.ekibi"
+    }
+   ],
+   "datasets": [
+    {
+     "id": "ds-4",
+     "name": "Satis Modeli",
+     "configuredBy": "bi.ekip@kurum.com.tr",
+     "targetStorageMode": "Import",
+     "tables": [
+      {
+       "name": "Satislar",
+       "columns": [],
+       "measures": []
+      },
+      {
+       "name": "Musteri",
+       "columns": [],
+       "measures": []
+      },
+      {
+       "name": "Tarih",
+       "columns": [],
+       "measures": []
+      }
+     ],
+     "datasourceUsages": [
+      {
+       "datasourceInstanceId": "src-onedrive"
+      }
+     ]
+    }
+   ],
+   "reports": [
+    {
+     "id": "rp-6",
+     "name": "Kampanya Etkisi",
+     "datasetId": "ds-4",
+     "createdDateTime": "2025-11-02T09:00:00Z",
+     "modifiedDateTime": "2026-09-14T15:20:00Z"
+    },
+    {
+     "id": "rp-7",
+     "name": "Segment Satış",
+     "datasetId": "ds-4",
+     "createdDateTime": "2025-11-02T09:00:00Z",
+     "modifiedDateTime": "2026-09-14T15:20:00Z"
+    }
+   ]
+  },
+  {
+   "id": "ws-4",
+   "name": "Lojistik",
+   "type": "Workspace",
+   "state": "Active",
+   "isOnDedicatedCapacity": true,
+   "users": [
+    {
+     "emailAddress": "Lojistik-Yoneticiler",
+     "groupUserAccessRight": "Admin",
+     "principalType": "Group",
+     "identifier": "Lojistik-Yoneticiler"
+    },
+    {
+     "emailAddress": "deniz.su@kurum.com.tr",
+     "groupUserAccessRight": "Admin",
+     "principalType": "User",
+     "identifier": "deniz.su@kurum.com.tr"
+    }
+   ],
+   "datasets": [
+    {
+     "id": "ds-5",
+     "name": "Stok",
+     "configuredBy": "bi.ekip@kurum.com.tr",
+     "targetStorageMode": "Import",
+     "tables": [
+      {
+       "name": "Stok",
+       "columns": [],
+       "measures": []
+      },
+      {
+       "name": "Depo",
+       "columns": [],
+       "measures": []
+      }
+     ],
+     "datasourceUsages": [
+      {
+       "datasourceInstanceId": "src-sql"
+      }
+     ]
+    },
+    {
+     "id": "ds-6",
+     "name": "Sevkiyat",
+     "configuredBy": "bi.ekip@kurum.com.tr",
+     "targetStorageMode": "Import",
+     "tables": [
+      {
+       "name": "Sevkiyat",
+       "columns": [],
+       "measures": []
+      }
+     ],
+     "datasourceUsages": [
+      {
+       "datasourceInstanceId": "src-sql"
+      }
+     ]
+    },
+    {
+     "id": "ds-7",
+     "name": "Rota Denemesi",
+     "configuredBy": "bi.ekip@kurum.com.tr",
+     "targetStorageMode": "Import",
+     "tables": [
+      {
+       "name": "Rota",
+       "columns": [],
+       "measures": []
+      }
+     ],
+     "datasourceUsages": [
+      {
+       "datasourceInstanceId": "src-sql"
+      }
+     ]
+    }
+   ],
+   "reports": [
+    {
+     "id": "rp-8",
+     "name": "Stok Durumu",
+     "datasetId": "ds-5",
+     "createdDateTime": "2025-11-02T09:00:00Z",
+     "modifiedDateTime": "2026-09-14T15:20:00Z"
+    },
+    {
+     "id": "rp-9",
+     "name": "Sevkiyat Takip",
+     "datasetId": "ds-6",
+     "createdDateTime": "2025-11-02T09:00:00Z",
+     "modifiedDateTime": "2026-09-14T15:20:00Z"
+    }
+   ]
+  },
+  {
+   "id": "ws-5",
+   "name": "My Workspace - Kerem",
+   "type": "PersonalGroup",
+   "state": "Active",
+   "isOnDedicatedCapacity": false,
+   "users": [
+    {
+     "emailAddress": "kerem.ak@kurum.com.tr",
+     "groupUserAccessRight": "Admin",
+     "principalType": "User",
+     "identifier": "kerem.ak@kurum.com.tr"
+    }
+   ],
+   "datasets": [
+    {
+     "id": "ds-8",
+     "name": "Kişisel Analiz",
+     "configuredBy": "bi.ekip@kurum.com.tr",
+     "targetStorageMode": "Import",
+     "tables": [
+      {
+       "name": "Veri",
+       "columns": [],
+       "measures": []
+      }
+     ],
+     "datasourceUsages": [
+      {
+       "datasourceInstanceId": "src-sql"
+      }
+     ]
+    }
+   ],
+   "reports": [
+    {
+     "id": "rp-10",
+     "name": "Kişisel Analiz",
+     "datasetId": "ds-8",
+     "createdDateTime": "2025-11-02T09:00:00Z",
+     "modifiedDateTime": "2026-09-14T15:20:00Z"
+    }
+   ]
+  }
+ ],
+ "datasourceInstances": [
+  {
+   "datasourceType": "Sql",
+   "connectionDetails": {
+    "server": "sql01.kurum.local",
+    "database": "DWH"
+   },
+   "datasourceId": "d1",
+   "datasourceInstanceId": "src-sql",
+   "gatewayId": "gw-1"
+  },
+  {
+   "datasourceType": "File",
+   "connectionDetails": {
+    "path": "C:\\Finans\\butce_2026.xlsx"
+   },
+   "datasourceId": "d2",
+   "datasourceInstanceId": "src-excel",
+   "gatewayId": "gw-2"
+  },
+  {
+   "datasourceType": "SharePointList",
+   "connectionDetails": {
+    "url": "https://kurum-my.sharepoint.com/personal/selin_er_kurum_com_tr/Documents/kampanya.xlsx"
+   },
+   "datasourceId": "d3",
+   "datasourceInstanceId": "src-onedrive"
+  }
+ ]
+}

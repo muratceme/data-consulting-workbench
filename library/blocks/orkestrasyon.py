@@ -426,3 +426,67 @@ def retries(columns, rows, args):
                   {'gorev': len(out), 'calisma': len(runs), 'tekrar_denenen_calisma': sum(v['tekrar'] for v in tasks.values()),
                    'basarisiz_calisma': sum(v['basarisiz'] for v in tasks.values()), 'kararsiz_gorev': sum(o['durum'] == 'kararsız' for o in out), 'bosa_sure_dk': wasted},
                   notes=['Boşa giden süre, son deneme dışındaki denemelerin toplam süresidir. Kararsız görevler genelde zaman aşımı, kaynak sistem kilitlenmesi veya yarış koşulundan kaynaklanır; retry sayısını artırmak kök nedeni gizler.'])
+
+
+@op('airflow-havuz-analizi', title='Airflow havuz (pool) doygunluğu, kuyrukta bekleme ve uzun süren görevler', domain='orchestration', product='Airflow', tag='pool',
+    samples={'airflow_gorev_ornekleri.csv': 'airflow_gorev_ornekleri.csv', 'airflow_havuzlar.csv': 'airflow_havuzlar.csv'},
+    args=[arg('--pools', default='@ornek/airflow_havuzlar.csv', help='Havuz tanımları (pool, slots)'), arg('--wait', type=float, default=10.0, help='Bu dakikadan uzun p95 kuyruk beklemesi işaretlenir'),
+          arg('--long', type=float, default=3.0, help='Görevin süresi kendi medyanının bu katını aşarsa uzun sayılır')],
+    description='task_instance dışa aktarımından (dag_id, task_id, run_id, state, pool, queued_dttm, start_date, end_date) her havuzun aynı anda çalışan görev sayısını zaman çizgisi üzerinde hesaplar; havuzun dolu kaldığı süreyi, kuyrukta bekleme süresinin medyan ve p95 değerini, en çok bekleyen DAG’ları ve kendi medyan süresinin katlarını aşan uzun görevleri bulur. Havuz yetersizse slot artırmayı veya ağır DAG’ların başlangıç saatini kaydırmayı önerir.',
+    input='task_instance CSV’si + havuz tanımları', output='sonuc.csv (havuz bazında doygunluk ve bekleme) + uzun görevler', command='python main.py --input task_instance.csv --pools pools.csv --wait 5',
+    expect={'havuz': 3, 'gorev': 36, 'doygun_havuz': 1, 'uzun_gorev': 2})
+def airflow_pools(columns, rows, args):
+    for c in ('dag_id', 'task_id', 'state', 'pool', 'queued_dttm', 'start_date', 'end_date'):
+        need(c, columns, 'task_instance')
+    pcols, prows = tabular.read(args.pools)
+    need('pool', pcols, '--pools')
+    need('slots', pcols, '--pools')
+    slots = {r['pool'].strip(): int(n or 0) for r, n in zip(prows, numbers(prows, 'slots'))}
+    ts = lambda v: (tabular.parse_date(v) or (None,))[0]
+    events, waits, durations, tasks = defaultdict(list), defaultdict(list), defaultdict(list), []
+    for r in rows:
+        q, s, e = ts(r['queued_dttm']), ts(r['start_date']), ts(r['end_date'])
+        if not s or not e:
+            continue
+        pool = r['pool'].strip() or 'default_pool'
+        events[pool] += [(s, 1), (e, -1)]
+        if q:
+            waits[pool].append(((s - q).total_seconds() / 60, r['dag_id']))
+        dur = (e - s).total_seconds() / 60
+        durations[(r['dag_id'], r['task_id'])].append(dur)
+        tasks.append((r, dur, pool))
+    out = []
+    for pool in sorted(set(slots) | set(events)):
+        cur = peak = 0
+        full = 0.0
+        ev = sorted(events.get(pool, []), key=lambda t: (t[0], t[1]))
+        cap = slots.get(pool, 128 if pool == 'default_pool' else 0)
+        for (t, d), nxt in zip(ev, ev[1:] + [(None, 0)]):
+            cur += d
+            peak = max(peak, cur)
+            if nxt[0] and cap and cur >= cap:
+                full += (nxt[0] - t).total_seconds() / 60
+        w = sorted(x for x, _ in waits.get(pool, []))
+        p95 = w[min(len(w) - 1, int(0.95 * (len(w) - 1) + 0.5))] if w else 0.0
+        med = w[len(w) // 2] if w else 0.0
+        worst = Counter()
+        for x, dag in waits.get(pool, []):
+            worst[dag] += x
+        sat = bool(cap) and peak >= cap and p95 > args.wait
+        advice = ''
+        if sat:
+            advice = f'havuz {full:.0f} dk dolu kaldı ve p95 bekleme {p95:.0f} dk: slot sayısını artırın veya {", ".join(d for d, _ in worst.most_common(2))} DAG’larının saatini kaydırın'
+        elif cap and peak < 0.5 * cap and pool != 'default_pool':
+            advice = f'en yüksek eşzamanlılık {peak}/{cap}: slotlar fazla, başka havuza aktarılabilir'
+        out.append({'havuz': pool, 'slot': cap, 'en_yuksek_eszamanli': peak, 'dolu_dk': round(full), 'bekleme_medyan_dk': round(med, 1), 'bekleme_p95_dk': round(p95, 1),
+                    'en_cok_bekleyen_dag': ', '.join(f'{d} ({v:.0f} dk)' for d, v in worst.most_common(3)), 'durum': 'doygun' if sat else 'uygun', 'oneri': advice})
+    long_rows = []
+    for r, dur, pool in tasks:
+        ds = sorted(durations[(r['dag_id'], r['task_id'])])
+        med = ds[len(ds) // 2]
+        if len(ds) >= 3 and med > 0 and dur > args.long * med:
+            long_rows.append([r['dag_id'], r['task_id'], r.get('run_id', ''), f'{dur:.0f}', f'{med:.0f}', pool])
+    return Result(f'{len(out)} havuz, {len(tasks)} görev çalışması; {sum(o["durum"] == "doygun" for o in out)} havuz doygun, {len(long_rows)} uzun görev', list(out[0]), out,
+                  {'havuz': len(out), 'gorev': len(tasks), 'doygun_havuz': sum(o['durum'] == 'doygun' for o in out), 'uzun_gorev': len(long_rows)},
+                  tables=[('Uzun süren görevler', ['DAG', 'Görev', 'Çalışma', 'Süre (dk)', 'Medyan (dk)', 'Havuz'], long_rows)],
+                  notes=['Kuyruk beklemesi yalnızca havuzdan değil executor paralelliği ve DAG max_active_tasks sınırından da gelebilir; havuz dolu değilken bekleme varsa o ayarlara bakın. Tekrar denemeler için yeniden-deneme-analizi bloğunu kullanın.'])

@@ -1060,3 +1060,82 @@ def mongo_indexes(args):
                   {'indeks': len(out), 'kullanilmayan': unused, 'gereksiz_onek': redundant, 'koleksiyon': len(by_ns)},
                   tables=[('Çok indeksli koleksiyonlar', ['Koleksiyon', 'İndeks'], many)] if many else [],
                   notes=['$indexStats sayaçları sunucu yeniden başlayınca ve replika setin her üyesinde ayrı tutulur; tüm üyelerin çıktısını birleştirin. Atlas’ta Performance Advisor da kullanılmayan indeksleri listeler.'])
+
+
+def redis_info(text):
+    info, section = {}, ''
+    for line in text.splitlines():
+        line = line.strip()
+        if line.startswith('#'):
+            section = line[1:].strip().lower()
+        elif ':' in line:
+            k, v = line.split(':', 1)
+            info[k] = v
+            info.setdefault('_sections', set()).add(section)
+    return info
+
+
+@op('redis-saglik', title='Redis sağlık kontrolü: bellek sınırı, tahliye, parçalanma, isabet oranı, kalıcılık', domain='database', product='Redis', tag='INFO', kind='file',
+    samples={'redis_info.txt': 'redis_info.txt'},
+    args=[arg('--role', default='önbellek', choices=['önbellek', 'veri'], help='Redis’in kullanım amacı: önbellek (cache) veya kalıcı veri deposu')],
+    description='redis-cli INFO ALL çıktısını okur ve kullanım amacına göre denetler: maxmemory sınırı yokken bellek büyümesi, sınıra yaklaşan kullanım, önbellekte noeviction politikası (bellek dolunca yazma hatası) veya veri deposunda allkeys-* politikası (veri kaybı), tahliye edilen anahtarlar, bellek parçalanma oranı (activedefrag) ve swap belirtisi, keyspace isabet oranı, reddedilen bağlantılar ve maxclients doluluğu, başarısız RDB kaydı, veri deposunda kalıcılığın kapalı olması, replika bağlantı durumu ve TTL’siz anahtar payı.',
+    input='INFO ALL çıktısı (metin)', output='sonuc.csv (bulgular)', command='python main.py --input redis_info.txt --role veri',
+    expect={'bellek_%': 93.8, 'isabet_%': 71.4, 'bulgu': 7, 'yuksek': 2})
+def redis_health(args):
+    info = redis_info(Path(args.input).read_text(encoding='utf-8', errors='replace'))
+    if 'redis_version' not in info:
+        raise ValueError('INFO çıktısı tanınmadı (redis_version yok).')
+    n = lambda k: tabular.parse_number(info.get(k, '')) if info.get(k, '').strip() else None
+    out = []
+    add = lambda sev, check, value, advice: out.append({'onem': sev, 'kontrol': check, 'deger': value, 'oneri': advice})
+    used, maxm = n('used_memory'), n('maxmemory')
+    policy = info.get('maxmemory_policy', '')
+    cache = args.role == 'önbellek'
+    pct = 100 * used / maxm if used and maxm else None
+    if not maxm:
+        add('yüksek' if cache else 'orta', 'bellek sınırı yok', f'used_memory {info.get("used_memory_human", "")}', 'maxmemory 0: Redis işletim sistemi belleğini bitirebilir; sunucu belleğinin %70–80’i kadar sınır koyun')
+    elif pct is not None and pct > 85:
+        add('yüksek' if not cache else 'orta', 'bellek sınırına yakın', f'%{pct:.1f}', 'tahliye veya OOM yakın: belleği artırın, büyük anahtarları (--bigkeys) inceleyin')
+    if cache and policy == 'noeviction':
+        add('orta', 'önbellekte noeviction', policy, 'bellek dolunca yazmalar hata verir; önbellek için allkeys-lru veya allkeys-lfu kullanın')
+    if not cache and policy.startswith('allkeys'):
+        add('yüksek', 'veri deposunda tahliye politikası', policy, 'kalıcı veri silinebilir; noeviction veya volatile-* kullanın')
+    ev = n('evicted_keys')
+    if ev:
+        add('orta' if cache else 'yüksek', 'tahliye edilen anahtar', f'{ev:,.0f}', 'bellek yetmiyor: önbellek isabet oranını düşürür' if cache else 'veri kaybı: bellek veya politika düzeltilmeli')
+    frag = n('mem_fragmentation_ratio')
+    if frag and frag > 1.5:
+        add('orta', 'bellek parçalanması', f'{frag:g}', 'activedefrag yes ile birleştirmeyi açın veya bakım penceresinde yeniden başlatın')
+    elif frag and frag < 1.0:
+        add('yüksek', 'swap belirtisi', f'{frag:g}', 'parçalanma oranı 1’in altında: Redis belleği diske taşıyor, gecikme artar')
+    hits, misses = n('keyspace_hits') or 0, n('keyspace_misses') or 0
+    ratio = 100 * hits / (hits + misses) if hits + misses else None
+    if cache and ratio is not None and ratio < 80:
+        add('orta', 'düşük isabet oranı', f'%{ratio:.1f}', 'önbellek az işe yarıyor: TTL çok kısa, anahtar tasarımı veya bellek yetersiz')
+    rej = n('rejected_connections')
+    if rej:
+        add('yüksek', 'reddedilen bağlantı', f'{rej:,.0f}', 'maxclients doldu; bağlantı havuzu ayarlarını ve sızan bağlantıları kontrol edin')
+    if info.get('rdb_last_bgsave_status', 'ok') != 'ok':
+        add('yüksek', 'RDB kaydı başarısız', info['rdb_last_bgsave_status'], 'son anlık görüntü yazılamadı; disk ve fork belleğini kontrol edin')
+    if not cache and info.get('aof_enabled', '0') == '0' and not info.get('rdb_last_save_time'):
+        add('yüksek', 'kalıcılık kapalı', 'aof 0', 'veri deposunda AOF veya RDB açılmalı')
+    if info.get('role') == 'slave' and info.get('master_link_status') != 'up':
+        add('yüksek', 'replika bağlantısı kopuk', info.get('master_link_status', ''), 'replika ana sunucuya bağlı değil')
+    keys = expires = 0
+    for k, v in info.items():
+        if re.fullmatch(r'db\d+', k):
+            d = dict(x.split('=') for x in v.split(',') if '=' in x)
+            keys += int(d.get('keys', 0))
+            expires += int(d.get('expires', 0))
+    if cache and keys and expires / keys < 0.5:
+        add('düşük', 'TTL’siz anahtar', f'%{100 * (keys - expires) / keys:.0f} ({keys - expires:,} anahtar)', 'önbellek anahtarlarına TTL verin; aksi hâlde yalnızca tahliyeyle temizlenir')
+    ver = info.get('redis_version', '')
+    if ver and int(ver.split('.')[0]) < 6:
+        add('düşük', 'eski sürüm', ver, 'Redis 6 öncesi ACL ve TLS desteklemez; yükseltin')
+    order = {'yüksek': 0, 'orta': 1, 'düşük': 2}
+    out.sort(key=lambda o: (order[o['onem']], o['kontrol']))
+    return Result(f'Redis {ver} ({args.role}); bellek ' + (f'%{pct:.1f}' if pct is not None else 'sınırsız') + (f', isabet %{ratio:.1f}' if ratio is not None else '') + f'; {len(out)} bulgu',
+                  ['onem', 'kontrol', 'deger', 'oneri'], out,
+                  {'bellek_%': round(pct, 1) if pct is not None else None, 'isabet_%': round(ratio, 1) if ratio is not None else None, 'bulgu': len(out),
+                   'yuksek': sum(o['onem'] == 'yüksek' for o in out)},
+                  notes=['INFO anlık değerdir; sayaçlar (evicted_keys, keyspace_hits) son yeniden başlatmadan beri birikir. Yavaş komutlar için SLOWLOG GET, büyük anahtarlar için redis-cli --bigkeys çıktısına bakın.'])

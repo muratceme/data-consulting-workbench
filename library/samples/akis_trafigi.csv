@@ -1,0 +1,7 @@
+akis,platform,tepe_kayit_sn,ort_kayit_kb,tuketici_sayisi,efo,mevcut
+siparis-olaylari,kinesis,2500,1.2,3,hayır,4
+tiklama-akisi,kinesis,12000,0.5,1,hayır,16
+log-akisi,kinesis,300,2.0,2,evet,10
+odeme-olaylari,eventhubs,800,1.0,2,,1
+cihaz-telemetri,eventhubs,5000,0.3,1,,8
+stok-degisim,eventhubs,100,4.0,1,,5

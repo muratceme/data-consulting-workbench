@@ -1,0 +1,7 @@
+name,version,stage,run_id,description
+churn_model,1,Archived,r01,İlk sürüm
+churn_model,2,Production,r02,Ağustos verisiyle yeniden eğitildi
+churn_model,3,Production,r03,
+fraud_model,1,Production,r99,Kural tabanlı modelin yerine geçti
+fraud_model,2,Staging,r11,Yeni özellikler
+fraud_model,3,None,r12,

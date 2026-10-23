@@ -1,6 +1,7 @@
-"""Konum ve zaman serisi blokları: koordinat kontrolü, en yakın nokta, sensör eşik ihlali, veri boşluğu, yeniden örnekleme, iş saati SLA."""
+"""Konum ve zaman serisi blokları: koordinat kontrolü, en yakın nokta, sensör eşik ihlali, veri boşluğu, yeniden örnekleme, iş saati SLA, InfluxDB seri kardinalitesi."""
 import math
-from collections import defaultdict
+from collections import Counter, defaultdict
+from pathlib import Path
 from datetime import datetime, time, timedelta
 import tabular
 from islem import op, arg, Result, need, numbers, fmt
@@ -206,3 +207,75 @@ def sla(columns, rows, args):
                   {'talep': len(rows), 'sla_asimi': breach, 'acik': sum(o['durum'].startswith('açık') for o in out),
                    'ort_is_saati': round(sum(o['is_saati'] for o in out if o['is_saati'] != '') / max(1, sum(o['is_saati'] != '' for o in out)), 2)},
                   notes=['Resmî tatiller hariç tutulmaz; gerekirse tarih-tablosu bloğundaki tatil listesini kullanın.'])
+
+
+def lp_split(text, sep):
+    """Split an InfluxDB line protocol part on sep, honouring backslash escapes and double quotes."""
+    parts, buf, quote, esc = [], [], False, False
+    for ch in text:
+        if esc:
+            buf.append(ch)
+            esc = False
+        elif ch == '\\':
+            esc = True
+        elif ch == '"':
+            quote = not quote
+            buf.append(ch)
+        elif ch == sep and not quote:
+            parts.append(''.join(buf))
+            buf = []
+        else:
+            buf.append(ch)
+    parts.append(''.join(buf))
+    return parts
+
+
+@op('influxdb-kardinalite', title='InfluxDB seri kardinalitesi: etiket (tag) olarak yazılmış kimlikler ve seri patlaması', domain='spatial', product='InfluxDB', tag='cardinality', kind='file',
+    samples={'influx_ornek.lp': 'influx_ornek.lp'},
+    args=[arg('--tag-limit', type=int, default=1000, help='Bir etiket anahtarı için kabul edilen en fazla farklı değer'),
+          arg('--ratio', type=float, default=0.5, help='Farklı değer sayısı nokta sayısının bu payını geçen etiket kimlik gibi davranıyor sayılır')],
+    description='InfluxDB line protocol örneğinden (ölçüm,etiket=değer alan=değer zaman) ölçüm başına seri sayısını (farklı etiket kümeleri), her etiket anahtarının farklı değer sayısını ve alanları çıkarır. İstek kimliği, kullanıcı kimliği veya zaman damgası gibi neredeyse her noktada değişen değerlerin etiket olarak yazılmasını (seri kardinalitesi patlaması: bellek ve sorgu yavaşlığı) ve tek değerli gereksiz etiketleri işaretler; etiketi alana (field) çevirmeyi önerir.',
+    input='Line protocol dosyası (.lp / .txt)', output='sonuc.csv (etiket anahtarı bazında kardinalite)', command='python main.py --input export.lp --tag-limit 500',
+    expect={'nokta': 600, 'olcum': 3, 'seri': 407, 'sorunlu_etiket': 2})
+def influx_cardinality(args):
+    points = 0
+    series = defaultdict(set)
+    tagvals = defaultdict(lambda: defaultdict(set))
+    fields = defaultdict(set)
+    counts = Counter()
+    for n, line in enumerate(Path(args.input).read_text(encoding='utf-8-sig', errors='replace').splitlines(), 1):
+        line = line.strip()
+        if not line or line.startswith('#'):
+            continue
+        parts = lp_split(line, ' ')
+        if len(parts) < 2:
+            raise ValueError(f'{n}. satır line protocol değil: {line[:60]}')
+        key = lp_split(parts[0], ',')
+        meas, tags = key[0], [t.split('=', 1) for t in key[1:] if '=' in t]
+        points += 1
+        counts[meas] += 1
+        series[meas].add(tuple(sorted((k, v) for k, v in tags)))
+        for k, v in tags:
+            tagvals[meas][k].add(v)
+        for f in lp_split(parts[1], ','):
+            if '=' in f:
+                fields[meas].add(f.split('=', 1)[0])
+    if not points:
+        raise ValueError('Dosyada nokta yok.')
+    out, bad = [], 0
+    for meas in sorted(tagvals.keys() | counts.keys()):
+        for k, vals in sorted(tagvals[meas].items()):
+            issue = ''
+            if len(vals) > args.tag_limit or (counts[meas] >= 20 and len(vals) > args.ratio * counts[meas]):
+                issue = f'neredeyse her noktada farklı ({len(vals)} değer / {counts[meas]} nokta): kimlik gibi davranıyor, alana (field) çevirin'
+                bad += 1
+            elif len(vals) == 1 and len(series[meas]) > 1:
+                issue = 'tek değerli etiket: gereksiz, kaldırılabilir'
+            out.append({'olcum': meas, 'etiket': k, 'farkli_deger': len(vals), 'nokta': counts[meas], 'seri': len(series[meas]),
+                        'alanlar': ', '.join(sorted(fields[meas])), 'bulgu': issue})
+    total_series = sum(len(s) for s in series.values())
+    out.sort(key=lambda o: (not o['bulgu'].startswith('neredeyse'), -o['farkli_deger']))
+    return Result(f'{points} nokta, {len(counts)} ölçüm, {total_series} seri; {bad} etiket kimlik gibi yazılmış', list(out[0]), out,
+                  {'nokta': points, 'olcum': len(counts), 'seri': total_series, 'sorunlu_etiket': bad},
+                  tables=[('Ölçümler', ['Ölçüm', 'Nokta', 'Seri', 'Etiket anahtarı', 'Alan'], [[m, counts[m], len(series[m]), len(tagvals[m]), len(fields[m])] for m in sorted(counts)])],
+                  notes=['Örnek dosya küçük bir zaman aralığını gösterir; gerçek seri sayısı için InfluxDB 2.x’te influxdb.cardinality() veya 1.x’te SHOW SERIES CARDINALITY kullanın.'])

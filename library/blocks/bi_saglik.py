@@ -524,3 +524,69 @@ def looker_unused(args):
                   {'alan': len(out), 'kullanilmayan_alan': len(unused), 'kullanilmayan_explore': len(idle_explores), 'bagsiz_view': len(orphan_views)},
                   tables=[('Explore ve view', ['Tür', 'Ad', 'Öneri'], table)],
                   notes=['System Activity yalnız son 90 günü tutar; mevsimsel (yıl sonu) raporları silmeden önce sahibine sorun. Dashboard ve Look’larda filtre olarak kullanılan alanlar da sorgu sayısına dahildir.'])
+
+
+# ---------- Power BI Service: Scanner API envanteri ----------
+@op('pbi-tarayici-envanteri', title='Power BI kiracı envanteri (Scanner API): sahipsiz çalışma alanı, yetim model, yerel kaynak, kopya model', domain='bi', product='Power BI Service', tag='Scanner API', kind='file',
+    samples={'pbi_tarayici_sonucu.json': 'pbi_tarayici_sonucu.json'},
+    description='Power BI yönetici Scanner API’sinin (workspaces/getInfo → scanResult) JSON çıktısından çalışma alanı, rapor, anlamsal model (dataset), veri akışı ve veri kaynağı envanterini çıkarır; yöneticisi olmayan veya tek kişiye bağlı çalışma alanlarını, kişisel çalışma alanında paylaşılan içerikleri, raporu olmayan (yetim) modelleri, aynı ad ve tablolarla birden çok çalışma alanında tekrarlanan modelleri, yerel dosya/klasör yolundan veya kişisel OneDrive’dan beslenen kaynakları ve duyarlılık etiketi olmayan içeriğin payını raporlar. Kiracı yönetişimi ve konsolidasyon için.',
+    input='Scanner API scanResult JSON’u', output='sonuc.csv (bulgular) + çalışma alanı tablosu', command='python main.py --input scan_result.json',
+    expect={'calisma_alani': 5, 'model': 8, 'rapor': 10, 'bulgu': 8, 'etiketsiz_%': 66.7})
+def pbi_scanner(args):
+    data = json.loads(Path(args.input).read_text(encoding='utf-8-sig'))
+    workspaces = data.get('workspaces', [])
+    if not workspaces:
+        raise ValueError('JSON’da "workspaces" yok; Scanner API scanResult çıktısını verin.')
+    sources = {d.get('datasourceInstanceId'): d for d in data.get('datasourceInstances', [])}
+    out, ws_rows = [], []
+    add = lambda sev, check, obj, detail: out.append({'onem': sev, 'kontrol': check, 'nesne': obj, 'ayrinti': detail})
+    signatures = defaultdict(list)
+    labelled = total_items = 0
+    used = {r.get('datasetId') for w in workspaces for r in w.get('reports', [])}
+    n_models = n_reports = 0
+    for ws in workspaces:
+        name = ws.get('name', ws.get('id', '?'))
+        users = ws.get('users', [])
+        admins = [u for u in users if u.get('groupUserAccessRight') == 'Admin']
+        reports, datasets = ws.get('reports', []), ws.get('datasets', [])
+        n_models += len(datasets)
+        n_reports += len(reports)
+        personal = ws.get('type') in ('PersonalGroup', 'Personal')
+        ws_rows.append([name, ws.get('type', ''), len(reports), len(datasets), len(admins), 'evet' if ws.get('isOnDedicatedCapacity') else 'hayır'])
+        if not personal:
+            if not admins:
+                add('yüksek', 'yöneticisiz çalışma alanı', name, 'hiç Admin yok; erişim yönetilemez')
+            elif len(admins) == 1 and admins[0].get('principalType', 'User') == 'User':
+                add('orta', 'tek kişiye bağlı çalışma alanı', name, f'tek yönetici {admins[0].get("emailAddress", "")}; ayrılırsa sahipsiz kalır, bir grup ekleyin')
+        elif reports:
+            add('düşük', 'kişisel alanda içerik', name, f'{len(reports)} rapor kişisel çalışma alanında; paylaşılıyorsa kurumsal bir çalışma alanına taşıyın')
+        for d in datasets:
+            total_items += 1
+            labelled += bool(d.get('sensitivityLabel'))
+            if d.get('id') not in used:
+                add('düşük', 'raporsuz model', f'{name} / {d.get("name")}', 'hiçbir rapor bu modeli kullanmıyor; kullanılmıyorsa kaldırın (yenileme kapasitesi harcar)')
+            tables = tuple(sorted(t.get('name', '') for t in d.get('tables', [])))
+            if tables:
+                signatures[(d.get('name', '').lower(), tables)].append(name)
+            for use in d.get('datasourceUsages', []):
+                src = sources.get(use.get('datasourceInstanceId'), {})
+                det = src.get('connectionDetails', {})
+                path = det.get('path', '') or det.get('url', '')
+                if re.match(r'^[A-Za-z]:\\|^\\\\', path):
+                    add('yüksek', 'yerel dosya kaynağı', f'{name} / {d.get("name")}', f'{src.get("datasourceType", "")} {path}: ağ geçidine ve kişinin bilgisayarına bağlı')
+                elif re.search(r'-my\.sharepoint\.com/personal/', path):
+                    add('orta', 'kişisel OneDrive kaynağı', f'{name} / {d.get("name")}', f'{path}: dosya sahibi ayrılırsa yenileme durur; ekip SharePoint’ine taşıyın')
+        for r in reports:
+            total_items += 1
+            labelled += bool(r.get('sensitivityLabel'))
+    for (dname, tables), where in signatures.items():
+        if len(where) > 1:
+            add('orta', 'kopya model', dname, f'aynı tablolarla {len(where)} çalışma alanında: {", ".join(where)}; tek paylaşılan modelde birleştirin')
+    order = {'yüksek': 0, 'orta': 1, 'düşük': 2}
+    out.sort(key=lambda o: (order[o['onem']], o['kontrol'], o['nesne']))
+    unlabelled = 100 * (total_items - labelled) / (total_items or 1)
+    return Result(f'{len(workspaces)} çalışma alanı, {n_models} model, {n_reports} rapor; {len(out)} bulgu; içeriğin %{unlabelled:.1f} kadarında duyarlılık etiketi yok',
+                  ['onem', 'kontrol', 'nesne', 'ayrinti'], out,
+                  {'calisma_alani': len(workspaces), 'model': n_models, 'rapor': n_reports, 'bulgu': len(out), 'etiketsiz_%': round(unlabelled, 1)},
+                  tables=[('Çalışma alanları', ['Çalışma alanı', 'Tür', 'Rapor', 'Model', 'Yönetici', 'Ayrılmış kapasite'], ws_rows)],
+                  notes=['Scanner API kullanım bilgisi vermez; kullanılmayan raporlar için etkinlik günlüğünü rapor-kullanim-envanteri bloğuyla birleştirin. Tablo ve ifade ayrıntısı için tarama datasetSchema=true ve datasetExpressions=true ile yapılmalıdır.'])

@@ -426,3 +426,55 @@ def teradata(columns, rows, args):
                   {'sorgu': len(rows), 'kalip': len(out), 'manuel_kalip': cls['manuel'], 'ilk_kalip_cpu_%': round(100 * top / total, 1)},
                   tables=[('Tablo kullanımı', ['Tablo', 'Sorgu', 'Son kullanım'], tables)],
                   notes=['Desenler metin üzerinde aranır; kesin dönüşüm için SnowConvert gibi bir ayrıştırıcıyla doğrulayın. DBQL’de uzun sorgular QueryText’te kesilebilir; tam metin DBQLSqlTbl’dedir.'])
+
+
+GB = 1024 ** 3
+
+
+@op('clickhouse-parca-analizi', title='ClickHouse system.parts: çok fazla parça, küçük insert, ince bölümleme, düşük sıkıştırma', domain='warehouse', product='ClickHouse', tag='system.parts',
+    samples={'clickhouse_parts.csv': 'clickhouse_parts.csv'},
+    args=[arg('--delay', type=int, default=1000, help='parts_to_delay_insert (bölüm başına aktif parça)'), arg('--small-rows', type=int, default=100_000, help='Ortalama parça bu satırdan küçükse insert’ler küçük sayılır'),
+          arg('--min-partition-gb', type=float, default=1.0, help='Bölüm başına beklenen en küçük ortalama boyut (GB)'), arg('--min-ratio', type=float, default=3.0, help='Beklenen en düşük sıkıştırma oranı')],
+    description='system.parts dışa aktarımından (database, table, partition, active, rows, bytes_on_disk, data_compressed_bytes, data_uncompressed_bytes) aktif parçaları tablo ve bölüm bazında toplar: bölüm başına parça sayısının parts_to_delay_insert sınırına yaklaşması (“Too many parts” riski), çok küçük parçalar (sık ve küçük insert: toplu yazma veya async_insert), çok sayıda küçük bölüm (aşırı ince PARTITION BY: aylığa geçin) ve düşük sıkıştırma oranı (kolon codec’leri ve ORDER BY). Her tablo için önerilen ayarı yazar.',
+    input='system.parts CSV’si', output='sonuc.csv (tablo bazında parça ve bölüm analizi)', command='python main.py --input system_parts.csv --delay 300',
+    expect={'tablo': 4, 'aktif_parca': 1450, 'sorunlu_tablo': 3, 'bulgu': 4})
+def clickhouse_parts(columns, rows, args):
+    for c in ('database', 'table', 'partition', 'active', 'rows', 'bytes_on_disk'):
+        need(c, columns, 'system.parts')
+    nrows, disk = numbers(rows, 'rows'), numbers(rows, 'bytes_on_disk')
+    comp = numbers(rows, 'data_compressed_bytes') if 'data_compressed_bytes' in columns else [None] * len(rows)
+    raw = numbers(rows, 'data_uncompressed_bytes') if 'data_uncompressed_bytes' in columns else [None] * len(rows)
+    t = defaultdict(lambda: {'parts': 0, 'rows': 0, 'bytes': 0, 'comp': 0, 'raw': 0, 'partitions': Counter()})
+    for r, n, b, c, u in zip(rows, nrows, disk, comp, raw):
+        if r['active'].strip().lower() not in ('1', 'true'):
+            continue
+        e = t[f"{r['database'].strip()}.{r['table'].strip()}"]
+        e['parts'] += 1
+        e['rows'] += n or 0
+        e['bytes'] += b or 0
+        e['comp'] += c or 0
+        e['raw'] += u or 0
+        e['partitions'][r['partition'].strip()] += 1
+    out, total = [], 0
+    for name, e in sorted(t.items()):
+        issues = []
+        worst = max(e['partitions'].values())
+        if worst > 0.5 * args.delay:
+            issues.append(f'bir bölümde {worst} aktif parça (sınır {args.delay}): insert’leri toplayın, birleştirme (merge) yetişmiyor')
+        avg_rows = e['rows'] / e['parts']
+        if avg_rows < args.small_rows and e['parts'] > 50:
+            issues.append(f'ortalama parça {avg_rows:,.0f} satır: küçük ve sık insert; 10 bin–100 bin satırlık toplu yazma veya async_insert=1')
+        nparts = len(e['partitions'])
+        avg_part_gb = e['bytes'] / nparts / GB if nparts else 0
+        if nparts > 100 and avg_part_gb < args.min_partition_gb:
+            issues.append(f'{nparts} bölüm, ortalama {avg_part_gb:.2f} GB: bölümleme çok ince; PARTITION BY toYYYYMM(...) gibi daha kaba bölümleme')
+        ratio = e['raw'] / e['comp'] if e['comp'] else None
+        if ratio is not None and ratio < args.min_ratio:
+            issues.append(f'sıkıştırma {ratio:.1f}×: ORDER BY ile benzer değerleri yan yana getirin, LowCardinality / Delta / ZSTD codec’lerini deneyin')
+        total += len(issues)
+        out.append({'tablo': name, 'aktif_parca': e['parts'], 'bolum': nparts, 'en_kalabalik_bolum_parca': worst, 'satir': int(e['rows']), 'disk_gb': round(e['bytes'] / GB, 2),
+                    'sikistirma': round(ratio, 1) if ratio else '', 'bulgular': '; '.join(issues)})
+    out.sort(key=lambda o: (-len(o['bulgular']), o['tablo']))
+    return Result(f'{len(out)} tablo, {sum(o["aktif_parca"] for o in out)} aktif parça; {sum(bool(o["bulgular"]) for o in out)} tabloda {total} bulgu', list(out[0]), out,
+                  {'tablo': len(out), 'aktif_parca': sum(o['aktif_parca'] for o in out), 'sorunlu_tablo': sum(bool(o['bulgular']) for o in out), 'bulgu': total},
+                  notes=['Sınır değerleri sürüme göre değişir: parts_to_delay_insert ve parts_to_throw_insert ayarlarını SELECT * FROM system.merge_tree_settings ile kontrol edin. Pasif (active=0) parçalar birleştirme sonrası silinmeyi bekler ve sayılmaz.'])
