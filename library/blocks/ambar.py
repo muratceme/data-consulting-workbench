@@ -270,3 +270,159 @@ def clustering(args):
     return Result(f'{len(out)} tablo; {c["kötü"]} tablo kötü kümelenmiş, {c["orta"]} orta', list(out[0]), out,
                   {'tablo': len(out), 'iyi': c['iyi'], 'orta': c['orta'], 'kotu': c['kötü'], 'anahtar_onerisi': sum(bool(o['oneri']) and 'TO_DATE' in o['oneri'] for o in out)},
                   notes=['Derinlik, aynı değer aralığını içeren üst üste binen mikro-bölüm sayısıdır; 1’e yakın olması budamanın (pruning) iyi çalıştığını gösterir. Küçük tablolarda (birkaç yüz bölüm) kümeleme genelde maliyetine değmez.'])
+
+
+SYSTEM_ROLES = {'ACCOUNTADMIN', 'SECURITYADMIN', 'SYSADMIN', 'USERADMIN', 'ORGADMIN', 'PUBLIC'}
+
+
+def lower_rows(rows):
+    return [{k.strip().lower(): (v or '').strip() for k, v in r.items()} for r in rows]
+
+
+@op('snowflake-rbac-denetimi', title='Snowflake RBAC denetimi: ACCOUNTADMIN, rol hiyerarşisi ve PUBLIC yetkileri', domain='warehouse', product='Snowflake', tag='RBAC',
+    samples={'snowflake_rol_yetkileri.csv': 'snowflake_rol_yetkileri.csv', 'snowflake_kullanici_rolleri.csv': 'snowflake_kullanici_rolleri.csv'},
+    args=[arg('--users', default='@ornek/snowflake_kullanici_rolleri.csv', help='ACCOUNT_USAGE.GRANTS_TO_USERS dışa aktarımı'),
+          arg('--max-admins', type=int, default=3, help='ACCOUNTADMIN rolüne sahip en fazla kullanıcı'), arg('--max-roles', type=int, default=8, help='Bir kullanıcıya doğrudan verilen en fazla rol')],
+    description='ACCOUNT_USAGE.GRANTS_TO_ROLES ve GRANTS_TO_USERS dışa aktarımlarından rol hiyerarşisini kurar ve Snowflake erişim modelini denetler: ACCOUNTADMIN rolünün çok fazla (veya tek) kişide olması, SYSADMIN altına bağlanmamış özel roller, PUBLIC rolüne verilmiş tablo/şema/ambar yetkileri, ACCOUNTADMIN’in sahibi olduğu nesneler, SECURITYADMIN dışında MANAGE GRANTS yetkisi, hiçbir kullanıcıya ve role verilmemiş roller ve çok fazla doğrudan rol biriktiren kullanıcılar. Silinmiş (deleted_on dolu) yetkiler yok sayılır.',
+    input='GRANTS_TO_ROLES CSV’si + GRANTS_TO_USERS CSV’si', output='sonuc.csv (bulgular) + rol özeti', command='python main.py --input grants_to_roles.csv --users grants_to_users.csv',
+    expect={'rol': 11, 'kullanici': 10, 'bulgu': 8, 'yuksek': 3})
+def sf_rbac(columns, rows, args):
+    rows = lower_rows(rows)
+    for c in ('privilege', 'granted_on', 'name', 'grantee_name'):
+        need(c, [k.strip().lower() for k in columns], 'GRANTS_TO_ROLES')
+    ucols, urows = tabular.read(args.users)
+    urows = lower_rows(urows)
+    for c in ('role', 'grantee_name'):
+        need(c, [k.strip().lower() for k in ucols], '--users')
+    rows = [r for r in rows if not r.get('deleted_on')]
+    urows = [r for r in urows if not r.get('deleted_on')]
+    parents, privs, owned = defaultdict(set), defaultdict(list), []
+    for r in rows:
+        role, on, priv = r['grantee_name'].upper(), r['granted_on'].upper(), r['privilege'].upper()
+        if on == 'ROLE' and priv == 'USAGE':
+            parents[r['name'].upper()].add(role)
+        else:
+            privs[role].append((priv, on, r['name']))
+            if priv == 'OWNERSHIP' and role == 'ACCOUNTADMIN' and on in ('DATABASE', 'SCHEMA', 'TABLE', 'VIEW', 'WAREHOUSE'):
+                owned.append(f'{on} {r["name"]}')
+    users_of, roles_of = defaultdict(set), defaultdict(set)
+    for r in urows:
+        users_of[r['role'].upper()].add(r['grantee_name'])
+        roles_of[r['grantee_name']].add(r['role'].upper())
+    granted = {p for ps in parents.values() for p in ps}
+    roles = set(parents) | granted | set(privs) | set(users_of)
+
+    def ancestors(role, seen=None):
+        seen = set() if seen is None else seen
+        for p in parents.get(role, ()):
+            if p not in seen:
+                seen.add(p)
+                ancestors(p, seen)
+        return seen
+    out = []
+    add = lambda sev, check, obj, detail: out.append({'onem': sev, 'kontrol': check, 'nesne': obj, 'ayrinti': detail})
+    admins = sorted(users_of.get('ACCOUNTADMIN', ()))
+    if len(admins) > args.max_admins:
+        add('yüksek', 'ACCOUNTADMIN sayısı', 'ACCOUNTADMIN', f'{len(admins)} kullanıcıda ({", ".join(admins)}); en fazla {args.max_admins} olmalı, günlük iş için SYSADMIN/işlev rolü kullanılmalı.')
+    elif len(admins) < 2:
+        add('orta', 'ACCOUNTADMIN sayısı', 'ACCOUNTADMIN', 'Yalnızca bir kullanıcıda; kilitlenme riskine karşı MFA’lı ikinci bir yönetici tanımlayın.')
+    for role in sorted(roles - SYSTEM_ROLES):
+        if 'SYSADMIN' not in ancestors(role):
+            add('orta', 'Hiyerarşi dışı rol', role, f'SYSADMIN’e bağlanmamış; SYSADMIN bu rolün nesnelerini yönetemez. GRANT ROLE {role} TO ROLE SYSADMIN.')
+        if not users_of.get(role) and not parents.get(role) and role not in granted:
+            add('düşük', 'Kullanılmayan rol', role, 'Hiçbir kullanıcıya veya role verilmemiş; gerekmiyorsa kaldırın.')
+    for priv, on, name in privs.get('PUBLIC', ()):
+        if on in ('TABLE', 'VIEW', 'SCHEMA', 'DATABASE', 'WAREHOUSE'):
+            add('yüksek' if on in ('TABLE', 'VIEW') else 'orta', 'PUBLIC yetkisi', f'{on} {name}', f'{priv} yetkisi PUBLIC rolünde: hesaptaki herkes erişir.')
+    if owned:
+        add('orta', 'ACCOUNTADMIN nesne sahibi', 'ACCOUNTADMIN', f'{len(owned)} nesnenin sahibi ({", ".join(owned[:5])}); sahiplik SYSADMIN veya işlev rolüne devredilmeli.')
+    for role, items in sorted(privs.items()):
+        if role not in ('SECURITYADMIN', 'ACCOUNTADMIN') and any(p == 'MANAGE GRANTS' for p, _, _ in items):
+            add('yüksek', 'MANAGE GRANTS', role, 'Her nesnede yetki verip alabilir; yalnızca SECURITYADMIN’de olmalı.')
+    for user, rs in sorted(roles_of.items()):
+        if len(rs) > args.max_roles:
+            add('düşük', 'Çok sayıda doğrudan rol', user, f'{len(rs)} rol doğrudan verilmiş; işlev rolüyle toplayın.')
+    order = {'yüksek': 0, 'orta': 1, 'düşük': 2}
+    out.sort(key=lambda o: (order[o['onem']], o['kontrol'], o['nesne']))
+    summary_rows = [[r, ', '.join(sorted(parents.get(r, ()))) or '—', len(users_of.get(r, ())), len(privs.get(r, ()))] for r in sorted(roles)]
+    high = sum(o['onem'] == 'yüksek' for o in out)
+    return Result(f'{len(roles)} rol, {len(roles_of)} kullanıcı; {len(out)} bulgu ({high} yüksek)', ['onem', 'kontrol', 'nesne', 'ayrinti'], out,
+                  {'rol': len(roles), 'kullanici': len(roles_of), 'bulgu': len(out), 'yuksek': high},
+                  tables=[('Roller', ['Rol', 'Üst rol', 'Kullanıcı', 'Nesne yetkisi'], summary_rows)],
+                  notes=['ACCOUNT_USAGE görünümleri 2 saate kadar gecikmeli olabilir. Veritabanı rolleri (database role) ayrı görünümdedir ve burada denetlenmez.'])
+
+
+TD_PATTERNS = [
+    ('SEL/INS/UPD/DEL kısaltması', r'^\s*(SEL|INS|UPD|DEL)\b', 'otomatik', 'SELECT/INSERT/UPDATE/DELETE olarak yazılır'),
+    ('LOCKING ... FOR ACCESS', r'\bLOCK(ING)?\s+(ROW|TABLE\s+\S+|DATABASE\s+\S+)\s+FOR\s+ACCESS\b', 'otomatik', 'okuma kilidi ipucu; kaldırılır'),
+    ('COLLECT STATISTICS', r'\bCOLLECT\s+STAT', 'otomatik', 'hedefte gerekmez; kaldırılır'),
+    ('VOLATILE tablo', r'\bVOLATILE\b', 'otomatik', 'TEMPORARY TABLE'),
+    ('MULTISET tablo', r'\bCREATE\s+MULTISET\b', 'otomatik', 'MULTISET ifadesi kaldırılır'),
+    ('SET tablo', r'\bCREATE\s+SET\s+((GLOBAL\s+TEMPORARY|VOLATILE)\s+)?TABLE\b', 'basit', 'SET tablo mükerrer satırı sessizce atar; hedefte DISTINCT veya benzersizlik kontrolü gerekir'),
+    ('PRIMARY INDEX', r'\bPRIMARY\s+INDEX\b', 'basit', 'clustering / dağıtım anahtarı olarak yeniden tasarlanır'),
+    ('CASESPECIFIC', r'\b(NOT\s+)?CASESPECIFIC\b|\(\s*(NOT\s+)?CS\s*\)', 'basit', 'büyük/küçük harf duyarlılığı: COLLATE veya UPPER()'),
+    ("FORMAT '...'", r"\bFORMAT\s+'[^']*'", 'basit', 'TO_CHAR / TO_DATE'),
+    ('ZEROIFNULL / NULLIFZERO', r'\b(ZEROIFNULL|NULLIFZERO)\s*\(', 'basit', 'COALESCE(x, 0) / NULLIF(x, 0)'),
+    ('TOP n WITH TIES', r'\bTOP\s+\d+\s+WITH\s+TIES\b', 'basit', 'QUALIFY RANK() <= n'),
+    ('SAMPLE', r'\bSAMPLE\s+\d', 'basit', 'TABLESAMPLE / SAMPLE'),
+    ('CHARACTERS / INDEX', r'\b(CHARACTERS|CHARS)\s*\(|(?<!PRIMARY )(?<!UNIQUE )\bINDEX\s*\(', 'basit', 'LENGTH / POSITION'),
+    ('HASHROW / HASHAMP', r'\bHASH(ROW|AMP|BUCKET|BAKAMP)\s*\(', 'manuel', 'AMP dağıtımına özgü; karşılığı yok, mantık yeniden yazılmalı'),
+    ('PERIOD / EXPAND ON / NORMALIZE', r'\bPERIOD\s*\(|\bEXPAND\s+ON\b|\bNORMALIZE\b', 'manuel', 'zaman aralığı türü; başlangıç/bitiş kolonlarına ve takvim tablosuna çevrilmeli'),
+    ('Makro (EXEC / CREATE MACRO)', r'^\s*EXEC(UTE)?\s+\w|\bCREATE\s+MACRO\b', 'manuel', 'saklı yordam veya görünüme çevrilmeli'),
+    ('BTEQ komutu', r'(?m)^\s*\.(LOGON|EXPORT|IMPORT|IF|GOTO|QUIT|SET|RUN|LABEL|OS)\b', 'manuel', 'betik akışı orkestratöre / Python’a taşınmalı'),
+]
+RANK = {'otomatik': 0, 'basit': 1, 'manuel': 2}
+
+
+def td_fingerprint(sql):
+    s = re.sub(r'/\*.*?\*/|--[^\n]*', ' ', sql, flags=re.S)
+    s = re.sub(r"'(?:[^']|'')*'", '?', s)
+    s = re.sub(r'\b\d+(\.\d+)?\b', '?', s)
+    s = re.sub(r'\(\s*\?(\s*,\s*\?)+\s*\)', '(?)', s)
+    return re.sub(r'\s+', ' ', s).strip().upper()
+
+
+@op('teradata-is-yuku', title='Teradata DBQL iş yükü analizi ve dönüştürülecek söz dizimi envanteri', domain='warehouse', product='Vantage', tag='DBQL',
+    samples={'teradata_dbql.csv': 'teradata_dbql.csv'},
+    args=[arg('--top', type=int, default=10, help='CPU payı raporlanacak en pahalı kalıp sayısı')], test_args=['--top', '3'],
+    description='DBQL (DBC.QryLogV) dışa aktarımındaki sorguları sabitler ? yapılarak kalıplara ayırır; kalıp başına çalışma sayısı, kullanıcı sayısı ve AMP CPU payını, en çok kullanılan tabloları ve Snowflake/BigQuery/Databricks’e geçişte değişmesi gereken Teradata’ya özgü söz dizimini (SEL kısaltması, LOCKING, COLLECT STATISTICS, VOLATILE/SET tablo, PRIMARY INDEX, CASESPECIFIC, FORMAT, ZEROIFNULL, TOP WITH TIES, HASHROW, PERIOD, makro, BTEQ komutları) çıkarır; her kalıbı otomatik/basit/manuel dönüşüm sınıfına koyar. Geçiş değerlendirmesinde kıyas testi yapılacak kalıpları seçmek ve efor tahmini için.',
+    input='DBQL dışa aktarımı (UserName, StartTime, AMPCPUTime, QueryText)', output='sonuc.csv (kalıp bazında iş yükü ve dönüşüm sınıfı)', command='python main.py --input dbql_90gun.csv --top 100',
+    expect={'sorgu': 24, 'kalip': 9, 'manuel_kalip': 2, 'ilk_kalip_cpu_%': 92.4})
+def teradata(columns, rows, args):
+    rows = lower_rows(rows)
+    cols = [c.strip().lower() for c in columns]
+    for c in ('username', 'querytext', 'ampcputime'):
+        need(c, cols, 'DBQL')
+    cpu = [tabular.parse_number(r['ampcputime']) or 0.0 for r in rows]
+    groups = defaultdict(lambda: {'n': 0, 'cpu': 0.0, 'users': set(), 'text': '', 'tables': set()})
+    table_hits, table_last = Counter(), {}
+    for r, c in zip(rows, cpu):
+        text = r['querytext']
+        g = groups[td_fingerprint(text)]
+        g['n'] += 1
+        g['cpu'] += c
+        g['users'].add(r['username'])
+        g['text'] = g['text'] or text
+        for t in re.findall(r'\b(?:FROM|JOIN|INTO|UPDATE|TABLE)\s+([A-Za-z_][\w$]*\.[A-Za-z_][\w$]*)', text, re.I):
+            t = t.lower()
+            g['tables'].add(t)
+            table_hits[t] += 1
+            if r.get('starttime'):
+                table_last[t] = max(table_last.get(t, ''), r['starttime'][:10])
+    total = sum(cpu) or 1
+    out = []
+    for g in groups.values():
+        found = [(name, cls, note) for name, rx, cls, note in TD_PATTERNS if re.search(rx, g['text'], re.I)]
+        cls = max((c for _, c, _ in found), key=RANK.get, default='otomatik')
+        out.append({'kalip': re.sub(r'\s+', ' ', g['text']).strip()[:140], 'calisma': g['n'], 'kullanici': len(g['users']), 'cpu_sn': round(g['cpu'], 1),
+                    'cpu_payi_%': round(100 * g['cpu'] / total, 1), 'tablolar': ', '.join(sorted(g['tables'])), 'sinif': cls,
+                    'teradataya_ozgu': '; '.join(f'{n} → {note}' for n, _, note in found)})
+    out.sort(key=lambda o: -o['cpu_sn'])
+    top = sum(o['cpu_sn'] for o in out[:args.top])
+    cls = Counter(o['sinif'] for o in out)
+    tables = [[t, n, table_last.get(t, '')] for t, n in table_hits.most_common()]
+    return Result(f'{len(rows)} sorgu, {len(out)} kalıp; ilk {min(args.top, len(out))} kalıp CPU payı %{100 * top / total:.1f}; '
+                  f'dönüşüm: otomatik {cls["otomatik"]}, basit {cls["basit"]}, manuel {cls["manuel"]}', list(out[0]), out,
+                  {'sorgu': len(rows), 'kalip': len(out), 'manuel_kalip': cls['manuel'], 'ilk_kalip_cpu_%': round(100 * top / total, 1)},
+                  tables=[('Tablo kullanımı', ['Tablo', 'Sorgu', 'Son kullanım'], tables)],
+                  notes=['Desenler metin üzerinde aranır; kesin dönüşüm için SnowConvert gibi bir ayrıştırıcıyla doğrulayın. DBQL’de uzun sorgular QueryText’te kesilebilir; tam metin DBQLSqlTbl’dedir.'])

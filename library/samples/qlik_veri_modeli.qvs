@@ -1,0 +1,39 @@
+// Satış uygulaması veri modeli
+LIB CONNECT TO 'ERP_DWH';
+
+UlkeMap:
+MAPPING LOAD UlkeKodu, UlkeAdi FROM [lib://Veri/ulke.qvd] (qvd);
+
+Satislar:
+LOAD SiparisNo,
+     MusteriNo,
+     UrunNo,
+     Date(SiparisTarihi) AS Tarih,
+     Tutar,
+     GeciciAlan;
+SQL SELECT SiparisNo, MusteriNo, UrunNo, SiparisTarihi, Tutar, GeciciAlan FROM dbo.Satis;
+
+DROP FIELD GeciciAlan FROM Satislar;
+
+Musteriler:
+LOAD MusteriNo, MusteriAdi, Sehir, ApplyMap('UlkeMap', UlkeKodu) AS Ulke
+FROM [lib://Veri/musteri.qvd] (qvd);
+
+LEFT JOIN (Musteriler)
+LOAD MusteriNo, Segment FROM [lib://Veri/segment.qvd] (qvd);
+
+Urunler:
+LOAD UrunNo, UrunAdi, TedarikciNo FROM [lib://Veri/urun.qvd] (qvd);
+
+Tedarikciler:
+LOAD TedarikciNo, TedarikciAdi, Sehir FROM [lib://Veri/tedarikci.qvd] (qvd);
+
+Hedefler:
+LOAD Tarih, UrunNo, HedefTutar FROM [lib://Veri/hedef.qvd] (qvd);
+
+Kurlar:
+LOAD * INLINE [
+ParaBirimi, Kur
+USD, 41.2
+EUR, 47.9
+];

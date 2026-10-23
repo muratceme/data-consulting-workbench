@@ -1,0 +1,138 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<workbook source-build='2024.2.0' version='18.1'>
+  <datasources>
+    <datasource caption='Gelir' inline='true' name='federated.gelir' version='18.1'>
+      <connection class='federated'>
+        <named-connections>
+          <named-connection caption='Gelir' name='sqlserver.1'><connection class='sqlserver' dbname='DWH' server='sql01.kurum.local' /></named-connection>
+        </named-connections>
+        <relation connection='sqlserver.1' name='Gelir Ozel' type='text'>SELECT * FROM dbo.Gelir</relation>
+      </connection>
+      <column datatype='real' name='[Gelir]' role='measure' type='quantitative' />
+      <column caption='Müşteri Ciro' datatype='real' name='[Calculation_20]' role='measure' type='quantitative'><calculation class='tableau' formula="{ FIXED [musteri] : SUM([Gelir]) }" /></column>
+      <column caption='Bölge Payı' datatype='real' name='[Calculation_21]' role='measure' type='quantitative'><calculation class='tableau' formula="{ INCLUDE [bolge] : SUM([Gelir]) }" /></column>
+      <column caption='Kategori Hariç' datatype='real' name='[Calculation_22]' role='measure' type='quantitative'><calculation class='tableau' formula="{ EXCLUDE [kategori] : SUM([Gelir]) }" /></column>
+      <column caption='Hareketli Ort' datatype='real' name='[Calculation_23]' role='measure' type='quantitative'><calculation class='tableau' formula="WINDOW_AVG(SUM([Gelir]), -2, 0)" /></column>
+      <column caption='Sıra' datatype='real' name='[Calculation_24]' role='measure' type='quantitative'><calculation class='tableau' formula="RANK(SUM([Gelir]))" /></column>
+      <column caption='Önceki Ay' datatype='real' name='[Calculation_25]' role='measure' type='quantitative'><calculation class='tableau' formula="LOOKUP(SUM([Gelir]), -1)" /></column>
+      <column caption='Büyüme' datatype='real' name='[Calculation_26]' role='measure' type='quantitative'><calculation class='tableau' formula="(SUM([Gelir]) - [Calculation_25]) / [Calculation_25]" /></column>
+      <column caption='Hedef Sapma' datatype='real' name='[Calculation_27]' role='measure' type='quantitative'><calculation class='tableau' formula="SUM([Gelir]) - SUM([Hedef])" /></column>
+    </datasource>
+    <datasource caption='Bütçe' inline='true' name='federated.butce' version='18.1'>
+      <connection class='federated'>
+        <named-connections>
+          <named-connection caption='Bütçe' name='excel-direct.1'><connection class='excel-direct' dbname='DWH' server='sql01.kurum.local' /></named-connection>
+        </named-connections>
+        <relation connection='sqlserver.1' name='Butce' table='[dbo].[Butce]' type='table' />
+      </connection>
+      <column datatype='real' name='[Hedef]' role='measure' type='quantitative' />
+    </datasource>
+    <datasource hasconnection='false' inline='true' name='Parameters' version='18.1'>
+      <column caption='Yıl' datatype='integer' name='[Parameter 1]' param-domain-type='range' role='measure' type='quantitative' value='2026'><calculation class='tableau' formula="2026" /></column>
+      <column caption='Para Birimi' datatype='integer' name='[Parameter 2]' param-domain-type='range' role='measure' type='quantitative' value='1'><calculation class='tableau' formula="1" /></column>
+    </datasource>
+  </datasources>
+  <worksheets>
+    <worksheet name='KPI'>
+      <table>
+        <view>
+          <datasources>
+            <datasource name='federated.gelir' />
+          </datasources>
+          <datasource-dependencies datasource='federated.gelir'>
+            <column-instance column='[Gelir]' derivation='Sum' name='[sum:Gelir:qk]' pivot='key' type='quantitative' />
+            <column-instance column='[Calculation_20]' derivation='Sum' name='[sum:Calculation_20:qk]' pivot='key' type='quantitative' />
+          </datasource-dependencies>
+        </view>
+      </table>
+    </worksheet>
+    <worksheet name='Bölge'>
+      <table>
+        <view>
+          <datasources>
+            <datasource name='federated.gelir' />
+          </datasources>
+          <datasource-dependencies datasource='federated.gelir'>
+            <column-instance column='[Calculation_21]' derivation='Sum' name='[sum:Calculation_21:qk]' pivot='key' type='quantitative' />
+          </datasource-dependencies>
+        </view>
+      </table>
+    </worksheet>
+    <worksheet name='Kategori'>
+      <table>
+        <view>
+          <datasources>
+            <datasource name='federated.gelir' />
+          </datasources>
+          <datasource-dependencies datasource='federated.gelir'>
+            <column-instance column='[Calculation_22]' derivation='Sum' name='[sum:Calculation_22:qk]' pivot='key' type='quantitative' />
+          </datasource-dependencies>
+        </view>
+      </table>
+    </worksheet>
+    <worksheet name='Trend'>
+      <table>
+        <view>
+          <datasources>
+            <datasource name='federated.gelir' />
+          </datasources>
+          <datasource-dependencies datasource='federated.gelir'>
+            <column-instance column='[Calculation_23]' derivation='Sum' name='[sum:Calculation_23:qk]' pivot='key' type='quantitative' />
+            <column-instance column='[Calculation_25]' derivation='Sum' name='[sum:Calculation_25:qk]' pivot='key' type='quantitative' />
+            <column-instance column='[Calculation_26]' derivation='Sum' name='[sum:Calculation_26:qk]' pivot='key' type='quantitative' />
+          </datasource-dependencies>
+        </view>
+      </table>
+    </worksheet>
+    <worksheet name='Sıralama'>
+      <table>
+        <view>
+          <datasources>
+            <datasource name='federated.gelir' />
+          </datasources>
+          <datasource-dependencies datasource='federated.gelir'>
+            <column-instance column='[Calculation_24]' derivation='Sum' name='[sum:Calculation_24:qk]' pivot='key' type='quantitative' />
+          </datasource-dependencies>
+        </view>
+      </table>
+    </worksheet>
+    <worksheet name='Bütçe'>
+      <table>
+        <view>
+          <datasources>
+            <datasource name='federated.gelir' />
+            <datasource name='federated.butce' />
+          </datasources>
+          <datasource-dependencies datasource='federated.gelir'>
+            <column-instance column='[Calculation_27]' derivation='Sum' name='[sum:Calculation_27:qk]' pivot='key' type='quantitative' />
+            <column-instance column='[Hedef]' derivation='Sum' name='[sum:Hedef:qk]' pivot='key' type='quantitative' />
+          </datasource-dependencies>
+          <datasource-dependencies datasource='federated.butce'>
+            <column-instance column='[Calculation_27]' derivation='Sum' name='[sum:Calculation_27:qk]' pivot='key' type='quantitative' />
+            <column-instance column='[Hedef]' derivation='Sum' name='[sum:Hedef:qk]' pivot='key' type='quantitative' />
+          </datasource-dependencies>
+        </view>
+      </table>
+    </worksheet>
+  </worksheets>
+  <dashboards>
+    <dashboard name='Finans Özeti'>
+      <zones>
+        <zone name='KPI' />
+        <zone name='Bölge' />
+        <zone name='Trend' />
+      </zones>
+    </dashboard>
+    <dashboard name='Finans Detay'>
+      <zones>
+        <zone name='Kategori' />
+        <zone name='Sıralama' />
+        <zone name='Bütçe' />
+      </zones>
+    </dashboard>
+  </dashboards>
+  <actions>
+    <action caption='Filtre 1' name='[Action1]' />
+    <action caption='Filtre 2' name='[Action2]' />
+  </actions>
+</workbook>

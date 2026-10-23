@@ -301,3 +301,64 @@ def maintenance(columns, rows, args):
                    'bakim_gerekmez': sum(o['oneri'] == 'bakım gerekmez' for o in out)},
                   files={'bakim.sql': '-- Öncelik sırasıyla; VACUUM saklama süresini (delta.deletedFileRetentionDuration) kontrol edin.\n' + '\n'.join(sql) + '\n'},
                   notes=['Komutlar Databricks/Delta Lake sözdizimindedir; Iceberg için rewrite_data_files ve expire_snapshots prosedürlerini kullanın. Öncelik puanı göreli bir sıralamadır.'])
+
+
+UC_FORMATS = {'DELTA', 'PARQUET', 'CSV', 'JSON', 'ORC', 'AVRO', 'TEXT'}
+
+
+@op('uc-gecis-hazirligi', title='Hive metastore → Unity Catalog geçiş hazırlığı ve dalga planı', domain='lakehouse', product='Unity Catalog', tag='UCX',
+    samples={'hive_tablo_envanteri.csv': 'hive_tablo_envanteri.csv'},
+    args=[arg('--catalog', default='main', help='Hedef Unity Catalog kataloğu')],
+    description='Hive metastore tablo envanterinden (UCX assessment “tables” çıktısı veya SHOW TABLE EXTENDED dışa aktarımı: database, name, object_type, table_format, location) her tablonun Unity Catalog’a nasıl taşınacağını belirler: bulut yolundaki harici tablolar SYNC, DBFS root’taki (dbfs:/user/hive/warehouse) Delta tablolar DEEP CLONE, Hive SerDe ve DBFS root’taki Delta dışı tablolar CTAS, bağlama noktasındaki (/mnt) tablolar harici konum tanımından sonra SYNC, görünümler bağımlı tablolardan sonra yeniden oluşturma; wasbs ve JDBC gibi desteklenmeyenler manuel. Dalga sırası, kopyalanacak veri miktarı ve çalıştırılacak SQL üretir.',
+    input='Hive metastore tablo envanteri CSV’si', output='sonuc.csv (tablo bazında strateji) + uc_gecis.sql', command='python main.py --input ucx_tables.csv --catalog prod',
+    expect={'tablo': 12, 'sync': 4, 'kopya': 4, 'gorunum': 2, 'manuel': 2, 'kopyalanacak_gb': 1335.0})
+def uc_readiness(columns, rows, args):
+    rows = [{k.strip().lower(): (v or '').strip() for k, v in r.items()} for r in rows]
+    cols = [c.strip().lower() for c in columns]
+    for c in ('database', 'name', 'object_type', 'table_format', 'location'):
+        need(c, cols, 'tablo envanteri')
+    out, sql, schemas = [], [], set()
+    for r in rows:
+        db, name, obj, fmt_, loc = r['database'], r['name'], r['object_type'].upper(), r['table_format'].upper(), r['location']
+        gb = tabular.parse_number(r['size_gb']) if r.get('size_gb') else None
+        src, dst = f'hive_metastore.{db}.{name}', f'{args.catalog}.{db}.{name}'
+        schemas.add(db)
+        mount = loc.startswith(('dbfs:/mnt/', '/mnt/'))
+        root = loc.startswith('dbfs:/') and not mount
+        serde = fmt_ == 'HIVE' or fmt_.startswith('ORG.APACHE')
+        if obj == 'VIEW':
+            strategy, wave, why = 'görünüm', 3, 'bağımlı tablolar taşındıktan sonra hive_metastore başvuruları değiştirilerek yeniden oluşturulur'
+            cmd = f'-- {dst}: görünüm tanımını {args.catalog} kataloğu başvurularıyla yeniden oluşturun'
+        elif loc.startswith('wasbs://') or not (serde or fmt_ in UC_FORMATS):
+            why = ('wasbs:// Unity Catalog’da desteklenmez; veriyi abfss:// konumuna taşıyın' if loc.startswith('wasbs://')
+                   else f'{fmt_ or "bilinmeyen"} biçimi Unity Catalog tablosu olamaz; Lakehouse Federation veya yeniden yükleme')
+            strategy, wave, cmd = 'manuel', 4, f'-- {dst}: manuel ({why})'
+        elif serde:
+            strategy, wave, why = 'CTAS', 2, 'Hive SerDe tablosu Unity Catalog’da desteklenmez; Delta’ya kopyalanır'
+            cmd = f'CREATE TABLE IF NOT EXISTS {dst} AS SELECT * FROM {src};'
+        elif root and fmt_ == 'DELTA':
+            strategy, wave, why = 'DEEP CLONE', 2, 'DBFS root’taki tablo SYNC edilemez; yönetilen tabloya kopyalanır'
+            cmd = f'CREATE TABLE IF NOT EXISTS {dst} DEEP CLONE {src};'
+        elif root:
+            strategy, wave, why = 'CTAS', 2, 'DBFS root’ta ve Delta değil; Delta’ya kopyalanır'
+            cmd = f'CREATE TABLE IF NOT EXISTS {dst} AS SELECT * FROM {src};'
+        elif mount:
+            strategy, wave, why = 'SYNC', 1, 'bağlama noktası (/mnt) yolu; önce alttaki bulut yolu için harici konum (external location) tanımlayın'
+            cmd = f'-- {loc} için harici konum tanımlandıktan sonra:\nSYNC TABLE {dst} FROM {src};'
+        else:
+            strategy, wave = 'SYNC', 1
+            why = 'bulut yolunda harici tablo; veri yerinde kalır' if obj == 'EXTERNAL' else 'HMS yönetilen tablo bulut yolunda; harici olarak bağlanır, HMS tablosunu DROP etmeyin (veri silinir)'
+            cmd = f'SYNC TABLE {dst} FROM {src};'
+        out.append({'kaynak': src, 'hedef': dst, 'tur': obj, 'bicim': fmt_, 'konum': loc, 'boyut_gb': fmt(gb), 'strateji': strategy, 'dalga': wave, 'gerekce': why})
+        sql.append((wave, cmd))
+    out.sort(key=lambda o: (o['dalga'], o['kaynak']))
+    c = Counter(o['strateji'] for o in out)
+    copy_gb = sum(float(o['boyut_gb'] or 0) for o in out if o['strateji'] in ('DEEP CLONE', 'CTAS'))
+    text = [f'-- Unity Catalog geçişi: {len(out)} nesne. Dalga sırasıyla çalıştırın; her dalgadan sonra satır sayısı ve yetkileri doğrulayın.', '']
+    text += [f'CREATE SCHEMA IF NOT EXISTS {args.catalog}.{s};' for s in sorted(schemas)]
+    for w in sorted({w for w, _ in sql}):
+        text += ['', f'-- Dalga {w}'] + [cmd for ww, cmd in sql if ww == w]
+    return Result(f'{len(out)} nesne: SYNC {c["SYNC"]}, kopya {c["DEEP CLONE"] + c["CTAS"]} ({copy_gb:,.0f} GB), görünüm {c["görünüm"]}, manuel {c["manuel"]}', list(out[0]), out,
+                  {'tablo': len(out), 'sync': c['SYNC'], 'kopya': c['DEEP CLONE'] + c['CTAS'], 'gorunum': c['görünüm'], 'manuel': c['manuel'], 'kopyalanacak_gb': round(copy_gb, 1)},
+                  files={'uc_gecis.sql': '\n'.join(text) + '\n'},
+                  notes=['Kurallar Databricks UCX tablo geçişi davranışını izler; yetkiler (grup ve tablo ACL’leri) ve kod içindeki hive_metastore başvuruları ayrıca taşınmalıdır. UCX Databricks destek SLA’sı kapsamında değildir.'])

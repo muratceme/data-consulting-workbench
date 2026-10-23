@@ -4,7 +4,7 @@ Veri işleri için iki tür paket: **kod blokları** (aynı girdiden hep aynı s
 
 ## Güncel durum
 
-17 Ekim 2026: 23 alan / 207 ürün bağlamı. **486 indirilebilir paket**: 37 platform API paketi (36 kod bloğu + BigQuery agent) ve 449 yerel paket (334 kod bloğu + 115 agent). Toplam **370 kod bloğu, 116 agent**; 23 alanın hepsinde en az bir indirilebilir paket var. Diğer 372 görev **planlanan entegrasyon**; indirme bağlantıları yok.
+17 Ekim 2026: 23 alan / 207 ürün bağlamı. **494 indirilebilir paket**: 37 platform API paketi (36 kod bloğu + BigQuery agent) ve 457 yerel paket (342 kod bloğu + 115 agent). Toplam **378 kod bloğu, 116 agent**; 23 alanın hepsinde en az bir indirilebilir paket var. Diğer 372 görev **planlanan entegrasyon**; indirme bağlantıları yok.
 
 ### Yerel kod blokları (internet yok, Python standart kütüphanesi)
 
@@ -23,7 +23,7 @@ Veri işleri için iki tür paket: **kod blokları** (aynı girdiden hep aynı s
 | Tarih tablosu | Tarih aralığı + tatil dosyası | Türkçe takvim boyutu, resmî tatil, iş günü sırası, mali yıl; CSV + SQL |
 | Dosya birleştirme | CSV/XLSX klasörü | Tek tablo + kaynak dosya; şema kayması, ondalık ayırıcı farkı, mükerrer satır |
 
-### Tek amaçlı yerel kod blokları (322)
+### Tek amaçlı yerel kod blokları (330)
 
 Her blok tek bir işi yapar; `library/blocks/<kategori>.py` içinde `islem.op(...)` ile kaydedilir. Kayıt; katalog metnini, komut satırı seçeneklerini, örnek veriyi ve örnek veride **elle doğrulanmış beklenen sonucu** birlikte taşır. Paketteki `main.py` iki satırlık bir başlatıcıdır; ortak çalıştırıcı (`islem.py`) girdiyi okur, hiçbir dosyayı değiştirmez, ağa çıkmaz ve `output/` altına `sonuc.csv`, `rapor.md`, `ozet.json` yazar.
 
@@ -47,10 +47,10 @@ Her blok tek bir işi yapar; `library/blocks/<kategori>.py` içinde `islem.op(..
 | Bütçe ve planlama (`planlama.py`) | 13 | bütçe–gerçekleşen, bütçe dağıtımı, yıl sonu tahmini, senaryo, konsolidasyon + grup içi eliminasyon, çağrı merkezi personel ihtiyacı (Erlang C), fiyat–hacim–karma sapması, çok ürünlü başa baş noktası, formül tabanlı duyarlılık (tornado), personel maliyet planı, tahmin doğruluğu (WAPE, bias, FVA), kapasite planlama (doluluk, ek kapasite), ay içi satış hedef takibi |
 | Orkestrasyon (`orkestrasyon.py`) | 7 | cron açıklama + sonraki çalışmalar, Airflow DAG statik denetimi (ast), GitHub Actions güvenlik denetimi, iş bağımlılığı ve kritik yol, zamanlama eş zamanlılığı ve kendi üstüne binen işler, bakım penceresi çakışması, yeniden deneme ve kararsız görevler |
 | Entegrasyon (`entegrasyon.py`) | 2 | ADF/Synapse pipeline envanteri (Mermaid), SSIS .dtsx paket envanteri |
-| Lakehouse (`lakehouse.py`) | 7 | Delta _delta_log özeti, Iceberg metadata özeti, nesne depolamada küçük dosya analizi, Delta VACUUM tahmini, bölüm yolu tutarlılığı ve eksik tarihler, medallion katman kuralları, OPTIMIZE/VACUUM bakım planı |
+| Lakehouse (`lakehouse.py`) | 8 | Delta _delta_log özeti, Iceberg metadata özeti, nesne depolamada küçük dosya analizi, Delta VACUUM tahmini, bölüm yolu tutarlılığı ve eksik tarihler, medallion katman kuralları, OPTIMIZE/VACUUM bakım planı, Hive metastore → Unity Catalog geçiş hazırlığı (SYNC / DEEP CLONE / CTAS, dalga planı ve SQL) |
 | Veritabanı (`veritabani.py`) | 14 | SQL Server plan (.sqlplan), bekleme istatistikleri, indeks kullanımı, deadlock XML; PostgreSQL EXPLAIN JSON, pg_stat_statements, tablo şişmesi/vacuum; MySQL slow query log, SQL Server eksik indeks önerileri, PostgreSQL kilit bekleme ağacı, yedek geçmişi denetimi, MongoDB profiler sorgu şekilleri, uzun işlemler ve idle in transaction, tekrar ve kapsanan indeksler |
 | Ambar ve FinOps (`maliyet.py`) | 14 | Snowflake sorgu geçmişi ve kredi, BigQuery iş maliyeti, bulut faturası özeti, ay sonu maliyet tahmini, zorunlu etiket uyumu, taahhüt (reserved/savings plan) önerisi, rightsizing, ortak maliyet dağıtımı (showback), birim maliyet trendi, depolama sınıfı (tier) önerisi, atıl kaynaklar, kullanılmayan lisanslar, egress maliyeti |
-| Ambar tasarımı (`ambar.py`) | 6 | Redshift dağıtım/sıralama/sıkıştırma denetimi, Snowflake Time Travel/Fail-safe/klon depolama, BigQuery bölümleme/kümeleme denetimi, sorgulanmayan tablolar, SCD2 bütünlüğü (çakışma, boşluk, çok güncel), Snowflake clustering derinliği |
+| Ambar tasarımı (`ambar.py`) | 8 | Snowflake RBAC denetimi (ACCOUNTADMIN, rol hiyerarşisi, PUBLIC yetkileri, MANAGE GRANTS), Teradata DBQL iş yükü ve dönüştürülecek söz dizimi envanteri, Redshift dağıtım/sıralama/sıkıştırma denetimi, Snowflake Time Travel/Fail-safe/klon depolama, BigQuery bölümleme/kümeleme denetimi, sorgulanmayan tablolar, SCD2 bütünlüğü (çakışma, boşluk, çok güncel), Snowflake clustering derinliği |
 | Migrasyon (`gecis.py`) | 13 | alan eşleme doğrulama, tablo satır sayısı mutabakatı, hedef uzunluk/kodlama riski, anahtarsız sütun profili karşılaştırması, T-SQL/Oracle → PostgreSQL sorgu çevirisi, bağımlılık ve hacme göre geçiş dalgaları, anahtara göre satır mutabakatı, identity/sequence çakışma kontrolü, hedef tip uyumu (taşma, yuvarlama, geçersiz tarih), dalga bazında süre tahmini, saat dilimi kayması, boş/NULL dönüşümü, bozuk Türkçe karakter (mojibake) tespiti ve onarımı |
 | dbt (`donusum.py`) | 5 | manifest.json test ve doküman kapsamı, source freshness özeti, incremental model riskleri (unique_key, filtre, geri bakış), artımlı model şablonu (unique_key, geriye bakış), snapshot (SCD2, silinenleri kapatma) |
 | ML (`ml.py`) | 12 | sınıflandırma ve regresyon metrikleri, PSI veri kayması, sızıntısız ayırma, sızıntı kontrolü, F1/maliyete göre eşik seçimi, kalibrasyon (Brier, ECE), WoE/IV, çok sınıflı metrikler, lift/kazanç ve KS, grup adaleti (4/5 kuralı, TPR/FPR farkı), tahmin aralığı kapsaması (Winkler) |
@@ -61,6 +61,9 @@ Her blok tek bir işi yapar; `library/blocks/<kategori>.py` içinde `islem.op(..
 | Yönetişim (`katalog.py`) | 11 | iş sözlüğü kalitesi, SQL betiklerinden soy ağacı ve etki analizi, görevler ayrılığı (SoD), sınıflandırma tutarlılığı, veri sözleşmesi (data contract), erişim talebi denetimi (kendi onayı, süresi dolan erişim), BI rapor kullanım envanteri, sınıflandırmanın soy ağacı boyunca yayılımı, iki yetki listesi farkı, politika istisna kaydı, kullanılmayan yetkiler (en az yetki) |
 | Gözlemlenebilirlik (`gozlem.py`) | 12 | tazelik SLA, hacim anomalisi, şema değişikliği, NULL oranı sıçraması, iş çalışma geçmişi (başarı, p95, yavaşlama), log hata imzaları, kalite testi skor kartı (yeni/kararsız/kronik), teslim SLA uyumu, katmanlar arası satır kaybı, alarm gürültüsü (MTTA/MTTR), uçtan uca veri gecikmesi (p50/p95, SLA), kalıcı seviye değişimi (değişim noktası) |
 | BI ve dbt çeviri/analiz (`bi_ceviri.py`) | 6 | dbt run_results ve DAG, LookML envanteri, Power BI ölçü bağımlılığı, Tableau→DAX, Qlik→DAX |
+| BI sağlık kontrolü (`bi_saglik.py`) | 5 | Power BI VertiPaq kolon boyutu ve kardinalite, Best Practice Analyzer kuralları, Tableau→Power BI geçiş karmaşıklık puanı ve eforu, Qlik veri modeli (sentetik anahtar, döngü, ada tablo), Looker’da kullanılmayan alan/explore/view |
+
+**Danışman işleri araştırması.** Hangi platformda danışmanların gerçekte ne sattığı ve sitede hangi işlerin eksik olduğu, kaynaklarıyla birlikte [docs/DANISMAN-ARASTIRMASI.md](docs/DANISMAN-ARASTIRMASI.md) dosyasında. Eksik bulunan işler paketler hâlinde ekleniyor.
 
 **e-Fatura üretimi.** efatura-uret bloğunun örnek çıktıları geliştirme sırasında OASIS UBL 2.1 XSD’sinden, GİB’in UBL-TR 1.2.1 XSD’sinden ve GİB’in e-Fatura/e-Arşiv Schematron iş kurallarından (Saxon ile XSLT 2) hatasız geçti; kuralların devrede olduğu bozuk bir fatura numarası ve vergi koduyla denendi. Tevkifatlı, iade ve istisna faturaları da aynı kurallardan hatasız geçti; bloğun reddettiği her durum (koda uymayan tevkifat oranı, SATIS faturasında istisna kodu veya tevkifat, ticari senaryoda iade, referanssız iade, gerekçesiz %0 KDV) XML’e elle işlendiğinde GİB Schematron’u da aynı hatayı verdi. Üretilen XML mevcut efatura-csv okuyucusundan geri geçirilip tutarlar karşılaştırılır. e-İrsaliye üreticisinin örnek çıktıları da GİB UBL-TR 1.2.1 XSD’sinden ve Schematron kurallarından hatasız geçti (GİB’in kendi eski irsaliye örneği yeni teslim adresi kuralına takılır). XML’ler imzasızdır; imza ve GİB’e gönderim test edilmedi. Excel pivot raporu Open XML SDK’dan geçti ve openpyxl ile okundu; Excel’de açılarak test edilmedi.
 
@@ -135,7 +138,7 @@ Platform paketi:
 
 Yeni/boş çıktı klasörü gerekir. Yazma ve LLM maliyeti olabilen işlemler README'de belirtilir. Şema ve proje bağlamı seçilen modele gönderilir; agent satır verisi çekmez. Kısmi çalışma kimlikleri `run-state.json`, dosya özeti `manifest.json` içindedir. Otomatik rollback veya üretimde otomatik model-kodu yürütme yoktur.
 
-Toplam **304 test** geçiyor (322 tek amaçlı blok, bir testin alt testleri olarak tek tek); tek amaçlı blokların her biri paketlenmiş kopyasıyla kendi örnek verisinde çalıştırılıp beklenen sonuçla karşılaştırılır. Yerel paket testleri (`tests/test_local.py`) paketlenmiş kopyayı örnek veriyle çalıştırır; agent’lar OpenAI/Anthropic/Ollama biçiminde konuşan sahte model sunucusuyla test edilir (maskeleme, onay, dry-run, düzeltme denemesi, HTTP hatası). İlk sekiz agent ayrıca yerel bir Ollama modeliyle (qwen3 14B) elle denendi; son yüz yedi agent yalnızca sahte model sunucusuyla test edildi. Test sayısı canlı tenant doğrulaması değildir.
+Toplam **304 test** geçiyor (330 tek amaçlı blok, bir testin alt testleri olarak tek tek); tek amaçlı blokların her biri paketlenmiş kopyasıyla kendi örnek verisinde çalıştırılıp beklenen sonuçla karşılaştırılır. Yerel paket testleri (`tests/test_local.py`) paketlenmiş kopyayı örnek veriyle çalıştırır; agent’lar OpenAI/Anthropic/Ollama biçiminde konuşan sahte model sunucusuyla test edilir (maskeleme, onay, dry-run, düzeltme denemesi, HTTP hatası). İlk sekiz agent ayrıca yerel bir Ollama modeliyle (qwen3 14B) elle denendi; son yüz yedi agent yalnızca sahte model sunucusuyla test edildi. Test sayısı canlı tenant doğrulaması değildir.
 
 ## Test katmanları
 

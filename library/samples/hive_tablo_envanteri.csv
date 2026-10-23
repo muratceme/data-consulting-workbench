@@ -1,0 +1,13 @@
+catalog,database,name,object_type,table_format,location,size_gb
+hive_metastore,satis,siparis,EXTERNAL,DELTA,abfss://lake@kurumsal.dfs.core.windows.net/silver/siparis,420
+hive_metastore,satis,musteri,EXTERNAL,PARQUET,s3://kurumsal-lake/silver/musteri,85
+hive_metastore,satis,urun,MANAGED,DELTA,abfss://lake@kurumsal.dfs.core.windows.net/warehouse/satis.db/urun,12
+hive_metastore,ham,olaylar,EXTERNAL,JSON,dbfs:/mnt/ham/olaylar,640
+hive_metastore,satis,gunluk_ozet,MANAGED,DELTA,dbfs:/user/hive/warehouse/satis.db/gunluk_ozet,230
+hive_metastore,satis,eski_kampanya,MANAGED,PARQUET,dbfs:/user/hive/warehouse/satis.db/eski_kampanya,45
+hive_metastore,ham,log_arsiv,EXTERNAL,HIVE,dbfs:/mnt/arsiv/log,900
+hive_metastore,finans,fatura,MANAGED,DELTA,dbfs:/user/hive/warehouse/finans.db/fatura,160
+hive_metastore,satis,v_aylik,VIEW,,,
+hive_metastore,finans,v_tahsilat,VIEW,,,
+hive_metastore,ham,erp_cari,EXTERNAL,JDBC,jdbc:sqlserver://erp01:1433;database=ERP,
+hive_metastore,ham,eski_dosyalar,EXTERNAL,CSV,wasbs://arsiv@kurumsal.blob.core.windows.net/dosyalar,30

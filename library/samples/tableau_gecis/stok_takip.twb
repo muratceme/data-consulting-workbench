@@ -1,0 +1,86 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<workbook source-build='2024.2.0' version='18.1'>
+  <datasources>
+    <datasource caption='Stok' inline='true' name='federated.stok' version='18.1'>
+      <connection class='federated'>
+        <named-connections>
+          <named-connection caption='Stok' name='sqlserver.1'><connection class='sqlserver' dbname='DWH' server='sql01.kurum.local' /></named-connection>
+        </named-connections>
+        <relation connection='sqlserver.1' name='Stok Ozel' type='text'>SELECT depo, urun, SUM(adet) AS adet FROM dbo.Stok GROUP BY depo, urun</relation>
+      </connection>
+      <column datatype='real' name='[adet]' role='measure' type='quantitative' />
+      <column caption='Depo Toplam' datatype='real' name='[Calculation_10]' role='measure' type='quantitative'><calculation class='tableau' formula="{ FIXED [depo] : SUM([adet]) }" /></column>
+      <column caption='Kümülatif' datatype='real' name='[Calculation_11]' role='measure' type='quantitative'><calculation class='tableau' formula="RUNNING_SUM(SUM([adet]))" /></column>
+      <column caption='Kritik' datatype='real' name='[Calculation_12]' role='measure' type='quantitative'><calculation class='tableau' formula="IIF(SUM([adet]) &lt; [Parameters].[Parameter 1], 1, 0)" /></column>
+    </datasource>
+    <datasource caption='Hedef' inline='true' name='federated.hedef' version='18.1'>
+      <connection class='federated'>
+        <named-connections>
+          <named-connection caption='Hedef' name='excel-direct.1'><connection class='excel-direct' dbname='DWH' server='sql01.kurum.local' /></named-connection>
+        </named-connections>
+        <relation connection='sqlserver.1' name='Hedef' table='[dbo].[Hedef]' type='table' />
+      </connection>
+      <column datatype='real' name='[hedef]' role='measure' type='quantitative' />
+    </datasource>
+    <datasource hasconnection='false' inline='true' name='Parameters' version='18.1'>
+      <column caption='Kritik Seviye' datatype='integer' name='[Parameter 1]' param-domain-type='range' role='measure' type='quantitative' value='50'><calculation class='tableau' formula="50" /></column>
+    </datasource>
+  </datasources>
+  <worksheets>
+    <worksheet name='Depo'>
+      <table>
+        <view>
+          <datasources>
+            <datasource name='federated.stok' />
+          </datasources>
+          <datasource-dependencies datasource='federated.stok'>
+            <column-instance column='[adet]' derivation='Sum' name='[sum:adet:qk]' pivot='key' type='quantitative' />
+            <column-instance column='[Calculation_10]' derivation='Sum' name='[sum:Calculation_10:qk]' pivot='key' type='quantitative' />
+          </datasource-dependencies>
+        </view>
+      </table>
+    </worksheet>
+    <worksheet name='Trend'>
+      <table>
+        <view>
+          <datasources>
+            <datasource name='federated.stok' />
+          </datasources>
+          <datasource-dependencies datasource='federated.stok'>
+            <column-instance column='[Calculation_11]' derivation='Sum' name='[sum:Calculation_11:qk]' pivot='key' type='quantitative' />
+          </datasource-dependencies>
+        </view>
+      </table>
+    </worksheet>
+    <worksheet name='Hedef Karşılaştırma'>
+      <table>
+        <view>
+          <datasources>
+            <datasource name='federated.stok' />
+            <datasource name='federated.hedef' />
+          </datasources>
+          <datasource-dependencies datasource='federated.stok'>
+            <column-instance column='[adet]' derivation='Sum' name='[sum:adet:qk]' pivot='key' type='quantitative' />
+            <column-instance column='[hedef]' derivation='Sum' name='[sum:hedef:qk]' pivot='key' type='quantitative' />
+          </datasource-dependencies>
+          <datasource-dependencies datasource='federated.hedef'>
+            <column-instance column='[adet]' derivation='Sum' name='[sum:adet:qk]' pivot='key' type='quantitative' />
+            <column-instance column='[hedef]' derivation='Sum' name='[sum:hedef:qk]' pivot='key' type='quantitative' />
+          </datasource-dependencies>
+        </view>
+      </table>
+    </worksheet>
+  </worksheets>
+  <dashboards>
+    <dashboard name='Stok Panosu'>
+      <zones>
+        <zone name='Depo' />
+        <zone name='Trend' />
+        <zone name='Hedef Karşılaştırma' />
+      </zones>
+    </dashboard>
+  </dashboards>
+  <actions>
+    <action caption='Filtre 1' name='[Action1]' />
+  </actions>
+</workbook>

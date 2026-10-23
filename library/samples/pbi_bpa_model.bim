@@ -1,0 +1,197 @@
+{
+  "name": "SatisModeli",
+  "compatibilityLevel": 1567,
+  "model": {
+    "culture": "tr-TR",
+    "tables": [
+      {
+        "name": "Satislar",
+        "columns": [
+          {
+            "name": "SatisID",
+            "dataType": "int64",
+            "sourceColumn": "SatisID"
+          },
+          {
+            "name": "MusteriKey",
+            "dataType": "int64",
+            "sourceColumn": "MusteriKey"
+          },
+          {
+            "name": "UrunKey",
+            "dataType": "int64",
+            "sourceColumn": "UrunKey",
+            "isHidden": true,
+            "summarizeBy": "none"
+          },
+          {
+            "name": "Tarih",
+            "dataType": "dateTime",
+            "sourceColumn": "Tarih"
+          },
+          {
+            "name": "Tutar",
+            "dataType": "double",
+            "sourceColumn": "Tutar"
+          },
+          {
+            "name": "Maliyet",
+            "dataType": "decimal",
+            "sourceColumn": "Maliyet"
+          },
+          {
+            "name": "Miktar",
+            "dataType": "int64",
+            "sourceColumn": "Miktar"
+          }
+        ],
+        "measures": [
+          {
+            "name": "Toplam Tutar",
+            "expression": "SUM(Satislar[Tutar])",
+            "formatString": "#,0.00",
+            "description": "KDV hariç satış tutarı."
+          },
+          {
+            "name": "Ortalama Fiyat",
+            "expression": "[Toplam Tutar] / SUM(Satislar[Miktar])",
+            "description": "Birim başına ortalama fiyat."
+          },
+          {
+            "name": "Kar",
+            "expression": "Satislar[Toplam Tutar] - SUM([Maliyet])",
+            "formatString": "#,0",
+            "description": "Brüt kâr."
+          },
+          {
+            "name": "Kar Marji",
+            "expression": "IFERROR(DIVIDE([Kar], [Toplam Tutar]), 0)",
+            "formatString": "0.0%"
+          },
+          {
+            "name": "Siparis Sayisi",
+            "expression": "DISTINCTCOUNT(Satislar[SatisID])",
+            "formatString": "#,0",
+            "description": "Tekil sipariş sayısı."
+          }
+        ],
+        "partitions": [
+          {
+            "name": "Satislar",
+            "source": {
+              "type": "m",
+              "expression": "let Kaynak = Sql.Database(\"sql01\", \"DWH\") in Kaynak"
+            }
+          }
+        ]
+      },
+      {
+        "name": "Musteri",
+        "columns": [
+          {
+            "name": "MusteriKey",
+            "dataType": "int64",
+            "sourceColumn": "MusteriKey",
+            "isHidden": true,
+            "summarizeBy": "none"
+          },
+          {
+            "name": "MusteriAdi",
+            "dataType": "string",
+            "sourceColumn": "MusteriAdi"
+          },
+          {
+            "name": "Sehir",
+            "dataType": "string",
+            "sourceColumn": "Sehir"
+          }
+        ],
+        "partitions": [
+          {
+            "name": "Musteri",
+            "source": {
+              "type": "m",
+              "expression": "let Kaynak = Sql.Database(\"sql01\", \"DWH\") in Kaynak"
+            }
+          }
+        ]
+      },
+      {
+        "name": "Urun",
+        "columns": [
+          {
+            "name": "UrunKey",
+            "dataType": "int64",
+            "sourceColumn": "UrunKey",
+            "isHidden": true,
+            "summarizeBy": "none"
+          },
+          {
+            "name": "UrunAdi",
+            "dataType": "string",
+            "sourceColumn": "UrunAdi"
+          },
+          {
+            "name": "Kategori",
+            "dataType": "string",
+            "sourceColumn": "Kategori"
+          }
+        ],
+        "partitions": [
+          {
+            "name": "Urun",
+            "source": {
+              "type": "m",
+              "expression": "let Kaynak = Sql.Database(\"sql01\", \"DWH\") in Kaynak"
+            }
+          }
+        ]
+      },
+      {
+        "name": "LocalDateTable_8c2e",
+        "isHidden": true,
+        "columns": [
+          {
+            "name": "Date",
+            "dataType": "dateTime",
+            "sourceColumn": "Date"
+          }
+        ],
+        "partitions": [
+          {
+            "name": "LocalDateTable_8c2e",
+            "source": {
+              "type": "calculated",
+              "expression": "Calendar(Date(2020, 1, 1), Date(2026, 12, 31))"
+            }
+          }
+        ]
+      }
+    ],
+    "relationships": [
+      {
+        "name": "r1",
+        "fromTable": "Satislar",
+        "fromColumn": "MusteriKey",
+        "toTable": "Musteri",
+        "toColumn": "MusteriKey",
+        "crossFilteringBehavior": "bothDirections"
+      },
+      {
+        "name": "r2",
+        "fromTable": "Satislar",
+        "fromColumn": "UrunKey",
+        "toTable": "Urun",
+        "toColumn": "UrunKey"
+      },
+      {
+        "name": "r3",
+        "fromTable": "Satislar",
+        "fromColumn": "Tarih",
+        "toTable": "LocalDateTable_8c2e",
+        "toColumn": "Date",
+        "joinOnDateBehavior": "datePartOnly"
+      }
+    ]
+  }
+}

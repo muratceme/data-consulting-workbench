@@ -1,0 +1,51 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<workbook source-build='2024.2.0' version='18.1'>
+  <datasources>
+    <datasource caption='Satış' inline='true' name='federated.satis' version='18.1'>
+      <connection class='federated'>
+        <named-connections>
+          <named-connection caption='Satış' name='sqlserver.1'><connection class='sqlserver' dbname='DWH' server='sql01.kurum.local' /></named-connection>
+        </named-connections>
+        <relation connection='sqlserver.1' name='Satis' table='[dbo].[Satis]' type='table' />
+      </connection>
+      <column datatype='real' name='[Tutar]' role='measure' type='quantitative' />
+      <column caption='Kar' datatype='real' name='[Calculation_1]' role='measure' type='quantitative'><calculation class='tableau' formula="SUM([Tutar]) - SUM([Maliyet])" /></column>
+      <column caption='Kar Marjı' datatype='real' name='[Calculation_2]' role='measure' type='quantitative'><calculation class='tableau' formula="[Calculation_1] / SUM([Tutar])" /></column>
+    </datasource>
+  </datasources>
+  <worksheets>
+    <worksheet name='Özet'>
+      <table>
+        <view>
+          <datasources>
+            <datasource name='federated.satis' />
+          </datasources>
+          <datasource-dependencies datasource='federated.satis'>
+            <column-instance column='[Tutar]' derivation='Sum' name='[sum:Tutar:qk]' pivot='key' type='quantitative' />
+            <column-instance column='[Calculation_1]' derivation='Sum' name='[sum:Calculation_1:qk]' pivot='key' type='quantitative' />
+          </datasource-dependencies>
+        </view>
+      </table>
+    </worksheet>
+    <worksheet name='Marj'>
+      <table>
+        <view>
+          <datasources>
+            <datasource name='federated.satis' />
+          </datasources>
+          <datasource-dependencies datasource='federated.satis'>
+            <column-instance column='[Calculation_2]' derivation='Sum' name='[sum:Calculation_2:qk]' pivot='key' type='quantitative' />
+          </datasource-dependencies>
+        </view>
+      </table>
+    </worksheet>
+  </worksheets>
+  <dashboards>
+    <dashboard name='Satış Panosu'>
+      <zones>
+        <zone name='Özet' />
+        <zone name='Marj' />
+      </zones>
+    </dashboard>
+  </dashboards>
+</workbook>

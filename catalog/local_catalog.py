@@ -664,7 +664,7 @@ import importlib, sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'library' / 'blocks'))
 import islem
-CATEGORY_MODULES = ['temizlik', 'dogrulama', 'finans', 'anaveri', 'analiz', 'musteri', 'sqlgen', 'bicim', 'bigen', 'zaman', 'planlama', 'orkestrasyon', 'entegrasyon', 'lakehouse', 'veritabani', 'maliyet', 'gecis', 'ml', 'rag', 'akis', 'yonetisim', 'gozlem', 'bi_ceviri', 'gizlilik', 'katalog', 'ambar', 'konum', 'donusum', 'rapor', 'bimodel', 'yildiz', 'ebelge']
+CATEGORY_MODULES = ['temizlik', 'dogrulama', 'finans', 'anaveri', 'analiz', 'musteri', 'sqlgen', 'bicim', 'bigen', 'zaman', 'planlama', 'orkestrasyon', 'entegrasyon', 'lakehouse', 'veritabani', 'maliyet', 'gecis', 'ml', 'rag', 'akis', 'yonetisim', 'gozlem', 'bi_ceviri', 'gizlilik', 'katalog', 'ambar', 'konum', 'donusum', 'rapor', 'bimodel', 'yildiz', 'ebelge', 'bi_saglik']
 for _name in CATEGORY_MODULES:
     importlib.import_module(_name)
 for _spec in islem.OPS.values():
