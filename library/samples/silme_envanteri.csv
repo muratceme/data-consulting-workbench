@@ -1,0 +1,9 @@
+tablo;kimlik_kolonu;kisisel_kolonlar;analitik_kolonlar;yasal_dayanak
+crm.musteri;musteri_id;ad|soyad|telefon|eposta|adres;segment|kayit_tarihi;
+crm.iletisim_izni;musteri_id;eposta|telefon;;
+satis.fatura;musteri_id;unvan|vergi_no|adres;tutar|tarih;VUK md. 253: 5 yıl, TTK md. 82: 10 yıl
+satis.siparis;musteri_id;teslimat_adresi|telefon;tutar|tarih|urun_id;
+destek.talep;musteri_id;ad|eposta|mesaj;kategori|cozum_suresi;
+web.oturum;kullanici_id;ip_adresi|cihaz_id;sayfa|sure;
+dwh.gunluk_satis_ozet;;;tarih|magaza|tutar;
+muhasebe.yevmiye;musteri_id;unvan;tutar|hesap|tarih;VUK md. 253: 5 yıl

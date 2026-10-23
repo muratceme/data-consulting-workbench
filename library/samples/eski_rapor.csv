@@ -1,0 +1,121 @@
+fatura_no;tarih;musteri;tutar;kdv_orani;durum
+F00001;2026-09-04 21:00;Ege Tekstil Ltd. Şti.;5356.43;0.20;onayli
+F00002;2026-09-18 11:00;Kuzey Yapı;8547.96;0.20;onayli
+F00003;2026-09-21 04:00;Deniz Lojistik;4176.86;0.20;onayli
+F00004;2026-09-11 17:00;Deniz Lojistik;1772.28;0.20;onayli
+F00005;2026-09-22 06:00;Ege Tekstil Ltd. Şti.;2038.00;0.20;onayli
+F00006;2026-09-17 19:00;Ada Gıda A.Ş.;6817.31;0.20;onayli
+F00007;2026-09-30 10:00;Mavi Enerji;4092.22;0.20;onayli
+F00008;2026-09-28 19:00;Mavi Enerji;2787.90;0.20;onayli
+F00009;2026-09-16 05:00;Mavi Enerji;3444.92;0.20;onayli
+F00010;2026-09-19 18:00;Ege Tekstil Ltd. Şti.;1643.40;0.20;onayli
+F00011;2026-09-17 17:00;Mavi Enerji;6066.29;0.20;onayli
+F00012;2026-09-10 11:00;Ada Gıda A.Ş.;8174.25;0.20;onayli
+F00013;2026-09-23 14:00;Ada Gıda A.Ş.;8389.76;0.20;onayli
+F00014;2026-09-18 00:00;Mavi Enerji;3900.37;0.20;onayli
+F00015;2026-09-09 17:00;Mavi Enerji;722.48;0.20;onayli
+F00016;2026-09-19 22:00;Deniz Lojistik;3797.19;0.20;onayli
+F00017;2026-09-23 16:00;Deniz Lojistik;7419.52;0.20;iptal
+F00018;2026-09-07 21:00;Mavi Enerji;5483.43;0.20;onayli
+F00019;2026-09-20 06:00;Deniz Lojistik;6113.72;0.20;onayli
+F00020;2026-09-20 13:00;Ege Tekstil Ltd. Şti.;8106.05;0.20;onayli
+F00021;2026-09-29 18:00;Deniz Lojistik;3168.31;0.20;onayli
+F00022;2026-09-03 20:00;Ege Tekstil Ltd. Şti.;5652.03;0.20;onayli
+F00023;2026-09-23 04:00;Ege Tekstil Ltd. Şti.;7921.90;0.20;onayli
+F00024;2026-09-23 13:00;Mavi Enerji;5269.92;0.20;onayli
+F00025;2026-09-07 15:00;Kuzey Yapı;5425.38;0.20;onayli
+F00026;2026-09-03 07:00;Deniz Lojistik;181.72;0.20;onayli
+F00027;2026-09-24 08:00;Mavi Enerji;1516.97;0.20;onayli
+F00028;2026-09-19 02:00;Mavi Enerji;172.95;0.20;onayli
+F00029;2026-09-14 03:00;Deniz Lojistik;1975.03;0.20;onayli
+F00030;2026-09-05 20:00;Ege Tekstil Ltd. Şti.;3718.65;0.20;onayli
+F00031;2026-09-11 18:00;Kuzey Yapı;5162.52;0.20;onayli
+F00032;2026-09-26 02:00;Ege Tekstil Ltd. Şti.;8852.30;0.20;onayli
+F00033;2026-09-18 07:00;Mavi Enerji;6188.93;0.20;onayli
+F00034;2026-09-14 09:00;Ege Tekstil Ltd. Şti.;2484.47;0.20;iptal
+F00035;2026-09-03 14:00;Mavi Enerji;1435.07;0.20;onayli
+F00036;2026-09-26 22:00;Kuzey Yapı;8123.35;0.20;onayli
+F00037;2026-09-08 20:00;Kuzey Yapı;7310.77;0.20;onayli
+F00038;2026-09-18 21:00;Kuzey Yapı;2909.11;0.20;onayli
+F00039;2026-09-28 04:00;Mavi Enerji;3031.52;0.20;onayli
+F00040;2026-09-19 09:00;Ege Tekstil Ltd. Şti.;1953.53;0.20;onayli
+F00041;2026-09-28 06:00;Ege Tekstil Ltd. Şti.;2454.36;0.20;onayli
+F00042;2026-09-29 05:00;Mavi Enerji;6337.83;0.20;onayli
+F00043;2026-09-29 11:00;Ada Gıda A.Ş.;8633.87;0.20;onayli
+F00044;2026-09-08 04:00;Ege Tekstil Ltd. Şti.;7970.83;0.20;onayli
+F00045;2026-09-23 13:00;Deniz Lojistik;3844.96;0.20;onayli
+F00046;2026-09-15 02:00;Ada Gıda A.Ş.;4278.99;0.20;onayli
+F00047;2026-09-12 11:00;Ada Gıda A.Ş.;2626.71;0.20;onayli
+F00048;2026-09-10 22:00;Ada Gıda A.Ş.;7978.41;0.20;onayli
+F00049;2026-09-05 17:00;Ege Tekstil Ltd. Şti.;5082.47;0.20;onayli
+F00050;2026-09-07 21:00;Deniz Lojistik;6472.95;0.20;onayli
+F00051;2026-09-01 23:00;Mavi Enerji;1490.52;0.20;iptal
+F00052;2026-09-28 15:00;Ada Gıda A.Ş.;7957.51;0.20;onayli
+F00053;2026-09-24 05:00;Deniz Lojistik;3133.53;0.20;onayli
+F00054;2026-09-06 07:00;Deniz Lojistik;4562.98;0.20;onayli
+F00055;2026-09-14 19:00;Kuzey Yapı;5536.70;0.20;onayli
+F00056;2026-09-04 22:00;Ada Gıda A.Ş.;2406.53;0.20;onayli
+F00057;2026-09-15 04:00;Ege Tekstil Ltd. Şti.;1353.27;0.20;onayli
+F00058;2026-09-02 20:00;Mavi Enerji;6203.63;0.20;onayli
+F00059;2026-09-25 20:00;Ada Gıda A.Ş.;1874.64;0.20;onayli
+F00060;2026-09-09 16:00;Kuzey Yapı;1525.59;0.20;onayli
+F00061;2026-09-06 05:00;Kuzey Yapı;6577.04;0.20;onayli
+F00062;2026-09-10 10:00;Ada Gıda A.Ş.;6336.46;0.20;onayli
+F00063;2026-09-24 05:00;Deniz Lojistik;4065.60;0.20;onayli
+F00064;2026-09-30 10:00;Kuzey Yapı;4648.55;0.20;onayli
+F00065;2026-09-05 14:00;Mavi Enerji;5020.75;0.20;onayli
+F00066;2026-09-25 17:00;Ege Tekstil Ltd. Şti.;1848.75;0.20;onayli
+F00067;2026-09-12 15:00;Ege Tekstil Ltd. Şti.;8637.66;0.20;onayli
+F00068;2026-09-23 18:00;Deniz Lojistik;8707.45;0.20;iptal
+F00069;2026-09-23 21:00;Ada Gıda A.Ş.;8763.63;0.20;onayli
+F00070;2026-09-26 04:00;Mavi Enerji;7470.59;0.20;onayli
+F00071;2026-09-20 16:00;Kuzey Yapı;6866.49;0.20;onayli
+F00072;2026-09-15 00:00;Ada Gıda A.Ş.;5366.95;0.20;onayli
+F00073;2026-09-03 19:00;Deniz Lojistik;8292.93;0.20;onayli
+F00074;2026-09-10 09:00;Ege Tekstil Ltd. Şti.;2966.42;0.20;onayli
+F00075;2026-09-26 20:00;Ege Tekstil Ltd. Şti.;5709.31;0.20;onayli
+F00076;2026-09-07 14:00;Ada Gıda A.Ş.;1476.82;0.20;onayli
+F00077;2026-09-20 21:00;Kuzey Yapı;1311.51;0.20;onayli
+F00078;2026-09-04 06:00;Deniz Lojistik;726.78;0.20;onayli
+F00079;2026-09-11 20:00;Mavi Enerji;7912.81;0.20;onayli
+F00080;2026-09-15 05:00;Kuzey Yapı;4286.21;0.20;onayli
+F00081;2026-09-06 15:00;Ada Gıda A.Ş.;1066.76;0.20;onayli
+F00082;2026-09-23 05:00;Kuzey Yapı;6053.68;0.20;onayli
+F00083;2026-09-04 12:00;Mavi Enerji;7501.76;0.20;onayli
+F00084;2026-09-04 07:00;Deniz Lojistik;2044.69;0.20;onayli
+F00085;2026-09-26 02:00;Ege Tekstil Ltd. Şti.;5021.89;0.20;iptal
+F00086;2026-09-23 16:00;Mavi Enerji;8523.44;0.20;onayli
+F00087;2026-09-14 17:00;Kuzey Yapı;5933.97;0.20;onayli
+F00088;2026-09-04 20:00;Ada Gıda A.Ş.;6976.49;0.20;onayli
+F00089;2026-09-17 07:00;Deniz Lojistik;8677.71;0.20;onayli
+F00090;2026-09-10 00:00;Ege Tekstil Ltd. Şti.;5606.74;0.20;onayli
+F00091;2026-09-15 21:00;Deniz Lojistik;5217.13;0.20;onayli
+F00092;2026-09-04 18:00;Kuzey Yapı;5708.92;0.20;onayli
+F00093;2026-09-21 00:00;Deniz Lojistik;4229.96;0.20;onayli
+F00094;2026-09-30 05:00;Ege Tekstil Ltd. Şti.;1687.50;0.20;onayli
+F00095;2026-09-29 08:00;Mavi Enerji;6556.62;0.20;onayli
+F00096;2026-09-20 11:00;Kuzey Yapı;6530.85;0.20;onayli
+F00097;2026-09-06 01:00;Ada Gıda A.Ş.;4698.24;0.20;onayli
+F00098;2026-09-24 08:00;Deniz Lojistik;4917.54;0.20;onayli
+F00099;2026-09-11 23:00;Mavi Enerji;5464.32;0.20;onayli
+F00100;2026-09-12 14:00;Ada Gıda A.Ş.;443.86;0.20;onayli
+F00101;2026-09-10 17:00;Mavi Enerji;3705.99;0.20;onayli
+F00102;2026-09-17 21:00;Deniz Lojistik;3364.70;0.20;iptal
+F00103;2026-09-25 10:00;Ege Tekstil Ltd. Şti.;4631.36;0.20;onayli
+F00104;2026-09-17 08:00;Deniz Lojistik;5632.50;0.20;onayli
+F00105;2026-09-23 04:00;Deniz Lojistik;7292.03;0.20;onayli
+F00106;2026-09-12 18:00;Mavi Enerji;3942.55;0.20;onayli
+F00107;2026-09-08 20:00;Ada Gıda A.Ş.;2344.01;0.20;onayli
+F00108;2026-09-17 14:00;Kuzey Yapı;3007.42;0.20;onayli
+F00109;2026-09-23 16:00;Ada Gıda A.Ş.;1456.94;0.20;onayli
+F00110;2026-09-14 21:00;Ada Gıda A.Ş.;4105.86;0.20;onayli
+F00111;2026-09-22 02:00;Kuzey Yapı;5281.96;0.20;onayli
+F00112;2026-09-27 22:00;Kuzey Yapı;1931.10;0.20;onayli
+F00113;2026-09-17 22:00;Mavi Enerji;6167.15;0.20;onayli
+F00114;2026-09-23 15:00;Mavi Enerji;2016.37;0.20;onayli
+F00115;2026-09-21 07:00;Ege Tekstil Ltd. Şti.;5800.02;0.20;onayli
+F00116;2026-09-18 06:00;Ege Tekstil Ltd. Şti.;6056.00;0.20;onayli
+F00117;2026-09-29 23:00;Ege Tekstil Ltd. Şti.;7557.88;0.20;onayli
+F00118;2026-09-19 06:00;Kuzey Yapı;8422.79;0.20;onayli
+F00119;2026-09-10 00:00;Ada Gıda A.Ş.;7931.94;0.20;iptal
+F00120;2026-09-29 17:00;Mavi Enerji;5850.39;0.20;onayli

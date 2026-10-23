@@ -1,0 +1,8 @@
+tablo;satir_sayisi;gunluk_degisim;pk_var;updated_at_var;hard_delete
+erp.siparis;48000000;220000;evet;evet;hayir
+erp.siparis_kalem;190000000;900000;evet;hayir;evet
+erp.musteri;2100000;8000;evet;evet;evet
+erp.urun;42000;300;evet;evet;hayir
+erp.doviz_kuru;9000;40;hayir;hayir;hayir
+erp.stok_hareket;520000000;2500000;hayir;evet;hayir
+erp.kampanya;1200;5;evet;hayir;evet

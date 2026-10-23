@@ -1,0 +1,5 @@
+is_yuku;mevcut_boyut;gunluk_sorgu;ort_sure_sn;p95_sure_sn;tepe_eszamanli;sla_p95_sn
+etl_gece;L;120;240;900;6;1800
+bi_dashboard;XL;9000;3;12;40;15
+adhoc_analist;M;600;45;420;12;300
+ml_ozellik;XS;40;600;2400;2;1200
