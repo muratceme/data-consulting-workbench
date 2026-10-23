@@ -1,0 +1,13 @@
+tablo;kolon;farkli_deger;bolumleme
+satis.siparis;siparis_tarihi;1095;evet
+satis.siparis;musteri_id;480000;hayir
+satis.siparis;magaza_id;320;hayir
+satis.siparis;durum;5;hayir
+satis.siparis;urun_id;42000;hayir
+satis.siparis;kanal;3;hayir
+web.olay;olay_tarihi;365;evet
+web.olay;oturum_id;9000000;hayir
+web.olay;kullanici_id;1200000;hayir
+web.olay;olay_tipi;12;hayir
+web.olay;sayfa;4800;hayir
+web.olay;ulke;40;hayir

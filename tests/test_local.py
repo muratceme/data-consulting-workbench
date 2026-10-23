@@ -59,8 +59,8 @@ class LocalTestCase(unittest.TestCase):
 
 class PackageShape(LocalTestCase):
     def test_every_local_package_is_self_contained_and_has_no_network_code(self):
-        self.assertEqual(len([i for i in LOCAL if not i.get('op')]), 111)
-        self.assertEqual(sum(i['kind'] == 'agent' for i in LOCAL), 99)
+        self.assertEqual(len([i for i in LOCAL if not i.get('op')]), 119)
+        self.assertEqual(sum(i['kind'] == 'agent' for i in LOCAL), 107)
         self.assertEqual(len({i['id'] for i in LOCAL}), len(LOCAL))
         for item in LOCAL:
             names = local_package.files(item)
@@ -928,6 +928,22 @@ GOOD['zaman-asimi-onerici'] = {'roller': [{'rol': 'analist', 'statement_timeout_
 OUTPUTS['zaman-asimi-onerici'] = 'zaman-asimi.md'
 GOOD['kaynak-tazelik-onerici'] = {'kaynaklar': [{'kaynak': 'crm.musteriler', 'warn_after': {'count': 3, 'period': 'day'}, 'error_after': {'count': 4, 'period': 'day'}, 'gerekce': 'Gece yüklemesi ara sıra atlanıyor; tek atlama uyarı üretmesin.'}, {'kaynak': 'erp.siparisler', 'warn_after': {'count': 2, 'period': 'hour'}, 'error_after': {'count': 6, 'period': 'hour'}, 'gerekce': ''}, {'kaynak': 'finans.kur', 'warn_after': {'count': 36, 'period': 'hour'}, 'error_after': {'count': 2, 'period': 'day'}, 'gerekce': ''}, {'kaynak': 'web.olaylar', 'warn_after': {'count': 30, 'period': 'minute'}, 'error_after': {'count': 1, 'period': 'hour'}, 'gerekce': '15 dakikalık akış.'}]}
 OUTPUTS['kaynak-tazelik-onerici'] = 'kaynak-tazelik.md'
+GOOD['zorder-secici'] = {'tablolar': [{'tablo': 'satis.siparis', 'kolonlar': ['musteri_id', 'magaza_id', 'urun_id'], 'gerekce': 'Tarih bölümleme; müşteri, mağaza ve ürün filtreleri sorguların %85’i.'}, {'tablo': 'web.olay', 'kolonlar': ['kullanici_id', 'oturum_id', 'sayfa'], 'gerekce': 'Olay tipi 12 değerli; veri atlama sağlamaz.'}]}
+OUTPUTS['zorder-secici'] = 'zorder.md'
+GOOD['anket-agirliklandirici'] = {'degiskenler': ['yas_grubu', 'bolge', 'cinsiyet', 'egitim'], 'kirpma_alt': 0.3, 'kirpma_ust': 3, 'gerekce': '55+ ve Diğer bölgeler az temsil ediliyor; eğitim de 9 puan sapıyor.'}
+OUTPUTS['anket-agirliklandirici'] = 'anket-agirliklari.md'
+GOOD['depo-yeri-secici'] = {'depolar': ['D-Gebze', 'D-Ankara', 'D-Manisa', 'D-Adana', 'D-Samsun', 'D-Antalya'], 'gerekce': 'Konya ve Kayseri talebi Ankara ve Adana’dan karşılanıyor; sabit maliyet tasarrufu taşımayı aşıyor.'}
+OUTPUTS['depo-yeri-secici'] = 'depo-secimi.md'
+GOOD['tekrar-penceresi-onerici'] = {'anahtar': ['olay_id'], 'pencere_sn': 300, 'gerekce': 'Yeniden teslimler 253 sn içinde geliyor; islem_no kısmi ödemelerde tekrar ediyor.'}
+OUTPUTS['tekrar-penceresi-onerici'] = 'tekrar-penceresi.md'
+GOOD['altin-kayit-kurali'] = {'alanlar': [{'alan': 'ad', 'kural': 'kaynak_onceligi', 'kaynak_sirasi': ['crm', 'web', 'erp'], 'gerekce': 'ERP büyük harfle, web küçük harfle yazıyor; CRM doğru yazımı tutuyor.'}, {'alan': 'telefon', 'kural': 'kaynak_onceligi', 'kaynak_sirasi': ['crm', 'erp', 'web'], 'gerekce': 'Web telefonu boşluksuz giriyor.'}, {'alan': 'eposta', 'kural': 'en_guncel', 'kaynak_sirasi': [], 'gerekce': ''}, {'alan': 'adres', 'kural': 'kaynak_onceligi', 'kaynak_sirasi': ['crm', 'erp', 'web'], 'gerekce': 'ERP adresleri eski.'}]}
+OUTPUTS['altin-kayit-kurali'] = 'altin-kayit-kurallari.md'
+GOOD['log-ornekleme-onerici'] = {'oranlar': [{'servis': 'siparis-api', 'seviye': 'DEBUG', 'oran': 0}, {'servis': 'siparis-api', 'seviye': 'INFO', 'oran': 0.5}, {'servis': 'siparis-api', 'seviye': 'WARN', 'oran': 1}, {'servis': 'siparis-api', 'seviye': 'ERROR', 'oran': 1}, {'servis': 'odeme-api', 'seviye': 'DEBUG', 'oran': 0}, {'servis': 'odeme-api', 'seviye': 'INFO', 'oran': 1}, {'servis': 'odeme-api', 'seviye': 'WARN', 'oran': 1}, {'servis': 'odeme-api', 'seviye': 'ERROR', 'oran': 1}, {'servis': 'katalog-api', 'seviye': 'DEBUG', 'oran': 0}, {'servis': 'katalog-api', 'seviye': 'INFO', 'oran': 0.3}, {'servis': 'katalog-api', 'seviye': 'WARN', 'oran': 1}, {'servis': 'katalog-api', 'seviye': 'ERROR', 'oran': 1}, {'servis': 'ingress', 'seviye': 'INFO', 'oran': 0.1}, {'servis': 'ingress', 'seviye': 'WARN', 'oran': 1}, {'servis': 'ingress', 'seviye': 'ERROR', 'oran': 1}]}
+OUTPUTS['log-ornekleme-onerici'] = 'log-ornekleme.md'
+GOOD['model-terfi-karari'] = {'karar': 'bekle', 'aciklama': 'Aday model genel AUC’yi 0.8368’den 0.8838’e çıkarıyor ve güven aralığı [0.0338, 0.0601] sıfırın üstünde. Ancak kurumsal segmentte AUC 0.7961’den 0.5771’e düşüyor; bu segment düzelene kadar terfi beklemeli.'}
+OUTPUTS['model-terfi-karari'] = 'model-terfi.md'
+GOOD['bos-deger-politikasi'] = {'kolonlar': [{'kolon': 'siparis_no', 'politika': 'zorunlu', 'varsayilan': None, 'gerekce': ''}, {'kolon': 'musteri_no', 'politika': 'zorunlu', 'varsayilan': None, 'gerekce': ''}, {'kolon': 'siparis_tarihi', 'politika': 'zorunlu', 'varsayilan': None, 'gerekce': ''}, {'kolon': 'kanal', 'politika': 'zorunlu', 'varsayilan': None, 'gerekce': ''}, {'kolon': 'kargo_ucreti', 'politika': 'varsayilan', 'varsayilan': '0', 'gerekce': 'Mağaza satışlarında kargo yok; boşlar 0 ile doldurulur.'}, {'kolon': 'para_birimi', 'politika': 'varsayilan', 'varsayilan': 'TRY', 'gerekce': 'Satışların büyük çoğunluğu TL; eksik değer TRY.'}, {'kolon': 'kupon_kodu', 'politika': 'izin', 'varsayilan': None, 'gerekce': 'Kupon isteğe bağlı.'}, {'kolon': 'tutar', 'politika': 'zorunlu', 'varsayilan': None, 'gerekce': ''}, {'kolon': 'durum', 'politika': 'varsayilan', 'varsayilan': 'olusturuldu', 'gerekce': 'Durumu boş siparişler ilk durumda kabul edilir.'}]}
+OUTPUTS['bos-deger-politikasi'] = 'bos-deger-politikasi.md'
 GOOD['tableau-hesap-yazari'] = {'alanlar': [{'ad': 'Son Tarih', 'formul': '{FIXED : MAX([Siparis Tarihi])}', 'tip': 'date', 'rol': 'dimension', 'aciklama': 'Verideki son sipariş tarihi.'}, {'ad': 'Ciro YTD', 'formul': "SUM(IF [Siparis Tarihi] >= DATETRUNC('year', [Son Tarih]) AND [Siparis Tarihi] <= [Son Tarih] THEN [Tutar] END)", 'tip': 'real', 'rol': 'measure', 'aciklama': 'Yıl başından son tarihe.'}, {'ad': 'Ciro GY YTD', 'formul': "SUM(IF [Siparis Tarihi] >= DATEADD('year', -1, DATETRUNC('year', [Son Tarih])) AND [Siparis Tarihi] <= DATEADD('year', -1, [Son Tarih]) THEN [Tutar] END)", 'tip': 'real', 'rol': 'measure', 'aciklama': 'Geçen yılın aynı dönemi.'}, {'ad': 'Sipariş Başına Ciro', 'formul': 'SUM([Tutar]) / COUNTD([Siparis No])', 'tip': 'real', 'rol': 'measure', 'aciklama': ''}, {'ad': 'Bölge Payı', 'formul': 'SUM({FIXED [Bolge] : SUM([Tutar])}) / SUM({FIXED : SUM([Tutar])})', 'tip': 'real', 'rol': 'measure', 'aciklama': ''}], 'varsayimlar': ['Ciro, Tutar alanının toplamıdır.']}
 OUTPUTS['tableau-hesap-yazari'] = 'hesaplanan-alanlar.md'
 OUTPUTS.update({'deney-analisti': 'deney-raporu.md', 'sube-planlayici': 'sube-plani.md', 'rapor-tasarimcisi': 'tasarim.md'})
@@ -2284,6 +2300,141 @@ class Agents(LocalTestCase):
         self.assertIn('  - name: erp\n    loaded_at_field: _yuklenme_zamani\n    tables:\n      - name: siparisler\n        freshness:\n          warn_after: {count: 2, period: hour}', yml)
         self.assertEqual({r['kaynak']: r['gecmiste_uyari'] for r in p.csv('tazelik_plani.csv')}['crm.musteriler'], '0')
 
+    def test_zorder_columns_skip_partitions_and_cover_filters(self):
+        t = lambda n, c: {'tablo': n, 'kolonlar': c}
+        bad = {'tablolar': [t('satis.siparis', ['siparis_tarihi', 'musteri_id', 'durum']), t('web.olay', ['kullanici_id', 'ulke'])]}
+        p, done = self.run_agent('zorder-secici', '--yes', answers=[bad, GOOD['zorder-secici']])
+        self.ok(done)
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        for text in ('satis.siparis.siparis_tarihi bölümleme kolonu', 'satis.siparis.durum yalnızca 5 farklı değer', 'web.olay.ulke yalnızca 40 farklı değer',
+                     'web.olay: seçilen kolonlar sorgu çalışmalarının %50 kadarını kapsıyor (en az %80); kapsanmayan: oturum_id (1100)'):
+            self.assertIn(text, retry)
+        self.assertIn('OPTIMIZE satis.siparis ZORDER BY (musteri_id, magaza_id, urun_id);', p.out('zorder.sql').read_text(encoding='utf-8'))
+        self.assertEqual({r['tablo']: r['kapsama'] for r in p.csv('zorder_plani.csv')}, {'satis.siparis': '0.853', 'web.olay': '0.829'})
+
+    def test_survey_weights_match_population_margins(self):
+        p, done = self.run_agent('anket-agirliklandirici', '--yes', answers=[{'degiskenler': ['yas_grubu', 'bolge', 'cinsiyet'], 'kirpma_alt': 0.5, 'kirpma_ust': 2},
+                                                                          GOOD['anket-agirliklandirici']])
+        self.ok(done)
+        sent = self.model.requests[-2]['body']['messages'][-1]['content']
+        self.assertIn('- yas_grubu (en büyük fark 27.2 puan): 18-34 57.2/30.0, 35-54 29.2/38.0, 55+ 13.7/32.0', sent)
+        self.assertNotIn('Y0001', sent)
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        self.assertIn('belirgin sapan değişken ağırlıklandırmaya alınmamış: egitim (en büyük fark 9.3 puan)', retry)
+        self.assertIn('yas_grubu: ağırlıklı paylar nüfustan 8.4 puan sapıyor', retry)
+        w = {r['yanit_id']: float(r['agirlik']) for r in p.csv('agirliklar.csv')}
+        rows = tabular.read(p.dir / 'ornek' / 'anket_demografik_yanitlar.csv')[1]
+        old = sum(w[r['yanit_id']] for r in rows if r['yas_grubu'] == '55+') / sum(w.values())
+        self.assertAlmostEqual(old, 0.32, places=2)
+        self.assertTrue(0.299 < min(w.values()) and max(w.values()) < 3.01)
+        res = p.json('agirliklandirma.json')
+        self.assertEqual((res['tasarim_etkisi'], res['memnuniyet']['agirliksiz']), (1.937, 3.033))
+        self.assertGreater(res['memnuniyet']['agirlikli'], res['memnuniyet']['agirliksiz'])  # older, non-Marmara respondents are more satisfied
+
+    def test_warehouse_choice_is_near_the_exhaustive_optimum(self):
+        p, done = self.run_agent('depo-yeri-secici', '--yes', answers=[{'depolar': ['D-Gebze', 'D-Ankara', 'D-Konya']}, GOOD['depo-yeri-secici']])
+        self.ok(done)
+        self.assertIn('seçilen depoların kapasitesi 3200 ton, haftalık talep 3435 ton', self.model.requests[-1]['body']['messages'][-1]['content'])
+        rows = {r['nokta']: r for r in p.csv('depo_atamalari.csv')}
+        self.assertEqual((rows['Konya']['depo'], rows['Trabzon']['depo'], rows['İzmir']['depo']), ('D-Antalya', 'D-Samsun', 'D-Manisa'))
+        self.assertIn('Haftalık maliyet 238,825 (taramada bulunan en iyi 238,825', p.out('depo-secimi.md').read_text(encoding='utf-8'))
+        self.assertEqual(len(p.json('depolar.geojson')['features']), 8 + 15)
+        everything = {'depolar': ['D-Gebze', 'D-Ankara', 'D-Manisa', 'D-Konya', 'D-Adana', 'D-Samsun', 'D-Kayseri', 'D-Antalya']}
+        self.run_agent('depo-yeri-secici', '--yes', answers=[everything, GOOD['depo-yeri-secici']])
+        self.assertIn('haftalık maliyet 254,441, bulunan en iyi çözüm 238,825', self.model.requests[-1]['body']['messages'][-1]['content'])
+
+    def test_dedup_window_is_replayed_on_delivery_log(self):
+        p, done = self.run_agent('tekrar-penceresi-onerici', '--yes', answers=[{'anahtar': ['islem_no'], 'pencere_sn': 60}, GOOD['tekrar-penceresi-onerici']])
+        self.ok(done)
+        sent = self.model.requests[-2]['body']['messages'][-1]['content']
+        self.assertIn('Aday anahtar sütunları (aynı değeri paylaşan farklı olay sayısı): olay_id 0, islem_no 888, tutar 0', sent)
+        self.assertIn('p50/p90/p99/p99,5/max: 21.6/78.8/253.0/253.1/253.2', sent)
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        self.assertIn('(islem_no) anahtarı 20 farklı olayı yinelenen sayıp atıyor', retry)
+        self.assertIn('60 sn pencere ile yakalanan yinelenen teslim payı %88.9 (en az %99.5); 11 yinelenen geçiyor', retry)
+        self.assertIn("SET 'table.exec.state.ttl' = '300000 ms';", p.out('tekillestirme.sql').read_text(encoding='utf-8'))
+        self.assertEqual(p.json('tekrar_plani.json')['yakalanan_oran'], 1.0)
+        self.run_agent('tekrar-penceresi-onerici', '--yes', answers=[{'anahtar': ['olay_id'], 'pencere_sn': 600}, GOOD['tekrar-penceresi-onerici']])
+        self.assertIn('pencere boyunca ~350 anahtar tutulur', self.model.requests[-1]['body']['messages'][-1]['content'])
+
+    def test_survivorship_rules_are_scored_on_approved_records(self):
+        a = lambda f, k, o=None: {'alan': f, 'kural': k, 'kaynak_sirasi': o or []}
+        bad = {'alanlar': [a('ad', 'en_guncel'), a('telefon', 'en_guncel'), a('eposta', 'en_guncel'), a('adres', 'kaynak_onceligi', ['erp', 'crm', 'web'])]}
+        p, done = self.run_agent('altin-kayit-kurali', '--yes', answers=[bad, GOOD['altin-kayit-kurali']])
+        self.ok(done)
+        sent = self.model.requests[-2]['body']['messages'][-1]['content']
+        self.assertIn('- adres: en_guncel %75, en_sik %85, en_uzun %50 · kaynaklar: crm dolu %100, doğru %100; erp dolu %100, doğru %40', sent)
+        self.assertNotIn('@ornek.com.tr', sent)
+        self.assertNotIn('Cad.', sent)
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        self.assertIn('telefon: en_guncel onaylı kümelerde %75 doğru; en iyi kural en_uzun %100', retry)
+        self.assertIn('adres: kaynak_onceligi erp>crm>web onaylı kümelerde %40 doğru', retry)
+        self.assertNotIn('eposta:', retry)
+        golden = p.csv('altin_kayitlar.csv')
+        self.assertEqual(len(golden), 60)
+        approved = {(r['kume'], r['alan']): r['onayli_deger'] for r in tabular.read(p.dir / 'ornek' / 'altin_kayit_onayli.csv')[1]}
+        self.assertTrue(all(g['adres'] == approved[(g['kume'], 'adres')] for g in golden if (g['kume'], 'adres') in approved))
+        self.assertIn('  telefon: {kural: kaynak_onceligi, kaynak_sirasi: [crm, erp, web]}', p.out('kurallar.yaml').read_text(encoding='utf-8'))
+
+    def test_log_sampling_keeps_errors_and_fits_budget(self):
+        p, done = self.run_agent('log-ornekleme-onerici', '--yes', answers=[{'oranlar': [{**g, 'oran': 0.5} for g in GOOD['log-ornekleme-onerici']['oranlar']]},
+                                                                         GOOD['log-ornekleme-onerici']])
+        self.ok(done)
+        self.assertIn('- ingress/INFO: 120,000,000 · 58.11', self.model.requests[-2]['body']['messages'][-1]['content'])
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        self.assertIn('siparis-api/ERROR: uyarı ve hata logları örneklenmez (oran 1 olmalı)', retry)
+        p2, done = self.run_agent('log-ornekleme-onerici', '--yes', answers=[{'oranlar': [{**g, 'oran': 1} for g in GOOD['log-ornekleme-onerici']['oranlar']]},
+                                                                          GOOD['log-ornekleme-onerici']])
+        self.assertIn('günlük hacim 102.5 GB, bütçe 15 GB', self.model.requests[-1]['body']['messages'][-1]['content'])
+        rows = {(r['servis'], r['seviye']): r for r in p.csv('ornekleme_plani.csv')}
+        self.assertEqual(rows[('ingress', 'INFO')]['gunluk_satir_sonra'], '12000000')
+        self.assertEqual(round(sum(float(r['gb_sonra']) for r in rows.values()), 1), 12.3)
+        yml = p.out('otel_ornekleme.yaml').read_text(encoding='utf-8')
+        self.assertIn('  probabilistic_sampler/ingress_info:\n    sampling_percentage: 10', yml)
+        self.assertIn('  filter/katalog_api_debug:', yml)
+
+    def test_promotion_decision_follows_interval_and_segments(self):
+        bad = {'karar': 'terfi', 'aciklama': 'Aday model AUC’yi yüzde 12 artırıyor, hemen canlıya alınmalı.'}
+        p, done = self.run_agent('model-terfi-karari', '--yes', answers=[bad, GOOD['model-terfi-karari']])
+        self.ok(done)
+        sent = self.model.requests[-2]['body']['messages'][-1]['content']
+        self.assertIn('AUC mevcut 0.8368, aday 0.8838, fark 0.0470; eşleştirilmiş bootstrap %95 güven aralığı [0.0338, 0.0601]', sent)
+        self.assertIn('- kurumsal: 144 · 23 · 0.7961 · 0.5771 · -0.219', sent)
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        self.assertIn('karar “terfi” olamaz; güven aralığı [0.0338, 0.0601], kötüleşen segment: kurumsal → “bekle”', retry)
+        self.assertIn('açıklamada tabloda olmayan sayılar: 12', retry)
+        res = p.json('terfi_karari.json')
+        self.assertEqual((res['karar'], res['kotulesen_segmentler']), ('bekle', ['kurumsal']))
+        import random as _r
+        rows = tabular.read(p.dir / 'ornek' / 'model_karsilastirma.csv')[1]
+        from ml import auc
+        self.assertAlmostEqual(auc([int(r['gercek']) for r in rows], [float(r['skor_aday']) for r in rows]), 0.8838, places=4)
+
+    def test_null_policy_is_checked_against_the_data(self):
+        p_ = lambda c, p, d=None: {'kolon': c, 'politika': p, 'varsayilan': d}
+        bad = {'kolonlar': [p_('siparis_no', 'izin'), p_('musteri_no', 'zorunlu'), p_('siparis_tarihi', 'zorunlu'), p_('kanal', 'zorunlu'), p_('kargo_ucreti', 'izin'),
+                            p_('para_birimi', 'varsayilan', 'USD'), p_('kupon_kodu', 'izin'), p_('tutar', 'zorunlu'), p_('durum', 'zorunlu')]}
+        p, done = self.run_agent('bos-deger-politikasi', '--yes', answers=[bad, GOOD['bos-deger-politikasi']])
+        self.ok(done)
+        self.assertIn('- kargo_ucreti: sayi · 86 · 204 · hayır · 0.03–39.95 · %100 kanal=magaza', self.model.requests[-2]['body']['messages'][-1]['content'])
+        retry = self.model.requests[-1]['body']['messages'][-1]['content']
+        for text in ('siparis_no: her satırda tekil, anahtar sütun; boşa izin verilemez', 'kargo_ucreti: boşların %100 kadarı kanal=magaza satırlarında; politikanın gerekçesini yaz',
+                     'para_birimi: varsayılan “USD” mevcut değerlerden biri olmalı (EUR, TRY)', 'durum: 6 boş satır var; varsayılansız NOT NULL eklenemez'):
+            self.assertIn(text, retry)
+        sql = p.out('bos_deger.sql').read_text(encoding='utf-8')
+        self.assertIn("UPDATE siparis_baslik SET para_birimi = 'TRY' WHERE para_birimi IS NULL;  -- 15 satır", sql)
+        self.assertIn('ALTER TABLE siparis_baslik ALTER COLUMN kargo_ucreti SET DEFAULT 0;', sql)
+        # the generated SQL leaves no NULLs behind in the constrained columns
+        import sqlite3
+        db = sqlite3.connect(':memory:')
+        self.addCleanup(db.close)
+        cols, rows = tabular.read(p.dir / 'ornek' / 'siparis_basliklari.csv')
+        db.execute(f'CREATE TABLE siparis_baslik ({", ".join(cols)})')
+        db.executemany(f'INSERT INTO siparis_baslik VALUES ({",".join("?" * len(cols))})', [[r[c] or None for c in cols] for r in rows])
+        for stmt in [s for s in sql.split('\n') if s.startswith('UPDATE')]:
+            db.execute(stmt.split('--')[0])
+        self.assertEqual(db.execute('SELECT COUNT(*) FROM siparis_baslik WHERE kargo_ucreti IS NULL OR para_birimi IS NULL OR durum IS NULL').fetchone()[0], 0)
+
     def test_invalid_answer_gets_one_corrective_retry(self):
         bad = {'sql': 'SELECT s.KalemlerToplamCiro FROM dbo.Siparisler s'}
         p, done = self.run_agent('sql-yazari', '--yes', answers=[bad, GOOD['sql-yazari']])
@@ -2389,7 +2540,15 @@ class Agents(LocalTestCase):
                              ('rol-madenciligi', {**GOOD['rol-madenciligi'], 'atamalar': GOOD['rol-madenciligi']['atamalar'][:3]}),
                              ('getirme-ayari-onerici', {'top_k': 1, 'min_score': 0.9}),
                              ('zaman-asimi-onerici', {'roller': [{**r, 'statement_timeout_ms': 10} for r in GOOD['zaman-asimi-onerici']['roller']]}),
-                             ('kaynak-tazelik-onerici', {'kaynaklar': [{**k, 'warn_after': {'count': 1, 'period': 'minute'}} for k in GOOD['kaynak-tazelik-onerici']['kaynaklar']]})]:
+                             ('kaynak-tazelik-onerici', {'kaynaklar': [{**k, 'warn_after': {'count': 1, 'period': 'minute'}} for k in GOOD['kaynak-tazelik-onerici']['kaynaklar']]}),
+                             ('zorder-secici', {'tablolar': [{**t, 'kolonlar': ['ulke']} for t in GOOD['zorder-secici']['tablolar']]}),
+                             ('anket-agirliklandirici', {**GOOD['anket-agirliklandirici'], 'degiskenler': ['cinsiyet']}),
+                             ('depo-yeri-secici', {'depolar': ['D-Gebze']}),
+                             ('tekrar-penceresi-onerici', {'anahtar': ['islem_no'], 'pencere_sn': 300}),
+                             ('altin-kayit-kurali', {'alanlar': [{**a, 'kural': 'en_uzun', 'kaynak_sirasi': []} for a in GOOD['altin-kayit-kurali']['alanlar']]}),
+                             ('log-ornekleme-onerici', {'oranlar': [{**g, 'oran': 0} for g in GOOD['log-ornekleme-onerici']['oranlar']]}),
+                             ('model-terfi-karari', {**GOOD['model-terfi-karari'], 'karar': 'reddet'}),
+                             ('bos-deger-politikasi', {'kolonlar': [{**c, 'politika': 'zorunlu'} for c in GOOD['bos-deger-politikasi']['kolonlar']]})]:
             with self.subTest(item_id):
                 p, done = self.run_agent(item_id, '--yes', answers=[bad, bad])
                 self.assertEqual(done.returncode, 1)

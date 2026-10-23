@@ -1,0 +1,165 @@
+kume;kaynak;guncelleme;ad;telefon;eposta;adres
+K001;erp;2026-01-05;BURAK ÖZTÜRK;;;İnönü Sok. No:108 Eski Adres
+K001;crm;2026-10-04;Burak Öztürk;0539 359 71 94;burak.ozturk@ornek.com.tr;Atatürk Cad. No:50 Kadıköy
+K002;erp;2026-01-15;ZEYNEP YILDIZ;;;İnönü Sok. No:63 Eski Adres
+K002;crm;2026-06-22;Zeynep Yıldız;0537 380 86 96;zeynep.yildiz@ornek.com.tr;Atatürk Cad. No:5 Çankaya
+K003;erp;2026-03-01;EMRE YILDIZ;;emre.yildiz@ornek.com.tr;Cumhuriyet Mah. No:79 Kadıköy
+K003;crm;2026-05-16;Emre Yıldız;0554 220 12 83;emre.yildiz@ornek.com.tr;Cumhuriyet Mah. No:79 Kadıköy
+K003;web;2026-09-27;Emre Yıldız;;emre.yildiz@ornek.com.tr;Cumhuriyet Mah. No:79 Kadıköy
+K004;erp;2026-02-21;ALI ARSLAN;0537 687 62 94;;Bağdat Cad. No:21 Kadıköy
+K004;crm;2026-09-16;Ali Arslan;0537 687 62 94;ali.arslan@ornek.com.tr;Bağdat Cad. No:21 Kadıköy
+K005;erp;2026-01-16;DENIZ DEMIR;0555 469 26 26;;İnönü Sok. No:7 Nilüfer
+K005;crm;2026-08-10;Deniz;0555 469 26 26;;İnönü Sok. No:7 Nilüfer
+K005;web;2026-08-02;Deniz Demir;;deniz.demir@ornek.com.tr;İnönü Sok.
+K006;erp;2026-01-05;ALI YILDIZ;;;Bağdat Cad. No:47 Eski Adres
+K006;crm;2026-08-20;Ali;0554 695 11 79;ali.yildiz@ornek.com.tr;Bağdat Cad. No:61 Kadıköy
+K007;erp;2026-01-20;ELIF DEMIR;;;Gazi Bulvarı No:11 Nilüfer
+K007;crm;2026-09-18;Elif Demir;0541 959 57 85;elif.demir@ornek.com.tr;Gazi Bulvarı No:11 Nilüfer
+K008;erp;2026-01-10;KEREM YILDIZ;0541 521 56 71;;Bağdat Cad. No:51 Kadıköy
+K008;crm;2026-06-16;Kerem;0541 521 56 71;kerem.yildiz@ornek.com.tr;Bağdat Cad. No:51 Kadıköy
+K009;erp;2026-01-21;MEHMET KAYA;0537 925 62 14;;İnönü Sok. No:46 Nilüfer
+K009;crm;2026-10-04;Mehmet Kaya;0537 925 62 14;;İnönü Sok. No:46 Nilüfer
+K009;web;2026-08-29;mehmet kaya;05379256214;mehmet.kaya@ornek.com.tr;İnönü Sok.
+K010;erp;2026-01-28;MURAT YILMAZ;0535 555 53 63;;Bağdat Cad. No:35 Eski Adres
+K010;crm;2026-09-30;Murat Yılmaz;0535 555 53 63;murat.yilmaz@ornek.com.tr;Cumhuriyet Mah. No:72 Nilüfer
+K010;web;2026-08-16;murat yılmaz;;murat.yilmaz@ornek.com.tr;Cumhuriyet Mah. No:72 Nilüfer
+K011;erp;2026-01-19;KEREM ŞAHIN;0550 859 18 53;;Bağdat Cad. No:76 Eski Adres
+K011;crm;2026-08-25;Kerem Şahin;0550 859 18 53;kerem.sahin@ornek.com.tr;Bağdat Cad. No:15 Kadıköy
+K011;web;2026-08-24;kerem şahin;05508591853;kerem.sahin@ornek.com.tr;Bağdat Cad. No:15 Kadıköy
+K012;erp;2026-01-27;EMRE ÇELIK;;;Gazi Bulvarı No:53 Eski Adres
+K012;crm;2026-05-09;Emre Çelik;0539 477 86 21;emre.celik@ornek.com.tr;Atatürk Cad. No:39 Nilüfer
+K012;web;2026-08-07;Emre Çelik;05394778621;emre.celik@ornek.com.tr;Atatürk Cad. No:39 Nilüfer
+K013;erp;2026-01-19;EMRE ÖZTÜRK;0533 989 18 72;;İnönü Sok. No:48 Eski Adres
+K013;crm;2026-08-22;Emre Öztürk;0533 989 18 72;emre.ozturk@ornek.com.tr;Gazi Bulvarı No:39 Konak
+K013;web;2026-09-23;emre öztürk;;emre.ozturk@ornek.com.tr;Gazi Bulvarı
+K014;erp;2026-01-27;CAN ŞAHIN;;;İnönü Sok. No:81 Konak
+K014;crm;2026-09-08;Can;0546 304 71 64;;İnönü Sok. No:81 Konak
+K015;erp;2026-01-09;ECE DEMIR;;;Bağdat Cad. No:69 Kadıköy
+K015;crm;2026-07-22;Ece Demir;0547 539 21 47;ece.demir@ornek.com.tr;Bağdat Cad. No:69 Kadıköy
+K015;web;2026-07-20;Ece Demir;05475392147;ece.demir@ornek.com.tr;Bağdat Cad. No:69 Kadıköy
+K016;erp;2026-01-28;SELIN KAYA;;selin.kaya@ornek.com.tr;Atatürk Cad. No:63 Eski Adres
+K016;crm;2026-08-16;Selin Kaya;0559 623 35 32;;Atatürk Cad. No:37 Çankaya
+K016;web;2026-07-25;Selin Kaya;05596233532;selin.kaya@ornek.com.tr;Atatürk Cad. No:37 Çankaya
+K017;erp;2026-02-19;EMRE ÇELIK;;;Gazi Bulvarı No:83 Eski Adres
+K017;crm;2026-05-19;Emre Çelik;0552 259 73 62;emre.celik@ornek.com.tr;İnönü Sok. No:53 Kadıköy
+K017;web;2026-09-18;Emre Çelik;05522597362;emre.celik@ornek.com.tr;İnönü Sok. No:53 Kadıköy
+K018;erp;2026-01-15;AYŞE KAYA;;;İnönü Sok. No:23 Eski Adres
+K018;crm;2026-05-29;Ayşe Kaya;0540 803 29 11;ayse.kaya@ornek.com.tr;Cumhuriyet Mah. No:39 Nilüfer
+K019;erp;2026-01-29;SELIN YILDIZ;;;İnönü Sok. No:99 Eski Adres
+K019;crm;2026-07-07;Selin Yıldız;0548 639 26 62;selin.yildiz@ornek.com.tr;İnönü Sok. No:42 Konak
+K019;web;2026-10-09;Selin Yıldız;05486392662;selin.yildiz@ornek.com.tr;İnönü Sok. No:42 Konak
+K020;erp;2026-02-25;BURAK DOĞAN;0558 149 36 56;;Cumhuriyet Mah. No:20 Çankaya
+K020;crm;2026-09-11;Burak;0558 149 36 56;burak.dogan@ornek.com.tr;Cumhuriyet Mah. No:20 Çankaya
+K020;web;2026-09-14;Burak Doğan;;burak.dogan@ornek.com.tr;Cumhuriyet Mah. No:20 Çankaya
+K021;erp;2026-01-21;ZEYNEP AYDIN;;;Cumhuriyet Mah. No:27 Eski Adres
+K021;crm;2026-07-16;Zeynep Aydın;0553 475 53 24;;İnönü Sok. No:30 Çankaya
+K021;web;2026-10-06;zeynep aydın;;zeynep.aydin@ornek.com.tr;İnönü Sok. No:30 Çankaya
+K022;erp;2026-02-01;DENIZ DOĞAN;0559 133 61 84;deniz.dogan@ornek.com.tr;Bağdat Cad. No:76 Eski Adres
+K022;crm;2026-05-09;Deniz Doğan;0559 133 61 84;deniz.dogan@ornek.com.tr;İnönü Sok. No:14 Çankaya
+K022;web;2026-08-09;deniz doğan;;deniz.dogan@ornek.com.tr;İnönü Sok. No:14 Çankaya
+K023;erp;2026-01-17;CAN YILMAZ;;;Atatürk Cad. No:104 Nilüfer
+K023;crm;2026-05-10;Can;0549 227 93 42;can.yilmaz@ornek.com.tr;Atatürk Cad. No:104 Nilüfer
+K023;web;2026-10-16;can yılmaz;05492279342;can.yilmaz@ornek.com.tr;Atatürk Cad.
+K024;erp;2026-01-25;ZEYNEP DEMIR;0553 452 72 96;;Bağdat Cad. No:63 Eski Adres
+K024;crm;2026-09-24;Zeynep Demir;0553 452 72 96;zeynep.demir@ornek.com.tr;Cumhuriyet Mah. No:107 Nilüfer
+K025;erp;2026-02-27;KEREM YILDIZ;;;Atatürk Cad. No:120 Eski Adres
+K025;crm;2026-08-21;Kerem Yıldız;0556 119 52 44;kerem.yildiz@ornek.com.tr;Gazi Bulvarı No:43 Çankaya
+K026;erp;2026-01-13;MURAT KAYA;0557 263 36 48;;Cumhuriyet Mah. No:44 Eski Adres
+K026;crm;2026-07-23;Murat;0557 263 36 48;;İnönü Sok. No:3 Çankaya
+K027;erp;2026-01-14;DERYA DEMIR;0535 331 18 86;;Cumhuriyet Mah. No:102 Çankaya
+K027;crm;2026-07-31;Derya Demir;0535 331 18 86;derya.demir@ornek.com.tr;Cumhuriyet Mah. No:102 Çankaya
+K027;web;2026-09-17;Derya Demir;05353311886;derya.demir@ornek.com.tr;Cumhuriyet Mah.
+K028;erp;2026-02-18;BURAK ŞAHIN;0538 781 72 30;;Cumhuriyet Mah. No:8 Eski Adres
+K028;crm;2026-08-17;Burak Şahin;0538 781 72 30;burak.sahin@ornek.com.tr;Atatürk Cad. No:80 Çankaya
+K028;web;2026-10-16;burak şahin;;burak.sahin@ornek.com.tr;Atatürk Cad.
+K029;erp;2026-02-11;ECE ÇELIK;;;Bağdat Cad. No:114 Kadıköy
+K029;crm;2026-09-19;Ece;0556 716 81 38;ece.celik@ornek.com.tr;Bağdat Cad. No:114 Kadıköy
+K029;web;2026-07-20;Ece Çelik;05567168138;ece.celik@ornek.com.tr;Bağdat Cad. No:114 Kadıköy
+K030;erp;2026-01-09;SELIN YILMAZ;;selin.yilmaz@ornek.com.tr;Gazi Bulvarı No:39 Eski Adres
+K030;crm;2026-07-24;Selin;0538 542 44 49;;Cumhuriyet Mah. No:71 Kadıköy
+K030;web;2026-10-08;Selin Yılmaz;05385424449;selin.yilmaz@ornek.com.tr;Cumhuriyet Mah.
+K031;erp;2026-02-01;CAN ARSLAN;0554 975 33 44;;Cumhuriyet Mah. No:101 Eski Adres
+K031;crm;2026-09-24;Can Arslan;0554 975 33 44;can.arslan@ornek.com.tr;Cumhuriyet Mah. No:76 Nilüfer
+K032;erp;2026-01-26;ECE ÖZTÜRK;;;Cumhuriyet Mah. No:120 Çankaya
+K032;crm;2026-07-16;Ece Öztürk;0536 927 68 21;ece.ozturk@ornek.com.tr;Cumhuriyet Mah. No:120 Çankaya
+K032;web;2026-09-12;Ece Öztürk;05369276821;ece.ozturk@ornek.com.tr;Cumhuriyet Mah.
+K033;erp;2026-01-01;CAN ÖZTÜRK;;;Bağdat Cad. No:73 Eski Adres
+K033;crm;2026-05-22;Can;0559 792 52 26;;İnönü Sok. No:77 Çankaya
+K033;web;2026-10-18;Can Öztürk;05597925226;can.ozturk@ornek.com.tr;İnönü Sok.
+K034;erp;2026-01-12;ELIF YILDIZ;0556 584 23 63;elif.yildiz@ornek.com.tr;İnönü Sok. No:21 Kadıköy
+K034;crm;2026-05-21;Elif Yıldız;0556 584 23 63;;İnönü Sok. No:21 Kadıköy
+K035;erp;2026-02-08;ECE AYDIN;;;Bağdat Cad. No:34 Eski Adres
+K035;crm;2026-06-19;Ece Aydın;0540 831 62 65;ece.aydin@ornek.com.tr;Bağdat Cad. No:53 Kadıköy
+K035;web;2026-08-16;ece aydın;;ece.aydin@ornek.com.tr;Bağdat Cad.
+K036;erp;2026-02-13;CAN ŞAHIN;0554 175 68 46;can.sahin@ornek.com.tr;İnönü Sok. No:70 Çankaya
+K036;crm;2026-05-24;Can Şahin;0554 175 68 46;;İnönü Sok. No:70 Çankaya
+K036;web;2026-09-08;Can Şahin;;can.sahin@ornek.com.tr;İnönü Sok.
+K037;erp;2026-01-27;ELIF ÇELIK;0532 617 28 97;;Gazi Bulvarı No:75 Eski Adres
+K037;crm;2026-06-06;Elif;0532 617 28 97;;İnönü Sok. No:103 Konak
+K037;web;2026-09-04;elif çelik;05326172897;elif.celik@ornek.com.tr;İnönü Sok. No:103 Konak
+K038;erp;2026-02-04;AYŞE ÇELIK;0543 729 42 26;ayse.celik@ornek.com.tr;Cumhuriyet Mah. No:23 Eski Adres
+K038;crm;2026-07-28;Ayşe Çelik;0543 729 42 26;;Cumhuriyet Mah. No:37 Kadıköy
+K039;erp;2026-01-17;DENIZ ŞAHIN;0541 743 14 31;;Atatürk Cad. No:76 Eski Adres
+K039;crm;2026-05-06;Deniz Şahin;0541 743 14 31;;Bağdat Cad. No:4 Çankaya
+K039;web;2026-07-26;Deniz Şahin;05417431431;deniz.sahin@ornek.com.tr;Bağdat Cad.
+K040;erp;2026-01-30;ALI DOĞAN;0545 964 84 35;ali.dogan@ornek.com.tr;Atatürk Cad. No:40 Çankaya
+K040;crm;2026-06-02;Ali Doğan;0545 964 84 35;ali.dogan@ornek.com.tr;Atatürk Cad. No:40 Çankaya
+K041;erp;2026-02-05;DERYA AYDIN;0553 907 96 92;;Gazi Bulvarı No:8 Nilüfer
+K041;crm;2026-08-31;Derya Aydın;0553 907 96 92;derya.aydin@ornek.com.tr;Gazi Bulvarı No:8 Nilüfer
+K041;web;2026-09-01;Derya Aydın;;derya.aydin@ornek.com.tr;Gazi Bulvarı No:8 Nilüfer
+K042;erp;2026-02-13;DENIZ YILMAZ;;;Atatürk Cad. No:114 Eski Adres
+K042;crm;2026-08-11;Deniz;0545 585 69 11;deniz.yilmaz@ornek.com.tr;Gazi Bulvarı No:37 Kadıköy
+K042;web;2026-08-13;deniz yılmaz;;deniz.yilmaz@ornek.com.tr;Gazi Bulvarı No:37 Kadıköy
+K043;erp;2026-01-19;GIZEM YILMAZ;;gizem.yilmaz@ornek.com.tr;Bağdat Cad. No:119 Eski Adres
+K043;crm;2026-08-12;Gizem Yılmaz;0541 701 92 14;gizem.yilmaz@ornek.com.tr;Cumhuriyet Mah. No:66 Konak
+K043;web;2026-07-22;gizem yılmaz;;gizem.yilmaz@ornek.com.tr;Cumhuriyet Mah.
+K044;erp;2026-02-20;AYŞE DOĞAN;0547 724 81 33;;Atatürk Cad. No:88 Eski Adres
+K044;crm;2026-09-29;Ayşe Doğan;0547 724 81 33;ayse.dogan@ornek.com.tr;İnönü Sok. No:83 Konak
+K044;web;2026-10-18;ayşe doğan;05477248133;ayse.dogan@ornek.com.tr;İnönü Sok.
+K045;erp;2026-01-22;DENIZ YILMAZ;0538 125 29 63;deniz.yilmaz@ornek.com.tr;Atatürk Cad. No:34 Eski Adres
+K045;crm;2026-06-08;Deniz;0538 125 29 63;;Gazi Bulvarı No:101 Konak
+K045;web;2026-09-19;Deniz Yılmaz;;deniz.yilmaz@ornek.com.tr;Gazi Bulvarı No:101 Konak
+K046;erp;2026-01-20;AYŞE AYDIN;0538 361 63 33;ayse.aydin@ornek.com.tr;Atatürk Cad. No:12 Eski Adres
+K046;crm;2026-08-04;Ayşe Aydın;0538 361 63 33;ayse.aydin@ornek.com.tr;Cumhuriyet Mah. No:29 Çankaya
+K046;web;2026-07-25;ayşe aydın;05383616333;ayse.aydin@ornek.com.tr;Cumhuriyet Mah.
+K047;erp;2026-01-31;EMRE DOĞAN;;;Cumhuriyet Mah. No:80 Konak
+K047;crm;2026-06-19;Emre Doğan;0539 762 25 69;;Cumhuriyet Mah. No:80 Konak
+K047;web;2026-08-09;emre doğan;05397622569;emre.dogan@ornek.com.tr;Cumhuriyet Mah.
+K048;erp;2026-02-24;KEREM ÖZTÜRK;;;İnönü Sok. No:73 Eski Adres
+K048;crm;2026-08-22;Kerem Öztürk;0559 797 72 61;kerem.ozturk@ornek.com.tr;Gazi Bulvarı No:19 Nilüfer
+K048;web;2026-09-25;Kerem Öztürk;;kerem.ozturk@ornek.com.tr;Gazi Bulvarı
+K049;erp;2026-02-27;GIZEM YILDIZ;0548 307 56 26;;Cumhuriyet Mah. No:3 Konak
+K049;crm;2026-07-24;Gizem Yıldız;0548 307 56 26;gizem.yildiz@ornek.com.tr;Cumhuriyet Mah. No:3 Konak
+K049;web;2026-10-02;gizem yıldız;;gizem.yildiz@ornek.com.tr;Cumhuriyet Mah.
+K050;erp;2026-02-11;KEREM KAYA;0544 931 24 75;;Atatürk Cad. No:57 Konak
+K050;crm;2026-07-05;Kerem Kaya;0544 931 24 75;kerem.kaya@ornek.com.tr;Atatürk Cad. No:57 Konak
+K050;web;2026-08-15;kerem kaya;;kerem.kaya@ornek.com.tr;Atatürk Cad. No:57 Konak
+K051;erp;2026-02-07;ECE ÇELIK;;;Atatürk Cad. No:23 Eski Adres
+K051;crm;2026-07-18;Ece Çelik;0545 429 84 17;ece.celik@ornek.com.tr;Gazi Bulvarı No:70 Kadıköy
+K052;erp;2026-02-18;BURAK KAYA;0550 229 97 58;;Atatürk Cad. No:98 Eski Adres
+K052;crm;2026-09-23;Burak Kaya;0550 229 97 58;burak.kaya@ornek.com.tr;Atatürk Cad. No:97 Konak
+K052;web;2026-08-24;Burak Kaya;05502299758;burak.kaya@ornek.com.tr;Atatürk Cad.
+K053;erp;2026-01-29;MEHMET KAYA;;;İnönü Sok. No:112 Konak
+K053;crm;2026-05-04;Mehmet;0537 157 51 18;mehmet.kaya@ornek.com.tr;İnönü Sok. No:112 Konak
+K053;web;2026-10-18;mehmet kaya;;mehmet.kaya@ornek.com.tr;İnönü Sok. No:112 Konak
+K054;erp;2026-01-30;DENIZ DEMIR;;;Atatürk Cad. No:64 Konak
+K054;crm;2026-08-02;Deniz Demir;0550 543 10 28;deniz.demir@ornek.com.tr;Atatürk Cad. No:64 Konak
+K054;web;2026-08-04;deniz demir;05505431028;deniz.demir@ornek.com.tr;Atatürk Cad.
+K055;erp;2026-01-11;MEHMET ARSLAN;;;Bağdat Cad. No:77 Eski Adres
+K055;crm;2026-06-26;Mehmet Arslan;0554 387 61 85;;Bağdat Cad. No:49 Nilüfer
+K055;web;2026-07-31;Mehmet Arslan;;mehmet.arslan@ornek.com.tr;Bağdat Cad. No:49 Nilüfer
+K056;erp;2026-01-25;EMRE ÖZTÜRK;;;Atatürk Cad. No:115 Kadıköy
+K056;crm;2026-07-11;Emre Öztürk;0547 897 35 35;;Atatürk Cad. No:115 Kadıköy
+K056;web;2026-08-17;Emre Öztürk;05478973535;emre.ozturk@ornek.com.tr;Atatürk Cad.
+K057;erp;2026-01-02;DERYA ÇELIK;;;Bağdat Cad. No:27 Nilüfer
+K057;crm;2026-09-23;Derya Çelik;0559 140 34 63;;Bağdat Cad. No:27 Nilüfer
+K057;web;2026-07-22;derya çelik;05591403463;derya.celik@ornek.com.tr;Bağdat Cad. No:27 Nilüfer
+K058;erp;2026-02-19;DERYA AYDIN;;;Bağdat Cad. No:6 Eski Adres
+K058;crm;2026-06-22;Derya Aydın;0543 593 94 94;derya.aydin@ornek.com.tr;Atatürk Cad. No:105 Nilüfer
+K058;web;2026-09-19;Derya Aydın;;derya.aydin@ornek.com.tr;Atatürk Cad. No:105 Nilüfer
+K059;erp;2026-01-06;KEREM ÖZTÜRK;0555 677 59 51;;Cumhuriyet Mah. No:74 Eski Adres
+K059;crm;2026-07-10;Kerem Öztürk;0555 677 59 51;kerem.ozturk@ornek.com.tr;Atatürk Cad. No:62 Kadıköy
+K059;web;2026-08-17;kerem öztürk;05556775951;kerem.ozturk@ornek.com.tr;Atatürk Cad.
+K060;erp;2026-01-06;BURAK KAYA;;;Gazi Bulvarı No:42 Kadıköy
+K060;crm;2026-05-05;Burak;0531 521 68 57;burak.kaya@ornek.com.tr;Gazi Bulvarı No:42 Kadıköy
+K060;web;2026-08-11;burak kaya;;burak.kaya@ornek.com.tr;Gazi Bulvarı

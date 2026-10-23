@@ -1,0 +1,12 @@
+tablo;filtre_kolonlari;calisma
+satis.siparis;siparis_tarihi|musteri_id;1800
+satis.siparis;siparis_tarihi|magaza_id;1400
+satis.siparis;urun_id;900
+satis.siparis;siparis_tarihi|durum;700
+satis.siparis;musteri_id;650
+satis.siparis;kanal;120
+web.olay;olay_tarihi|kullanici_id;2600
+web.olay;olay_tarihi|sayfa;900
+web.olay;oturum_id;1100
+web.olay;olay_tarihi|olay_tipi;800
+web.olay;ulke;150

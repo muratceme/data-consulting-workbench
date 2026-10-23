@@ -1,0 +1,16 @@
+servis;seviye;gunluk_satir;ort_bayt
+siparis-api;DEBUG;42000000;310
+siparis-api;INFO;18000000;280
+siparis-api;WARN;210000;420
+siparis-api;ERROR;18000;1900
+odeme-api;DEBUG;9000000;350
+odeme-api;INFO;6500000;300
+odeme-api;WARN;40000;450
+odeme-api;ERROR;6000;2100
+katalog-api;DEBUG;65000000;260
+katalog-api;INFO;30000000;240
+katalog-api;WARN;90000;380
+katalog-api;ERROR;4000;1700
+ingress;INFO;120000000;520
+ingress;WARN;300000;540
+ingress;ERROR;50000;600

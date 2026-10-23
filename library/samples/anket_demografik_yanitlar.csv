@@ -1,0 +1,601 @@
+yanit_id;cinsiyet;yas_grubu;bolge;egitim;memnuniyet
+Y0001;K;18-34;Marmara;üniversite;1
+Y0002;K;18-34;Ege;lise;2
+Y0003;E;35-54;Diğer;lise;4
+Y0004;E;18-34;Ege;üniversite;4
+Y0005;K;35-54;Marmara;üniversite;3
+Y0006;E;35-54;Marmara;üniversite;3
+Y0007;K;55+;Ege;üniversite;4
+Y0008;K;35-54;Marmara;üniversite;3
+Y0009;E;18-34;Marmara;üniversite;2
+Y0010;K;18-34;Marmara;ilk-orta;4
+Y0011;K;35-54;Marmara;üniversite;1
+Y0012;E;18-34;Marmara;ilk-orta;3
+Y0013;K;35-54;Diğer;üniversite;4
+Y0014;K;55+;Ege;üniversite;4
+Y0015;K;18-34;Diğer;üniversite;3
+Y0016;E;35-54;Marmara;lise;4
+Y0017;E;18-34;Marmara;üniversite;3
+Y0018;K;55+;Marmara;üniversite;5
+Y0019;E;35-54;Marmara;ilk-orta;4
+Y0020;E;18-34;Marmara;lise;3
+Y0021;K;18-34;Marmara;üniversite;5
+Y0022;K;35-54;İç Anadolu;lise;5
+Y0023;E;55+;Diğer;ilk-orta;2
+Y0024;E;18-34;İç Anadolu;ilk-orta;2
+Y0025;E;35-54;Marmara;lise;2
+Y0026;E;55+;Diğer;lise;3
+Y0027;K;35-54;İç Anadolu;üniversite;3
+Y0028;K;18-34;Ege;üniversite;2
+Y0029;K;18-34;İç Anadolu;ilk-orta;3
+Y0030;K;18-34;Diğer;üniversite;4
+Y0031;K;35-54;Ege;üniversite;4
+Y0032;K;35-54;Marmara;lise;3
+Y0033;K;35-54;Marmara;üniversite;2
+Y0034;E;18-34;Marmara;üniversite;3
+Y0035;K;18-34;Ege;üniversite;2
+Y0036;K;35-54;Ege;lise;3
+Y0037;K;35-54;Marmara;ilk-orta;1
+Y0038;E;35-54;Marmara;üniversite;3
+Y0039;K;18-34;Marmara;üniversite;4
+Y0040;E;18-34;Ege;ilk-orta;3
+Y0041;K;18-34;Diğer;ilk-orta;3
+Y0042;E;18-34;Diğer;lise;4
+Y0043;E;18-34;Diğer;üniversite;5
+Y0044;E;55+;Diğer;lise;3
+Y0045;E;35-54;Marmara;ilk-orta;4
+Y0046;K;55+;İç Anadolu;lise;3
+Y0047;E;18-34;Marmara;üniversite;4
+Y0048;E;35-54;İç Anadolu;ilk-orta;3
+Y0049;E;18-34;Marmara;üniversite;3
+Y0050;E;55+;Marmara;lise;4
+Y0051;K;35-54;Marmara;üniversite;3
+Y0052;K;55+;İç Anadolu;üniversite;5
+Y0053;K;18-34;Marmara;lise;3
+Y0054;K;35-54;Diğer;üniversite;4
+Y0055;E;55+;Ege;üniversite;3
+Y0056;E;55+;Diğer;üniversite;4
+Y0057;E;55+;Diğer;üniversite;5
+Y0058;K;18-34;Marmara;lise;3
+Y0059;K;35-54;İç Anadolu;ilk-orta;5
+Y0060;E;18-34;Marmara;lise;2
+Y0061;K;55+;Diğer;üniversite;3
+Y0062;E;18-34;Marmara;üniversite;3
+Y0063;K;18-34;İç Anadolu;ilk-orta;2
+Y0064;E;18-34;Diğer;lise;3
+Y0065;E;35-54;Diğer;ilk-orta;4
+Y0066;K;18-34;İç Anadolu;ilk-orta;3
+Y0067;K;55+;Ege;üniversite;5
+Y0068;K;55+;Marmara;lise;5
+Y0069;E;35-54;Marmara;lise;2
+Y0070;K;18-34;İç Anadolu;lise;3
+Y0071;K;18-34;Marmara;lise;3
+Y0072;K;18-34;Marmara;lise;2
+Y0073;E;55+;Diğer;üniversite;4
+Y0074;K;18-34;Marmara;ilk-orta;4
+Y0075;K;55+;İç Anadolu;üniversite;2
+Y0076;E;35-54;Diğer;lise;3
+Y0077;K;18-34;Marmara;lise;2
+Y0078;E;18-34;Marmara;ilk-orta;3
+Y0079;K;35-54;Diğer;lise;3
+Y0080;K;18-34;Marmara;üniversite;1
+Y0081;K;55+;Marmara;üniversite;3
+Y0082;K;35-54;Marmara;ilk-orta;3
+Y0083;K;18-34;İç Anadolu;lise;4
+Y0084;K;18-34;Ege;ilk-orta;2
+Y0085;K;35-54;Marmara;ilk-orta;4
+Y0086;E;35-54;İç Anadolu;ilk-orta;4
+Y0087;K;18-34;Marmara;lise;2
+Y0088;K;35-54;Marmara;lise;3
+Y0089;K;35-54;Ege;lise;4
+Y0090;E;35-54;Diğer;lise;3
+Y0091;K;18-34;Marmara;üniversite;4
+Y0092;K;35-54;Marmara;üniversite;4
+Y0093;E;55+;Ege;ilk-orta;4
+Y0094;E;18-34;Marmara;lise;2
+Y0095;K;55+;Diğer;lise;4
+Y0096;E;18-34;Diğer;lise;3
+Y0097;K;18-34;Marmara;ilk-orta;1
+Y0098;E;18-34;Marmara;lise;3
+Y0099;K;55+;Ege;lise;3
+Y0100;E;18-34;Diğer;üniversite;2
+Y0101;E;18-34;Marmara;üniversite;4
+Y0102;K;18-34;Marmara;lise;2
+Y0103;E;18-34;Ege;üniversite;3
+Y0104;E;18-34;İç Anadolu;üniversite;4
+Y0105;E;18-34;İç Anadolu;üniversite;3
+Y0106;E;55+;Marmara;ilk-orta;5
+Y0107;K;35-54;Diğer;üniversite;1
+Y0108;E;35-54;Marmara;ilk-orta;3
+Y0109;K;18-34;Marmara;üniversite;3
+Y0110;E;18-34;İç Anadolu;üniversite;5
+Y0111;E;18-34;Diğer;üniversite;4
+Y0112;E;55+;Diğer;üniversite;5
+Y0113;K;35-54;Ege;üniversite;3
+Y0114;K;55+;İç Anadolu;üniversite;5
+Y0115;K;18-34;İç Anadolu;üniversite;2
+Y0116;E;35-54;İç Anadolu;üniversite;5
+Y0117;E;18-34;Marmara;lise;3
+Y0118;K;18-34;Marmara;üniversite;2
+Y0119;K;18-34;Marmara;üniversite;4
+Y0120;E;18-34;Ege;lise;2
+Y0121;K;35-54;Marmara;lise;3
+Y0122;E;18-34;İç Anadolu;ilk-orta;4
+Y0123;K;18-34;Ege;lise;3
+Y0124;K;18-34;Marmara;üniversite;1
+Y0125;E;35-54;Ege;üniversite;3
+Y0126;K;18-34;Diğer;ilk-orta;3
+Y0127;K;35-54;Marmara;lise;3
+Y0128;E;18-34;Ege;lise;3
+Y0129;E;35-54;Marmara;lise;2
+Y0130;K;18-34;Marmara;üniversite;4
+Y0131;K;18-34;Diğer;lise;4
+Y0132;E;35-54;Marmara;ilk-orta;2
+Y0133;E;18-34;Diğer;üniversite;4
+Y0134;E;18-34;Ege;üniversite;4
+Y0135;K;18-34;Marmara;ilk-orta;4
+Y0136;E;18-34;Marmara;lise;4
+Y0137;K;35-54;Marmara;ilk-orta;2
+Y0138;K;18-34;Marmara;üniversite;4
+Y0139;K;18-34;Diğer;ilk-orta;3
+Y0140;E;35-54;Ege;ilk-orta;4
+Y0141;E;18-34;Diğer;üniversite;4
+Y0142;K;18-34;Ege;üniversite;3
+Y0143;E;18-34;Marmara;üniversite;3
+Y0144;K;18-34;İç Anadolu;üniversite;1
+Y0145;K;55+;İç Anadolu;üniversite;4
+Y0146;K;35-54;İç Anadolu;üniversite;2
+Y0147;E;55+;İç Anadolu;lise;4
+Y0148;K;18-34;İç Anadolu;üniversite;2
+Y0149;K;18-34;Marmara;üniversite;1
+Y0150;K;18-34;Marmara;üniversite;2
+Y0151;K;35-54;İç Anadolu;lise;4
+Y0152;E;18-34;Marmara;lise;4
+Y0153;K;35-54;İç Anadolu;lise;2
+Y0154;E;55+;Marmara;lise;4
+Y0155;E;18-34;Marmara;lise;3
+Y0156;E;55+;Marmara;üniversite;5
+Y0157;K;35-54;Marmara;lise;3
+Y0158;K;18-34;Diğer;lise;5
+Y0159;K;35-54;Ege;üniversite;2
+Y0160;E;18-34;Diğer;lise;4
+Y0161;K;18-34;Diğer;üniversite;3
+Y0162;E;18-34;Ege;lise;5
+Y0163;E;35-54;Marmara;ilk-orta;2
+Y0164;K;35-54;Diğer;lise;4
+Y0165;K;35-54;Marmara;ilk-orta;4
+Y0166;K;18-34;Diğer;lise;4
+Y0167;K;18-34;Marmara;lise;3
+Y0168;E;18-34;Diğer;lise;3
+Y0169;E;55+;İç Anadolu;lise;4
+Y0170;K;35-54;Marmara;lise;3
+Y0171;E;35-54;Diğer;üniversite;3
+Y0172;E;18-34;Ege;ilk-orta;3
+Y0173;K;18-34;İç Anadolu;üniversite;3
+Y0174;K;18-34;Marmara;ilk-orta;2
+Y0175;K;35-54;Marmara;lise;2
+Y0176;E;35-54;İç Anadolu;ilk-orta;3
+Y0177;K;55+;İç Anadolu;lise;4
+Y0178;K;35-54;İç Anadolu;üniversite;4
+Y0179;E;55+;Diğer;ilk-orta;3
+Y0180;K;18-34;İç Anadolu;lise;2
+Y0181;K;18-34;Diğer;ilk-orta;5
+Y0182;E;18-34;Ege;lise;2
+Y0183;K;35-54;Ege;ilk-orta;4
+Y0184;K;18-34;Marmara;lise;2
+Y0185;E;55+;Diğer;üniversite;3
+Y0186;K;18-34;Marmara;üniversite;3
+Y0187;K;18-34;Marmara;üniversite;4
+Y0188;K;18-34;İç Anadolu;üniversite;4
+Y0189;E;18-34;İç Anadolu;lise;2
+Y0190;E;18-34;Marmara;lise;5
+Y0191;K;35-54;Marmara;lise;3
+Y0192;K;35-54;Marmara;üniversite;2
+Y0193;K;35-54;Marmara;lise;1
+Y0194;K;18-34;Marmara;lise;3
+Y0195;K;18-34;Marmara;lise;3
+Y0196;K;18-34;Ege;üniversite;4
+Y0197;E;18-34;İç Anadolu;lise;2
+Y0198;E;35-54;İç Anadolu;lise;3
+Y0199;K;18-34;Marmara;lise;1
+Y0200;E;18-34;Ege;lise;2
+Y0201;K;18-34;Diğer;lise;3
+Y0202;K;55+;Diğer;üniversite;5
+Y0203;K;35-54;İç Anadolu;lise;3
+Y0204;K;18-34;Diğer;üniversite;2
+Y0205;K;18-34;Ege;lise;4
+Y0206;K;18-34;Marmara;lise;2
+Y0207;K;35-54;Diğer;üniversite;2
+Y0208;K;18-34;İç Anadolu;üniversite;3
+Y0209;K;35-54;Marmara;lise;4
+Y0210;K;18-34;Marmara;üniversite;4
+Y0211;K;18-34;Ege;ilk-orta;2
+Y0212;E;35-54;Diğer;üniversite;3
+Y0213;K;35-54;Ege;üniversite;4
+Y0214;E;55+;Marmara;üniversite;2
+Y0215;E;55+;Marmara;üniversite;5
+Y0216;K;18-34;Marmara;lise;3
+Y0217;K;18-34;İç Anadolu;üniversite;3
+Y0218;E;18-34;Marmara;üniversite;3
+Y0219;K;35-54;Marmara;üniversite;2
+Y0220;E;18-34;Marmara;lise;3
+Y0221;K;55+;Marmara;ilk-orta;1
+Y0222;K;55+;İç Anadolu;lise;4
+Y0223;E;35-54;Ege;üniversite;2
+Y0224;K;18-34;Marmara;lise;2
+Y0225;K;55+;Diğer;üniversite;4
+Y0226;K;18-34;Diğer;üniversite;2
+Y0227;E;18-34;Ege;üniversite;1
+Y0228;E;35-54;Marmara;lise;3
+Y0229;E;18-34;Diğer;lise;3
+Y0230;K;55+;İç Anadolu;lise;3
+Y0231;K;18-34;Ege;üniversite;3
+Y0232;K;18-34;Diğer;üniversite;4
+Y0233;K;18-34;Diğer;üniversite;4
+Y0234;K;18-34;Marmara;lise;2
+Y0235;E;35-54;Marmara;lise;4
+Y0236;K;35-54;Diğer;lise;4
+Y0237;E;18-34;Marmara;ilk-orta;4
+Y0238;K;18-34;Marmara;ilk-orta;1
+Y0239;E;18-34;Marmara;lise;3
+Y0240;E;35-54;Marmara;ilk-orta;2
+Y0241;E;18-34;İç Anadolu;ilk-orta;3
+Y0242;K;18-34;Marmara;ilk-orta;2
+Y0243;K;35-54;Marmara;üniversite;2
+Y0244;K;18-34;İç Anadolu;lise;2
+Y0245;K;18-34;İç Anadolu;lise;3
+Y0246;E;18-34;Diğer;ilk-orta;2
+Y0247;K;35-54;Marmara;lise;2
+Y0248;K;55+;Ege;üniversite;4
+Y0249;E;18-34;İç Anadolu;ilk-orta;2
+Y0250;K;18-34;Marmara;üniversite;2
+Y0251;K;35-54;Diğer;lise;3
+Y0252;K;18-34;Marmara;üniversite;3
+Y0253;E;18-34;Marmara;lise;4
+Y0254;K;18-34;Marmara;lise;5
+Y0255;K;18-34;İç Anadolu;lise;2
+Y0256;K;35-54;İç Anadolu;üniversite;2
+Y0257;E;55+;Ege;lise;5
+Y0258;K;35-54;Marmara;lise;4
+Y0259;E;18-34;Marmara;lise;4
+Y0260;K;35-54;İç Anadolu;ilk-orta;3
+Y0261;E;18-34;Marmara;lise;4
+Y0262;K;18-34;Diğer;ilk-orta;4
+Y0263;K;18-34;Ege;ilk-orta;4
+Y0264;E;18-34;Marmara;üniversite;3
+Y0265;K;35-54;Diğer;üniversite;3
+Y0266;K;18-34;Diğer;üniversite;1
+Y0267;K;55+;Ege;lise;3
+Y0268;E;18-34;Marmara;üniversite;4
+Y0269;K;18-34;Marmara;üniversite;2
+Y0270;K;55+;Marmara;ilk-orta;5
+Y0271;K;18-34;Marmara;lise;1
+Y0272;K;18-34;Diğer;lise;3
+Y0273;K;35-54;Diğer;üniversite;3
+Y0274;K;18-34;Diğer;üniversite;2
+Y0275;K;18-34;İç Anadolu;üniversite;3
+Y0276;K;18-34;Ege;ilk-orta;3
+Y0277;K;18-34;Marmara;lise;1
+Y0278;K;55+;Marmara;lise;3
+Y0279;E;18-34;Marmara;ilk-orta;2
+Y0280;E;35-54;Diğer;üniversite;2
+Y0281;E;18-34;İç Anadolu;üniversite;3
+Y0282;K;18-34;Marmara;ilk-orta;3
+Y0283;K;18-34;İç Anadolu;lise;2
+Y0284;K;18-34;Ege;lise;1
+Y0285;E;55+;Diğer;lise;5
+Y0286;E;18-34;Marmara;lise;2
+Y0287;K;18-34;İç Anadolu;ilk-orta;1
+Y0288;K;18-34;İç Anadolu;üniversite;4
+Y0289;K;18-34;İç Anadolu;ilk-orta;3
+Y0290;K;18-34;Diğer;ilk-orta;4
+Y0291;E;35-54;Diğer;ilk-orta;5
+Y0292;K;18-34;Marmara;lise;4
+Y0293;K;18-34;Marmara;üniversite;3
+Y0294;E;18-34;Marmara;lise;2
+Y0295;E;18-34;Diğer;ilk-orta;4
+Y0296;E;35-54;İç Anadolu;üniversite;2
+Y0297;K;18-34;Ege;lise;3
+Y0298;K;18-34;İç Anadolu;üniversite;4
+Y0299;K;55+;İç Anadolu;ilk-orta;4
+Y0300;E;18-34;Diğer;lise;3
+Y0301;K;18-34;İç Anadolu;ilk-orta;2
+Y0302;K;18-34;Diğer;ilk-orta;3
+Y0303;K;55+;İç Anadolu;ilk-orta;3
+Y0304;K;55+;Marmara;ilk-orta;3
+Y0305;E;18-34;Diğer;lise;2
+Y0306;K;35-54;Marmara;üniversite;1
+Y0307;E;35-54;Ege;lise;2
+Y0308;K;35-54;Diğer;üniversite;3
+Y0309;E;35-54;İç Anadolu;üniversite;3
+Y0310;E;18-34;İç Anadolu;lise;4
+Y0311;E;18-34;Marmara;lise;5
+Y0312;K;18-34;Diğer;lise;5
+Y0313;K;18-34;Diğer;lise;5
+Y0314;K;18-34;İç Anadolu;ilk-orta;2
+Y0315;K;35-54;Diğer;üniversite;4
+Y0316;K;55+;İç Anadolu;ilk-orta;3
+Y0317;E;18-34;Ege;ilk-orta;3
+Y0318;K;35-54;Ege;üniversite;1
+Y0319;K;18-34;Ege;üniversite;3
+Y0320;K;35-54;Marmara;üniversite;3
+Y0321;E;18-34;Marmara;ilk-orta;3
+Y0322;K;55+;Marmara;ilk-orta;4
+Y0323;K;18-34;Marmara;lise;4
+Y0324;K;18-34;İç Anadolu;üniversite;2
+Y0325;E;18-34;Ege;ilk-orta;2
+Y0326;K;35-54;Marmara;lise;3
+Y0327;E;18-34;Ege;lise;3
+Y0328;K;35-54;İç Anadolu;lise;2
+Y0329;K;18-34;Ege;ilk-orta;3
+Y0330;K;18-34;İç Anadolu;lise;4
+Y0331;E;18-34;Ege;üniversite;1
+Y0332;E;18-34;İç Anadolu;lise;2
+Y0333;K;35-54;Ege;üniversite;3
+Y0334;K;35-54;Diğer;üniversite;3
+Y0335;K;35-54;Marmara;ilk-orta;2
+Y0336;E;35-54;Marmara;lise;3
+Y0337;E;35-54;İç Anadolu;üniversite;3
+Y0338;K;35-54;Marmara;lise;1
+Y0339;K;35-54;Marmara;lise;3
+Y0340;E;35-54;Marmara;lise;3
+Y0341;E;35-54;Marmara;ilk-orta;3
+Y0342;K;35-54;Marmara;üniversite;2
+Y0343;K;18-34;Ege;üniversite;4
+Y0344;E;35-54;Marmara;lise;2
+Y0345;K;18-34;Marmara;lise;3
+Y0346;K;35-54;Diğer;ilk-orta;4
+Y0347;E;35-54;Marmara;lise;3
+Y0348;K;55+;Ege;lise;3
+Y0349;K;18-34;Marmara;üniversite;3
+Y0350;E;18-34;Marmara;lise;4
+Y0351;K;18-34;Marmara;üniversite;1
+Y0352;K;18-34;Marmara;lise;2
+Y0353;E;35-54;İç Anadolu;lise;2
+Y0354;K;18-34;Marmara;üniversite;2
+Y0355;K;18-34;Marmara;üniversite;2
+Y0356;K;55+;Marmara;lise;4
+Y0357;E;55+;Marmara;lise;5
+Y0358;E;55+;Marmara;üniversite;2
+Y0359;E;18-34;Diğer;üniversite;4
+Y0360;K;35-54;Diğer;lise;4
+Y0361;E;18-34;Diğer;üniversite;4
+Y0362;K;18-34;Marmara;lise;3
+Y0363;E;55+;Marmara;ilk-orta;1
+Y0364;K;18-34;İç Anadolu;lise;2
+Y0365;E;35-54;İç Anadolu;üniversite;3
+Y0366;K;18-34;Diğer;lise;2
+Y0367;K;18-34;Marmara;üniversite;4
+Y0368;K;35-54;İç Anadolu;ilk-orta;1
+Y0369;E;35-54;Marmara;lise;5
+Y0370;K;18-34;Diğer;üniversite;4
+Y0371;E;35-54;Marmara;lise;3
+Y0372;E;55+;Marmara;üniversite;4
+Y0373;K;35-54;Ege;lise;2
+Y0374;E;18-34;Marmara;üniversite;4
+Y0375;E;35-54;Marmara;ilk-orta;1
+Y0376;K;35-54;Diğer;ilk-orta;2
+Y0377;K;18-34;Marmara;ilk-orta;4
+Y0378;E;18-34;İç Anadolu;üniversite;3
+Y0379;K;18-34;Marmara;üniversite;2
+Y0380;E;18-34;Marmara;ilk-orta;3
+Y0381;K;18-34;Marmara;ilk-orta;3
+Y0382;K;18-34;Marmara;lise;3
+Y0383;E;18-34;Diğer;üniversite;4
+Y0384;E;18-34;Diğer;üniversite;3
+Y0385;E;18-34;Marmara;ilk-orta;3
+Y0386;K;18-34;İç Anadolu;üniversite;1
+Y0387;E;35-54;Marmara;lise;3
+Y0388;K;18-34;İç Anadolu;üniversite;2
+Y0389;K;18-34;Marmara;lise;4
+Y0390;K;35-54;İç Anadolu;lise;4
+Y0391;K;18-34;İç Anadolu;üniversite;4
+Y0392;K;55+;İç Anadolu;ilk-orta;4
+Y0393;K;55+;Marmara;lise;4
+Y0394;K;18-34;İç Anadolu;lise;1
+Y0395;E;35-54;İç Anadolu;üniversite;3
+Y0396;E;35-54;Diğer;üniversite;3
+Y0397;K;55+;Marmara;üniversite;5
+Y0398;K;35-54;Marmara;üniversite;2
+Y0399;K;18-34;İç Anadolu;üniversite;3
+Y0400;E;35-54;Ege;lise;4
+Y0401;K;18-34;İç Anadolu;lise;3
+Y0402;K;35-54;Marmara;üniversite;2
+Y0403;E;18-34;Marmara;lise;4
+Y0404;E;18-34;Marmara;üniversite;3
+Y0405;E;55+;Ege;üniversite;3
+Y0406;E;18-34;Diğer;üniversite;2
+Y0407;K;35-54;Marmara;üniversite;2
+Y0408;K;18-34;İç Anadolu;lise;2
+Y0409;K;18-34;Ege;üniversite;1
+Y0410;K;35-54;Ege;üniversite;1
+Y0411;E;18-34;İç Anadolu;üniversite;3
+Y0412;E;18-34;Marmara;ilk-orta;4
+Y0413;E;35-54;Ege;lise;3
+Y0414;K;18-34;Marmara;üniversite;2
+Y0415;E;18-34;Diğer;üniversite;4
+Y0416;K;55+;Marmara;üniversite;3
+Y0417;E;18-34;İç Anadolu;ilk-orta;3
+Y0418;K;55+;Diğer;lise;3
+Y0419;E;35-54;Ege;ilk-orta;4
+Y0420;K;18-34;Diğer;üniversite;3
+Y0421;E;35-54;Marmara;üniversite;2
+Y0422;K;18-34;Diğer;lise;4
+Y0423;K;55+;Marmara;üniversite;4
+Y0424;K;18-34;İç Anadolu;lise;4
+Y0425;E;18-34;Ege;üniversite;3
+Y0426;K;18-34;Diğer;üniversite;2
+Y0427;E;35-54;Marmara;lise;4
+Y0428;K;18-34;Marmara;üniversite;5
+Y0429;K;35-54;İç Anadolu;üniversite;2
+Y0430;K;18-34;Ege;üniversite;4
+Y0431;E;18-34;İç Anadolu;üniversite;2
+Y0432;K;18-34;Marmara;lise;3
+Y0433;E;35-54;İç Anadolu;lise;3
+Y0434;K;18-34;Marmara;üniversite;2
+Y0435;K;18-34;Diğer;üniversite;2
+Y0436;E;18-34;Diğer;ilk-orta;3
+Y0437;K;35-54;Marmara;üniversite;2
+Y0438;E;18-34;Marmara;üniversite;4
+Y0439;K;18-34;İç Anadolu;üniversite;3
+Y0440;K;18-34;İç Anadolu;lise;3
+Y0441;E;18-34;İç Anadolu;lise;3
+Y0442;K;55+;İç Anadolu;üniversite;3
+Y0443;K;35-54;Marmara;üniversite;2
+Y0444;K;35-54;Diğer;üniversite;4
+Y0445;K;18-34;Diğer;lise;4
+Y0446;K;35-54;Marmara;ilk-orta;2
+Y0447;K;35-54;Marmara;ilk-orta;3
+Y0448;K;18-34;İç Anadolu;lise;3
+Y0449;K;18-34;Ege;üniversite;4
+Y0450;K;35-54;İç Anadolu;lise;4
+Y0451;K;18-34;Ege;lise;4
+Y0452;K;55+;Diğer;üniversite;2
+Y0453;E;18-34;İç Anadolu;ilk-orta;3
+Y0454;E;55+;İç Anadolu;ilk-orta;4
+Y0455;K;18-34;Diğer;ilk-orta;5
+Y0456;K;35-54;Marmara;ilk-orta;3
+Y0457;K;18-34;İç Anadolu;ilk-orta;3
+Y0458;E;55+;Marmara;lise;4
+Y0459;K;35-54;Ege;lise;2
+Y0460;K;18-34;Ege;üniversite;4
+Y0461;K;18-34;Marmara;lise;4
+Y0462;E;18-34;Marmara;lise;4
+Y0463;E;18-34;İç Anadolu;ilk-orta;3
+Y0464;K;18-34;Marmara;üniversite;4
+Y0465;K;18-34;İç Anadolu;ilk-orta;4
+Y0466;K;35-54;Marmara;üniversite;2
+Y0467;E;55+;Marmara;üniversite;4
+Y0468;K;55+;Marmara;lise;3
+Y0469;E;35-54;Diğer;üniversite;4
+Y0470;E;18-34;Marmara;lise;4
+Y0471;E;18-34;Marmara;lise;5
+Y0472;K;18-34;Ege;üniversite;5
+Y0473;K;55+;İç Anadolu;üniversite;3
+Y0474;K;18-34;Ege;lise;2
+Y0475;E;18-34;İç Anadolu;ilk-orta;3
+Y0476;K;18-34;İç Anadolu;lise;5
+Y0477;K;55+;Marmara;ilk-orta;5
+Y0478;K;35-54;Ege;lise;2
+Y0479;K;55+;Marmara;üniversite;3
+Y0480;E;35-54;Marmara;üniversite;4
+Y0481;K;18-34;Diğer;üniversite;2
+Y0482;K;35-54;Ege;ilk-orta;2
+Y0483;E;18-34;Ege;lise;3
+Y0484;E;18-34;Marmara;ilk-orta;3
+Y0485;E;35-54;İç Anadolu;lise;3
+Y0486;K;18-34;Marmara;üniversite;3
+Y0487;K;18-34;Marmara;ilk-orta;2
+Y0488;E;35-54;Marmara;lise;3
+Y0489;K;18-34;İç Anadolu;lise;2
+Y0490;K;18-34;Diğer;lise;2
+Y0491;E;18-34;Ege;lise;4
+Y0492;E;35-54;Ege;üniversite;3
+Y0493;E;35-54;Ege;lise;3
+Y0494;E;18-34;Marmara;üniversite;2
+Y0495;K;18-34;İç Anadolu;üniversite;2
+Y0496;K;18-34;Marmara;lise;3
+Y0497;K;18-34;Ege;üniversite;3
+Y0498;E;35-54;İç Anadolu;lise;4
+Y0499;E;18-34;Marmara;ilk-orta;4
+Y0500;E;55+;Diğer;üniversite;5
+Y0501;K;18-34;Marmara;üniversite;2
+Y0502;E;18-34;Ege;ilk-orta;5
+Y0503;K;18-34;Ege;lise;3
+Y0504;K;35-54;İç Anadolu;üniversite;3
+Y0505;E;18-34;Marmara;lise;5
+Y0506;E;18-34;Diğer;üniversite;3
+Y0507;K;18-34;Marmara;lise;5
+Y0508;K;18-34;Ege;üniversite;5
+Y0509;K;55+;Diğer;üniversite;3
+Y0510;E;35-54;Marmara;lise;3
+Y0511;E;55+;İç Anadolu;lise;3
+Y0512;K;18-34;Marmara;ilk-orta;3
+Y0513;K;18-34;İç Anadolu;ilk-orta;2
+Y0514;E;18-34;Marmara;ilk-orta;2
+Y0515;E;18-34;Marmara;lise;1
+Y0516;E;35-54;Marmara;üniversite;2
+Y0517;K;18-34;Marmara;üniversite;3
+Y0518;K;18-34;İç Anadolu;üniversite;3
+Y0519;E;55+;Diğer;üniversite;3
+Y0520;K;35-54;Diğer;lise;3
+Y0521;K;35-54;Marmara;ilk-orta;2
+Y0522;K;35-54;İç Anadolu;üniversite;1
+Y0523;K;18-34;Marmara;üniversite;2
+Y0524;K;35-54;Diğer;ilk-orta;2
+Y0525;E;18-34;İç Anadolu;üniversite;2
+Y0526;K;18-34;Diğer;üniversite;1
+Y0527;K;35-54;Marmara;ilk-orta;4
+Y0528;E;35-54;Marmara;lise;3
+Y0529;K;55+;Marmara;üniversite;4
+Y0530;K;55+;Marmara;lise;4
+Y0531;E;18-34;Ege;lise;4
+Y0532;E;18-34;İç Anadolu;ilk-orta;2
+Y0533;K;18-34;Ege;üniversite;4
+Y0534;K;18-34;Diğer;lise;3
+Y0535;K;35-54;Ege;üniversite;2
+Y0536;E;18-34;Marmara;lise;3
+Y0537;K;35-54;Ege;lise;1
+Y0538;E;18-34;Diğer;lise;3
+Y0539;E;18-34;Marmara;lise;5
+Y0540;K;18-34;İç Anadolu;üniversite;3
+Y0541;K;18-34;Marmara;üniversite;2
+Y0542;K;18-34;Marmara;üniversite;2
+Y0543;K;35-54;Marmara;üniversite;2
+Y0544;E;55+;Marmara;lise;4
+Y0545;K;35-54;Marmara;üniversite;3
+Y0546;K;18-34;Marmara;ilk-orta;3
+Y0547;K;18-34;Diğer;üniversite;2
+Y0548;E;18-34;Marmara;üniversite;3
+Y0549;K;55+;Diğer;ilk-orta;5
+Y0550;E;35-54;Ege;üniversite;4
+Y0551;K;35-54;Marmara;üniversite;1
+Y0552;E;18-34;Marmara;üniversite;4
+Y0553;K;55+;Diğer;üniversite;5
+Y0554;E;18-34;Diğer;lise;2
+Y0555;E;18-34;Marmara;üniversite;2
+Y0556;E;18-34;İç Anadolu;lise;4
+Y0557;K;35-54;İç Anadolu;lise;3
+Y0558;E;35-54;Ege;lise;3
+Y0559;K;55+;Marmara;üniversite;3
+Y0560;K;35-54;İç Anadolu;üniversite;2
+Y0561;E;18-34;İç Anadolu;üniversite;4
+Y0562;E;35-54;Diğer;ilk-orta;4
+Y0563;E;18-34;İç Anadolu;lise;2
+Y0564;K;18-34;Diğer;lise;5
+Y0565;K;18-34;İç Anadolu;üniversite;2
+Y0566;K;18-34;Ege;üniversite;2
+Y0567;K;18-34;Ege;üniversite;2
+Y0568;K;18-34;İç Anadolu;üniversite;4
+Y0569;K;18-34;İç Anadolu;ilk-orta;1
+Y0570;E;18-34;Marmara;ilk-orta;4
+Y0571;K;18-34;İç Anadolu;lise;1
+Y0572;K;18-34;Diğer;üniversite;4
+Y0573;K;18-34;Marmara;ilk-orta;2
+Y0574;K;35-54;Marmara;lise;4
+Y0575;K;18-34;İç Anadolu;lise;4
+Y0576;K;18-34;Marmara;lise;2
+Y0577;E;35-54;Ege;ilk-orta;2
+Y0578;K;18-34;Diğer;ilk-orta;4
+Y0579;E;18-34;İç Anadolu;lise;3
+Y0580;K;18-34;Ege;lise;2
+Y0581;K;18-34;Marmara;üniversite;4
+Y0582;E;18-34;Ege;lise;2
+Y0583;E;18-34;İç Anadolu;üniversite;3
+Y0584;K;18-34;Marmara;lise;3
+Y0585;K;35-54;Marmara;üniversite;2
+Y0586;K;18-34;Marmara;lise;2
+Y0587;K;35-54;Ege;lise;2
+Y0588;K;18-34;Marmara;ilk-orta;3
+Y0589;K;18-34;Ege;üniversite;4
+Y0590;K;18-34;Diğer;ilk-orta;2
+Y0591;E;18-34;Marmara;üniversite;2
+Y0592;E;18-34;Marmara;lise;2
+Y0593;K;18-34;Marmara;lise;2
+Y0594;K;18-34;Ege;lise;2
+Y0595;K;35-54;Marmara;ilk-orta;3
+Y0596;K;18-34;Marmara;ilk-orta;2
+Y0597;K;35-54;Marmara;üniversite;2
+Y0598;E;18-34;Marmara;lise;3
+Y0599;K;35-54;Marmara;lise;3
+Y0600;E;35-54;İç Anadolu;üniversite;3

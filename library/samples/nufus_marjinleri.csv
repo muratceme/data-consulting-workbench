@@ -1,0 +1,13 @@
+degisken;kategori;oran
+cinsiyet;K;0.5
+cinsiyet;E;0.5
+yas_grubu;18-34;0.3
+yas_grubu;35-54;0.38
+yas_grubu;55+;0.32
+bolge;Marmara;0.31
+bolge;İç Anadolu;0.16
+bolge;Ege;0.13
+bolge;Diğer;0.4
+egitim;ilk-orta;0.3
+egitim;lise;0.37
+egitim;üniversite;0.33
