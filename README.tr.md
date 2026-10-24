@@ -2,6 +2,8 @@
 
 [English](README.md) · **Türkçe**
 
+`docs/` altındaki her belgenin İngilizcesi (`*.md`) ve Türkçesi (`*.tr.md`) vardır.
+
 Veri işleri için iki tür paket: **kod blokları** (aynı girdiden hep aynı sonuç; platform API çalıştırıcıları ve internete çıkmayan yerel araçlar) ve **AI agent’lar** (muhakeme adımı modelde, ayrıştırma ve denetim kodda). Kullanıcı sitede türü seçer. Site yalnızca keşif ve indirme arayüzüdür; anahtar veya veri toplamaz.
 
 ## Güncel durum
@@ -72,7 +74,7 @@ Her blok tek bir işi yapar; `library/blocks/<kategori>.py` içinde `islem.op(..
 
 **API ile bakım ve canlı denetim.** Kurulum dışında üç grup platform paketi daha vardır: API’si olan ama kurulum paketi olmayan programlar (Confluent, dbt Cloud, Databricks job, Prefect, Dagster, Airbyte, Fivetran, Purview/OpenMetadata/DataHub sözlüğü, Monte Carlo, Soda Cloud, GA4, Pinecone, Qdrant); dışa aktarılmış dosya yerine platformu doğrudan okuyan canlı denetimler (Power BI Scanner, Snowflake Account Usage, Databricks System Tables, Qlik/Tableau/Airflow/ADF geçmişi); kurulumdan sonraki günlük işler (Power BI dağıtım, zamanlama, RLS ve erişim; Qlik yayımlama, reload zamanı ve alan erişimi; Tableau yetki ve extract zamanı; Snowflake ve Unity Catalog yetki eşitleme). Yazan paketler önce hedefi okur: var olan kaynağın üzerine yazmaz, farklı yetkiyi değiştirmez, hak geri almaz; zamanlamalar açıkça istenmedikçe kapalı oluşturulur.
 
-**Danışman işleri araştırması.** Hangi platformda danışmanların gerçekte ne sattığı ve sitede hangi işlerin eksik olduğu, kaynaklarıyla birlikte [docs/DANISMAN-ARASTIRMASI.md](docs/DANISMAN-ARASTIRMASI.md) dosyasında. Eksik bulunan işler paketler hâlinde ekleniyor.
+**Danışman işleri araştırması.** Hangi platformda danışmanların gerçekte ne sattığı ve sitede hangi işlerin eksik olduğu, kaynaklarıyla birlikte [docs/DANISMAN-ARASTIRMASI.tr.md](docs/DANISMAN-ARASTIRMASI.tr.md) dosyasında. Eksik bulunan işler paketler hâlinde ekleniyor.
 
 **e-Fatura üretimi.** efatura-uret bloğunun örnek çıktıları geliştirme sırasında OASIS UBL 2.1 XSD’sinden, GİB’in UBL-TR 1.2.1 XSD’sinden ve GİB’in e-Fatura/e-Arşiv Schematron iş kurallarından (Saxon ile XSLT 2) hatasız geçti; kuralların devrede olduğu bozuk bir fatura numarası ve vergi koduyla denendi. Tevkifatlı, iade ve istisna faturaları da aynı kurallardan hatasız geçti; bloğun reddettiği her durum (koda uymayan tevkifat oranı, SATIS faturasında istisna kodu veya tevkifat, ticari senaryoda iade, referanssız iade, gerekçesiz %0 KDV) XML’e elle işlendiğinde GİB Schematron’u da aynı hatayı verdi. Üretilen XML mevcut efatura-csv okuyucusundan geri geçirilip tutarlar karşılaştırılır. e-İrsaliye üreticisinin örnek çıktıları da GİB UBL-TR 1.2.1 XSD’sinden ve Schematron kurallarından hatasız geçti (GİB’in kendi eski irsaliye örneği yeni teslim adresi kuralına takılır). XML’ler imzasızdır; imza ve GİB’e gönderim test edilmedi. Excel pivot raporu Open XML SDK’dan geçti ve openpyxl ile okundu; Excel’de açılarak test edilmedi.
 
@@ -200,8 +202,8 @@ Canlı uçtan uca test ayrı bir aşamadır: lisanslı sandbox, ilgili sürüm, 
 - `library/blocks/`, `library/agents/`, `library/samples/`: yerel paket kodu ve kurgusal örnek veriler (`scripts/make_samples.py` ikili örnekleri üretir).
 - `scripts/build.py` + `scripts/local_package.py`: native ve yerel paketleri üretir; eski üretilmiş ZIP'leri kaldırır.
 - `dist/integration-plan.json`: 207 ürün bağlamının makine tarafından okunabilir entegrasyon planı.
-- `docs/INTEGRATION-MATRIX.md`: tüm ürünler ve kalan kapsam.
-- `docs/NATIVE-ROADMAP.md`: tamamlanma ölçütleri ve sonraki geliştirme işleri.
+- [`docs/INTEGRATION-MATRIX.tr.md`](docs/INTEGRATION-MATRIX.tr.md): tüm ürünler ve kalan kapsam.
+- [`docs/NATIVE-ROADMAP.tr.md`](docs/NATIVE-ROADMAP.tr.md): tamamlanma ölçütleri ve sonraki geliştirme işleri.
 
 [GitHub](https://github.com/muratceme/data-consulting-workbench) · MIT.
 
@@ -215,6 +217,6 @@ Katalogdaki **Mevcut Databricks çalışmasını yeniden başlatmadan takip et**
 
 ## Diğer platformlarda kesinti sonrası takip
 
-ADF, Airflow, dbt Cloud, Prefect, Dataform ve Power BI için de ayrı takip paketleri bulunur. Bu paketler yeni çalışma başlatmadan mevcut kimliği sorgular; dbt başarılı çalışma artifact’ını indirir. Platform ve yapılandırma eşlemeleri [kurtarma rehberinde](docs/RECOVERY.md).
+ADF, Airflow, dbt Cloud, Prefect, Dataform ve Power BI için de ayrı takip paketleri bulunur. Bu paketler yeni çalışma başlatmadan mevcut kimliği sorgular; dbt başarılı çalışma artifact’ını indirir. Platform ve yapılandırma eşlemeleri [kurtarma rehberinde](docs/RECOVERY.tr.md).
 
-Güncel dokuz takip akışında `--resume-from onceki/run-state.json` kullanılabilir: çalışma kimliği otomatik aktarılır, config kaynak kimlikleri karşılaştırılır, yeni iş başlatılmaz. Komut örnekleri [kurtarma rehberinde](docs/RECOVERY.md).
+Güncel dokuz takip akışında `--resume-from onceki/run-state.json` kullanılabilir: çalışma kimliği otomatik aktarılır, config kaynak kimlikleri karşılaştırılır, yeni iş başlatılmaz. Komut örnekleri [kurtarma rehberinde](docs/RECOVERY.tr.md).

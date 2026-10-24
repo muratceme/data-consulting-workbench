@@ -1,182 +1,163 @@
-# Danışmanlar bu platformlarda gerçekte ne yapıyor?
+# What do consultants actually do on these platforms?
 
-İnceleme tarihi: 23 Ekim 2026. Amaç: sitedeki 23 alan / 207 ürün için, o platformda çalışan veri danışmanlarının
-gerçekten sattığı ve teslim ettiği işleri bulmak; sitede karşılığı olmayanları eklemek. Hiçbir paket kaldırılmadı.
+**English** · [Türkçe](DANISMAN-ARASTIRMASI.tr.md)
 
-Yöntem: danışmanlık firmalarının pazar yeri ilanları (Microsoft Marketplace, AWS Marketplace, G-Cloud), iş ilanları,
-üretici dokümantasyonu ve açık kaynak denetim araçları tarandı. Kaynakların çoğu satıcı tanıtımıdır; kapsamı gösterir,
-standart değildir.
+Review date: 23 October 2026. Goal: for the site's 23 domains / 207 products, find the work that data consultants on each platform actually sell and deliver, and add what the site was missing. No package was removed.
 
-## Bulgu: danışman işi platform başına aynı dört kalıba oturuyor
+Method: consulting firms' marketplace listings (Microsoft Marketplace, AWS Marketplace, G-Cloud), job ads, vendor documentation and open-source audit tools were reviewed. Most sources are vendor marketing; they show the scope, not a standard.
 
-1. **Sağlık kontrolü / denetim** (2–3 hafta, puanlı bulgu raporu + önceliklendirilmiş yol haritası). Platformun kendi
-   dışa aktarımları okunur: Power BI'da VertiPaq + Best Practice Analyzer, SQL Server'da yapılandırma + bekleme + indeks,
-   Oracle'da AWR, PostgreSQL'de pg_settings + pg_stat_statements + şişme, Snowflake'te sorgu geçmişi + RBAC.
-2. **Geçiş değerlendirmesi** (envanter + karmaşıklık puanı + efor tahmini + dalga planı): Tableau→Power BI,
-   QlikView→Qlik Sense, PowerCenter→IDMC, SSIS→ADF/Fabric, Teradata→Snowflake, SAS→Python, Alteryx→dbt,
-   Hive metastore→Unity Catalog, legacy ERP→S/4HANA.
-3. **Maliyet / kapasite optimizasyonu**: Databricks system.billing, Fabric Capacity Metrics, BigQuery JOBS,
-   Snowflake kredileri, Fivetran MAR.
-4. **Kurulum / kural yazımı**: GX ve Soda kontrolleri, Purview/Collibra sözlüğü, MDM eşleştirme ve survivorship kuralları,
-   GA4 / tracking plan denetimi.
+## Finding: consulting work fits the same four patterns on every platform
 
-## Sitede zaten karşılığı olanlar
+1. **Health check / audit** (2–3 weeks, scored findings report + prioritised roadmap). The platform's own exports are read: VertiPaq + Best Practice Analyzer in Power BI, configuration + waits + indexes in SQL Server, AWR in Oracle, pg_settings + pg_stat_statements + bloat in PostgreSQL, query history + RBAC in Snowflake.
+2. **Migration assessment** (inventory + complexity score + effort estimate + wave plan): Tableau→Power BI, QlikView→Qlik Sense, PowerCenter→IDMC, SSIS→ADF/Fabric, Teradata→Snowflake, SAS→Python, Alteryx→dbt, Hive metastore→Unity Catalog, legacy ERP→S/4HANA.
+3. **Cost / capacity optimisation**: Databricks system.billing, Fabric Capacity Metrics, BigQuery JOBS, Snowflake credits, Fivetran MAR.
+4. **Setup / rule writing**: GX and Soda checks, Purview/Collibra glossaries, MDM matching and survivorship rules, GA4 / tracking plan audits.
 
-Power BI model dokümanı (.pbit), Tableau envanteri, Qlik soy ağacı, LookML envanteri, dbt denetimi ve DAG analizi,
-Airflow DAG denetimi, ADF ve SSIS envanteri, Snowflake sorgu geçmişi ve depolama, BigQuery iş maliyeti ve tablo tasarımı,
-Redshift tablo tasarımı, PostgreSQL pg_stat_statements ve şişme, SQL Server bekleme / indeks / deadlock / yedek,
-MySQL yavaş log, MongoDB profiler, Kafka topic denetimi ve tüketici gecikmesi, rapor kullanım envanteri, erişim gözden
-geçirmesi, mükerrer kayıt ve golden record, KVKK envanteri. Bunlar araştırmadaki işlerle örtüşüyor; kaldırılacak paket yok.
+## Already covered on the site
 
-## Eksik bulunan ve eklenen işler
+Power BI model documentation (.pbit), Tableau inventory, Qlik lineage, LookML inventory, dbt audit and DAG analysis, Airflow DAG audit, ADF and SSIS inventories, Snowflake query history and storage, BigQuery job cost and table design, Redshift table design, PostgreSQL pg_stat_statements and bloat, SQL Server waits / indexes / deadlocks / backups, MySQL slow log, MongoDB profiler, Kafka topic audit and consumer lag, report usage inventory, access review, duplicate records and golden record, KVKK inventory. These match the work in the research; no package needs to be removed.
 
-Toplam 32 iş, dört paket hâlinde eklendi (86430ac, d9e93c0, 01dd3f5 ve son paket). Hepsi örnek verisiyle testte çalışır; canlı platform üzerinde denenmedi.
+## Missing work that was added
 
-| Alan | Ürün | Danışmanın yaptığı iş | Eklenen paket |
+32 jobs in total, added in four batches (86430ac, d9e93c0, 01dd3f5 and the last batch). All run in tests on their sample data; none were tried on a live platform.
+
+| Domain | Product | Consultant's job | Added package |
 |---|---|---|---|
-| BI | Power BI Desktop | VertiPaq Analyzer ile model boyutu ve kardinalite incelemesi | `pbi-vertipaq` |
-| BI | Power BI Desktop | Tabular Editor Best Practice Analyzer kuralları | `pbi-bpa` |
-| BI | Tableau Desktop | Tableau→Power BI geçişi için çalışma kitabı karmaşıklık puanı | `tableau-gecis-karmasikligi` |
-| BI | QlikView / Qlik Sense | Sentetik anahtar, döngüsel ilişki ve ada tablo denetimi | `qlik-veri-modeli` |
-| BI | Looker | System Activity ile kullanılmayan alan/explore temizliği | `looker-kullanilmayan-alanlar` |
-| Ambar | Snowflake | RBAC denetimi (ACCOUNTADMIN, rol hiyerarşisi, PUBLIC yetkileri) | `snowflake-rbac-denetimi` |
-| Ambar | Teradata Vantage | DBQL iş yükü analizi ve dönüştürülecek söz dizimi envanteri | `teradata-is-yuku` |
-| Lakehouse | Unity Catalog | Hive metastore → Unity Catalog geçiş hazırlığı (UCX değerlendirmesi benzeri) | `uc-gecis-hazirligi` |
-| FinOps | Databricks System Tables | system.billing.usage: all-purpose'ta çalışan işler, etiketsiz kullanım | `databricks-faturalama` |
-| FinOps | Fabric Capacity Metrics | CU aşımı, kısıtlama (throttling) pencereleri, en çok tüketen öğeler | `fabric-kapasite` |
-| Entegrasyon | Fivetran | MAR'ı bağlantı ve tablo bazında analiz | `fivetran-mar` |
-| Entegrasyon | PowerCenter | Repository XML envanteri ve IDMC geçiş karmaşıklığı | `powercenter-envanter` |
-| Veritabanı | Oracle Database | AWR raporu: yük profili, en çok bekleme olayı, en pahalı SQL | `oracle-awr` |
-| Veritabanı | PostgreSQL | pg_settings yapılandırma denetimi ve wraparound riski | `pg-yapilandirma` |
-| Veritabanı | SQL Server | Sunucu ve veritabanı yapılandırma denetimi (sp_Blitz benzeri) | `sqlserver-yapilandirma` |
-| Veritabanı | MongoDB Atlas | $indexStats ile kullanılmayan ve tekrar eden indeksler | `mongodb-indeks-kullanimi` |
-| Kalite | GX / Soda | Profilden GX expectation suite ve SodaCL kontrol dosyası üretimi | `gx-soda-kurallari` |
-| Yönetişim | Purview / Collibra | İş sözlüğünü içe aktarım dosyasına çevirme ve doğrulama | `sozluk-ice-aktarim` |
-| MDM | MDM araçları | Eşleştirme eşiği kalibrasyonu (fazla/eksik birleştirme) | `eslestirme-kalibrasyonu` |
-| Ürün analitiği | GA4 | BigQuery dışa aktarım denetimi (boş günler, eksik parametreler) | `ga4-export-denetimi` |
-| Ürün analitiği | Segment / Amplitude | Tracking plan uyumu | `tracking-plan-uyumu` |
-| Migrasyon | SAP Migration Cockpit | Doldurulmuş şablonun yükleme öncesi doğrulaması | `sap-sablon-dogrulama` |
-| Veri bilimi | SAS Viya | SAS kod envanteri ve Python geçiş karmaşıklığı | `sas-kod-envanteri` |
-| Veri bilimi | Alteryx Designer | .yxmd iş akışı envanteri ve dbt/Python geçiş karmaşıklığı | `alteryx-envanter` |
-| ML | MLflow | Deney ve model kayıt defteri denetimi | `mlflow-denetimi` |
-| Streaming | Kinesis / Event Hubs | Throughput'a göre shard / throughput unit boyutlandırma | `akis-kapasite` |
-| Orkestrasyon | Airflow | Havuz (pool) doygunluğu, kuyrukta bekleme ve zombi görevler | `airflow-havuz-analizi` |
-| Analytics engineering | dbt Core | dbt_project_evaluator modelleme kuralları (kaynak fan-out, yeniden birleşme vb.) | `dbt-modelleme-kurallari` |
-| BI | Power BI Service | Scanner API ile kiracı envanteri ve yönetişim | `pbi-tarayici-envanteri` |
-| Veritabanı | Redis | INFO çıktısıyla bellek, tahliye ve kalıcılık kontrolü | `redis-saglik` |
-| Ambar | ClickHouse | system.parts ile parça ve bölümleme analizi | `clickhouse-parca-analizi` |
-| Zaman serisi | InfluxDB | Seri kardinalitesi analizi | `influxdb-kardinalite` |
+| BI | Power BI Desktop | Model size and cardinality review with VertiPaq Analyzer | `pbi-vertipaq` |
+| BI | Power BI Desktop | Tabular Editor Best Practice Analyzer rules | `pbi-bpa` |
+| BI | Tableau Desktop | Workbook complexity score for a Tableau→Power BI migration | `tableau-gecis-karmasikligi` |
+| BI | QlikView / Qlik Sense | Synthetic key, circular reference and island table audit | `qlik-veri-modeli` |
+| BI | Looker | Cleaning up unused fields/explores with System Activity | `looker-kullanilmayan-alanlar` |
+| Warehouse | Snowflake | RBAC audit (ACCOUNTADMIN, role hierarchy, PUBLIC grants) | `snowflake-rbac-denetimi` |
+| Warehouse | Teradata Vantage | DBQL workload analysis and inventory of syntax to convert | `teradata-is-yuku` |
+| Lakehouse | Unity Catalog | Hive metastore → Unity Catalog migration readiness (similar to the UCX assessment) | `uc-gecis-hazirligi` |
+| FinOps | Databricks System Tables | system.billing.usage: jobs running on all-purpose compute, untagged usage | `databricks-faturalama` |
+| FinOps | Fabric Capacity Metrics | CU overage, throttling windows, top consuming items | `fabric-kapasite` |
+| Integration | Fivetran | MAR analysis by connection and table | `fivetran-mar` |
+| Integration | PowerCenter | Repository XML inventory and IDMC migration complexity | `powercenter-envanter` |
+| Database | Oracle Database | AWR report: load profile, top wait events, most expensive SQL | `oracle-awr` |
+| Database | PostgreSQL | pg_settings configuration audit and wraparound risk | `pg-yapilandirma` |
+| Database | SQL Server | Server and database configuration audit (similar to sp_Blitz) | `sqlserver-yapilandirma` |
+| Database | MongoDB Atlas | Unused and duplicate indexes with $indexStats | `mongodb-indeks-kullanimi` |
+| Quality | GX / Soda | Generating a GX expectation suite and a SodaCL checks file from a profile | `gx-soda-kurallari` |
+| Governance | Purview / Collibra | Converting a business glossary into an import file and validating it | `sozluk-ice-aktarim` |
+| MDM | MDM tools | Match threshold calibration (over/under-merging) | `eslestirme-kalibrasyonu` |
+| Product analytics | GA4 | BigQuery export audit (empty days, missing parameters) | `ga4-export-denetimi` |
+| Product analytics | Segment / Amplitude | Tracking plan compliance | `tracking-plan-uyumu` |
+| Migration | SAP Migration Cockpit | Pre-load validation of a filled template | `sap-sablon-dogrulama` |
+| Data science | SAS Viya | SAS code inventory and Python migration complexity | `sas-kod-envanteri` |
+| Data science | Alteryx Designer | .yxmd workflow inventory and dbt/Python migration complexity | `alteryx-envanter` |
+| ML | MLflow | Experiment and model registry audit | `mlflow-denetimi` |
+| Streaming | Kinesis / Event Hubs | Shard / throughput unit sizing from throughput | `akis-kapasite` |
+| Orchestration | Airflow | Pool saturation, queue wait and zombie tasks | `airflow-havuz-analizi` |
+| Analytics engineering | dbt Core | dbt_project_evaluator modelling rules (source fan-out, rejoining, etc.) | `dbt-modelleme-kurallari` |
+| BI | Power BI Service | Tenant inventory and governance with the Scanner API | `pbi-tarayici-envanteri` |
+| Database | Redis | Memory, eviction and persistence checks from INFO output | `redis-saglik` |
+| Warehouse | ClickHouse | Part and partitioning analysis with system.parts | `clickhouse-parca-analizi` |
+| Time series | InfluxDB | Series cardinality analysis | `influxdb-kardinalite` |
 
-## İkinci tur: sıfırdan kurulum işleri
+## Second round: from-scratch setup work
 
-İlk tur çoğunlukla var olan bir kurulumu denetleyen ve iyileştiren işleri ekledi. Danışmanlar aynı platformları müşteride sıfırdan da kurar: verilen tablolardan
-model ve pano, boş bir hesapta rol/depo/bütçe düzeni, ilk yükleme hattı, ilk DAG. Sitede tek dosyalık rapor şablonları zaten vardı (`qlik-rapor-sablonu`,
-`pbi-rapor-sablonu`, `tableau-rapor-sablonu`, `lookml-rapor-sablonu`, `dbt-proje-sablonu`, `excel-rapor-sablonu`, `pptx-rapor-sablonu`); eksik olan, birden çok
-tablodan ilişkili model kurmak ve BI dışındaki platformların ilk kurulumuydu. Bu turda 14 kod bloğu ve 3 agent eklendi. Bu turda yeni web araştırması yapılmadı;
-işler ilk turdaki kaynaklarda anlatılan kurulum hizmetlerine ve platformların kendi kurulum belgelerindeki adımlara göre seçildi.
+The first round mostly added work that audits and improves an existing setup. Consultants also build the same platforms from scratch for clients: a model and dashboard from given tables, a role/warehouse/budget layout in an empty account, the first load pipeline, the first DAG. The site already had single-file report templates (`qlik-rapor-sablonu`, `pbi-rapor-sablonu`, `tableau-rapor-sablonu`, `lookml-rapor-sablonu`, `dbt-proje-sablonu`, `excel-rapor-sablonu`, `pptx-rapor-sablonu`); what was missing was building a related model from several tables and the first setup of platforms outside BI. This round added 14 code blocks and 3 agents. No new web research was done in this round; the jobs were chosen from the setup services described in the first round's sources and the steps in the platforms' own setup documentation.
 
-| Alan | Ürün | Sıfırdan kurulum işi | Eklenen paket |
+| Domain | Product | From-scratch setup job | Added package |
 |---|---|---|---|
-| BI | Qlik Sense | Tablo klasöründen ilişkili veri modeli, ana öğeler ve sayfalarla uygulama (sentetik anahtar/döngü yok) | `qlik-cok-tablolu-uygulama` |
-| BI | Power BI Desktop | Yıldız model, çoktan bire ilişkiler, takvim, DAX ölçüleri ve iki sayfalık rapor (PBIP) | `pbi-yildiz-model-projesi` |
-| BI | Looker | Tablo başına view, many_to_one join’li explore, LookML panosu | `lookml-cok-tablolu-proje` |
-| BI | Tableau Desktop | Sol birleştirmeli veri kaynağı, KPI/trend/kırılım sayfaları ve pano | `tableau-cok-tablolu-calisma-kitabi` |
-| BI | Superset | Sanal veri kümesi, grafikler ve filtrelerle içe aktarma paketi | `superset-pano-paketi` |
-| BI | Metabase | SQL kartları ve API ile koleksiyon + pano kuran betik | `metabase-pano-kurulumu` |
-| BI | Rapor gereksinimleri | İsteğe göre çok tablolu pano tasarlayıp yukarıdaki projeleri kuran agent | `pano-kurucu` |
-| Veritabanı | PostgreSQL / SQL Server | Düz dışa aktarımdan 3NF tablolar, anahtarlar, DDL ve yükleme | `veritabani-normalizasyon` |
-| Dönüşüm | dbt Core | Çok tablolu kaynak → staging → dim/fct, ilişki testleri | `dbt-yildiz-projesi` |
-| Ambar | Snowflake | Veritabanları, erişim/işlevsel roller, depolar, resource monitor, servis kullanıcıları | `snowflake-hesap-kurulumu` |
-| Lakehouse | Unity Catalog | Kataloglar, şemalar, grup ve servis sorumlusu yetkileri | `unity-catalog-kurulumu` |
-| Ambar | BigQuery | Ortam projelerinde veri kümeleri, IAM ve servis hesapları (Terraform) | `bigquery-terraform-kurulumu` |
-| Ambar | Snowflake / UC / BigQuery | Serbest metindeki kurulum isteğini erişim planına çevirip kuran agent | `ambar-kurucu` |
-| Entegrasyon | Azure Data Factory | Kontrol tablosu, tam/artımlı kopya, watermark ile metadata güdümlü hat | `adf-metadata-pipeline` |
-| Orkestrasyon | Airflow | Görev listesinden DAG, havuzlar, kritik yol ve son saat kontrolü | `airflow-dag-kurulumu` |
-| Orkestrasyon | Airflow | Serbest metindeki veri hattını doğrulanmış DAG’e çeviren agent | `pipeline-kurucu` |
-| ML | scikit-learn | Sızıntı ayıklama, özellik seçimi, eğitim ve tahmin betikleriyle proje | `sklearn-proje-kurulumu` |
+| BI | Qlik Sense | App with a related data model, master items and sheets from a folder of tables (no synthetic keys/loops) | `qlik-cok-tablolu-uygulama` |
+| BI | Power BI Desktop | Star model, many-to-one relationships, calendar, DAX measures and a two-page report (PBIP) | `pbi-yildiz-model-projesi` |
+| BI | Looker | One view per table, an explore with many_to_one joins, a LookML dashboard | `lookml-cok-tablolu-proje` |
+| BI | Tableau Desktop | Data source with left joins, KPI/trend/breakdown sheets and a dashboard | `tableau-cok-tablolu-calisma-kitabi` |
+| BI | Superset | Import bundle with a virtual dataset, charts and filters | `superset-pano-paketi` |
+| BI | Metabase | SQL cards and a script that sets up a collection + dashboard through the API | `metabase-pano-kurulumu` |
+| BI | Report requirements | Agent that designs a multi-table dashboard on request and builds the projects above | `pano-kurucu` |
+| Database | PostgreSQL / SQL Server | 3NF tables, keys, DDL and load from a flat export | `veritabani-normalizasyon` |
+| Transformation | dbt Core | Multi-table source → staging → dim/fct, relationship tests | `dbt-yildiz-projesi` |
+| Warehouse | Snowflake | Databases, access/functional roles, warehouses, resource monitors, service users | `snowflake-hesap-kurulumu` |
+| Lakehouse | Unity Catalog | Catalogs, schemas, group and service principal grants | `unity-catalog-kurulumu` |
+| Warehouse | BigQuery | Datasets, IAM and service accounts in environment projects (Terraform) | `bigquery-terraform-kurulumu` |
+| Warehouse | Snowflake / UC / BigQuery | Agent that turns a free-text setup request into an access plan and builds it | `ambar-kurucu` |
+| Integration | Azure Data Factory | Metadata-driven pipeline with a control table, full/incremental copy and watermark | `adf-metadata-pipeline` |
+| Orchestration | Airflow | DAG from a task list, pools, critical path and deadline check | `airflow-dag-kurulumu` |
+| Orchestration | Airflow | Agent that turns a free-text data pipeline into a validated DAG | `pipeline-kurucu` |
+| ML | scikit-learn | Project with leakage removal, feature selection, training and prediction scripts | `sklearn-proje-kurulumu` |
 
-Hepsi örnek verisiyle testte çalışır. Üretilen projeler (QVF, PBIP, LookML, TWB, Superset paketi, Metabase betiği, Snowflake/UC SQL’i, Terraform, ADF JSON’u,
-DAG, ML betikleri) hedef uygulamalarda açılarak veya çalıştırılarak denenmedi.
+All run in tests on their sample data. The generated projects (QVF, PBIP, LookML, TWB, Superset bundle, Metabase script, Snowflake/UC SQL, Terraform, ADF JSON, DAG, ML scripts) were not tried by opening or running them in the target applications.
 
-## Üçüncü tur: kurulumu API ile hesaba göndermek
+## Third round: sending the setup to the account through the API
 
-Her programın resmî API belgesine bakılarak, kurulum bloklarının ürettiği dosyaların API ile platforma kurulup kurulamayacağı incelendi. Uygulanan on paket ve
-API’nin izin verdiği sınır:
+Each program's official API documentation was checked to see whether the files produced by the setup blocks can be installed on the platform through the API. The ten packages implemented and the limits the API allows:
 
-| Program | API ile yapılabilen | API ile yapılamayan (paket ne yapar) | Paket |
+| Program | Possible with the API | Not possible with the API (what the package does) | Package |
 |---|---|---|---|
-| Qlik Cloud | Data Files yükleme, uygulama oluşturma, load script yazma (`/apps/{id}/scripts`), reload, veri modeli metadata’sı | Ana öğe ve sayfalar Engine API (websocket) ister; build.cmd ile qlik-cli’ye bırakılır | `qlik-cloud-build` |
-| Fabric Lakehouse | Lakehouse oluşturma, OneLake’e dosya yazma, Load Table ile Delta tablosu, tablo listesi | Şema etkin lakehouse’ta Load Table desteklenmez | `fabric-lakehouse-build` |
-| Power BI Service | TMDL tanımıyla semantic model oluşturma ve geri okuma | Rapor (PBIR) oluşturma API’sinde `definition.pbir` biçimi konusunda kaynaklar çelişiyor; rapor Desktop’tan yayımlanır. Veri yenilemesi için kimlik bilgisi platformda bağlanır | `fabric-semantic-model` |
-| Metabase | Koleksiyon, SQL kartı, pano ve kart yerleşimi (`X-API-Key`) | Kart yerleşim uç noktası sürüme göre değişti; paket 0.47+ biçimini kullanır | `metabase-dashboard` |
-| Looker | Explore alanlarını okuma, sorgu, kullanıcı tanımlı pano ve öğe oluşturma | LookML dosyaları API ile yazılmaz, Git ile yayımlanır | `looker-dashboard` |
-| Snowflake | SQL API ile her DDL/GRANT komutu, SHOW GRANTS ile doğrulama | Rol değişimi token kapsamına bağlı | `snowflake-setup` |
-| Unity Catalog | Katalog/şema oluşturma, yetki ekleme ve okuma, sahiplik | Grup ve servis sorumlusu oluşturma hesap API’sindedir; önceden var olmalı | `unity-catalog-setup` |
-| BigQuery | Servis hesabı, erişim listeli veri kümesi | Proje IAM politikası (jobUser) okuma-değiştirme-yazma ister; paket dokunmaz | `bigquery-setup` |
-| Azure Data Factory | Bağlı hizmet, veri kümesi, pipeline, tetikleyici oluşturma | Tetikleyici başlatılmaz, veri taşınmaz | `adf-solution` |
-| Airflow | İçe aktarma hataları, DAG ve görev listesi, unpause | REST API DAG dosyası yüklemez; dosya Git/CI ile konur | `airflow-activate` |
+| Qlik Cloud | Uploading Data Files, creating an app, writing the load script (`/apps/{id}/scripts`), reload, data model metadata | Master items and sheets need the Engine API (websocket); left to qlik-cli through build.cmd | `qlik-cloud-build` |
+| Fabric Lakehouse | Creating a lakehouse, writing files to OneLake, Delta tables with Load Table, table list | Load Table is not supported on schema-enabled lakehouses | `fabric-lakehouse-build` |
+| Power BI Service | Creating and reading back a semantic model with a TMDL definition | Sources disagree on the `definition.pbir` format in the report (PBIR) creation API; the report is published from Desktop. Credentials for data refresh are bound on the platform | `fabric-semantic-model` |
+| Metabase | Collection, SQL cards, dashboard and card layout (`X-API-Key`) | The card layout endpoint changed between versions; the package uses the 0.47+ format | `metabase-dashboard` |
+| Looker | Reading explore fields, queries, creating a user-defined dashboard and elements | LookML files are not written through the API; they are deployed with Git | `looker-dashboard` |
+| Snowflake | Every DDL/GRANT statement through the SQL API, verification with SHOW GRANTS | Switching roles depends on the token's scope | `snowflake-setup` |
+| Unity Catalog | Creating catalogs/schemas, adding and reading grants, ownership | Creating groups and service principals is in the account API; they must already exist | `unity-catalog-setup` |
+| BigQuery | Service accounts, datasets with access lists | The project IAM policy (jobUser) needs read-modify-write; the package does not touch it | `bigquery-setup` |
+| Azure Data Factory | Creating linked services, datasets, pipelines and triggers | Triggers are not started, no data is moved | `adf-solution` |
+| Airflow | Import errors, DAG and task list, unpause | The REST API does not upload DAG files; the file is placed with Git/CI | `airflow-activate` |
 
-Uygulanmayanlar: Superset’in içe aktarma uç noktası oturum çerezi ve CSRF belirteci ister; Tableau Cloud’a yayımlanan çalışma kitabı yerel CSV’ye bağlanamaz
-(çıkarım veya yayımlanmış veri kaynağı gerekir). İkisi için yerel bloklar dosya üretmeye devam eder. Paketler yerel sözleşme sunucusuyla test edildi; canlı hesapta
-denenmedi.
+Not implemented: Superset's import endpoint needs a session cookie and a CSRF token; a workbook published to Tableau Cloud cannot connect to a local CSV (an extract or a published data source is needed). For both, the local blocks keep producing files. The packages were tested against a local contract server; not tried on a live account.
 
-Kaynaklar: [Qlik data files](https://qlik.dev/manage/data-files/create-datafiles/), [Qlik load script REST](https://community.qlik.com/t5/Integration-Extension-APIs/Qlik-Cloud-Change-Load-script-through-REST-API/m-p/2423987),
-[Fabric lakehouse API](https://learn.microsoft.com/en-us/fabric/data-engineering/lakehouse-api), [Fabric semantic model oluşturma](https://learn.microsoft.com/en-us/rest/api/fabric/semanticmodel/items/create-semantic-model),
-[Fabric rapor oluşturma tartışması](https://community.fabric.microsoft.com/t5/Developer/Fabric-Create-Reports-model-via-Microsoft-Fabric-API/m-p/4719497),
-[Metabase API anahtarları](https://www.metabase.com/docs/latest/people-and-groups/api-keys), [Metabase kart yerleşimi](https://discourse.metabase.com/t/how-to-add-dashboard-tabs-programmatically-in-metabase-0-49-which-endpoints-to-use/255084),
+Sources: [Qlik data files](https://qlik.dev/manage/data-files/create-datafiles/), [Qlik load script REST](https://community.qlik.com/t5/Integration-Extension-APIs/Qlik-Cloud-Change-Load-script-through-REST-API/m-p/2423987),
+[Fabric lakehouse API](https://learn.microsoft.com/en-us/fabric/data-engineering/lakehouse-api), [Fabric create semantic model](https://learn.microsoft.com/en-us/rest/api/fabric/semanticmodel/items/create-semantic-model),
+[Fabric report creation discussion](https://community.fabric.microsoft.com/t5/Developer/Fabric-Create-Reports-model-via-Microsoft-Fabric-API/m-p/4719497),
+[Metabase API keys](https://www.metabase.com/docs/latest/people-and-groups/api-keys), [Metabase card layout](https://discourse.metabase.com/t/how-to-add-dashboard-tabs-programmatically-in-metabase-0-49-which-endpoints-to-use/255084),
 [Looker create_dashboard_element](https://cloud.google.com/looker/docs/reference/looker-api/4.0/25.14/methods/Dashboard/create_dashboard_element),
-[Unity Catalog yetki güncelleme](https://docs.databricks.com/api/uc-grants/v1/update-permissions), [Airflow API istemcisi](https://apache.googlesource.com/airflow-client-python).
+[Unity Catalog update permissions](https://docs.databricks.com/api/uc-grants/v1/update-permissions), [Airflow API client](https://apache.googlesource.com/airflow-client-python).
 
-## Dördüncü tur: API ile kurulum dışı işler
+## Fourth round: API work beyond setup
 
-Üçüncü turdaki paketler yalnızca yerel kurulum çıktısını hesaba gönderiyordu. Bu turda API’nin izin verdiği üç iş grubu daha eklendi (33 paket):
+The third round's packages only sent the local setup output to the account. This round added three more groups of work the APIs allow (33 packages):
 
-| Grup | Program ve paket | API’nin sınırı / paketin tavrı |
+| Group | Program and package | API limit / how the package behaves |
 |---|---|---|
-| Yeni platform kurulumu | Confluent Cloud `confluent-topics`, dbt Cloud `dbt-cloud-job`, Databricks `databricks-job-create`, Prefect `prefect-deployment`, Dagster `dagster-schedule`, Airbyte `airbyte-connection`, Fivetran `fivetran-schema` | Dagster tanımları kodda olduğu için API yalnızca doğrulayıp başlatır; Prefect aynı adlı deployment’ı güncellediğinden önce adın boş olduğu denetlenir; Airbyte/Fivetran kaynak kimlik bilgileri pakete girmez |
-| Katalog ve kalite | Purview `purview-glossary`, OpenMetadata `openmetadata-glossary`, DataHub `datahub-glossary`, Monte Carlo `montecarlo-rules`, Soda Cloud `soda-scan` | Purview hiyerarşisi API’de belgeli alanla verilemediği için üst terim `isA` ilişkisiyle bağlanır; sorumlular yalnızca Entra nesne kimliğiyle eklenir. Soda Cloud API kontrol tanımı yazmaz, yalnızca tanımlı taramayı çalıştırır |
-| Ürün analitiği ve vektör | GA4 `ga4-admin`, Pinecone `pinecone-index`, Qdrant `qdrant-collection` | GA4 özel tanımları silinemez, yalnızca arşivlenir; kota yazmadan önce denetlenir. BigQuery bağlantısı v1alpha uç noktasındadır |
-| Canlı denetim | Power BI `powerbi-scan`, Snowflake `snowflake-usage`, Databricks `databricks-cost`, Qlik `qlik-reload-history`, Tableau `tableau-usage`, Airflow `airflow-history`, ADF `adf-history` | Yalnızca okur; Scanner çıktısı yerel `pbi-tarayici-envanteri` bloğunun girdisidir. Databricks tutarları liste fiyatıdır |
-| Bakım ve yayın | Power BI `powerbi-deploy`, `powerbi-refresh-schedule`, `powerbi-rls-members`, `powerbi-workspace-access`; Qlik `qlik-publish`, `qlik-reload-schedule`, `qlik-space-access`; Tableau `tableau-permissions`, `tableau-extract-schedule`; Snowflake `snowflake-grant-sync`; Unity Catalog `uc-grant-sync` | Power BI REST API RLS üyeliği vermez; paket Fabric tanım API’siyle TMDL rol dosyasına üye ekler (canlı modelde önce test alanında denenmeli). Erişim paketleri yalnızca ekler; farklı yetki ve fazla hak raporlanır, geri alınmaz |
+| New platform setup | Confluent Cloud `confluent-topics`, dbt Cloud `dbt-cloud-job`, Databricks `databricks-job-create`, Prefect `prefect-deployment`, Dagster `dagster-schedule`, Airbyte `airbyte-connection`, Fivetran `fivetran-schema` | Dagster definitions live in code, so the API only verifies and starts schedules; Prefect updates a deployment with the same name, so the name is checked to be free first; Airbyte/Fivetran source credentials never go into the package |
+| Catalog and quality | Purview `purview-glossary`, OpenMetadata `openmetadata-glossary`, DataHub `datahub-glossary`, Monte Carlo `montecarlo-rules`, Soda Cloud `soda-scan` | The Purview hierarchy cannot be set with a documented API field, so the parent term is linked with an `isA` relation; stewards are added only with an Entra object ID. The Soda Cloud API does not write check definitions; it only runs a defined scan |
+| Product analytics and vectors | GA4 `ga4-admin`, Pinecone `pinecone-index`, Qdrant `qdrant-collection` | GA4 custom definitions cannot be deleted, only archived; quotas are checked before writing. The BigQuery link is on the v1alpha endpoint |
+| Live audits | Power BI `powerbi-scan`, Snowflake `snowflake-usage`, Databricks `databricks-cost`, Qlik `qlik-reload-history`, Tableau `tableau-usage`, Airflow `airflow-history`, ADF `adf-history` | Read only; the Scanner output is the input of the local `pbi-tarayici-envanteri` block. Databricks amounts are list prices |
+| Maintenance and publishing | Power BI `powerbi-deploy`, `powerbi-refresh-schedule`, `powerbi-rls-members`, `powerbi-workspace-access`; Qlik `qlik-publish`, `qlik-reload-schedule`, `qlik-space-access`; Tableau `tableau-permissions`, `tableau-extract-schedule`; Snowflake `snowflake-grant-sync`; Unity Catalog `uc-grant-sync` | The Power BI REST API does not grant RLS membership; the package adds members to the TMDL role file through the Fabric definition API (try it in a test workspace first on a live model). Access packages only add; different permissions and extra rights are reported, never revoked |
 
-Bütün paketler yerel sözleşme sunucusuyla test edildi; canlı hesapta denenmedi.
+All packages were tested against a local contract server; not tried on a live account.
 
-Kaynaklar: [Confluent Topic v3](https://docs.confluent.io/cloud/current/api.html#tag/Topic-(v3)), [Schema Registry API](https://docs.confluent.io/platform/current/schema-registry/develop/api.html),
+Sources: [Confluent Topic v3](https://docs.confluent.io/cloud/current/api.html#tag/Topic-(v3)), [Schema Registry API](https://docs.confluent.io/platform/current/schema-registry/develop/api.html),
 [dbt Cloud API v2](https://docs.getdbt.com/dbt-cloud/api-v2), [Databricks jobs/create](https://docs.databricks.com/api/workspace/jobs/create), [Prefect deployments](https://docs.prefect.io/v3/api-ref/rest-api/server/deployments/create-deployment),
-[Dagster GraphQL](https://docs.dagster.io/guides/operate/graphql), [Airbyte createConnection](https://reference.airbyte.com/reference/createconnection), [Fivetran şema yapılandırması](https://fivetran.com/docs/rest-api/api-reference/connection-schema/connection-schema-config),
+[Dagster GraphQL](https://docs.dagster.io/guides/operate/graphql), [Airbyte createConnection](https://reference.airbyte.com/reference/createconnection), [Fivetran schema config](https://fivetran.com/docs/rest-api/api-reference/connection-schema/connection-schema-config),
 [Purview Create Term](https://learn.microsoft.com/en-us/rest/api/purview/datamapdataplane/glossary/create-term), [Soda Cloud scans](https://docs.soda.io/soda-cloud-api-v1/scans),
 [GA4 Admin API](https://developers.google.com/analytics/devguides/config/admin/v1/rest), [Pinecone create_index](https://docs.pinecone.io/reference/api/2025-04/control-plane/create_index), [Qdrant collections](https://api.qdrant.tech/api-reference/collections/create-collection),
 [Power BI Scanner](https://learn.microsoft.com/en-us/rest/api/power-bi/admin/workspace-info-post-workspace-info), [Power BI deployAll](https://learn.microsoft.com/en-us/rest/api/power-bi/pipelines/deploy-all),
 [Fabric updateDefinition](https://learn.microsoft.com/en-us/rest/api/fabric/semanticmodel/items/update-semantic-model-definition), [TMDL](https://learn.microsoft.com/en-us/analysis-services/tmdl/tmdl-overview),
-[Qlik reload-tasks](https://qlik.dev/apis/rest/reload-tasks/), [Tableau yetkiler](https://help.tableau.com/current/api/rest_api/en-us/REST/rest_api_ref_permissions.htm), [Databricks billing tabloları](https://docs.databricks.com/aws/en/admin/system-tables/billing).
+[Qlik reload-tasks](https://qlik.dev/apis/rest/reload-tasks/), [Tableau permissions](https://help.tableau.com/current/api/rest_api/en-us/REST/rest_api_ref_permissions.htm), [Databricks billing tables](https://docs.databricks.com/aws/en/admin/system-tables/billing).
 
-## Kaynaklar
+## Sources
 
-- Power BI sağlık kontrolü ilanları: [Protiviti](https://appsource.microsoft.com/en/marketplace/consulting-services/roberthalf_protiviti.powerbiperformance), [Sword](https://marketplace.microsoft.com/ja-jp/marketplace/consulting-services/swordgroup1676561891488.powerbi_healthcheck_3wk), [Coeo](https://coeo.com/wp-content/uploads/2024/09/Power-BI-Health-Check-.pdf), [endjin araç özeti](https://endjin.com/blog/performance-optimisation-tools-for-power-bi)
-- Power BI yönetişim: [Unused artifacts API](https://powerbi.microsoft.com/ar-sa/blog/power-bi-unused-artifacts-api-preview)
-- Tableau: [Atrium](https://atrium.ai/services/salesforce-consulting/tableau/server-health-check/), [InterWorks Platform 360](https://community.curator.interworks.com/platform360), [Resource Monitoring Tool](https://help.tableau.com/current/server/en-us/rmt-content-pages.htm), [MAQ Tableau→Power BI değerlendirmesi](https://marketplace.microsoft.com/en-us/product/maqsoftware.tableau_to_microsoft_powerbi_migration_assessment)
-- Qlik: [uygulama performansı ve sentetik anahtarlar](https://help.qlik.com/en-US/cloud-services/Subsystems/Hub/Content/Sense_Hub/Apps/app-performance.htm)
-- Looker: [kullanılmayan alanları bulma](https://developers.looker.com/api/tutorials/finding-unused-fields), [Henry](https://pypi.org/project/henry), [Looker health tools](https://discuss.google.dev/t/introducing-looker-health-tools-in-mcp-toolbox/283239)
+- Power BI health check listings: [Protiviti](https://appsource.microsoft.com/en/marketplace/consulting-services/roberthalf_protiviti.powerbiperformance), [Sword](https://marketplace.microsoft.com/ja-jp/marketplace/consulting-services/swordgroup1676561891488.powerbi_healthcheck_3wk), [Coeo](https://coeo.com/wp-content/uploads/2024/09/Power-BI-Health-Check-.pdf), [endjin tool overview](https://endjin.com/blog/performance-optimisation-tools-for-power-bi)
+- Power BI governance: [Unused artifacts API](https://powerbi.microsoft.com/ar-sa/blog/power-bi-unused-artifacts-api-preview)
+- Tableau: [Atrium](https://atrium.ai/services/salesforce-consulting/tableau/server-health-check/), [InterWorks Platform 360](https://community.curator.interworks.com/platform360), [Resource Monitoring Tool](https://help.tableau.com/current/server/en-us/rmt-content-pages.htm), [MAQ Tableau→Power BI assessment](https://marketplace.microsoft.com/en-us/product/maqsoftware.tableau_to_microsoft_powerbi_migration_assessment)
+- Qlik: [app performance and synthetic keys](https://help.qlik.com/en-US/cloud-services/Subsystems/Hub/Content/Sense_Hub/Apps/app-performance.htm)
+- Looker: [finding unused fields](https://developers.looker.com/api/tutorials/finding-unused-fields), [Henry](https://pypi.org/project/henry), [Looker health tools](https://discuss.google.dev/t/introducing-looker-health-tools-in-mcp-toolbox/283239)
 - Snowflake: [Intricity health check](https://intricity.com/services/snowflake-health-check), [Crayon](https://aws.amazon.com/marketplace/pp/prodview-udqpmpxjxyha4), [Operational excellence](https://www.snowflake.com/en/developers/guides/operational-excellence/)
-- Teradata: [Datafold rehberi](https://datafold.com/resources/teradata-to-snowflake-migration), [SnowConvert](https://mobilize.net/products/database-migrations/snowconvert/teradata-get-started), [Aegis](https://www.aegissofttech.com/snowflake-services/migration/teradata-to-snowflake)
-- Databricks: [UCX](https://docs.databricks.com/aws/data-governance/unity-catalog/ucx), [UCX blog](https://databricks.com/blog/automating-unity-catalog-upgrade-workflows-ucx), [maliyet en iyi uygulamaları](https://docs.databricks.com/aws/lakehouse-architecture/cost-optimization/best-practices)
+- Teradata: [Datafold guide](https://datafold.com/resources/teradata-to-snowflake-migration), [SnowConvert](https://mobilize.net/products/database-migrations/snowconvert/teradata-get-started), [Aegis](https://www.aegissofttech.com/snowflake-services/migration/teradata-to-snowflake)
+- Databricks: [UCX](https://docs.databricks.com/aws/data-governance/unity-catalog/ucx), [UCX blog](https://databricks.com/blog/automating-unity-catalog-upgrade-workflows-ucx), [cost best practices](https://docs.databricks.com/aws/lakehouse-architecture/cost-optimization/best-practices)
 - dbt: [dbt_project_evaluator](https://github.com/dbt-labs/dbt-project-evaluator), [Datatonic dbt health check](https://datatonic.com/partners/dbt/dbt-health-check-americas/)
 - Fabric: [throttling](https://learn.microsoft.com/en-us/fabric/enterprise/throttling), [Metrics app compute](https://learn.microsoft.com/en-us/fabric/enterprise/metrics-app-compute-page)
-- Fivetran: [kullanımı izleme ve azaltma](https://fivetran.com/docs/core-concepts/usage-based-pricing/tracking-and-optimizing-usage)
+- Fivetran: [tracking and reducing usage](https://fivetran.com/docs/core-concepts/usage-based-pricing/tracking-and-optimizing-usage)
 - Informatica: [CTI PowerCenter→IDMC](https://ctidata.com/wp-content/uploads/2023/04/Informatica-PowerCenter-to-IDMC-Migration.pdf), [Informatica upgrade readiness](https://success.informatica.com/success-accelerators/cdipc--platform-compatibility---upgrade-readiness.html)
-- ADF/SSIS: [SSIS geçişi](https://learn.microsoft.com/en-us/azure/data-factory/scenario-ssis-migration-overview), [ADF→Fabric değerlendirmesi](https://community.fabric.microsoft.com/t5/Fabric-Updates-Blog/Assessing-Your-Azure-Data-Factory-for-Migration-to-Fabric-Data/ba-p/5172414)
-- SQL Server: [Denny Cherry 3 günlük sağlık kontrolü](https://azuremarketplace.microsoft.com/en-us/marketplace/consulting-services/dennycherry_associates_consulting.sql_health_check_nq)
-- Oracle: [Oracle Healthcheck örneği](https://www.oracle.com/oce/dc/assets/CONT652A3C4564DA4F888292CAEB5A523BA0/native/oracle-healtcheck-service-example.pdf), [IBM AWR rehberi](https://www.ibm.com/downloads/cas/WNK5D2QZ)
+- ADF/SSIS: [SSIS migration](https://learn.microsoft.com/en-us/azure/data-factory/scenario-ssis-migration-overview), [ADF→Fabric assessment](https://community.fabric.microsoft.com/t5/Fabric-Updates-Blog/Assessing-Your-Azure-Data-Factory-for-Migration-to-Fabric-Data/ba-p/5172414)
+- SQL Server: [Denny Cherry 3-day health check](https://azuremarketplace.microsoft.com/en-us/marketplace/consulting-services/dennycherry_associates_consulting.sql_health_check_nq)
+- Oracle: [Oracle Healthcheck example](https://www.oracle.com/oce/dc/assets/CONT652A3C4564DA4F888292CAEB5A523BA0/native/oracle-healtcheck-service-example.pdf), [IBM AWR guide](https://www.ibm.com/downloads/cas/WNK5D2QZ)
 - PostgreSQL: [postgres.ai checkup](https://v2.postgres.ai/docs/monitoring/checkup), [pg-healthcheck](https://www.cybrosys.com/research-and-development/postgres/how-to-use-the-pg-healthcheck-tool-in-postgresql)
-- MongoDB: [yavaş sorgular](https://www.mongodb.com/docs/v8.2/troubleshooting/slow-queries-in-production/), [performans kontrol listesi](https://delbridge.solutions/mongodb-performance-checklist)
-- Veri kalitesi: [Soda ve GX karşılaştırması](https://www.dataexpert.io/blog/soda-vs-great-expectations-data-quality-tools)
-- Yönetişim: [Purview ve Collibra deneyimi](https://dzone.com/articles/data-catalog-azure-purview-collibra-lessons)
-- MDM: [Informatica→Reltio geçiş planı](https://digihub.mastechdigital.com/assets/Reltio/ReltiLabs/Platform%20Migration/RELTIO_Informatica_MDM_to_Reltio_Migration.docx)
-- MLOps: [Blackthorn çerçevesi](https://blackthorn-vision.com/blog/mlops-consulting-services/)
-- GA4: [BigQuery dışa aktarım denetimi](https://www.optizent.com/?p=7863), [GA4 denetim listesi](https://piotrlitwa.com/articles/en/ga4-audit-checklist.html)
-- SAP: [veri geçişi ilanı](https://builtin.com/job/sap-data-migration-consultant/4747735)
-- SAS: [RiskSpan](https://riskspan.com/sas-to-python-migration/), [Hexaware değerlendirmesi](https://marketplace.microsoft.com/de-lu/product/hexawaretechnologiesltd-nj1734355056208.modernize-sas-to-pyspark-assessment)
-- Alteryx: [dbt ile yeniden yazım](https://docs.getdbt.com/blog/framework-refactor-alteryx-dbt), [Lakebridge Alteryx analizi](https://community.databricks.com/t5/community-articles/stop-translating-alteryx-boxes-a-lakebridge-assisted-test-driven/td-p/163424)
-- Kafka: [tüketici gecikmesi](https://redpanda.com/guides/kafka-performance-kafka-consumer-lag)
+- MongoDB: [slow queries](https://www.mongodb.com/docs/v8.2/troubleshooting/slow-queries-in-production/), [performance checklist](https://delbridge.solutions/mongodb-performance-checklist)
+- Data quality: [Soda vs GX comparison](https://www.dataexpert.io/blog/soda-vs-great-expectations-data-quality-tools)
+- Governance: [Purview and Collibra lessons](https://dzone.com/articles/data-catalog-azure-purview-collibra-lessons)
+- MDM: [Informatica→Reltio migration plan](https://digihub.mastechdigital.com/assets/Reltio/ReltiLabs/Platform%20Migration/RELTIO_Informatica_MDM_to_Reltio_Migration.docx)
+- MLOps: [Blackthorn framework](https://blackthorn-vision.com/blog/mlops-consulting-services/)
+- GA4: [BigQuery export audit](https://www.optizent.com/?p=7863), [GA4 audit checklist](https://piotrlitwa.com/articles/en/ga4-audit-checklist.html)
+- SAP: [data migration job ad](https://builtin.com/job/sap-data-migration-consultant/4747735)
+- SAS: [RiskSpan](https://riskspan.com/sas-to-python-migration/), [Hexaware assessment](https://marketplace.microsoft.com/de-lu/product/hexawaretechnologiesltd-nj1734355056208.modernize-sas-to-pyspark-assessment)
+- Alteryx: [rewriting with dbt](https://docs.getdbt.com/blog/framework-refactor-alteryx-dbt), [Lakebridge Alteryx analysis](https://community.databricks.com/t5/community-articles/stop-translating-alteryx-boxes-a-lakebridge-assisted-test-driven/td-p/163424)
+- Kafka: [consumer lag](https://redpanda.com/guides/kafka-performance-kafka-consumer-lag)
 - Airflow: [airflow-diagnostics](https://pypi.org/project/airflow-diagnostics-mcp/)
 - Business Central: [configuration packages](https://learn.microsoft.com/en-us/dynamics365/business-central/dev-itpro/administration/apply-company-configuration-packages)
