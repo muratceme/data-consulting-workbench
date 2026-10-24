@@ -649,6 +649,9 @@ def lookml_build(m, args):
     files = {f'lookml/views/{v}.view.lkml': text for v, text in views.items()}
     files[f'lookml/{args.model}.model.lkml'] = model_text
     files[f'lookml/dashboards/{snake(m.title)}.dashboard.lookml'] = '---\n' + yaml_dump(dash)
+    # Same tiles as JSON for the looker-dashboard-build API package (user-defined dashboard on the deployed explore).
+    files['lookml/pano.json'] = json.dumps({'title': m.title, 'model': args.model, 'explore': fv, 'elements': [
+        {k: e[k] for k in ('name', 'title', 'type', 'fields', 'sorts', 'limit') if k in e} for e in els]}, ensure_ascii=False, indent=2)
     return files, {'view': len(views), 'join': len(joins), 'eleman': len(els)}, [
         'Dosyaları Looker projesine (Geliştirme modu) kopyalayın; bağlantı adını ve sql_table_name şemasını kontrol edip “Validate LookML” çalıştırın.',
         'Join’ler ağaç biçimindedir (olgu → boyut, boyut → alt boyut), hepsi many_to_one; her panodaki alanın bir view’da tanımlı olduğu kodla denetlendi. Looker’da açılarak test edilmedi.']

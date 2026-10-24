@@ -6,6 +6,7 @@ Run with --plan first; --execute makes the documented platform calls.
 import argparse
 import ast
 import base64
+import csv
 import hashlib
 import io
 import json
@@ -18,10 +19,11 @@ import urllib.error
 import urllib.request
 import uuid
 import zipfile
+from collections import defaultdict
 from datetime import datetime
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from urllib.parse import quote, urljoin, urlsplit
+from urllib.parse import quote, urlencode, urljoin, urlsplit
 
 
 class NativeError(Exception):
@@ -66,12 +68,13 @@ class HTTP:
             raise NativeError('API farklı bir adrese yönlendirdi; kimlik bilgileri gönderilmedi.')
         return result
 
-    def request(self, method, path, payload=None, *, accept='application/json', with_status=False):
+    def request(self, method, path, payload=None, *, accept='application/json', with_status=False, raw=None, content_type=None, allow_status=()):
+        """raw/content_type send a non-JSON body (file bytes, form, multipart); allow_status returns those HTTP errors (e.g. 404) instead of raising."""
         url = self.url(path)
-        body = None if payload is None else json.dumps(payload).encode('utf-8')
+        body = raw if raw is not None else None if payload is None else json.dumps(payload).encode('utf-8')
         headers = {'Accept': accept, **self.headers}
         if body is not None:
-            headers['Content-Type'] = 'application/json'
+            headers['Content-Type'] = content_type or 'application/json'
         for attempt in range(3):
             try:
                 req = urllib.request.Request(url, data=body, headers=headers, method=method)
@@ -84,6 +87,9 @@ class HTTP:
                     result = (data, dict(response.headers.items()))
                     return (*result, response.status) if with_status else result
             except urllib.error.HTTPError as exc:
+                if exc.code in allow_status:
+                    exc.close()
+                    return (b'', {}, exc.code) if with_status else (b'', {})
                 if method == 'GET' and exc.code in (429, 502, 503, 504) and attempt < 2:
                     retry = exc.headers.get('Retry-After', '')
                     exc.close()
@@ -97,6 +103,17 @@ class HTTP:
 
     def json(self, method, path, payload=None):
         raw, _ = self.request(method, path, payload)
+        return json_object(raw)
+
+    def multipart(self, path, fields, files):
+        """POST multipart/form-data: fields {name: text}, files {name: (filename, bytes)}."""
+        boundary = 'datawork' + uuid.uuid4().hex
+        parts = []
+        for name, value in fields.items():
+            parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"\r\n\r\n{value}\r\n'.encode('utf-8'))
+        for name, (filename, data) in files.items():
+            parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"; filename="{filename}"\r\nContent-Type: application/octet-stream\r\n\r\n'.encode('utf-8') + data + b'\r\n')
+        raw, _ = self.request('POST', path, raw=b''.join(parts) + f'--{boundary}--\r\n'.encode(), content_type='multipart/form-data; boundary=' + boundary)
         return json_object(raw)
 
 
@@ -522,6 +539,32 @@ def prefect_run(cfg, out, factory):
     return receipt(out,'flow-run.json',{'id':run,'deployment_id':deployment,'state':result['state']['type']})
 
 
+def snowflake_statement(client,out,sql,stage,timeout,warehouse,role):
+    """One SQL API statement (async submit, bounded polling); every handle is journaled before waiting."""
+    request_id=str(uuid.uuid4())
+    journal(out,**{stage+'_request_id':request_id,'state':stage+'_pending'})
+    payload={'statement':sql,'timeout':timeout,'warehouse':warehouse,'role':role}
+    raw,_,status=client.request('POST','/api/v2/statements?async=true&requestId='+request_id,payload,with_status=True)
+    handle=None
+    for attempt in range(121):
+        try:response=json.loads(raw)
+        except (ValueError,UnicodeError):raise NativeError('Snowflake geçerli JSON döndürmedi.') from None
+        if not isinstance(response,dict):raise NativeError('Snowflake yanıt nesnesi geçersiz.')
+        current=required(response,'statementHandle')
+        if handle is not None and current!=handle:raise NativeError('Snowflake statement kimliği değişti.')
+        handle=current
+        journal(out,**{stage+'_statement_handle':handle})
+        if status==200:
+            if response.get('sqlState')!='00000' or response.get('code')!='090001':
+                raise NativeError('Snowflake başarılı SQL sonucu döndürmedi.')
+            journal(out,state=stage+'_completed')
+            return response
+        if status!=202:raise NativeError('Snowflake beklenmeyen HTTP durumu döndürdü.')
+        if attempt==120:raise NativeError('Snowflake zaman aşımı; sorgu devam ediyor olabilir. run-state.json kimliklerini kontrol edin.')
+        time.sleep(2)
+        raw,_,status=client.request('GET','/api/v2/statements/'+ident(handle),with_status=True)
+
+
 def snowflake_quality(cfg, out, factory):
     # Restricted, explicitly quoted identifiers; no user SQL expressions are interpolated.
     def name(value):
@@ -549,29 +592,7 @@ def snowflake_quality(cfg, out, factory):
     sql='CREATE VIEW '+view+' AS SELECT '+', '.join(metrics)+' FROM '+source_sql
     source_artifact=write_artifact(out,'quality-view.sql',(sql+';\n').encode())
     journal(out,view_name=view,source_table=required(cfg,'source_table'),state='prepared')
-    def statement(sql,stage):
-        request_id=str(uuid.uuid4())
-        journal(out,**{stage+'_request_id':request_id,'state':stage+'_pending'})
-        payload={'statement':sql,'timeout':timeout,'warehouse':warehouse,'role':role}
-        raw,_,status=client.request('POST','/api/v2/statements?async=true&requestId='+request_id,payload,with_status=True)
-        handle=None
-        for attempt in range(121):
-            try:response=json.loads(raw)
-            except (ValueError,UnicodeError):raise NativeError('Snowflake geçerli JSON döndürmedi.') from None
-            if not isinstance(response,dict):raise NativeError('Snowflake yanıt nesnesi geçersiz.')
-            current=required(response,'statementHandle')
-            if handle is not None and current!=handle:raise NativeError('Snowflake statement kimliği değişti.')
-            handle=current
-            journal(out,**{stage+'_statement_handle':handle})
-            if status==200:
-                if response.get('sqlState')!='00000' or response.get('code')!='090001':
-                    raise NativeError('Snowflake başarılı SQL sonucu döndürmedi.')
-                journal(out,state=stage+'_completed')
-                return response
-            if status!=202:raise NativeError('Snowflake beklenmeyen HTTP durumu döndürdü.')
-            if attempt==120:raise NativeError('Snowflake zaman aşımı; sorgu devam ediyor olabilir. run-state.json kimliklerini kontrol edin.')
-            time.sleep(2)
-            raw,_,status=client.request('GET','/api/v2/statements/'+ident(handle),with_status=True)
+    statement=lambda sql,stage:snowflake_statement(client,out,sql,stage,timeout,warehouse,role)
     statement(sql,'create')
     result=statement('SELECT * FROM '+view,'check')
     metadata=result.get('resultSetMetaData',{})
@@ -980,7 +1001,395 @@ def databricks_run(cfg, out, factory):
     return receipt(out,'databricks-run.json',{'job_id':job,'run_id':run,'life_cycle_state':'TERMINATED','result_state':'SUCCESS'})
 
 
-HANDLERS = {'fabric-notebook-run':fabric_job,'fabric-notebook-monitor':fabric_job,'fabric-notebook-export':fabric_notebook,'fabric-notebook':fabric_notebook,'dataform-compile':dataform_compile,'qlik-export':qlik,'qlik-template':qlik,'powerbi-export':powerbi,'tableau-export':tableau,'sap-b1-schema':sap,'sap-odata-schema':sap,'oracle-schema':oracle,'bigquery-table':bigquery,'bigquery-agent':bigquery,'databricks-profile':databricks_profile,'adf-deploy':adf,'adf-run':adf,'airflow-run':airflow,'sap-quotation-draft':sap_quotation_draft,'dbt-run':dbt_run,'prefect-run':prefect_run,'snowflake-quality':snowflake_quality,'github-actions-run':github_actions,'fivetran-sync':fivetran_sync,'airbyte-sync':airbyte_sync,'dataform-run':dataform_run,'powerbi-refresh':powerbi_refresh,'databricks-run':databricks_run,'databricks-monitor':databricks_run,'airbyte-monitor':airbyte_sync,'adf-monitor':adf,'airflow-monitor':airflow,'dbt-monitor':dbt_run,'prefect-monitor':prefect_run,'dataform-monitor':dataform_run,'powerbi-monitor':powerbi_refresh}
+# ---------- From-scratch builds: push a local kurulum block's output to the platform, then read it back ----------
+def build_dir(cfg):
+    root=Path(cfg.get('kurulum_klasoru','kurulum')).resolve()
+    if not root.is_dir():
+        raise NativeError('kurulum_klasoru bulunamadı; önce ilgili yerel kurulum bloğunu çalıştırıp output klasörünü buraya kopyalayın.')
+    return root
+
+
+def build_file(root,rel,limit=16*1024*1024):
+    path=(root/rel).resolve()
+    if root not in path.parents:raise NativeError('Kurulum dosyası klasörün dışını gösteriyor.')
+    if not path.is_file():raise NativeError('Kurulum dosyası yok: '+rel)
+    raw=path.read_bytes()
+    if len(raw)>limit:raise NativeError('Kurulum dosyası boyut sınırını aşıyor: '+rel)
+    return raw
+
+
+def build_json(root,rel):
+    value=json_object(build_file(root,rel,4*1024*1024))
+    return value
+
+
+def uuid_of(value,label):
+    try:return str(uuid.UUID(value))
+    except (ValueError,TypeError,AttributeError):raise NativeError(label+' UUID olmalı.') from None
+
+
+def absent(client,path,label):
+    """Never overwrite: the target must not exist yet (HTTP 404)."""
+    _,_,status=client.request('GET',path,allow_status=(404,),with_status=True)
+    if status!=404:raise NativeError(label+' hedefte zaten var; üzerine yazılmadı. Farklı ad/önek verin.')
+
+
+def qlik_cloud_build(cfg, out, factory):
+    tenant=required(cfg,'tenant')
+    if not (urlsplit(tenant).hostname or '').endswith('.qlikcloud.com'):
+        raise NativeError('Bu adaptör Qlik Cloud içindir; Enterprise için corectl kullanın.')
+    name=required(cfg,'name')
+    root=build_dir(cfg)
+    script=build_file(root,'qlik-uygulama/script.qvs').decode('utf-8')
+    wanted=sorted(set(re.findall(r'FROM \[lib://DataFiles/([^\]/]+)\]',script)))
+    if not wanted:raise NativeError('script.qvs lib://DataFiles/ altından dosya okumuyor; qlik-cok-tablolu-uygulama çıktısını kullanın.')
+    data={f:build_file(root,'veri/'+f,100*1024*1024) for f in wanted}
+    # Fields the reloaded model must contain: every indented "expr as [Field]" line of a table LOAD.
+    expected=set(re.findall(r'^ {4}.+ as \[([^\]]+)\],?$',script,flags=re.M))
+    client=factory(tenant,{'Authorization':'Bearer '+secret('QLIK_ACCESS_TOKEN')})
+    uploaded=[]
+    for f,raw in data.items():
+        result=client.multipart('/api/v1/data-files',{'json':json.dumps({'name':f})},{'file':(f,raw)})
+        uploaded.append({'name':f,'id':required(result,'id'),'bytes':len(raw)})
+        journal(out,data_files=uploaded,state='uploading')
+    created=client.json('POST','/api/v1/apps',{'attributes':{'name':name}})
+    app_id=required(created.get('attributes',{}),'id')
+    journal(out,created_app_id=app_id,state='app_created')
+    client.request('POST','/api/v1/apps/'+ident(app_id)+'/scripts',{'script':script,'versionMessage':'datawork kurulum bloğu'})
+    reload_id=required(client.json('POST','/api/v1/reloads',{'appId':app_id}),'id')
+    journal(out,reload_id=reload_id,state='reloading')
+    poll(client,'/api/v1/reloads/'+ident(reload_id),state=lambda r:r.get('status'),success='SUCCEEDED',failures={'FAILED','CANCELED','EXCEEDED_LIMIT'})
+    meta=client.json('GET','/api/v1/apps/'+ident(app_id)+'/data/metadata')
+    fields={f.get('name') for f in meta.get('fields',[]) if isinstance(f,dict) and not f.get('is_system')}
+    tables=[t.get('name') for t in meta.get('tables',[]) if isinstance(t,dict)]
+    missing=sorted(expected-fields);synthetic=sorted(n for n in list(fields)+tables if isinstance(n,str) and n.startswith('$Syn'))
+    if missing or synthetic:
+        raise NativeError('Yüklenen modelde eksik alan veya sentetik anahtar var ('+', '.join((missing+synthetic)[:5])+'); uygulama kimliği run-state.json içinde.')
+    journal(out,state='verified')
+    return receipt(out,'qlik-app.json',{'app_id':app_id,'reload_id':reload_id,'data_files':[u['name'] for u in uploaded],'fields':len(fields),'tables':len(tables),
+        'synthetic_keys':0,'sheets':'oluşturulmadı: ana öğe ve sayfalar Engine API ister; qlik-uygulama/build.cmd (qlik-cli) ile ekleyin'})
+
+
+def fabric_lakehouse_build(cfg, out, factory):
+    workspace=uuid_of(required(cfg,'workspace_id'),'Fabric workspace_id')
+    name=required(cfg,'display_name')
+    if not re.fullmatch(r'[A-Za-z][A-Za-z0-9_]{0,122}',name):raise NativeError('Lakehouse adı harfle başlamalı; yalnızca harf, rakam ve alt çizgi.')
+    root=build_dir(cfg)
+    files=sorted(p for p in (root/'veri').glob('*.csv')) if (root/'veri').is_dir() else []
+    if not files:raise NativeError('kurulum/veri klasöründe CSV yok.')
+    tables={}
+    for f in files:
+        table=re.sub(r'[^a-z0-9_]','_',f.stem.lower())
+        if not re.fullmatch(r'[a-z][a-z0-9_]{0,255}',table) or table in tables:raise NativeError('Tablo adı geçersiz veya tekrarlı: '+f.name)
+        raw=build_file(root,'veri/'+f.name,256*1024*1024)
+        first=raw.split(b'\n',1)[0].decode('utf-8-sig','replace')
+        tables[table]=(f.name,raw,max([';',',','\t','|'],key=first.count))
+    api=factory('https://api.fabric.microsoft.com',{'Authorization':'Bearer '+secret('FABRIC_ACCESS_TOKEN')})
+    lake=factory('https://onelake.dfs.fabric.microsoft.com',{'Authorization':'Bearer '+secret('ONELAKE_ACCESS_TOKEN'),'x-ms-version':'2023-11-03'})
+    path='/v1/workspaces/'+workspace+'/lakehouses'
+    created=fabric_result(api,out,path,{'displayName':name},'create',201)
+    item=uuid_of(required(created,'id'),'Lakehouse kimliği')
+    journal(out,workspace_id=workspace,lakehouse_id=item,state='created')
+    got=api.json('GET',path+'/'+item)
+    if got.get('id')!=item or got.get('type')!='Lakehouse' or got.get('displayName')!=name:raise NativeError('Lakehouse kimliği/adı eşleşmedi.')
+    for table,(filename,raw,_) in tables.items():
+        target='/'+workspace+'/'+item+'/Files/kurulum/'+ident(filename)
+        lake.request('PUT',target+'?resource=file',raw=b'',content_type='application/octet-stream')
+        lake.request('PATCH',target+'?action=append&position=0',raw=raw,content_type='application/octet-stream')
+        lake.request('PATCH',target+'?action=flush&position='+str(len(raw)),raw=b'',content_type='application/octet-stream')
+        journal(out,**{'uploaded_'+table:len(raw)})
+    loaded=[]
+    for table,(filename,_,sep) in tables.items():
+        _,headers,status=api.request('POST',path+'/'+item+'/tables/'+table+'/load',{'relativePath':'Files/kurulum/'+filename,'pathType':'File','mode':'Overwrite',
+            'formatOptions':{'header':True,'delimiter':sep,'format':'Csv'}},with_status=True)
+        location=header(headers,'Location');prefix='https://api.fabric.microsoft.com'+path+'/'+item+'/operations/'
+        if status!=202 or not location.startswith(prefix):raise NativeError('Tablo yükleme işlemi kabul edilmedi: '+table)
+        operation=uuid_of(location[len(prefix):],'Yükleme işlem kimliği')
+        journal(out,**{'load_'+table:operation})
+        for _ in range(120):
+            state=api.json('GET',path+'/'+item+'/operations/'+operation).get('Status')
+            if state==3:break
+            if state not in (1,2):raise NativeError('Tablo yüklemesi başarısız: '+table)
+            time.sleep(2)
+        else:raise NativeError('Tablo yüklemesi zaman aşımı: '+table+'; işlem devam ediyor olabilir.')
+        loaded.append(table)
+    listed={t.get('name') for t in api.json('GET',path+'/'+item+'/tables').get('data',[]) if isinstance(t,dict)}
+    if set(loaded)-listed:raise NativeError('Yüklenen tablolar lakehouse listesinde yok: '+', '.join(sorted(set(loaded)-listed)))
+    journal(out,state='verified')
+    return receipt(out,'lakehouse.json',{'workspace_id':workspace,'lakehouse_id':item,'tables':loaded,'files':'Files/kurulum/'})
+
+
+def fabric_semantic_model(cfg, out, factory):
+    workspace=uuid_of(required(cfg,'workspace_id'),'Fabric workspace_id')
+    name=required(cfg,'display_name')
+    root=build_dir(cfg)
+    folders=sorted((root/'pbip').glob('*.SemanticModel')) if (root/'pbip').is_dir() else []
+    if len(folders)!=1:raise NativeError('kurulum/pbip altında tek bir .SemanticModel klasörü olmalı (pbi-yildiz-model-projesi çıktısı).')
+    sm=folders[0]
+    files=[p for p in sorted(sm.rglob('*')) if p.is_file() and '.pbi' not in p.relative_to(sm).parts]
+    parts=[{'path':p.relative_to(sm).as_posix(),'payload':base64.b64encode(build_file(root,p.relative_to(root).as_posix())).decode(),'payloadType':'InlineBase64'} for p in files]
+    paths={p['path'] for p in parts}
+    if not {'definition.pbism','definition/model.tmdl'}<=paths:raise NativeError('TMDL tanımında definition.pbism veya definition/model.tmdl eksik.')
+    path='/v1/workspaces/'+workspace+'/semanticModels'
+    api=factory('https://api.fabric.microsoft.com',{'Authorization':'Bearer '+secret('FABRIC_ACCESS_TOKEN')})
+    created=fabric_result(api,out,path,{'displayName':name,'definition':{'format':'TMDL','parts':parts}},'create',201)
+    item=uuid_of(required(created,'id'),'Semantic model kimliği')
+    journal(out,workspace_id=workspace,semantic_model_id=item,state='created')
+    got=api.json('GET',path+'/'+item)
+    if got.get('id')!=item or got.get('type')!='SemanticModel' or got.get('displayName')!=name:raise NativeError('Semantic model kimliği/adı eşleşmedi.')
+    exported=fabric_result(api,out,path+'/'+item+'/getDefinition?format=TMDL',None,'export',200)
+    back={p.get('path') for p in exported.get('definition',{}).get('parts',[]) if isinstance(p,dict)}
+    sent_tables={p for p in paths if p.startswith('definition/tables/')}
+    if sent_tables-back:raise NativeError('Geri okunan tanımda eksik tablo: '+', '.join(sorted(sent_tables-back)))
+    journal(out,state='verified')
+    return receipt(out,'semantic-model.json',{'workspace_id':workspace,'semantic_model_id':item,'tables':sorted(p.rsplit('/',1)[1][:-5] for p in sent_tables),
+        'refresh':'yapılmadı: veri kaynağı kimlik bilgisini/gateway’i Power BI’da bağlayıp yenileyin'})
+
+
+METABASE_DISPLAYS={'scalar','row','bar','line','table','pie','area'}
+
+
+def metabase_dashboard(cfg, out, factory):
+    database=cfg.get('database_id')
+    if type(database) is not int or database<1:raise NativeError('database_id pozitif tamsayı olmalı (Yönetici > Veritabanları).')
+    spec=build_json(build_dir(cfg),'metabase/kartlar.json')
+    title=required(spec,'dashboard');cards=spec.get('cards')
+    if not isinstance(cards,list) or not 1<=len(cards)<=50:raise NativeError('kartlar.json 1–50 kart içermeli.')
+    for c in cards:
+        if not isinstance(c,dict) or c.get('display') not in METABASE_DISPLAYS or not isinstance(c.get('sql'),str) or not c['sql'].strip():
+            raise NativeError('Kart tanımı geçersiz: '+str(c.get('name') if isinstance(c,dict) else c)[:60])
+        if any(type(c.get(k)) is not int or c[k]<0 for k in ('row','col','size_x','size_y')):raise NativeError('Kart konumu tamsayı olmalı.')
+        if re.search(r'\b(INSERT|UPDATE|DELETE|DROP|ALTER|TRUNCATE|GRANT|CREATE)\b',c['sql'],re.I):raise NativeError('Kart SQL’i yalnızca okuma yapmalı: '+c['name'])
+    client=factory(required(cfg,'server'),{'X-API-Key':secret('METABASE_API_KEY')})
+    if client.json('GET','/api/database/'+str(database)).get('id')!=database:raise NativeError('Metabase veritabanı kimliği eşleşmedi.')
+    collection=required_id(client.json('POST','/api/collection',{'name':title,'color':'#509EE3'}))
+    dashboard=required_id(client.json('POST','/api/dashboard',{'name':title,'collection_id':collection}))
+    journal(out,collection_id=collection,dashboard_id=dashboard,state='dashboard_created')
+    ids,dashcards=[],[]
+    for i,c in enumerate(cards):
+        card=required_id(client.json('POST','/api/card',{'name':c['name'],'collection_id':collection,'display':c['display'],'visualization_settings':c.get('visualization_settings') or {},
+            'dataset_query':{'type':'native','native':{'query':c['sql']},'database':database}}))
+        ids.append(card);journal(out,card_ids=ids)
+        dashcards.append({'id':-(i+1),'card_id':card,'row':c['row'],'col':c['col'],'size_x':c['size_x'],'size_y':c['size_y']})
+    client.json('PUT','/api/dashboard/'+str(dashboard),{'dashcards':dashcards})
+    placed=sorted(d.get('card_id') for d in client.json('GET','/api/dashboard/'+str(dashboard)).get('dashcards',[]) if isinstance(d,dict))
+    if placed!=sorted(ids):raise NativeError('Panodaki kartlar oluşturulan kartlarla eşleşmedi; kimlikler run-state.json içinde.')
+    journal(out,state='verified')
+    return receipt(out,'metabase-dashboard.json',{'collection_id':collection,'dashboard_id':dashboard,'cards':len(ids),'database_id':database})
+
+
+def required_id(obj):
+    value=obj.get('id')
+    if type(value) is not int or value<1:raise NativeError('API yanıtında geçerli kimlik yok.')
+    return value
+
+
+def looker_dashboard(cfg, out, factory):
+    spec=build_json(build_dir(cfg),'lookml/pano.json')
+    model=cfg.get('model') or required(spec,'model');explore=cfg.get('explore') or required(spec,'explore');folder=required(cfg,'folder_id')
+    elements=spec.get('elements')
+    if not isinstance(elements,list) or not 1<=len(elements)<=40:raise NativeError('pano.json 1–40 öğe içermeli.')
+    server=required(cfg,'server')
+    login=factory(server,{})
+    form=urlencode({'client_id':secret('LOOKER_CLIENT_ID'),'client_secret':secret('LOOKER_CLIENT_SECRET')}).encode()
+    raw,_=login.request('POST','/api/4.0/login',raw=form,content_type='application/x-www-form-urlencoded')
+    client=factory(server,{'Authorization':'token '+required(json_object(raw),'access_token')})
+    found=client.json('GET','/api/4.0/lookml_models/'+ident(model)+'/explores/'+ident(explore))
+    names={f.get('name') for kind in ('dimensions','measures') for f in found.get('fields',{}).get(kind,[]) if isinstance(f,dict)}
+    missing=sorted({f for e in elements for f in e.get('fields',[])}-names)
+    if missing:raise NativeError('Explore’da olmayan alan (LookML henüz yayımlanmamış olabilir): '+', '.join(missing[:8]))
+    dashboard=required(client.json('POST','/api/4.0/dashboards',{'title':required(spec,'title'),'folder_id':folder}),'id')
+    journal(out,dashboard_id=dashboard,state='dashboard_created')
+    made=[]
+    for e in elements:
+        query=required(client.json('POST','/api/4.0/queries',{'model':model,'view':explore,'fields':e['fields'],'sorts':e.get('sorts',[]),'limit':str(e.get('limit',500)),
+            'vis_config':{'type':e.get('type','looker_grid')}}),'id')
+        made.append(required(client.json('POST','/api/4.0/dashboard_elements',{'dashboard_id':dashboard,'query_id':query,'type':'vis','title':e.get('title','')}),'id'))
+        journal(out,element_ids=made)
+    raw,_=client.request('GET','/api/4.0/dashboards/'+ident(dashboard)+'/dashboard_elements')
+    try:listed=json.loads(raw)
+    except ValueError:raise NativeError('Looker öğe listesi okunamadı.') from None
+    if not isinstance(listed,list) or sorted(str(x.get('id')) for x in listed if isinstance(x,dict))!=sorted(map(str,made)):
+        raise NativeError('Panodaki öğeler oluşturulanlarla eşleşmedi; kimlikler run-state.json içinde.')
+    journal(out,state='verified')
+    return receipt(out,'looker-dashboard.json',{'dashboard_id':dashboard,'elements':len(made),'model':model,'explore':explore})
+
+
+SNOWFLAKE_SETUP=re.compile(r'(CREATE (ROLE|DATABASE|WAREHOUSE|USER|RESOURCE MONITOR) IF NOT EXISTS |GRANT |ALTER WAREHOUSE [A-Z0-9_]+ SET RESOURCE_MONITOR = [A-Z0-9_]+$)')
+
+
+def snowflake_setup(cfg, out, factory):
+    root=build_dir(cfg)
+    text=build_file(root,'snowflake_kurulum.sql').decode('utf-8')
+    matrix=list(csv.DictReader(io.StringIO(build_file(root,'yetki_matrisi.csv').decode('utf-8-sig'))))
+    statements,role=[],None
+    for chunk in re.sub(r'^--.*$','',text,flags=re.M).split(';\n'):
+        sql=chunk.strip().rstrip(';').strip()
+        if not sql:continue
+        m=re.fullmatch(r'USE ROLE (USERADMIN|SYSADMIN|SECURITYADMIN|ACCOUNTADMIN)',sql)
+        if m:role=m.group(1);continue
+        if role is None or not SNOWFLAKE_SETUP.match(sql) or re.search(r'\b(DROP|REVOKE|PASSWORD)\b',sql) or ';' in sql:
+            raise NativeError('Kurulum SQL’inde izin verilmeyen komut: '+sql[:60])
+        if "'<ACIK_ANAHTAR>'" in sql:raise NativeError('Servis kullanıcısının RSA_PUBLIC_KEY alanını doldurun (<ACIK_ANAHTAR>).')
+        statements.append((role,sql))
+    if not statements:raise NativeError('Kurulum SQL’inde komut yok.')
+    timeout=cfg.get('timeout_seconds',120)
+    if type(timeout) is not int or not 1<=timeout<=600:raise NativeError('timeout_seconds 1–600 arası tamsayı olmalı.')
+    warehouse=required(cfg,'warehouse')
+    client=factory(required(cfg,'server'),{'Authorization':'Bearer '+secret('SNOWFLAKE_ACCESS_TOKEN'),'X-Snowflake-Authorization-Token-Type':'OAUTH','User-Agent':'Datawork/0.1'})
+    journal(out,statements=len(statements),done=0,state='running')
+    for i,(role,sql) in enumerate(statements):
+        snowflake_statement(client,out,sql,'s'+str(i),timeout,warehouse,role)
+        journal(out,done=i+1)
+    level={'okuma':'R','yazma':'RW','sahip':'OWN'}
+    expected=defaultdict(set)
+    for row in matrix:
+        if row.get('etkin') in level:expected[row['kimlik']].add(row['veritabani']+'_'+level[row['etkin']])
+    diffs=[]
+    for grantee in sorted({r['kimlik'] for r in matrix}):
+        result=snowflake_statement(client,out,'SHOW GRANTS TO ROLE '+grantee,'verify_'+grantee,timeout,warehouse,'SECURITYADMIN')
+        cols=[c.get('name') for c in result.get('resultSetMetaData',{}).get('rowType',[])]
+        rows=[dict(zip(cols,r)) for r in result.get('data') or []]
+        got={r.get('name') for r in rows if r.get('privilege')=='USAGE' and r.get('granted_on')=='ROLE'}
+        if got!=expected[grantee]:diffs.append(grantee)
+    if diffs:raise NativeError('Etkin rol hakları planla eşleşmedi: '+', '.join(diffs))
+    journal(out,state='verified')
+    return receipt(out,'snowflake-setup.json',{'statements':len(statements),'verified_roles':len({r['kimlik'] for r in matrix}),'differences':0})
+
+
+UC_PRIVILEGES={'USE_CATALOG','USE_SCHEMA','SELECT','MODIFY','CREATE_TABLE','CREATE_VOLUME','READ_VOLUME','WRITE_VOLUME','ALL_PRIVILEGES'}
+
+
+def unity_catalog_setup(cfg, out, factory):
+    plan=build_json(build_dir(cfg),'uc_plan.json')
+    simple=lambda v:isinstance(v,str) and re.fullmatch(r'[a-z_][a-z0-9_]{0,254}',v)
+    for c in plan.get('catalogs',[]):
+        if not simple(c.get('name')):raise NativeError('Katalog adı geçersiz.')
+    for s in plan.get('schemas',[]):
+        if not simple(s.get('name')) or not simple(s.get('catalog_name')):raise NativeError('Şema adı geçersiz.')
+    for g in plan.get('grants',[]):
+        if g.get('securable_type') not in ('catalog','schema') or not set(g.get('privileges',[]))<=UC_PRIVILEGES or not g.get('principal'):
+            raise NativeError('Yetki satırı geçersiz.')
+    if not plan.get('catalogs'):raise NativeError('uc_plan.json katalog içermiyor.')
+    client=factory(required(cfg,'workspace_url'),{'Authorization':'Bearer '+secret('DATABRICKS_ACCESS_TOKEN')})
+    base='/api/2.1/unity-catalog/'
+    for c in plan['catalogs']:absent(client,base+'catalogs/'+ident(c['name']),'Katalog '+c['name'])
+    for c in plan['catalogs']:
+        client.json('POST',base+'catalogs',{k:c[k] for k in ('name','storage_root','comment') if c.get(k)})
+        journal(out,**{'catalog_'+c['name']:'created'})
+    for s in plan.get('schemas',[]):
+        client.json('POST',base+'schemas',{k:s[k] for k in ('name','catalog_name','storage_root','comment') if s.get(k)})
+        journal(out,**{'schema_'+s['catalog_name']+'.'+s['name']:'created'})
+    grouped=defaultdict(list)
+    for g in plan.get('grants',[]):grouped[(g['securable_type'],g['full_name'])].append({'principal':g['principal'],'add':g['privileges']})
+    for (kind,full),changes in grouped.items():
+        client.json('PATCH',base+'permissions/'+kind+'/'+ident(full),{'changes':changes})
+    missing=[]
+    for (kind,full),changes in grouped.items():
+        have=defaultdict(set)
+        for a in client.json('GET',base+'permissions/'+kind+'/'+ident(full)).get('privilege_assignments',[]):
+            if isinstance(a,dict):have[a.get('principal')]|=set(a.get('privileges',[]))
+        missing+=[full+':'+c['principal'] for c in changes if not set(c['add'])<=have[c['principal']]]
+    if missing:raise NativeError('Geri okunan yetkiler eksik: '+', '.join(missing[:6]))
+    for o in plan.get('owners',[]):
+        if client.json('PATCH',base+'schemas/'+ident(o['full_name']),{'owner':o['owner']}).get('owner')!=o['owner']:raise NativeError('Şema sahipliği değişmedi: '+o['full_name'])
+    journal(out,state='verified')
+    return receipt(out,'unity-catalog.json',{'catalogs':len(plan['catalogs']),'schemas':len(plan.get('schemas',[])),'grants':sum(len(v) for v in grouped.values()),'owners':len(plan.get('owners',[]))})
+
+
+def bigquery_setup(cfg, out, factory):
+    plan=build_json(build_dir(cfg),'bq_plan.json')
+    datasets=plan.get('datasets',[]);accounts=plan.get('service_accounts',[])
+    if not datasets:raise NativeError('bq_plan.json veri kümesi içermiyor.')
+    for d in datasets:
+        if not re.fullmatch(r'[a-z][a-z0-9-]{4,28}[a-z0-9]',str(d.get('project'))) or not re.fullmatch(r'[A-Za-z0-9_]{1,1024}',str(d.get('dataset_id'))):
+            raise NativeError('Proje veya veri kümesi adı geçersiz.')
+    token={'Authorization':'Bearer '+secret('GOOGLE_ACCESS_TOKEN')}
+    bq=factory('https://bigquery.googleapis.com',token);iam=factory('https://iam.googleapis.com',token)
+    path=lambda d:'/bigquery/v2/projects/'+ident(d['project'])+'/datasets'
+    for d in datasets:absent(bq,path(d)+'/'+ident(d['dataset_id']),'Veri kümesi '+d['project']+'.'+d['dataset_id'])
+    for a in accounts:
+        email=required(iam.json('POST','/v1/projects/'+ident(a['project'])+'/serviceAccounts',{'accountId':a['account_id'],'serviceAccount':{'displayName':a['display_name']}}),'email')
+        if email!=a['account_id']+'@'+a['project']+'.iam.gserviceaccount.com':raise NativeError('Servis hesabı e-postası beklenenle eşleşmedi.')
+        journal(out,**{'service_account_'+a['project']+'_'+a['account_id']:'created'})
+    for d in datasets:
+        body={'datasetReference':{'projectId':d['project'],'datasetId':d['dataset_id']},'location':d.get('location','EU'),'labels':d.get('labels',{}),'access':d['access']}
+        if d.get('default_table_expiration_ms'):body['defaultTableExpirationMs']=d['default_table_expiration_ms']
+        bq.json('POST',path(d),body)
+        got=bq.json('GET',path(d)+'/'+ident(d['dataset_id']))
+        have=[{k:v for k,v in e.items() if k in ('role','groupByEmail','userByEmail','specialGroup')} for e in got.get('access',[]) if isinstance(e,dict)]
+        if any(e not in have for e in d['access']):raise NativeError('Veri kümesi erişim listesi beklenenle eşleşmedi: '+d['dataset_id'])
+        journal(out,**{'dataset_'+d['project']+'.'+d['dataset_id']:'verified'})
+    return receipt(out,'bigquery-setup.json',{'datasets':len(datasets),'service_accounts':len(accounts),'job_user':'verilmedi: ekiplere proje düzeyinde roles/bigquery.jobUser verin'})
+
+
+ADF_KINDS=[('linkedService','linkedservices'),('dataset','datasets'),('pipeline','pipelines'),('trigger','triggers')]
+
+
+def adf_solution(cfg, out, factory):
+    prefix=cfg.get('name_prefix','dw_')
+    if not isinstance(prefix,str) or not re.fullmatch(r'[A-Za-z][A-Za-z0-9_]{0,19}',prefix):raise NativeError('name_prefix harfle başlamalı; en çok 20 harf/rakam/alt çizgi.')
+    root=build_dir(cfg)
+    resources=[]
+    for folder,kind in ADF_KINDS:
+        for p in sorted((root/'adf'/folder).glob('*.json')) if (root/'adf'/folder).is_dir() else []:
+            doc=json_object(build_file(root,p.relative_to(root).as_posix(),4*1024*1024))
+            resources.append((kind,required(doc,'name'),doc.get('properties')))
+    if not any(k=='pipelines' for k,_,_ in resources):raise NativeError('kurulum/adf/pipeline klasöründe pipeline yok (adf-metadata-pipeline çıktısı).')
+    text=json.dumps([r[2] for r in resources])
+    if re.search(r'<(depo|kasa|[a-z_]+)>',text):raise NativeError('Bağlı hizmetlerdeki <depo>/<kasa> gibi yer tutucuları kendi kaynak adlarınızla değiştirin.')
+    names={n for _,n,_ in resources}
+    def rename(node):
+        if isinstance(node,dict):return {k:(prefix+v if k=='referenceName' and v in names else rename(v)) for k,v in node.items()}
+        if isinstance(node,list):return [rename(v) for v in node]
+        return node
+    # Pipelines that call others go after their targets.
+    calls=lambda props:set(re.findall(r'"referenceName": "([^"]+)", "type": "PipelineReference"',json.dumps(props)))
+    pipes=[r for r in resources if r[0]=='pipelines'];ordered=[]
+    while pipes:
+        ready=[r for r in pipes if calls(r[2])<= {o[1] for o in ordered}]
+        if not ready:raise NativeError('Pipeline’lar birbirini döngüsel çağırıyor.')
+        ordered+=ready;pipes=[r for r in pipes if r not in ready]
+    resources=[r for r in resources if r[0] in ('linkedservices','datasets')]+ordered+[r for r in resources if r[0]=='triggers']
+    base='/subscriptions/'+ident(required(cfg,'subscription_id'))+'/resourceGroups/'+ident(required(cfg,'resource_group'))+'/providers/Microsoft.DataFactory/factories/'+ident(required(cfg,'factory_name'))
+    api='?api-version=2018-06-01'
+    client=factory('https://management.azure.com',{'Authorization':'Bearer '+secret('AZURE_ACCESS_TOKEN')})
+    for kind,name,_ in resources:absent(client,base+'/'+kind+'/'+ident(prefix+name)+api,kind+' '+prefix+name)
+    created=[]
+    for kind,name,props in resources:
+        target=base+'/'+kind+'/'+ident(prefix+name)
+        client.json('PUT',target+api,{'properties':rename(props)})
+        if client.json('GET',target+api).get('name')!=prefix+name:raise NativeError('ADF kaynağı geri okunamadı: '+prefix+name)
+        created.append(kind+'/'+prefix+name);journal(out,created=created)
+    return receipt(out,'adf-solution.json',{'factory':cfg['factory_name'],'created':created,'trigger_state':'Stopped (başlatılmadı)'})
+
+
+def airflow_activate(cfg, out, factory):
+    if cfg.get('api_version')!='3.2':raise NativeError('Bu adaptör Airflow 3.2 public API v2 sözleşmesini destekler.')
+    dag_id=required(cfg,'dag_id')
+    source=build_file(build_dir(cfg),'dags/'+dag_id+'.py').decode('utf-8')
+    try:tree=ast.parse(source)
+    except SyntaxError:raise NativeError('DAG dosyası Python olarak ayrıştırılamadı.') from None
+    tasks={k.value.value for n in ast.walk(tree) if isinstance(n,ast.Call) for k in n.keywords if k.arg=='task_id' and isinstance(k.value,ast.Constant)}
+    if not tasks:raise NativeError('DAG dosyasında görev bulunamadı.')
+    client=factory(required(cfg,'server'),{'Authorization':'Bearer '+secret('AIRFLOW_ACCESS_TOKEN')})
+    errors=[e for e in client.json('GET','/api/v2/importErrors').get('import_errors',[]) if isinstance(e,dict) and str(e.get('filename','')).endswith(dag_id+'.py')]
+    if errors:raise NativeError('Airflow DAG dosyasını içe aktaramadı; Airflow arayüzünde içe aktarma hatasına bakın.')
+    if client.json('GET','/api/v2/dags/'+ident(dag_id)).get('dag_id')!=dag_id:raise NativeError('DAG Airflow’da bulunamadı; dosyayı dags klasörüne koyup ayrıştırılmasını bekleyin.')
+    live={t.get('task_id') for t in client.json('GET','/api/v2/dags/'+ident(dag_id)+'/tasks').get('tasks',[]) if isinstance(t,dict)}
+    if live!=tasks:raise NativeError('Airflow’daki görevler dosyayla eşleşmedi (eski sürüm yüklü olabilir).')
+    journal(out,dag_id=dag_id,tasks=len(tasks),state='verified')
+    paused=True
+    if cfg.get('unpause',True):
+        paused=client.json('PATCH','/api/v2/dags/'+ident(dag_id)+'?update_mask=is_paused',{'is_paused':False}).get('is_paused')
+        if paused is not False:raise NativeError('DAG duraklatmadan çıkarılamadı.')
+    journal(out,state='active' if not paused else 'paused')
+    return receipt(out,'airflow-dag.json',{'dag_id':dag_id,'tasks':sorted(tasks),'is_paused':paused})
+
+
+HANDLERS = {'fabric-notebook-run':fabric_job,'fabric-notebook-monitor':fabric_job,'fabric-notebook-export':fabric_notebook,'fabric-notebook':fabric_notebook,'dataform-compile':dataform_compile,'qlik-export':qlik,'qlik-template':qlik,'powerbi-export':powerbi,'tableau-export':tableau,'sap-b1-schema':sap,'sap-odata-schema':sap,'oracle-schema':oracle,'bigquery-table':bigquery,'bigquery-agent':bigquery,'databricks-profile':databricks_profile,'adf-deploy':adf,'adf-run':adf,'airflow-run':airflow,'sap-quotation-draft':sap_quotation_draft,'dbt-run':dbt_run,'prefect-run':prefect_run,'snowflake-quality':snowflake_quality,'github-actions-run':github_actions,'fivetran-sync':fivetran_sync,'airbyte-sync':airbyte_sync,'dataform-run':dataform_run,'powerbi-refresh':powerbi_refresh,'databricks-run':databricks_run,'databricks-monitor':databricks_run,'airbyte-monitor':airbyte_sync,'adf-monitor':adf,'airflow-monitor':airflow,'dbt-monitor':dbt_run,'prefect-monitor':prefect_run,'dataform-monitor':dataform_run,'powerbi-monitor':powerbi_refresh,
+            'qlik-cloud-build':qlik_cloud_build,'fabric-lakehouse-build':fabric_lakehouse_build,'fabric-semantic-model':fabric_semantic_model,'metabase-dashboard':metabase_dashboard,'looker-dashboard':looker_dashboard,
+            'snowflake-setup':snowflake_setup,'unity-catalog-setup':unity_catalog_setup,'bigquery-setup':bigquery_setup,'adf-solution':adf_solution,'airflow-activate':airflow_activate}
 
 
 RESUME_OPERATIONS = {

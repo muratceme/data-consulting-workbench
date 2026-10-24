@@ -4,7 +4,7 @@ Veri işleri için iki tür paket: **kod blokları** (aynı girdiden hep aynı s
 
 ## Güncel durum
 
-17 Ekim 2026: 23 alan / 207 ürün bağlamı. **535 indirilebilir paket**: 37 platform API paketi (36 kod bloğu + BigQuery agent) ve 498 yerel paket (380 kod bloğu + 118 agent). Toplam **416 kod bloğu, 119 agent**; 23 alanın hepsinde en az bir indirilebilir paket var. Diğer 372 görev **planlanan entegrasyon**; indirme bağlantıları yok.
+17 Ekim 2026: 23 alan / 207 ürün bağlamı. **545 indirilebilir paket**: 47 platform API paketi (46 kod bloğu + BigQuery agent) ve 498 yerel paket (380 kod bloğu + 118 agent). Toplam **426 kod bloğu, 119 agent**; 23 alanın hepsinde en az bir indirilebilir paket var. Diğer 372 görev **planlanan entegrasyon**; indirme bağlantıları yok.
 
 ### Yerel kod blokları (internet yok, Python standart kütüphanesi)
 
@@ -66,7 +66,7 @@ Her blok tek bir işi yapar; `library/blocks/<kategori>.py` içinde `islem.op(..
 | Sıfırdan BI kurulumu (`kurulum.py`) | 6 | tablo klasöründen (olgu + boyutlar) anahtarları ve ilişkileri veriden bulup doğrulayan çok tablolu model; Qlik Sense uygulaması (sentetik anahtar ve döngü denetimiyle), Power BI yıldız model projesi (PBIP), Looker projesi (join’li explore), Tableau çalışma kitabı, Superset içe aktarma paketi, Metabase SQL kartları ve API kurulum betiği |
 | Sıfırdan platform kurulumu (`platform_kurulum.py`) | 8 | düz dosyadan normalize veritabanı (3NF, SQLite’ta geri birleştirilerek doğrulanır), çok tablolu dbt yıldız projesi, ekip/katman listesinden Snowflake hesabı, Unity Catalog ve BigQuery (Terraform) kurulumu, Azure Data Factory metadata güdümlü yükleme hattı, Airflow DAG’i, scikit-learn proje iskeleti |
 
-**Sıfırdan kurulum blokları.** Bakım ve denetim bloklarına ek olarak bir platformu boştan kuran işler: tablo klasöründen ilişkili veri modeli ve pano (Qlik, Power BI, Looker, Tableau, Superset, Metabase), düz dosyadan veritabanı, dbt projesi, Snowflake / Unity Catalog / BigQuery hesap kurulumu, ADF yükleme hattı, Airflow DAG’i ve ML projesi. Model blokları ilişkileri veride doğrular (üst tabloda anahtar tekil mi, alt tabloda eşleşmeyen değer var mı); ikinci yol açan ilişki Qlik’te alan adı ayrılarak, Power BI’da pasif ilişkiyle kesilir. Superset ve Metabase SQL’i, dbt modelleri ve normalize veritabanı SQLite’ta çalıştırılıp rakamlar Python hesabıyla karşılaştırılır; erişim kurulumlarında üretilen GRANT’lerin etkisi hesaplanıp istenen erişimle karşılaştırılır. Üretilen projeler hedef uygulamalarda açılarak test edilmedi.
+**Sıfırdan kurulum blokları.** Yerel bloklar çevrimdışıdır; on platformda (Qlik Cloud, Fabric Lakehouse, Power BI Service, Metabase, Looker, Snowflake, Unity Catalog, BigQuery, ADF, Airflow) aynı çıktıyı API ile hesaba kuran platform paketleri de vardır: paketteki `kurulum/` klasörü bloğun örnek çıktısıdır, kendi çıktınızla değiştirilir; hedefte aynı adlı kaynak varsa hiçbir şey oluşturmadan durur ve sonunda platformdan geri okuyup karşılaştırır. Bakım ve denetim bloklarına ek olarak bir platformu boştan kuran işler: tablo klasöründen ilişkili veri modeli ve pano (Qlik, Power BI, Looker, Tableau, Superset, Metabase), düz dosyadan veritabanı, dbt projesi, Snowflake / Unity Catalog / BigQuery hesap kurulumu, ADF yükleme hattı, Airflow DAG’i ve ML projesi. Model blokları ilişkileri veride doğrular (üst tabloda anahtar tekil mi, alt tabloda eşleşmeyen değer var mı); ikinci yol açan ilişki Qlik’te alan adı ayrılarak, Power BI’da pasif ilişkiyle kesilir. Superset ve Metabase SQL’i, dbt modelleri ve normalize veritabanı SQLite’ta çalıştırılıp rakamlar Python hesabıyla karşılaştırılır; erişim kurulumlarında üretilen GRANT’lerin etkisi hesaplanıp istenen erişimle karşılaştırılır. Üretilen projeler hedef uygulamalarda açılarak test edilmedi.
 
 **Danışman işleri araştırması.** Hangi platformda danışmanların gerçekte ne sattığı ve sitede hangi işlerin eksik olduğu, kaynaklarıyla birlikte [docs/DANISMAN-ARASTIRMASI.md](docs/DANISMAN-ARASTIRMASI.md) dosyasında. Eksik bulunan işler paketler hâlinde ekleniyor.
 
@@ -112,6 +112,16 @@ Pano kurucu (tablo klasöründen isteğe göre çok tablolu pano; seçim veri mo
 | Airbyte Cloud | Mevcut bağlantı için sync job oluştur, job/connection kimliğiyle izle | Platform job + varsa satır/bayt sayaçları; reset çağrısı yapılmaz |
 | Airbyte mevcut job takibi | Kesinti sonrası connection_id/job_id ile yalnızca GET üzerinden takip | Yeni aktarım başlatmadan iş sonucu ve sayaçlar |
 | Google Cloud Dataform | Sabit Git SHA’dan compilationResult oluştur/geri oku; ayrıca mevcut derlemeyi çalıştır ve takip et | Platform compilationResult veya workflow invocation; yeni SQLX/model tasarlamaz |
+| Qlik Cloud kurulum | Data Files’a CSV yükle → yeni uygulama → load script → reload → veri modeli metadata’sıyla alan ve sentetik anahtar kontrolü | Yüklenmiş veri modeliyle yeni uygulama; sayfalar qlik-cli ile |
+| Fabric Lakehouse kurulum | Yeni lakehouse → OneLake’e CSV yükle → Load Table → işlem takibi → tablo listesi | Delta tabloları olan yeni lakehouse |
+| Power BI semantic model kurulum | TMDL tanımını yeni semantic model olarak yayımla → getDefinition ile geri oku | Workspace’te yeni model (veri yenilemesi ayrı) |
+| Metabase kurulum | Veritabanını doğrula → koleksiyon, SQL kartları, pano → yerleşimi geri oku | Koleksiyon + pano |
+| Looker kurulum | Oturum aç → explore alanlarını denetle → pano, sorgular, öğeler → öğe listesini geri oku | Kullanıcı tanımlı pano (LookML Git’le yayımlanır) |
+| Snowflake hesap kurulumu | Kurulum SQL’ini rolüyle komut komut çalıştır (yalnızca CREATE IF NOT EXISTS/GRANT) → SHOW GRANTS ile yetki matrisi kontrolü | Veritabanı, rol, depo, monitor |
+| Unity Catalog kurulumu | Katalog yoksa oluştur → şemalar → yetkiler → geri okuma → sahiplik devri | Katalog, şema, yetki |
+| BigQuery kurulumu | Servis hesapları → erişim listeli veri kümeleri → geri okuma | Veri kümeleri + servis hesapları |
+| ADF çözüm yayımı | Yer tutucu denetimi → hiçbiri yoksa önekli adlarla bağlı hizmet, veri kümesi, pipeline, tetikleyici | Durdurulmuş tetikleyiciyle çözüm |
+| Airflow DAG devreye alma | İçe aktarma hatası yok mu → DAG ve görev listesi dosyayla aynı mı → unpause | Çalışmaya hazır DAG |
 
 **Canlı vendor/tenant testi: 0. Uygulamada dosya açılışı testi: 0.** Testler yerel HTTP sözleşme sunucusunu kullanır; gerçek QVF/PBIX üretildiğini kanıtlamaz. Agent model yanıtı testte taklit edilir. Bu paketler henüz üretim onaylı değildir.
 
@@ -143,7 +153,7 @@ Platform paketi:
 
 Yeni/boş çıktı klasörü gerekir. Yazma ve LLM maliyeti olabilen işlemler README'de belirtilir. Şema ve proje bağlamı seçilen modele gönderilir; agent satır verisi çekmez. Kısmi çalışma kimlikleri `run-state.json`, dosya özeti `manifest.json` içindedir. Otomatik rollback veya üretimde otomatik model-kodu yürütme yoktur.
 
-Toplam **313 test** geçiyor (368 tek amaçlı blok, bir testin alt testleri olarak tek tek); tek amaçlı blokların her biri paketlenmiş kopyasıyla kendi örnek verisinde çalıştırılıp beklenen sonuçla karşılaştırılır. Yerel paket testleri (`tests/test_local.py`) paketlenmiş kopyayı örnek veriyle çalıştırır; agent’lar OpenAI/Anthropic/Ollama biçiminde konuşan sahte model sunucusuyla test edilir (maskeleme, onay, dry-run, düzeltme denemesi, HTTP hatası). İlk sekiz agent ayrıca yerel bir Ollama modeliyle (qwen3 14B) elle denendi; son yüz on agent yalnızca sahte model sunucusuyla test edildi. Test sayısı canlı tenant doğrulaması değildir.
+Toplam **329 test** geçiyor (368 tek amaçlı blok, bir testin alt testleri olarak tek tek); tek amaçlı blokların her biri paketlenmiş kopyasıyla kendi örnek verisinde çalıştırılıp beklenen sonuçla karşılaştırılır. Yerel paket testleri (`tests/test_local.py`) paketlenmiş kopyayı örnek veriyle çalıştırır; agent’lar OpenAI/Anthropic/Ollama biçiminde konuşan sahte model sunucusuyla test edilir (maskeleme, onay, dry-run, düzeltme denemesi, HTTP hatası). İlk sekiz agent ayrıca yerel bir Ollama modeliyle (qwen3 14B) elle denendi; son yüz on agent yalnızca sahte model sunucusuyla test edildi. Test sayısı canlı tenant doğrulaması değildir.
 
 ## Test katmanları
 

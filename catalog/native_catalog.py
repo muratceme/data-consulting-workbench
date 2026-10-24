@@ -212,6 +212,139 @@ for base_id,operation,label,extra,remove,requirements in MONITORS:
         effects='Yalnızca durum okuma'+(' ve artifact indirme' if base_id=='dbt-run' else '')+' yapar. POST/PUT/PATCH/DELETE yoktur. Timeout işi iptal etmez; aynı kimlikle tekrar takip edilebilir. Süresi dolmuş token yerelde yenilenmelidir. İş kimliği kaydedilmeden bağlantı koptuysa platform geçmişinden bulun; başlatma paketini yeniden çalıştırmayın.',
         sources=base['sources']))
 
+def builder_files(op_id, keep, data=False, **override):
+    """Run a local kurulum block on its sample and ship the files the API package reads (kurulum/...), so --plan and the README show real content."""
+    import csv, io
+    from argparse import Namespace
+    from pathlib import Path
+    import islem, tabular
+    spec = islem.OPS[op_id]
+    values = {}
+    for flags, kw in spec['args']:
+        values[kw.get('dest') or flags[0].lstrip('-').replace('-', '_')] = kw.get('default', False if kw.get('action') == 'store_true' else None)
+    sample = Path(__file__).resolve().parents[1] / 'library' / 'samples' / spec['sample_input']
+    values.update(input=str(sample), sheet=None, **override)
+    args = Namespace(**values)
+    res = spec['func'](*tabular.read(str(sample)), args) if spec['kind'] == 'table' else spec['func'](args)
+    files = {}
+    for name, content in res.files.items():
+        if any(name == k or name.startswith(k) for k in keep):
+            if isinstance(content, tuple):
+                buf = io.StringIO()
+                w = csv.DictWriter(buf, fieldnames=content[0], lineterminator='\n')
+                w.writeheader()
+                w.writerows(content[1])
+                content = buf.getvalue()
+            files['kurulum/' + name] = content
+    if data:
+        files.update({'kurulum/veri/' + f.name: f.read_text(encoding='utf-8') for f in sorted(sample.iterdir()) if f.suffix == '.csv'})
+    return files
+
+
+BUILD_NOTE = ' Paketteki kurulum/ klasörü {block} bloğunun örnek veriyle ürettiği çıktıdır; kendi verinizle bloğu çalıştırıp output klasörünü kurulum/ yerine koyun.'
+BUILD_EFFECT = ' Hedefte aynı adlı kaynak varsa hiçbir şey oluşturulmadan durur; yazma çağrıları otomatik tekrarlanmaz ve her oluşturulan kimlik run-state.json’a yazılır. Silme yapılmaz.'
+OPERATIONS += [
+ dict(operation='qlik-cloud-build', product='Qlik Cloud', domain='bi', title='Tablo dosyalarından Qlik Cloud’da sıfırdan uygulama kur: veri dosyaları, script, reload ve model kontrolü', kind='code',
+      output='Qlik Cloud’da yeni uygulama + yüklenmiş veri modeli + qlik-app.json makbuzu',
+      description='qlik-cok-tablolu-uygulama bloğunun script’ini ve tablo dosyalarını kullanır: dosyaları Data Files’a yükler, yeni uygulama oluşturur, load script’i yazar, reload eder ve '
+                  'uygulamanın veri modeli metadata’sını okuyup script’teki her alanın yüklendiğini ve sentetik anahtar olmadığını doğrular.' + BUILD_NOTE.format(block='qlik-cok-tablolu-uygulama'),
+      config={'tenant':'https://YOUR_TENANT.eu.qlikcloud.com','name':'Mağaza Satış Uygulaması','kurulum_klasoru':'kurulum'}, secrets=['QLIK_ACCESS_TOKEN'],
+      requirements='Qlik Cloud OAuth/API anahtarı; kişisel alanda uygulama oluşturma, Data Files’a yükleme ve reload hakkı. Script lib://DataFiles/ (kişisel alan) yolunu kullanır; paylaşılan alan için yolu değiştirin. Aynı adlı veri dosyası varsa yükleme hata verir.',
+      effects='Data Files’a CSV yükler, yeni uygulama oluşturur, script’i yazar ve reload eder (kapasite tüketir). Ana öğeler ve sayfalar Engine API (websocket) gerektirdiği için oluşturulmaz; aynı klasördeki build.cmd ile qlik-cli üzerinden eklenir.' + BUILD_EFFECT,
+      input_files=builder_files('qlik-cok-tablolu-uygulama', ['qlik-uygulama/'], data=True),
+      sources=['https://qlik.dev/apis/rest/data-files/','https://qlik.dev/manage/data-files/create-datafiles/','https://qlik.dev/apis/rest/apps/','https://qlik.dev/apis/rest/reloads/',
+               'https://community.qlik.com/t5/Integration-Extension-APIs/Qlik-Cloud-Change-Load-script-through-REST-API/m-p/2423987']),
+ dict(operation='fabric-lakehouse-build', product='Fabric Lakehouse', domain='lakehouse', title='Tablo dosyalarından Fabric’te sıfırdan lakehouse kur: OneLake’e yükle, Delta tablolarına çevir', kind='code',
+      output='Yeni Lakehouse + Delta tabloları + lakehouse.json makbuzu',
+      description='Yeni lakehouse oluşturur, kurulum/veri altındaki CSV’leri OneLake Files bölümüne yükler, Load Table API ile her birini Delta tablosuna çevirir, işlemleri takip eder ve tablo listesini geri okur.',
+      config={'workspace_id':'YOUR_WORKSPACE_UUID','display_name':'magaza_lakehouse','kurulum_klasoru':'kurulum'}, secrets=['FABRIC_ACCESS_TOKEN','ONELAKE_ACCESS_TOKEN'],
+      requirements='Fabric kapasitesi olan workspace’te Contributor; Fabric API (api.fabric.microsoft.com) ve OneLake (storage.azure.com audience) için iki ayrı Entra token. Şema etkin lakehouse’ta Load Table API desteklenmez; bu paket şemasız lakehouse oluşturur.',
+      effects='Yeni lakehouse ve tabloları oluşturur, CSV’leri OneLake’e yazar; kapasite ve depolama tüketir.' + BUILD_EFFECT,
+      input_files={k: v for k, v in builder_files('qlik-cok-tablolu-uygulama', [], data=True).items()},
+      sources=['https://learn.microsoft.com/en-us/fabric/data-engineering/lakehouse-api','https://learn.microsoft.com/en-us/rest/api/fabric/lakehouse/tables/load-table',
+               'https://learn.microsoft.com/en-us/fabric/onelake/onelake-access-api']),
+ dict(operation='fabric-semantic-model', product='Power BI Service', domain='bi', title='Yıldız model projesini (TMDL) Power BI Service’te yeni semantic model olarak oluştur', kind='code',
+      output='Workspace’te yeni semantic model + geri okunan TMDL tanımı + semantic-model.json makbuzu',
+      description='pbi-yildiz-model-projesi bloğunun TMDL tanımını (tablolar, ilişkiler, DAX ölçüleri, takvim) Fabric REST API ile yeni semantic model olarak yayımlar, uzun süren işlemi takip eder ve '
+                  'getDefinition ile geri okuyup her tablonun platformda olduğunu doğrular.' + BUILD_NOTE.format(block='pbi-yildiz-model-projesi'),
+      config={'workspace_id':'YOUR_WORKSPACE_UUID','display_name':'Mağaza Satış Modeli','kurulum_klasoru':'kurulum'}, secrets=['FABRIC_ACCESS_TOKEN'],
+      requirements='Workspace Contributor rolü; SemanticModel.ReadWrite.All veya Item.ReadWrite.All. Uygun Power BI/Fabric lisansı. Model CSV’leri KlasorYolu parametresinden okur; Service’te yenilemek için yolu SharePoint/OneLake gibi bulut kaynağına çevirin veya gateway bağlayın.',
+      effects='Yeni semantic model oluşturur; veri yenilemez, rapor oluşturmaz (rapor sayfalarını Desktop’ta PBIP’den yayımlayın).' + BUILD_EFFECT,
+      input_files=builder_files('pbi-yildiz-model-projesi', ['pbip/']),
+      sources=['https://learn.microsoft.com/en-us/rest/api/fabric/semanticmodel/items/create-semantic-model','https://learn.microsoft.com/en-us/rest/api/fabric/articles/item-management/definitions/semantic-model-definition',
+               'https://learn.microsoft.com/en-us/rest/api/fabric/semanticmodel/items/get-semantic-model-definition']),
+ dict(operation='metabase-dashboard', product='Metabase', domain='bi', title='SQL kartlarından Metabase’te sıfırdan koleksiyon ve pano kur', kind='code',
+      output='Metabase’te koleksiyon, SQL kartları ve pano + metabase-dashboard.json makbuzu',
+      description='metabase-pano-kurulumu bloğunun kartlar.json dosyasını okur; veritabanını doğrular, koleksiyon ve pano açar, her SQL kartını oluşturup panoya yerleştirir ve panoyu geri okuyup kartları karşılaştırır. Yalnızca okuma yapan SQL kabul edilir.'
+                  + BUILD_NOTE.format(block='metabase-pano-kurulumu'),
+      config={'server':'https://metabase.YOUR_COMPANY.com','database_id':1,'kurulum_klasoru':'kurulum'}, secrets=['METABASE_API_KEY'],
+      requirements='Metabase API anahtarı (Yönetici > Ayarlar > Kimlik doğrulama > API anahtarları; X-API-Key başlığı) ve hedef veritabanında native sorgu yetkisi. Kart SQL’i bloğa verilen lehçede olmalı. Metabase 0.47+ (dashcards PUT biçimi).',
+      effects='Yeni koleksiyon, kartlar ve pano oluşturur; kartlar açıldığında veritabanında sorgu çalışır.' + BUILD_EFFECT,
+      input_files=builder_files('metabase-pano-kurulumu', ['metabase/kartlar.json']),
+      sources=['https://www.metabase.com/docs/latest/people-and-groups/api-keys','https://www.metabase.com/docs/latest/api','https://discourse.metabase.com/t/how-to-add-dashboard-tabs-programmatically-in-metabase-0-49-which-endpoints-to-use/255084']),
+ dict(operation='looker-dashboard', product='Looker', domain='bi', title='Yayımlanmış explore üzerinde Looker’da sıfırdan pano kur', kind='code',
+      output='Looker’da kullanıcı tanımlı pano + sorgular + looker-dashboard.json makbuzu',
+      description='lookml-cok-tablolu-proje bloğunun pano.json dosyasını okur; API ile oturum açar, explore’un alanlarını okuyup her öğenin alanlarının var olduğunu oluşturmadan önce denetler, panoyu ve her öğe için sorguyu oluşturur, öğe listesini geri okur.'
+                  + BUILD_NOTE.format(block='lookml-cok-tablolu-proje'),
+      config={'server':'https://YOUR_INSTANCE.cloud.looker.com','folder_id':'YOUR_FOLDER_ID','model':'','explore':'','kurulum_klasoru':'kurulum'}, secrets=['LOOKER_CLIENT_ID','LOOKER_CLIENT_SECRET'],
+      requirements='Looker API3 kimlik bilgileri (client_id/secret) ve hedef klasörde içerik oluşturma hakkı. LookML dosyaları önce projeye eklenip üretim ortamına yayımlanmış olmalı (API LookML dosyası yazmaz); model ve explore boşsa pano.json’dakiler kullanılır.',
+      effects='Yeni pano, sorgular ve pano öğeleri oluşturur; LookML’i değiştirmez.' + BUILD_EFFECT,
+      input_files=builder_files('lookml-cok-tablolu-proje', ['lookml/pano.json']),
+      sources=['https://cloud.google.com/looker/docs/api-auth','https://cloud.google.com/looker/docs/reference/looker-api/latest/methods/Dashboard/create_dashboard',
+               'https://cloud.google.com/looker/docs/reference/looker-api/latest/methods/Dashboard/create_dashboard_element','https://cloud.google.com/looker/docs/reference/looker-api/latest/methods/Query/create_query',
+               'https://cloud.google.com/looker/docs/reference/looker-api/latest/methods/LookmlModel/lookml_model_explore']),
+ dict(operation='snowflake-setup', product='Snowflake', domain='warehouse', title='Kurulum SQL’iyle Snowflake hesabını sıfırdan kur ve rol haklarını geri okuyarak doğrula', kind='code',
+      output='Snowflake’te veritabanları, roller, depolar, bütçe izleme + snowflake-setup.json makbuzu',
+      description='snowflake-hesap-kurulumu bloğunun SQL’ini komut komut ve bölümün rolüyle (USERADMIN, SYSADMIN, SECURITYADMIN, ACCOUNTADMIN) SQL API’de çalıştırır. Yalnızca CREATE … IF NOT EXISTS, GRANT ve '
+                  'resource monitor bağlama komutları kabul edilir (DROP/REVOKE/PASSWORD reddedilir). Sonunda her ekip ve servis rolü için SHOW GRANTS çalıştırıp verilen erişim rollerini yetki matrisiyle karşılaştırır.'
+                  + BUILD_NOTE.format(block='snowflake-hesap-kurulumu'),
+      config={'server':'https://YOUR_ACCOUNT.snowflakecomputing.com','warehouse':'COMPUTE_WH','timeout_seconds':120,'kurulum_klasoru':'kurulum'}, secrets=['SNOWFLAKE_ACCESS_TOKEN'],
+      requirements='OAuth token; token’ın USERADMIN, SYSADMIN, SECURITYADMIN ve ACCOUNTADMIN rollerine geçebilmesi gerekir (session:role-any veya ilgili kapsamlar). Servis kullanıcılarının RSA_PUBLIC_KEY alanı (<ACIK_ANAHTAR>) doldurulmadan çalışmaz.',
+      effects='Hesapta veritabanı, rol, depo, kullanıcı ve resource monitor oluşturur, hak verir; depolar askıda başlar ama kullanıldıkça kredi harcar. Komutlar IF NOT EXISTS olduğundan var olan nesne değişmez; GRANT’ler eklenir.' + BUILD_EFFECT.replace(' Hedefte aynı adlı kaynak varsa hiçbir şey oluşturulmadan durur;', ''),
+      input_files=builder_files('snowflake-hesap-kurulumu', ['snowflake_kurulum.sql', 'yetki_matrisi.csv']),
+      sources=['https://docs.snowflake.com/en/developer-guide/sql-api/submitting-requests','https://docs.snowflake.com/en/sql-reference/sql/show-grants',
+               'https://docs.snowflake.com/en/user-guide/security-access-control-considerations']),
+ dict(operation='unity-catalog-setup', product='Unity Catalog', domain='lakehouse', title='Erişim planıyla Unity Catalog’u sıfırdan kur: kataloglar, şemalar, yetkiler, sahiplik', kind='code',
+      output='Unity Catalog’da kataloglar, şemalar ve yetkiler + unity-catalog.json makbuzu',
+      description='unity-catalog-kurulumu bloğunun uc_plan.json dosyasıyla REST API’den katalog ve şemaları oluşturur, yetkileri PATCH ile ekler, permissions GET ile geri okuyup planla karşılaştırır, en son şema sahipliğini devreder. Katalog zaten varsa hiçbir şey oluşturmaz.'
+                  + BUILD_NOTE.format(block='unity-catalog-kurulumu'),
+      config={'workspace_url':'https://YOUR_WORKSPACE.cloud.databricks.com','kurulum_klasoru':'kurulum'}, secrets=['DATABRICKS_ACCESS_TOKEN'],
+      requirements='Metastore yöneticisi veya CREATE CATALOG hakkı olan kimliğin OAuth/PAT token’ı; storage_root’taki konumlar için external location/storage credential önceden tanımlı olmalı. Gruplar ve servis sorumluları hesapta bulunmalı.',
+      effects='Katalog ve şema oluşturur, yetki ekler ve sahipliği devreder (devirden sonra çağıran kimlik sahip olmaz).' + BUILD_EFFECT,
+      input_files=builder_files('unity-catalog-kurulumu', ['uc_plan.json']),
+      sources=['https://docs.databricks.com/api/workspace/catalogs/create','https://docs.databricks.com/api/workspace/schemas/create','https://docs.databricks.com/api/workspace/grants/update',
+               'https://docs.databricks.com/api/workspace/grants/get','https://docs.databricks.com/api/workspace/schemas/update']),
+ dict(operation='bigquery-setup', product='BigQuery', domain='warehouse', title='Erişim planıyla BigQuery veri kümelerini ve servis hesaplarını sıfırdan kur', kind='code',
+      output='Ortam projelerinde veri kümeleri, erişim listeleri ve servis hesapları + bigquery-setup.json makbuzu',
+      description='bigquery-terraform-kurulumu bloğunun bq_plan.json dosyasıyla yazma servis hesaplarını oluşturur, veri kümelerini etiket, tablo ömrü ve erişim listesiyle açar ve her veri kümesini geri okuyup erişim girdilerini karşılaştırır. Terraform kullanmak istemeyenler içindir.'
+                  + BUILD_NOTE.format(block='bigquery-terraform-kurulumu'),
+      config={'kurulum_klasoru':'kurulum'}, secrets=['GOOGLE_ACCESS_TOKEN'],
+      requirements='Ortam projelerinde bigquery.datasets.create ve iam.serviceAccounts.create izinleri olan OAuth token (cloud-platform kapsamı). Projeler (<önek>-<ortam>) ve Google grupları önceden var olmalı.',
+      effects='Servis hesapları ve veri kümeleri oluşturur. Proje düzeyinde roles/bigquery.jobUser verilmez (proje IAM politikası değiştirilmez); ekiplere ayrıca verin.' + BUILD_EFFECT,
+      input_files=builder_files('bigquery-terraform-kurulumu', ['bq_plan.json']),
+      sources=['https://cloud.google.com/bigquery/docs/reference/rest/v2/datasets/insert','https://cloud.google.com/bigquery/docs/reference/rest/v2/datasets#Dataset',
+               'https://cloud.google.com/iam/docs/reference/rest/v1/projects.serviceAccounts/create']),
+ dict(operation='adf-solution', product='Azure Data Factory', domain='integration', title='Metadata güdümlü yükleme çözümünü ADF’ye bütün olarak yayımla', kind='code',
+      output='ADF’de bağlı hizmetler, veri kümeleri, pipeline’lar ve durdurulmuş tetikleyici + adf-solution.json makbuzu',
+      description='adf-metadata-pipeline bloğunun adf/ klasöründeki bağlı hizmet, veri kümesi, pipeline ve tetikleyici tanımlarını adlarına önek ekleyerek (başvurular da güncellenir) bağımlılık sırasıyla yayımlar. '
+                  'Önce hiçbirinin var olmadığını denetler; her kaynağı geri okur. Yer tutucu (<depo>, <kasa>) kalmışsa çalışmaz; tetikleyici başlatılmaz.' + BUILD_NOTE.format(block='adf-metadata-pipeline'),
+      config={'subscription_id':'YOUR_SUBSCRIPTION_ID','resource_group':'YOUR_RESOURCE_GROUP','factory_name':'YOUR_FACTORY','name_prefix':'dw_','kurulum_klasoru':'kurulum'}, secrets=['AZURE_ACCESS_TOKEN'],
+      requirements='ARM audience OAuth token ve factory üzerinde Data Factory Contributor. Key Vault ve Self-hosted IR adları ortamınızla eşleşmeli; kontrol tablosu SQL’i (kontrol_tablosu.sql) kaynak veritabanında önceden çalıştırılmış olmalı.',
+      effects='Yeni ADF kaynakları oluşturur; veri taşımaz, pipeline çalıştırmaz, tetikleyiciyi başlatmaz.' + BUILD_EFFECT,
+      input_files=builder_files('adf-metadata-pipeline', ['adf/']),
+      sources=['https://learn.microsoft.com/en-us/rest/api/datafactory/pipelines/create-or-update?view=rest-datafactory-2018-06-01','https://learn.microsoft.com/en-us/rest/api/datafactory/datasets/create-or-update?view=rest-datafactory-2018-06-01',
+               'https://learn.microsoft.com/en-us/rest/api/datafactory/linked-services/create-or-update?view=rest-datafactory-2018-06-01','https://learn.microsoft.com/en-us/rest/api/datafactory/triggers/create-or-update?view=rest-datafactory-2018-06-01']),
+ dict(operation='airflow-activate', product='Airflow', domain='orchestration', title='Üretilen DAG’in Airflow’da yüklendiğini doğrula ve devreye al', kind='code',
+      output='Duraklatmadan çıkarılmış DAG + airflow-dag.json makbuzu',
+      description='airflow-dag-kurulumu bloğunun DAG dosyasındaki görevleri okur; Airflow’da içe aktarma hatası olmadığını, DAG’in yüklendiğini ve görev listesinin dosyayla aynı olduğunu API’den doğrular, sonra DAG’i duraklatmadan çıkarır (unpause=false ile yalnızca doğrular). '
+                  'Airflow API dosya yüklemez; DAG dosyası dags klasörüne Git/CI ile konmuş olmalı.' + BUILD_NOTE.format(block='airflow-dag-kurulumu'),
+      config={'server':'https://YOUR_AIRFLOW','api_version':'3.2','dag_id':'gece_veri_hatti','unpause':True,'kurulum_klasoru':'kurulum'}, secrets=['AIRFLOW_ACCESS_TOKEN'],
+      requirements='Airflow 3.2 public API v2 ve Bearer token; DAG okuma ve DAG düzenleme (pause) yetkisi. DAG dosyası zamanlayıcının dags klasöründe ve ayrıştırılmış olmalı.',
+      effects='Doğrulama yalnızca okur; unpause=true ise DAG’in duraklatma durumunu değiştirir ve sonraki zamanlamada çalışmaya başlar. Geçmiş çalıştırma tetiklenmez (catchup=False).',
+      input_files=builder_files('airflow-dag-kurulumu', ['dags/']),
+      sources=['https://airflow.apache.org/docs/apache-airflow/stable/stable-rest-api-ref.html','https://apache.googlesource.com/airflow-client-python']),
+]
+
 TARGETS = {
  'bi':('Rapor/uygulama API + görsel model SDK','Platformun rapor/proje dosyası veya yayınlanmış rapor'),
  'erp':('Ürüne özgü OData/REST/SOAP veya on-prem SDK','ERP içindeki taslak belge, eşleme veya rapor tanımı'),

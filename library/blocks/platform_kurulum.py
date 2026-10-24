@@ -519,6 +519,7 @@ def uc_setup(columns, rows, args):
            '-- Gruplar ve servis sorumluları hesap konsolunda (veya SCIM ile) önceden oluşturulmalıdır.']
     grants, eff = 0, defaultdict(int)
     privs = {1: 'USE SCHEMA, SELECT', 2: 'USE SCHEMA, SELECT, MODIFY, CREATE TABLE, CREATE VOLUME, READ VOLUME, WRITE VOLUME', 3: 'ALL PRIVILEGES'}
+    plan = {'catalogs': [], 'schemas': [], 'grants': [], 'owners': []}
     root = args.storage_root.rstrip('/')
     for env in envs:
         sql += ['', f'-- {env}', f"CREATE CATALOG IF NOT EXISTS {env} MANAGED LOCATION '{root}/{env}' COMMENT '{env} ortamı';"]
@@ -526,25 +527,31 @@ def uc_setup(columns, rows, args):
         for p in users:
             sql.append(f'GRANT USE CATALOG ON CATALOG {env} TO `{name(env, p)}`;')
             grants += 1
+        plan['catalogs'].append({'name': env, 'storage_root': f'{root}/{env}', 'comment': f'{env} ortamı'})
+        plan['grants'] += [{'securable_type': 'catalog', 'full_name': env, 'principal': name(env, p), 'privileges': ['USE_CATALOG']} for p in users]
         for layer in layers:
             sql.append(f"CREATE SCHEMA IF NOT EXISTS {env}.{layer} MANAGED LOCATION '{root}/{env}/{layer}' COMMENT '{layer} katmanı';")
+            plan['schemas'].append({'catalog_name': env, 'name': layer, 'storage_root': f'{root}/{env}/{layer}', 'comment': f'{layer} katmanı'})
             owners = [p for p in users if access.get((env, p, layer)) == 3]
             for p in users:
                 lvl = access.get((env, p, layer))
                 if not lvl:
                     continue
                 sql.append(f'GRANT {privs[lvl]} ON SCHEMA {env}.{layer} TO `{name(env, p)}`;')
+                plan['grants'].append({'securable_type': 'schema', 'full_name': f'{env}.{layer}', 'principal': name(env, p),
+                                       'privileges': [x.strip().replace(' ', '_') for x in privs[lvl].split(',')]})
                 grants += 1
                 eff[(env, p, layer)] = lvl
             if owners:
                 sql.append(f'ALTER SCHEMA {env}.{layer} OWNER TO `{name(env, owners[0])}`;')
+                plan['owners'].append({'full_name': f'{env}.{layer}', 'owner': name(env, owners[0])})
     diffs = sum(eff.get(k, 0) != v for k, v in access.items())
     matrix = [{'ortam': e, 'kimlik': name(e, p), 'sema': f'{e}.{l}', 'istenen': ['—', 'okuma', 'yazma', 'sahip'][v], 'etkin': ['—', 'okuma', 'yazma', 'sahip'][eff.get((e, p, l), 0)]}
               for (e, p, l), v in sorted(access.items())]
     svc = sorted({name(e, p) for e, p, _ in access if p.endswith('_svc')})
     return Result(f'{len(envs)} katalog, {len(envs) * len(layers)} şema, {grants} GRANT; yetki farkı {diffs}', list(matrix[0]), matrix,
                   {'katalog': len(envs), 'sema': len(envs) * len(layers), 'grup': len(teams), 'servis_sorumlusu': len(svc), 'grant': grants, 'fark': diffs},
-                  files={'uc_kurulum.sql': '\n'.join(sql) + '\n', 'yetki_matrisi.csv': (list(matrix[0]), matrix)},
+                  files={'uc_kurulum.sql': '\n'.join(sql) + '\n', 'uc_plan.json': json.dumps(plan, ensure_ascii=False, indent=2), 'yetki_matrisi.csv': (list(matrix[0]), matrix)},
                   notes=['Gruplar (' + ', '.join(teams) + ') ve servis sorumluları (' + (', '.join(svc) or 'yok') + ') hesap düzeyinde olmalı ve çalışma alanına atanmalıdır.',
                          'Yazma hakkı MODIFY + CREATE TABLE/VOLUME, sahiplik ALL PRIVILEGES + OWNER olarak verilir; haklar şema düzeyindedir, yeni tablolara kendiliğinden geçer. '
                          'Çalışma alanında çalıştırılarak test edilmedi.'])
@@ -568,6 +575,10 @@ def bq_setup(columns, rows, args):
     tf = ['terraform {', '  required_providers {', '    google = {', '      source  = "hashicorp/google"', '      version = ">= 5.0"', '    }', '  }', '}', '',
           'provider "google" {', '  region = var.region', '}', '']
     defined, refs, members, eff = set(), [], 0, {}
+    legacy = {1: 'READER', 2: 'WRITER', 3: 'OWNER'}
+    sa_id = lambda p: (p[:-4].replace('_', '-') + '-yazma')[:30]
+    plan = {'service_accounts': [{'project': f'{args.project_prefix}-{e}', 'account_id': sa_id(p), 'display_name': f'{p[:-4]} yazma işleri ({e})'}
+                                 for e, p in sorted({(e, p) for e, p, _ in access if p.endswith('_svc')})], 'datasets': []}
     for env in envs:
         for layer in layers:
             r = f'{env}_{layer}'
@@ -599,6 +610,17 @@ def bq_setup(columns, rows, args):
             member = f'"serviceAccount:${{google_service_account.{p[:-4]}_{env}.email}}"' if p.endswith('_svc') else f'"group:{p.replace("_", "-")}@${{var.domain}}"'
             tf += [f'resource "google_project_iam_member" "{env}_{p}_jobuser" {{', f'  project = "${{var.project_prefix}}-{env}"', '  role    = "roles/bigquery.jobUser"',
                    f'  member  = {member}', '}', '']
+    for env in envs:  # the same access as dataset ACL entries, for the bigquery-dataset-setup API package
+        for layer in layers:
+            entries = [{'role': 'OWNER', 'specialGroup': 'projectOwners'}]
+            for (e, p, l), lvl in sorted(access.items()):
+                if (e, l) == (env, layer):
+                    entries.append({'role': legacy[lvl], 'userByEmail': f'{sa_id(p)}@{args.project_prefix}-{e}.iam.gserviceaccount.com'} if p.endswith('_svc')
+                                   else {'role': legacy[lvl], 'groupByEmail': f'{p.replace("_", "-")}@{args.domain}'})
+            ds = {'project': f'{args.project_prefix}-{env}', 'dataset_id': layer, 'location': args.location, 'labels': {'ortam': env, 'katman': layer}, 'access': entries}
+            if layer == 'sandbox':
+                ds['default_table_expiration_ms'] = str(args.sandbox_days * 86400000)
+            plan['datasets'].append(ds)
     text = '\n'.join(tf)
     if text.count('{') != text.count('}'):
         raise ValueError('İç hata: Terraform süslü parantezleri dengesiz.')
@@ -612,7 +634,8 @@ def bq_setup(columns, rows, args):
     matrix = [{'ortam': e, 'kimlik': p, 'veri_kumesi': f'{args.project_prefix}-{e}.{l}', 'rol': role[v]} for (e, p, l), v in sorted(access.items())]
     return Result(f'{len(envs) * len(layers)} veri kümesi, {members} IAM üyeliği, {len(svc)} servis hesabı', list(matrix[0]), matrix,
                   {'veri_kumesi': len(envs) * len(layers), 'iam_uyeligi': members, 'servis_hesabi': len(svc), 'fark': diffs},
-                  files={'terraform/main.tf': text, 'terraform/variables.tf': variables, 'terraform/outputs.tf': outputs, 'yetki_matrisi.csv': (list(matrix[0]), matrix)},
+                  files={'terraform/main.tf': text, 'terraform/variables.tf': variables, 'terraform/outputs.tf': outputs, 'bq_plan.json': json.dumps(plan, ensure_ascii=False, indent=2),
+                         'yetki_matrisi.csv': (list(matrix[0]), matrix)},
                   notes=['terraform klasöründe: terraform init, terraform plan, inceleyip terraform apply. Ortam projeleri (<önek>-<ortam>) önceden açılmış olmalı.',
                          'Haklar veri kümesi düzeyindedir (proje düzeyinde dataViewer verilmez); sorgu çalıştırmak için ekiplere yalnızca jobUser proje düzeyinde verilir. '
                          'terraform validate ile denetlenmedi; süslü parantez dengesi ve kaynak başvuruları kodla denetlendi.'])

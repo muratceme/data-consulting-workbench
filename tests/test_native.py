@@ -34,7 +34,8 @@ class Contracts(unittest.TestCase):
             def log_message(self,*args):pass
             def handle_request(self):
                 length=int(self.headers.get('Content-Length',0));raw=self.rfile.read(length)
-                payload=json.loads(raw) if raw else None
+                try:payload=json.loads(raw) if raw else None
+                except ValueError:payload=raw  # file uploads, forms and multipart bodies stay bytes
                 owner.received.append((self.command,self.path,payload,dict(self.headers)))
                 if not owner.queue:
                     self.send_response(500);self.end_headers();return
@@ -51,7 +52,7 @@ class Contracts(unittest.TestCase):
                 headers={'Content-Type':'application/octet-stream' if isinstance(response,bytes) else 'application/json',**expected.get('headers',{})}
                 for k,v in headers.items():self.send_header(k,v)
                 self.end_headers();self.wfile.write(data)
-            do_GET=do_POST=do_PUT=handle_request
+            do_GET=do_POST=do_PUT=do_PATCH=handle_request
         self.errors=[];self.server=ThreadingHTTPServer(('127.0.0.1',0),Handler)
         self.thread=threading.Thread(target=self.server.serve_forever,kwargs={'poll_interval':0.01},daemon=True);self.thread.start()
         self.env=patch.dict(os.environ,{k:'test-only-secret' for op in OPERATIONS for k in op['secrets']});self.env.start()
@@ -1150,6 +1151,228 @@ class Contracts(unittest.TestCase):
             with self.assertRaises(native.NativeError):self.run_op(op,**cfg)
             self.assertFalse((self.output/'manifest.json').exists())
         self.assertTrue(all(r[0]=='GET' for r in self.received));self.assertFalse(self.queue)
+
+    # ---------- from-scratch build packages (kurulum/ comes from the local block's sample output) ----------
+    def kurulum(self,op,edit=None):
+        files=next(o for o in OPERATIONS if o['operation']==op)['input_files']
+        root=Path(self.temp.name)/('kurulum-'+op)
+        for name,content in files.items():
+            target=root/name[len('kurulum/'):]
+            target.parent.mkdir(parents=True,exist_ok=True)
+            if edit:content=edit(name,content)
+            target.write_bytes(content if isinstance(content,bytes) else content.encode('utf-8'))
+        return str(root)
+
+    def test_qlik_cloud_build_uploads_scripts_reloads_and_checks_the_model(self):
+        root=self.kurulum('qlik-cloud-build');script=(Path(root)/'qlik-uygulama'/'script.qvs').read_text(encoding='utf-8')
+        fields=sorted(set(__import__('re').findall(r'^ {4}.+ as \[([^\]]+)\],?$',script,flags=__import__('re').M)))
+        for i,f in enumerate(['magaza.csv','musteri.csv','satis.csv','urun.csv']):self.step('POST','/api/v1/data-files',{'id':'df'+str(i)})
+        self.step('POST','/api/v1/apps',{'attributes':{'id':'app1'}})
+        self.step('POST','/api/v1/apps/app1/scripts',{})
+        self.step('POST','/api/v1/reloads',{'id':'r1'},payload={'appId':'app1'})
+        self.step('GET','/api/v1/reloads/r1',{'status':'SUCCEEDED'})
+        self.step('GET','/api/v1/apps/app1/data/metadata',{'fields':[{'name':f} for f in fields]+[{'name':'$Field','is_system':True}],'tables':[{'name':t} for t in ['Satis','Musteri','Urun','Magaza','Takvim']]})
+        self.run_op('qlik-cloud-build',tenant='https://t.eu.qlikcloud.com',name='Mağaza',kurulum_klasoru=root)
+        self.assertFalse(self.queue)
+        upload=self.received[2][2]
+        self.assertIn(b'name="json"',upload);self.assertIn(b'{"name": "satis.csv"}',upload);self.assertIn(b'satis_id,tarih,musteri_id',upload)
+        self.assertEqual(self.received[5][2]['script'],script)
+        receipt=json.loads((self.output/'qlik-app.json').read_text(encoding='utf-8'))
+        self.assertEqual((receipt['app_id'],receipt['synthetic_keys'],receipt['tables']),('app1',0,5))
+
+    def test_qlik_cloud_build_rejects_a_model_with_synthetic_keys(self):
+        root=self.kurulum('qlik-cloud-build')
+        for i in range(4):self.step('POST','/api/v1/data-files',{'id':'df'+str(i)})
+        self.step('POST','/api/v1/apps',{'attributes':{'id':'app1'}});self.step('POST','/api/v1/apps/app1/scripts',{})
+        self.step('POST','/api/v1/reloads',{'id':'r1'});self.step('GET','/api/v1/reloads/r1',{'status':'SUCCEEDED'})
+        self.step('GET','/api/v1/apps/app1/data/metadata',{'fields':[{'name':'$Syn 1'}],'tables':[{'name':'$Syn 1 Table'}]})
+        with self.assertRaisesRegex(native.NativeError,'sentetik anahtar'):self.run_op('qlik-cloud-build',tenant='https://t.eu.qlikcloud.com',name='M',kurulum_klasoru=root)
+        self.assertEqual(json.loads((self.output/'run-state.json').read_text())['created_app_id'],'app1')
+        self.assertFalse((self.output/'manifest.json').exists())
+
+    def test_fabric_lakehouse_build_uploads_loads_and_lists_tables(self):
+        ws,lh,op='11111111-1111-1111-1111-111111111111','22222222-2222-2222-2222-222222222222','33333333-3333-3333-3333-333333333333'
+        root=self.kurulum('fabric-lakehouse-build');base='/v1/workspaces/'+ws+'/lakehouses'
+        self.step('POST',base,{'id':lh},status=201,payload={'displayName':'magaza_lh'})
+        self.step('GET',base+'/'+lh,{'id':lh,'type':'Lakehouse','displayName':'magaza_lh'})
+        names=['magaza','musteri','satis','urun']
+        for n in names:
+            target='/'+ws+'/'+lh+'/Files/kurulum/'+n+'.csv'
+            self.step('PUT',target+'?resource=file',request_headers={'x-ms-version':'2023-11-03'})
+            size=len((Path(root)/'veri'/(n+'.csv')).read_bytes())
+            self.step('PATCH',target+'?action=append&position=0');self.step('PATCH',target+'?action=flush&position='+str(size))
+        for n in names:
+            self.step('POST',base+'/'+lh+'/tables/'+n+'/load',status=202,headers={'Location':'https://api.fabric.microsoft.com'+base+'/'+lh+'/operations/'+op},
+                      payload={'relativePath':'Files/kurulum/'+n+'.csv','pathType':'File','mode':'Overwrite','formatOptions':{'header':True,'delimiter':',','format':'Csv'}})
+            self.step('GET',base+'/'+lh+'/operations/'+op,{'Status':3})
+        self.step('GET',base+'/'+lh+'/tables',{'data':[{'name':n} for n in names]})
+        self.run_op('fabric-lakehouse-build',workspace_id=ws,display_name='magaza_lh',kurulum_klasoru=root)
+        self.assertFalse(self.queue)
+        self.assertEqual(self.received[3][2],(Path(root)/'veri'/'magaza.csv').read_bytes())  # the append carries the file bytes
+        self.assertEqual(json.loads((self.output/'lakehouse.json').read_text())['tables'],names)
+
+    def test_fabric_semantic_model_posts_tmdl_and_reads_it_back(self):
+        ws,sm='11111111-1111-1111-1111-111111111111','44444444-4444-4444-4444-444444444444'
+        root=self.kurulum('fabric-semantic-model');base='/v1/workspaces/'+ws+'/semanticModels'
+        tables=['definition/tables/'+t+'.tmdl' for t in ['Magaza','Musteri','Satis','Takvim','Urun']]
+        self.step('POST',base,{'id':sm},status=201)
+        self.step('GET',base+'/'+sm,{'id':sm,'type':'SemanticModel','displayName':'Model'})
+        self.step('POST',base+'/'+sm+'/getDefinition?format=TMDL',{'definition':{'parts':[{'path':p} for p in tables+['definition.pbism']]}})
+        self.run_op('fabric-semantic-model',workspace_id=ws,display_name='Model',kurulum_klasoru=root)
+        sent=self.received[0][2]['definition']
+        self.assertEqual(sent['format'],'TMDL')
+        paths={p['path'] for p in sent['parts']}
+        self.assertTrue({'definition.pbism','definition/model.tmdl','definition/relationships.tmdl',*tables}<=paths)
+        rel=native.base64.b64decode(next(p['payload'] for p in sent['parts'] if p['path']=='definition/relationships.tmdl')).decode()
+        self.assertIn("fromColumn: Satis.'Musteri Id'",rel)
+        self.assertEqual(json.loads((self.output/'semantic-model.json').read_text())['tables'],['Magaza','Musteri','Satis','Takvim','Urun'])
+
+    def test_metabase_dashboard_creates_cards_and_checks_placement(self):
+        root=self.kurulum('metabase-dashboard');cards=json.loads((Path(root)/'metabase'/'kartlar.json').read_text(encoding='utf-8'))['cards']
+        self.step('GET','/api/database/2',{'id':2},request_headers={'X-API-Key':'test-only-secret'})
+        self.step('POST','/api/collection',{'id':5});self.step('POST','/api/dashboard',{'id':7})
+        for i in range(len(cards)):self.step('POST','/api/card',{'id':100+i})
+        self.step('PUT','/api/dashboard/7',{})
+        self.step('GET','/api/dashboard/7',{'dashcards':[{'card_id':100+i} for i in range(len(cards))]})
+        self.run_op('metabase-dashboard',server='https://mb.example.com',database_id=2,kurulum_klasoru=root)
+        self.assertFalse(self.queue)
+        self.assertEqual(self.received[3][2]['dataset_query'],{'type':'native','native':{'query':cards[0]['sql']},'database':2})
+        placed=self.received[-2][2]['dashcards']
+        self.assertEqual([(d['card_id'],d['row'],d['col']) for d in placed][:2],[(100,cards[0]['row'],cards[0]['col']),(101,cards[1]['row'],cards[1]['col'])])
+        self.assertEqual(json.loads((self.output/'metabase-dashboard.json').read_text())['cards'],len(cards))
+
+    def test_metabase_dashboard_refuses_writing_sql_before_network(self):
+        root=self.kurulum('metabase-dashboard',edit=lambda n,c:c.replace('SELECT SUM','DELETE FROM x; SELECT SUM',1) if n.endswith('kartlar.json') else c)
+        with self.assertRaisesRegex(native.NativeError,'yalnızca okuma'):self.run_op('metabase-dashboard',server='https://mb.example.com',database_id=2,kurulum_klasoru=root)
+        self.assertFalse(self.received)
+
+    def looker_steps(self,missing=()):
+        root=self.kurulum('looker-dashboard');spec=json.loads((Path(root)/'lookml'/'pano.json').read_text(encoding='utf-8'))
+        fields=sorted({f for e in spec['elements'] for f in e['fields']}-set(missing))
+        self.step('POST','/api/4.0/login',{'access_token':'tok'})
+        self.step('GET','/api/4.0/lookml_models/magaza/explores/satis',{'fields':{'dimensions':[{'name':f} for f in fields if not f.startswith('satis.toplam') and 'sayisi' not in f and 'ortalama' not in f],
+                                                                                   'measures':[{'name':f} for f in fields if f.startswith('satis.toplam') or 'sayisi' in f or 'ortalama' in f]}},
+                  request_headers={'Authorization':'token tok'})
+        return root,spec
+
+    def test_looker_dashboard_checks_fields_then_builds_tiles(self):
+        root,spec=self.looker_steps()
+        self.step('POST','/api/4.0/dashboards',{'id':'d1'},payload={'title':spec['title'],'folder_id':'9'})
+        for i,_ in enumerate(spec['elements']):
+            self.step('POST','/api/4.0/queries',{'id':'q'+str(i)});self.step('POST','/api/4.0/dashboard_elements',{'id':'e'+str(i)})
+        self.step('GET','/api/4.0/dashboards/d1/dashboard_elements',lambda:json.dumps([{'id':'e'+str(i)} for i in range(len(spec['elements']))]).encode())
+        self.queue[-1]['headers']={'Content-Type':'application/json'}
+        self.run_op('looker-dashboard',server='https://x.cloud.looker.com',folder_id='9',kurulum_klasoru=root)
+        self.assertEqual(self.received[0][2],b'client_id=test-only-secret&client_secret=test-only-secret')
+        self.assertEqual(self.received[3][2]['vis_config'],{'type':spec['elements'][0]['type']})
+        self.assertEqual(json.loads((self.output/'looker-dashboard.json').read_text())['elements'],len(spec['elements']))
+
+    def test_looker_dashboard_stops_when_lookml_is_not_deployed(self):
+        root,_=self.looker_steps(missing=('satis.tarih_month',))
+        with self.assertRaisesRegex(native.NativeError,'satis.tarih_month'):self.run_op('looker-dashboard',server='https://x.cloud.looker.com',folder_id='9',kurulum_klasoru=root)
+        self.assertEqual(len(self.received),2)  # nothing created
+
+    def test_snowflake_setup_runs_each_statement_with_its_role_and_verifies_grants(self):
+        root=self.kurulum('snowflake-setup',edit=lambda n,c:c.replace("'<ACIK_ANAHTAR>'","'MIIBIjANBgkq'") if n.endswith('.sql') else c)
+        sql=(Path(root)/'snowflake_kurulum.sql').read_text(encoding='utf-8')
+        import csv as _csv,re as _re
+        statements=[c.strip().rstrip(';').strip() for c in _re.sub(r'^--.*$','',sql,flags=_re.M).split(';\n')]
+        statements=[s for s in statements if s and not s.startswith('USE ROLE')]
+        matrix=list(_csv.DictReader(open(Path(root)/'yetki_matrisi.csv',encoding='utf-8-sig')))
+        for _ in statements:self.step('POST',self.SF_PATH,self.sf_result('s'))
+        level={'okuma':'R','yazma':'RW','sahip':'OWN'}
+        cols=[{'name':n} for n in ['created_on','privilege','granted_on','name','granted_to','grantee_name']]
+        for role in sorted({r['kimlik'] for r in matrix}):
+            rows=[['x','USAGE','ROLE',r['veritabani']+'_'+level[r['etkin']],'ROLE',role] for r in matrix if r['kimlik']==role and r['etkin'] in level]
+            rows.append(['x','USAGE','WAREHOUSE','WH','ROLE',role])
+            self.step('POST',self.SF_PATH,self.sf_result('v',resultSetMetaData={'rowType':cols},data=rows))
+        with patch.object(native.uuid,'uuid4',return_value=native.uuid.UUID(self.SF_UUID)),patch.object(native.time,'sleep'):
+            self.run_op('snowflake-setup',server='https://a.snowflakecomputing.com',warehouse='WH',kurulum_klasoru=root)
+        self.assertFalse(self.queue)
+        roles=[r[2]['role'] for r in self.received[:len(statements)]]
+        self.assertEqual(roles[0],'USERADMIN');self.assertIn('ACCOUNTADMIN',roles)
+        first_monitor=next(i for i,s in enumerate(statements) if s.startswith('CREATE RESOURCE MONITOR'))
+        self.assertEqual(roles[first_monitor],'ACCOUNTADMIN')
+        self.assertEqual(self.received[len(statements)][2]['statement'],'SHOW GRANTS TO ROLE DEV_ANALITIK')
+        self.assertEqual(json.loads((self.output/'snowflake-setup.json').read_text())['differences'],0)
+
+    def test_snowflake_setup_refuses_unfilled_keys_and_foreign_statements(self):
+        root=self.kurulum('snowflake-setup')
+        with self.assertRaisesRegex(native.NativeError,'RSA_PUBLIC_KEY'):self.run_op('snowflake-setup',server='https://a.snowflakecomputing.com',warehouse='WH',kurulum_klasoru=root)
+        self.output=Path(self.temp.name)/'run2'
+        root=self.kurulum('snowflake-setup',edit=lambda n,c:c.replace("'<ACIK_ANAHTAR>'","'K'")+'DROP DATABASE PROD_MART;\n' if n.endswith('.sql') else c)
+        with self.assertRaisesRegex(native.NativeError,'izin verilmeyen komut'):self.run_op('snowflake-setup',server='https://a.snowflakecomputing.com',warehouse='WH',kurulum_klasoru=root)
+        self.assertFalse(self.received)
+
+    def test_unity_catalog_setup_creates_grants_verifies_then_hands_over_ownership(self):
+        root=self.kurulum('unity-catalog-setup');plan=json.loads((Path(root)/'uc_plan.json').read_text(encoding='utf-8'))
+        b='/api/2.1/unity-catalog/'
+        for c in plan['catalogs']:self.step('GET',b+'catalogs/'+c['name'],status=404)
+        for c in plan['catalogs']:self.step('POST',b+'catalogs',{'name':c['name']},payload={'name':c['name'],'storage_root':c['storage_root'],'comment':c['comment']})
+        for s in plan['schemas']:self.step('POST',b+'schemas',{'full_name':s['catalog_name']+'.'+s['name']})
+        grouped={}
+        for g in plan['grants']:grouped.setdefault((g['securable_type'],g['full_name']),[]).append(g)
+        for (k,f),gs in grouped.items():self.step('PATCH',b+'permissions/'+k+'/'+f,{},payload={'changes':[{'principal':g['principal'],'add':g['privileges']} for g in gs]})
+        for (k,f),gs in grouped.items():self.step('GET',b+'permissions/'+k+'/'+f,{'privilege_assignments':[{'principal':g['principal'],'privileges':g['privileges']} for g in gs]})
+        for o in plan['owners']:self.step('PATCH',b+'schemas/'+o['full_name'],{'owner':o['owner']},payload={'owner':o['owner']})
+        self.run_op('unity-catalog-setup',workspace_url='https://w.cloud.databricks.com',kurulum_klasoru=root)
+        self.assertFalse(self.queue)
+        self.assertEqual(json.loads((self.output/'unity-catalog.json').read_text())['grants'],len(plan['grants']))
+
+    def test_unity_catalog_setup_never_touches_an_existing_catalog(self):
+        root=self.kurulum('unity-catalog-setup')
+        self.step('GET','/api/2.1/unity-catalog/catalogs/dev',{'name':'dev'})
+        with self.assertRaisesRegex(native.NativeError,'zaten var'):self.run_op('unity-catalog-setup',workspace_url='https://w.cloud.databricks.com',kurulum_klasoru=root)
+        self.assertEqual(len(self.received),1)
+
+    def test_bigquery_setup_creates_accounts_and_datasets_with_acl(self):
+        root=self.kurulum('bigquery-setup');plan=json.loads((Path(root)/'bq_plan.json').read_text(encoding='utf-8'))
+        for d in plan['datasets']:self.step('GET','/bigquery/v2/projects/'+d['project']+'/datasets/'+d['dataset_id'],status=404)
+        for a in plan['service_accounts']:self.step('POST','/v1/projects/'+a['project']+'/serviceAccounts',{'email':a['account_id']+'@'+a['project']+'.iam.gserviceaccount.com'})
+        for d in plan['datasets']:
+            self.step('POST','/bigquery/v2/projects/'+d['project']+'/datasets',{})
+            self.step('GET','/bigquery/v2/projects/'+d['project']+'/datasets/'+d['dataset_id'],{'access':d['access']+[{'role':'OWNER','userByEmail':'creator@x.com'}]})
+        self.run_op('bigquery-setup',kurulum_klasoru=root)
+        self.assertFalse(self.queue)
+        sandbox=next(r[2] for r in self.received if r[0]=='POST' and isinstance(r[2],dict) and r[2].get('datasetReference',{}).get('datasetId')=='sandbox')
+        self.assertEqual(sandbox['defaultTableExpirationMs'],str(30*86400000))
+
+    def test_adf_solution_refuses_placeholders_then_deploys_in_dependency_order(self):
+        root=self.kurulum('adf-solution')
+        cfg=dict(subscription_id='s',resource_group='g',factory_name='f',kurulum_klasoru=root)
+        with self.assertRaisesRegex(native.NativeError,'yer tutucu'):self.run_op('adf-solution',**cfg)
+        self.assertFalse(self.received)
+        self.output=Path(self.temp.name)/'run2'
+        root=self.kurulum('adf-solution',edit=lambda n,c:c.replace('<depo>','depo1').replace('<kasa>','kasa1'))
+        cfg['kurulum_klasoru']=root
+        base='/subscriptions/s/resourceGroups/g/providers/Microsoft.DataFactory/factories/f';api='?api-version=2018-06-01'
+        order=[('linkedservices','LS_DataLake'),('linkedservices','LS_KeyVault'),('linkedservices','LS_SqlKaynak'),('datasets','DS_Lake_Parquet'),('datasets','DS_SqlKaynak'),
+               ('pipelines','PL_Kontrol_Yukleme'),('pipelines','PL_Ana'),('triggers','TR_Gece')]
+        for k,n in order:self.step('GET',base+'/'+k+'/dw_'+n+api,status=404)
+        for k,n in order:self.step('PUT',base+'/'+k+'/dw_'+n+api,{});self.step('GET',base+'/'+k+'/dw_'+n+api,{'name':'dw_'+n})
+        self.run_op('adf-solution',**cfg)
+        self.assertFalse(self.queue)
+        master=next(r[2] for r in self.received if r[0]=='PUT' and r[1].startswith(base+'/pipelines/dw_PL_Ana'))
+        self.assertEqual(master['properties']['activities'][0]['typeProperties']['pipeline']['referenceName'],'dw_PL_Kontrol_Yukleme')
+
+    def test_airflow_activate_checks_import_and_tasks_before_unpausing(self):
+        root=self.kurulum('airflow-activate')
+        tasks=['erp_dosyasi_bekle','crm_yukle','erp_yukle','staging','dbt_mart','kalite_kontrol','rapor_yenile']
+        self.step('GET','/api/v2/importErrors',{'import_errors':[{'filename':'/dags/baska.py'}]})
+        self.step('GET','/api/v2/dags/gece_veri_hatti',{'dag_id':'gece_veri_hatti'})
+        self.step('GET','/api/v2/dags/gece_veri_hatti/tasks',{'tasks':[{'task_id':t} for t in tasks]})
+        self.step('PATCH','/api/v2/dags/gece_veri_hatti?update_mask=is_paused',{'is_paused':False},payload={'is_paused':False})
+        self.run_op('airflow-activate',server='https://af.example.com',api_version='3.2',dag_id='gece_veri_hatti',kurulum_klasoru=root)
+        self.assertFalse(self.queue)
+        self.assertFalse(json.loads((self.output/'airflow-dag.json').read_text())['is_paused'])
+
+    def test_airflow_activate_stops_on_stale_task_list(self):
+        root=self.kurulum('airflow-activate')
+        self.step('GET','/api/v2/importErrors',{'import_errors':[]})
+        self.step('GET','/api/v2/dags/gece_veri_hatti',{'dag_id':'gece_veri_hatti'})
+        self.step('GET','/api/v2/dags/gece_veri_hatti/tasks',{'tasks':[{'task_id':'eski'}]})
+        with self.assertRaisesRegex(native.NativeError,'eşleşmedi'):self.run_op('airflow-activate',server='https://af.example.com',api_version='3.2',dag_id='gece_veri_hatti',kurulum_klasoru=root)
+        self.assertFalse(any(r[0]=='PATCH' for r in self.received))
 
 
 if __name__=='__main__':unittest.main()

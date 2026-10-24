@@ -98,6 +98,35 @@ işler ilk turdaki kaynaklarda anlatılan kurulum hizmetlerine ve platformların
 Hepsi örnek verisiyle testte çalışır. Üretilen projeler (QVF, PBIP, LookML, TWB, Superset paketi, Metabase betiği, Snowflake/UC SQL’i, Terraform, ADF JSON’u,
 DAG, ML betikleri) hedef uygulamalarda açılarak veya çalıştırılarak denenmedi.
 
+## Üçüncü tur: kurulumu API ile hesaba göndermek
+
+Her programın resmî API belgesine bakılarak, kurulum bloklarının ürettiği dosyaların API ile platforma kurulup kurulamayacağı incelendi. Uygulanan on paket ve
+API’nin izin verdiği sınır:
+
+| Program | API ile yapılabilen | API ile yapılamayan (paket ne yapar) | Paket |
+|---|---|---|---|
+| Qlik Cloud | Data Files yükleme, uygulama oluşturma, load script yazma (`/apps/{id}/scripts`), reload, veri modeli metadata’sı | Ana öğe ve sayfalar Engine API (websocket) ister; build.cmd ile qlik-cli’ye bırakılır | `qlik-cloud-build` |
+| Fabric Lakehouse | Lakehouse oluşturma, OneLake’e dosya yazma, Load Table ile Delta tablosu, tablo listesi | Şema etkin lakehouse’ta Load Table desteklenmez | `fabric-lakehouse-build` |
+| Power BI Service | TMDL tanımıyla semantic model oluşturma ve geri okuma | Rapor (PBIR) oluşturma API’sinde `definition.pbir` biçimi konusunda kaynaklar çelişiyor; rapor Desktop’tan yayımlanır. Veri yenilemesi için kimlik bilgisi platformda bağlanır | `fabric-semantic-model` |
+| Metabase | Koleksiyon, SQL kartı, pano ve kart yerleşimi (`X-API-Key`) | Kart yerleşim uç noktası sürüme göre değişti; paket 0.47+ biçimini kullanır | `metabase-dashboard` |
+| Looker | Explore alanlarını okuma, sorgu, kullanıcı tanımlı pano ve öğe oluşturma | LookML dosyaları API ile yazılmaz, Git ile yayımlanır | `looker-dashboard` |
+| Snowflake | SQL API ile her DDL/GRANT komutu, SHOW GRANTS ile doğrulama | Rol değişimi token kapsamına bağlı | `snowflake-setup` |
+| Unity Catalog | Katalog/şema oluşturma, yetki ekleme ve okuma, sahiplik | Grup ve servis sorumlusu oluşturma hesap API’sindedir; önceden var olmalı | `unity-catalog-setup` |
+| BigQuery | Servis hesabı, erişim listeli veri kümesi | Proje IAM politikası (jobUser) okuma-değiştirme-yazma ister; paket dokunmaz | `bigquery-setup` |
+| Azure Data Factory | Bağlı hizmet, veri kümesi, pipeline, tetikleyici oluşturma | Tetikleyici başlatılmaz, veri taşınmaz | `adf-solution` |
+| Airflow | İçe aktarma hataları, DAG ve görev listesi, unpause | REST API DAG dosyası yüklemez; dosya Git/CI ile konur | `airflow-activate` |
+
+Uygulanmayanlar: Superset’in içe aktarma uç noktası oturum çerezi ve CSRF belirteci ister; Tableau Cloud’a yayımlanan çalışma kitabı yerel CSV’ye bağlanamaz
+(çıkarım veya yayımlanmış veri kaynağı gerekir). İkisi için yerel bloklar dosya üretmeye devam eder. Paketler yerel sözleşme sunucusuyla test edildi; canlı hesapta
+denenmedi.
+
+Kaynaklar: [Qlik data files](https://qlik.dev/manage/data-files/create-datafiles/), [Qlik load script REST](https://community.qlik.com/t5/Integration-Extension-APIs/Qlik-Cloud-Change-Load-script-through-REST-API/m-p/2423987),
+[Fabric lakehouse API](https://learn.microsoft.com/en-us/fabric/data-engineering/lakehouse-api), [Fabric semantic model oluşturma](https://learn.microsoft.com/en-us/rest/api/fabric/semanticmodel/items/create-semantic-model),
+[Fabric rapor oluşturma tartışması](https://community.fabric.microsoft.com/t5/Developer/Fabric-Create-Reports-model-via-Microsoft-Fabric-API/m-p/4719497),
+[Metabase API anahtarları](https://www.metabase.com/docs/latest/people-and-groups/api-keys), [Metabase kart yerleşimi](https://discourse.metabase.com/t/how-to-add-dashboard-tabs-programmatically-in-metabase-0-49-which-endpoints-to-use/255084),
+[Looker create_dashboard_element](https://cloud.google.com/looker/docs/reference/looker-api/4.0/25.14/methods/Dashboard/create_dashboard_element),
+[Unity Catalog yetki güncelleme](https://docs.databricks.com/api/uc-grants/v1/update-permissions), [Airflow API istemcisi](https://apache.googlesource.com/airflow-client-python).
+
 ## Kaynaklar
 
 - Power BI sağlık kontrolü ilanları: [Protiviti](https://appsource.microsoft.com/en/marketplace/consulting-services/roberthalf_protiviti.powerbiperformance), [Sword](https://marketplace.microsoft.com/ja-jp/marketplace/consulting-services/swordgroup1676561891488.powerbi_healthcheck_3wk), [Coeo](https://coeo.com/wp-content/uploads/2024/09/Power-BI-Health-Check-.pdf), [endjin araç özeti](https://endjin.com/blog/performance-optimisation-tools-for-power-bi)
