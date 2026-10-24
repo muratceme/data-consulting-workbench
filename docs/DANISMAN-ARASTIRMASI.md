@@ -127,6 +127,29 @@ Kaynaklar: [Qlik data files](https://qlik.dev/manage/data-files/create-datafiles
 [Looker create_dashboard_element](https://cloud.google.com/looker/docs/reference/looker-api/4.0/25.14/methods/Dashboard/create_dashboard_element),
 [Unity Catalog yetki güncelleme](https://docs.databricks.com/api/uc-grants/v1/update-permissions), [Airflow API istemcisi](https://apache.googlesource.com/airflow-client-python).
 
+## Dördüncü tur: API ile kurulum dışı işler
+
+Üçüncü turdaki paketler yalnızca yerel kurulum çıktısını hesaba gönderiyordu. Bu turda API’nin izin verdiği üç iş grubu daha eklendi (33 paket):
+
+| Grup | Program ve paket | API’nin sınırı / paketin tavrı |
+|---|---|---|
+| Yeni platform kurulumu | Confluent Cloud `confluent-topics`, dbt Cloud `dbt-cloud-job`, Databricks `databricks-job-create`, Prefect `prefect-deployment`, Dagster `dagster-schedule`, Airbyte `airbyte-connection`, Fivetran `fivetran-schema` | Dagster tanımları kodda olduğu için API yalnızca doğrulayıp başlatır; Prefect aynı adlı deployment’ı güncellediğinden önce adın boş olduğu denetlenir; Airbyte/Fivetran kaynak kimlik bilgileri pakete girmez |
+| Katalog ve kalite | Purview `purview-glossary`, OpenMetadata `openmetadata-glossary`, DataHub `datahub-glossary`, Monte Carlo `montecarlo-rules`, Soda Cloud `soda-scan` | Purview hiyerarşisi API’de belgeli alanla verilemediği için üst terim `isA` ilişkisiyle bağlanır; sorumlular yalnızca Entra nesne kimliğiyle eklenir. Soda Cloud API kontrol tanımı yazmaz, yalnızca tanımlı taramayı çalıştırır |
+| Ürün analitiği ve vektör | GA4 `ga4-admin`, Pinecone `pinecone-index`, Qdrant `qdrant-collection` | GA4 özel tanımları silinemez, yalnızca arşivlenir; kota yazmadan önce denetlenir. BigQuery bağlantısı v1alpha uç noktasındadır |
+| Canlı denetim | Power BI `powerbi-scan`, Snowflake `snowflake-usage`, Databricks `databricks-cost`, Qlik `qlik-reload-history`, Tableau `tableau-usage`, Airflow `airflow-history`, ADF `adf-history` | Yalnızca okur; Scanner çıktısı yerel `pbi-tarayici-envanteri` bloğunun girdisidir. Databricks tutarları liste fiyatıdır |
+| Bakım ve yayın | Power BI `powerbi-deploy`, `powerbi-refresh-schedule`, `powerbi-rls-members`, `powerbi-workspace-access`; Qlik `qlik-publish`, `qlik-reload-schedule`, `qlik-space-access`; Tableau `tableau-permissions`, `tableau-extract-schedule`; Snowflake `snowflake-grant-sync`; Unity Catalog `uc-grant-sync` | Power BI REST API RLS üyeliği vermez; paket Fabric tanım API’siyle TMDL rol dosyasına üye ekler (canlı modelde önce test alanında denenmeli). Erişim paketleri yalnızca ekler; farklı yetki ve fazla hak raporlanır, geri alınmaz |
+
+Bütün paketler yerel sözleşme sunucusuyla test edildi; canlı hesapta denenmedi.
+
+Kaynaklar: [Confluent Topic v3](https://docs.confluent.io/cloud/current/api.html#tag/Topic-(v3)), [Schema Registry API](https://docs.confluent.io/platform/current/schema-registry/develop/api.html),
+[dbt Cloud API v2](https://docs.getdbt.com/dbt-cloud/api-v2), [Databricks jobs/create](https://docs.databricks.com/api/workspace/jobs/create), [Prefect deployments](https://docs.prefect.io/v3/api-ref/rest-api/server/deployments/create-deployment),
+[Dagster GraphQL](https://docs.dagster.io/guides/operate/graphql), [Airbyte createConnection](https://reference.airbyte.com/reference/createconnection), [Fivetran şema yapılandırması](https://fivetran.com/docs/rest-api/api-reference/connection-schema/connection-schema-config),
+[Purview Create Term](https://learn.microsoft.com/en-us/rest/api/purview/datamapdataplane/glossary/create-term), [Soda Cloud scans](https://docs.soda.io/soda-cloud-api-v1/scans),
+[GA4 Admin API](https://developers.google.com/analytics/devguides/config/admin/v1/rest), [Pinecone create_index](https://docs.pinecone.io/reference/api/2025-04/control-plane/create_index), [Qdrant collections](https://api.qdrant.tech/api-reference/collections/create-collection),
+[Power BI Scanner](https://learn.microsoft.com/en-us/rest/api/power-bi/admin/workspace-info-post-workspace-info), [Power BI deployAll](https://learn.microsoft.com/en-us/rest/api/power-bi/pipelines/deploy-all),
+[Fabric updateDefinition](https://learn.microsoft.com/en-us/rest/api/fabric/semanticmodel/items/update-semantic-model-definition), [TMDL](https://learn.microsoft.com/en-us/analysis-services/tmdl/tmdl-overview),
+[Qlik reload-tasks](https://qlik.dev/apis/rest/reload-tasks/), [Tableau yetkiler](https://help.tableau.com/current/api/rest_api/en-us/REST/rest_api_ref_permissions.htm), [Databricks billing tabloları](https://docs.databricks.com/aws/en/admin/system-tables/billing).
+
 ## Kaynaklar
 
 - Power BI sağlık kontrolü ilanları: [Protiviti](https://appsource.microsoft.com/en/marketplace/consulting-services/roberthalf_protiviti.powerbiperformance), [Sword](https://marketplace.microsoft.com/ja-jp/marketplace/consulting-services/swordgroup1676561891488.powerbi_healthcheck_3wk), [Coeo](https://coeo.com/wp-content/uploads/2024/09/Power-BI-Health-Check-.pdf), [endjin araç özeti](https://endjin.com/blog/performance-optimisation-tools-for-power-bi)

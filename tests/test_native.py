@@ -1375,4 +1375,590 @@ class Contracts(unittest.TestCase):
         self.assertFalse(any(r[0]=='PATCH' for r in self.received))
 
 
+    # ---------- plan-driven setup, live audit and maintenance packages ----------
+    def plan(self,op,edit=None):
+        """Write the package's sample input files; returns {filename: absolute path}."""
+        files=next(o for o in OPERATIONS if o['operation']==op)['input_files']
+        root=Path(self.temp.name)/('in-'+op+'-'+str(len(list(Path(self.temp.name).iterdir()))))
+        paths={}
+        for name,content in files.items():
+            if edit:content=edit(name,content)
+            target=root/name;target.parent.mkdir(parents=True,exist_ok=True);target.write_text(content,encoding='utf-8')
+            paths[Path(name).name]=str(target)
+        return paths
+    def sample(self,op,name):
+        return json.loads(next(o for o in OPERATIONS if o['operation']==op)['input_files'][name])
+    def listing(self,method,path,items,**extra):self.step(method,path,json.dumps(items).encode(),headers={'Content-Type':'application/json'},**extra)
+    def csv_out(self,name):
+        import csv as _csv
+        return list(_csv.DictReader(io.StringIO((self.output/name).read_text(encoding='utf-8'))))
+    def nap(self):return patch.object(native.time,'sleep')
+
+    def test_confluent_topics_creates_topics_checks_configs_and_registers_schema(self):
+        p=self.plan('confluent-topics');topics=self.sample('confluent-topics','topics.json')['topics']
+        base='/kafka/v3/clusters/lkc-abc/topics'
+        for t in topics:self.step('GET',base+'/'+t['name'],status=404)
+        self.step('GET','/subjects/siparis.olaylari.v1-value/versions',status=404)
+        for t in topics:self.step('POST',base,{'topic_name':t['name']},status=201,request_headers={'Authorization':native.basic_auth('test-only-secret','test-only-secret')})
+        for t in topics:
+            self.step('GET',base+'/'+t['name'],{'topic_name':t['name'],'partitions_count':t['partitions']})
+            self.step('GET',base+'/'+t['name']+'/configs',{'data':[{'name':k,'value':v} for k,v in t['configs'].items()]+[{'name':'segment.ms','value':'1'}]})
+        self.step('PUT','/config/siparis.olaylari.v1-value',{'compatibility':'BACKWARD'},payload={'compatibility':'BACKWARD'})
+        self.step('POST','/subjects/siparis.olaylari.v1-value/versions',{'id':41})
+        self.step('GET','/subjects/siparis.olaylari.v1-value/versions/latest',{'id':41,'version':1})
+        self.run_op('confluent-topics',rest_endpoint='https://pkc.x.confluent.cloud',cluster_id='lkc-abc',schema_registry='https://psrc.x.confluent.cloud',plan_file=p['topics.json'])
+        self.assertFalse(self.queue)
+        created=self.received[3][2]
+        self.assertEqual((created['partitions_count'],created['replication_factor']),(6,3))
+        self.assertIn({'name':'min.insync.replicas','value':'2'},created['configs'])
+        schema=json.loads(next(r[2] for r in self.received if r[1].endswith('/versions') and r[0]=='POST')['schema'])
+        self.assertEqual(schema['name'],'SiparisOlayi')
+        self.assertEqual(json.loads((self.output/'confluent-topics.json').read_text())['schemas'],{'siparis.olaylari.v1-value':41})
+
+    def test_confluent_topics_never_touches_existing_topic_or_unknown_config(self):
+        p=self.plan('confluent-topics')
+        self.step('GET','/kafka/v3/clusters/lkc-abc/topics/siparis.olaylari.v1',{'topic_name':'siparis.olaylari.v1'})
+        cfg=dict(rest_endpoint='https://pkc.x.confluent.cloud',cluster_id='lkc-abc',schema_registry='https://psrc.x.confluent.cloud',plan_file=p['topics.json'])
+        with self.assertRaisesRegex(native.NativeError,'zaten var'):self.run_op('confluent-topics',**cfg)
+        self.assertEqual(len(self.received),1)
+        self.output=Path(self.temp.name)/'run2'
+        p=self.plan('confluent-topics',edit=lambda n,c:c.replace('"cleanup.policy": "delete"','"unclean.leader.election.enable": "true"'))
+        with self.assertRaisesRegex(native.NativeError,'izinli listede'):self.run_op('confluent-topics',**{**cfg,'plan_file':p['topics.json']})
+        self.assertEqual(len(self.received),1)
+
+    def test_dbt_cloud_job_checks_environment_and_names_then_creates_paused_jobs(self):
+        p=self.plan('dbt-cloud-job');jobs=self.sample('dbt-cloud-job','dbt_jobs.json')['jobs']
+        self.step('GET','/api/v3/accounts/1/projects/2/environments/3/',{'data':{'id':3,'project_id':2,'type':'deployment'}},request_headers={'Authorization':'Token test-only-secret'})
+        self.step('GET','/api/v2/accounts/1/jobs/?project_id=2&limit=100',{'data':[{'name':'Eski job'}]})
+        for i,j in enumerate(jobs):
+            self.step('POST','/api/v2/accounts/1/jobs/',{'data':{'id':70+i}})
+            self.step('GET','/api/v2/accounts/1/jobs/'+str(70+i)+'/',{'data':{'name':j['name'],'execute_steps':j['steps']}})
+        self.run_op('dbt-cloud-job',server='https://cloud.getdbt.com',account_id=1,project_id=2,environment_id=3,plan_file=p['dbt_jobs.json'])
+        body=self.received[2][2]
+        self.assertEqual(body['execute_steps'],jobs[0]['steps']);self.assertFalse(body['triggers']['schedule'])
+        self.assertEqual(body['schedule']['cron'],'0 3 * * *')
+        self.assertEqual(json.loads((self.output/'dbt-jobs.json').read_text())['job_ids'],[70,71])
+
+    def test_dbt_cloud_job_refuses_shell_steps_and_existing_names(self):
+        p=self.plan('dbt-cloud-job',edit=lambda n,c:c.replace('dbt source freshness','dbt run; curl x'))
+        cfg=dict(server='https://cloud.getdbt.com',account_id=1,project_id=2,environment_id=3)
+        with self.assertRaisesRegex(native.NativeError,'dbt adımları'):self.run_op('dbt-cloud-job',plan_file=p['dbt_jobs.json'],**cfg)
+        self.assertFalse(self.received)
+        self.output=Path(self.temp.name)/'run2';p=self.plan('dbt-cloud-job')
+        self.step('GET','/api/v3/accounts/1/projects/2/environments/3/',{'data':{'id':3,'project_id':2,'type':'deployment'}})
+        self.step('GET','/api/v2/accounts/1/jobs/?project_id=2&limit=100',{'data':[{'name':'Gece üretim yüklemesi'}]})
+        with self.assertRaisesRegex(native.NativeError,'zaten var'):self.run_op('dbt-cloud-job',plan_file=p['dbt_jobs.json'],**cfg)
+        self.assertFalse(any(r[0]=='POST' for r in self.received))
+
+    def test_databricks_job_create_builds_dependent_tasks_paused(self):
+        p=self.plan('databricks-job-create');plan=self.sample('databricks-job-create','databricks_job.json')
+        keys=[t['task_key'] for t in plan['tasks']]
+        self.step('GET','/api/2.2/jobs/list?name=gece_veri_hatti',{'has_more':False})
+        self.step('POST','/api/2.2/jobs/create',{'job_id':991})
+        self.step('GET','/api/2.2/jobs/get?job_id=991',{'settings':{'name':'gece_veri_hatti','tasks':[{'task_key':k} for k in keys],'schedule':{'pause_status':'PAUSED'}}})
+        self.run_op('databricks-job-create',workspace_url='https://w.cloud.databricks.com',plan_file=p['databricks_job.json'])
+        body=self.received[1][2]
+        staging=next(t for t in body['tasks'] if t['task_key']=='staging')
+        self.assertEqual(staging['depends_on'],[{'task_key':'crm_yukle'},{'task_key':'erp_yukle'}])
+        self.assertEqual(body['schedule']['pause_status'],'PAUSED');self.assertEqual(body['tags'],{'olusturan':'datawork'})
+
+    def test_databricks_job_create_rejects_cycles_and_existing_job(self):
+        p=self.plan('databricks-job-create',edit=lambda n,c:c.replace('"depends_on": []','"depends_on": ["kalite_kontrol"]',1))
+        with self.assertRaisesRegex(native.NativeError,'döngüsel'):self.run_op('databricks-job-create',workspace_url='https://w.cloud.databricks.com',plan_file=p['databricks_job.json'])
+        self.output=Path(self.temp.name)/'run2';p=self.plan('databricks-job-create')
+        self.step('GET','/api/2.2/jobs/list?name=gece_veri_hatti',{'jobs':[{'job_id':5}]})
+        with self.assertRaisesRegex(native.NativeError,'zaten var'):self.run_op('databricks-job-create',workspace_url='https://w.cloud.databricks.com',plan_file=p['databricks_job.json'])
+        self.assertEqual(len(self.received),1)
+
+    def test_prefect_deployment_checks_pool_and_name_then_creates_paused(self):
+        p=self.plan('prefect-deployment');d=self.sample('prefect-deployment','prefect_deployment.json')['deployments'][0]
+        base='/api/accounts/a/workspaces/w/'
+        self.step('GET',base+'work_pools/uretim-havuzu',{'name':'uretim-havuzu'})
+        self.step('GET',base+'deployments/name/gece-veri-hatti/uretim',status=404)
+        self.step('POST',base+'flows/',{'id':'f1'},payload={'name':'gece-veri-hatti'})
+        self.step('POST',base+'deployments/',{'id':'d1'})
+        self.step('GET',base+'deployments/d1',{'name':'uretim','flow_id':'f1','entrypoint':d['entrypoint']})
+        self.run_op('prefect-deployment',api_url='https://api.prefect.cloud/api/accounts/a/workspaces/w',plan_file=p['prefect_deployment.json'])
+        body=self.received[3][2]
+        self.assertTrue(body['paused']);self.assertEqual(body['schedules'],[{'schedule':{'cron':'0 2 * * *','timezone':'Europe/Istanbul'},'active':False}])
+
+    def test_prefect_deployment_existing_name_is_never_upserted(self):
+        p=self.plan('prefect-deployment');base='/api/accounts/a/workspaces/w/'
+        self.step('GET',base+'work_pools/uretim-havuzu',{'name':'uretim-havuzu'})
+        self.step('GET',base+'deployments/name/gece-veri-hatti/uretim',{'id':'old'})
+        with self.assertRaisesRegex(native.NativeError,'zaten var'):self.run_op('prefect-deployment',api_url='https://api.prefect.cloud/api/accounts/a/workspaces/w',plan_file=p['prefect_deployment.json'])
+        self.assertFalse(any(r[0]=='POST' for r in self.received))
+
+    def test_dagster_schedule_verifies_code_then_starts_stopped_only(self):
+        p=self.plan('dagster-schedule')
+        self.step('POST','/prod/graphql',{'data':{'scheduleOrError':{'__typename':'Schedule','cronSchedule':'0 2 * * *','executionTimezone':'Europe/Istanbul','scheduleState':{'status':'STOPPED'}}}},
+                  request_headers={'Dagster-Cloud-Api-Token':'test-only-secret'})
+        self.step('POST','/prod/graphql',{'data':{'scheduleOrError':{'__typename':'Schedule','cronSchedule':'0 6 * * 1','executionTimezone':'Europe/Istanbul','scheduleState':{'status':'RUNNING'}}}})
+        self.step('POST','/prod/graphql',{'data':{'startSchedule':{'__typename':'ScheduleStateResult','scheduleState':{'status':'RUNNING'}}}})
+        self.run_op('dagster-schedule',server='https://org.dagster.cloud/prod',plan_file=p['dagster_schedules.json'])
+        self.assertEqual(self.received[2][2]['variables']['s']['scheduleName'],'gece_yukleme_schedule')
+        receipt=json.loads((self.output/'dagster-schedules.json').read_text())
+        self.assertEqual((receipt['started'],receipt['already_running']),(['gece_yukleme_schedule'],['haftalik_rapor_schedule']))
+
+    def test_dagster_schedule_stale_code_is_not_started(self):
+        p=self.plan('dagster-schedule')
+        self.step('POST','/prod/graphql',{'data':{'scheduleOrError':{'__typename':'Schedule','cronSchedule':'0 3 * * *','executionTimezone':'Europe/Istanbul'}}})
+        with self.assertRaisesRegex(native.NativeError,'eşleşmedi'):self.run_op('dagster-schedule',server='https://org.dagster.cloud/prod',plan_file=p['dagster_schedules.json'])
+        self.assertEqual(len(self.received),1)
+
+    def airbyte_steps(self,streams):
+        s,d='00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000002'
+        self.step('GET','/v1/sources/'+s,{'sourceId':s,'workspaceId':'ws'});self.step('GET','/v1/destinations/'+d,{'destinationId':d,'workspaceId':'ws'})
+        self.step('GET','/v1/connections?workspaceIds=ws&limit=100',{'data':[{'name':'Başka'}]})
+        self.listing('GET','/v1/streams?sourceId='+s+'&destinationId='+d,streams)
+
+    def test_airbyte_connection_matches_streams_and_creates_inactive(self):
+        p=self.plan('airbyte-connection');conn='00000000-0000-0000-0000-0000000000c1'
+        modes=['incremental_deduped_history','incremental_append','full_refresh_overwrite','full_refresh_append']
+        self.airbyte_steps([{'streamName':n,'syncModes':modes} for n in ('contacts','deals','owners','tickets')])
+        self.step('POST','/v1/connections',{'connectionId':conn})
+        self.step('GET','/v1/connections/'+conn,{'status':'inactive','configurations':{'streams':[{'name':n} for n in ('contacts','deals','owners')]}})
+        self.run_op('airbyte-connection',plan_file=p['airbyte_connection.json'])
+        body=self.received[4][2]
+        self.assertEqual(body['status'],'inactive');self.assertEqual(body['configurations']['streams'][0],{'name':'contacts','syncMode':'incremental_deduped_history','cursorField':['updatedAt'],'primaryKey':[['id']]})
+
+    def test_airbyte_connection_unsupported_mode_stops_before_create(self):
+        p=self.plan('airbyte-connection')
+        self.airbyte_steps([{'streamName':'contacts','syncModes':['full_refresh_overwrite']},{'streamName':'deals','syncModes':['incremental_append']},{'streamName':'owners','syncModes':['full_refresh_overwrite']}])
+        with self.assertRaisesRegex(native.NativeError,'desteklemiyor'):self.run_op('airbyte-connection',plan_file=p['airbyte_connection.json'])
+        self.assertFalse(any(r[0]=='POST' for r in self.received))
+
+    def test_fivetran_schema_changes_only_differing_tables_and_frequency(self):
+        p=self.plan('fivetran-schema');base='/v1/connections/conn_1'
+        live={'crm':{'tables':{'contacts':{'enabled':True},'deals':{'enabled':False},'email_events':{'enabled':True},'other':{'enabled':True}}},'erp':{'tables':{'invoices':{'enabled':True}}}}
+        after={'crm':{'tables':{'contacts':{'enabled':True},'deals':{'enabled':True},'email_events':{'enabled':False}}},'erp':{'tables':{'invoices':{'enabled':True}}}}
+        self.step('GET',base+'/schemas',{'code':'Success','data':{'schemas':live}})
+        self.step('PATCH',base+'/schemas/crm/tables/deals',{'code':'Success'},payload={'enabled':True})
+        self.step('PATCH',base+'/schemas/crm/tables/email_events',{'code':'Success'},payload={'enabled':False})
+        self.step('GET',base,{'data':{'sync_frequency':1440}});self.step('PATCH',base,{},payload={'sync_frequency':360});self.step('GET',base,{'data':{'sync_frequency':360}})
+        self.step('GET',base+'/schemas',{'code':'Success','data':{'schemas':after}})
+        self.run_op('fivetran-schema',connection_id='conn_1',plan_file=p['fivetran_tablolar.json'])
+        receipt=json.loads((self.output/'fivetran-schema.json').read_text(encoding='utf-8'))
+        self.assertEqual(receipt['changed'],['crm.deals=açık','crm.email_events=kapalı']);self.assertEqual(receipt['sync_frequency'],{'before':1440,'after':360})
+
+    def glossary_terms(self):
+        import csv as _csv
+        rows=list(_csv.DictReader(io.StringIO(next(o for o in OPERATIONS if o['operation']=='purview-glossary')['input_files']['kurulum/purview_sozluk.csv'])))
+        return rows
+
+    def test_purview_glossary_creates_parents_first_and_links_isa(self):
+        p=self.plan('purview-glossary');rows=self.glossary_terms();v='api-version=2023-09-01';base='/datamap/api/atlas/v2/glossary'
+        self.listing('GET',base+'?'+v,[{'guid':'g1','name':'Glossary'},{'guid':'g2','name':'Başka'}],request_headers={'Authorization':'Bearer test-only-secret'})
+        self.listing('GET',base+'/g1/terms?limit=1000&offset=0&'+v,[{'name':'Eski terim','guid':'x'}])
+        for i,_ in enumerate(rows):self.step('POST',base+'/term?includeTermHierarchy=true&'+v,{'guid':'t'+str(i)})
+        def back():
+            sent=[r[2] for r in self.received if r[0]=='POST']
+            return json.dumps([{'name':b['name'],'guid':'t'+str(i)} for i,b in enumerate(sent)]).encode()
+        self.step('GET',base+'/g1/terms?limit=1000&offset=0&'+v,back)
+        self.run_op('purview-glossary',account='kurum-purview',glossary_name='Glossary',sozluk_file=p['purview_sozluk.csv'])
+        sent=[r[2] for r in self.received if r[0]=='POST'];names=[b['name'] for b in sent]
+        child=next(b for b in sent if b['name']=='Aktif Müşteri')
+        self.assertLess(names.index('Müşteri'),names.index('Aktif Müşteri'))
+        self.assertEqual(child['isA'],[{'termGuid':'t'+str(names.index('Müşteri'))}])
+        self.assertEqual(sent[0]['resources'],[{'displayName':'Kaynak','url':'https://wiki.kurum.local/musteri'}])
+        self.assertNotIn('contacts',sent[0])  # e-mail stewards are not guessed as object ids
+        self.assertGreater(json.loads((self.output/'purview-glossary.json').read_text())['contacts_skipped'],0)
+
+    def test_purview_glossary_existing_term_stops_everything(self):
+        p=self.plan('purview-glossary');v='api-version=2023-09-01';base='/datamap/api/atlas/v2/glossary'
+        self.listing('GET',base+'?'+v,[{'guid':'g1','name':'Glossary'}])
+        self.listing('GET',base+'/g1/terms?limit=1000&offset=0&'+v,[{'name':'Ciro'}])
+        with self.assertRaisesRegex(native.NativeError,'Ciro'):self.run_op('purview-glossary',account='kurum-purview',glossary_name='Glossary',sozluk_file=p['purview_sozluk.csv'])
+        self.assertFalse(any(r[0]=='POST' for r in self.received))
+
+    def test_openmetadata_glossary_nests_terms_by_fqn(self):
+        p=self.plan('openmetadata-glossary');rows=self.glossary_terms()
+        self.step('GET','/api/v1/glossaries/name/Kurumsal_Sozluk',status=404)
+        self.step('POST','/api/v1/glossaries',{'id':'gid'})
+        def term():
+            body=self.received[-1][2]
+            return {'fullyQualifiedName':body.get('parent','Kurumsal_Sozluk')+'.'+body['name']}
+        for _ in rows:self.step('POST','/api/v1/glossaryTerms',term)
+        self.step('GET','/api/v1/glossaryTerms?glossary=gid&limit=1000',lambda:{'data':[{'displayName':r[2]['displayName']} for r in self.received if r[1]=='/api/v1/glossaryTerms']})
+        self.run_op('openmetadata-glossary',server='https://om.example.com',glossary_name='Kurumsal Sözlük',sozluk_file=p['purview_sozluk.csv'])
+        child=next(r[2] for r in self.received if r[1]=='/api/v1/glossaryTerms' and r[2]['displayName']=='Aktif Müşteri')
+        self.assertEqual((child['name'],child['parent']),('Aktif_Musteri','Kurumsal_Sozluk.Musteri'))
+
+    def test_datahub_glossary_creates_node_terms_and_isa_links(self):
+        p=self.plan('datahub-glossary');rows=self.glossary_terms()
+        self.step('POST','/api/graphql',{'data':{'glossaryNode':None}})
+        for _ in rows:self.step('POST','/api/graphql',{'data':{'glossaryTerm':None}})
+        self.step('POST','/api/graphql',{'data':{'createGlossaryNode':'urn:li:glossaryNode:kurumsal_sozluk'}})
+        last=lambda:self.received[-1][2]['variables']['i']
+        for _ in rows:self.step('POST','/api/graphql',lambda:{'data':{'createGlossaryTerm':'urn:li:glossaryTerm:'+last()['id']}})
+        children=[r for r in rows if r['Parent Term Name']]
+        for _ in children:self.step('POST','/api/graphql',{'data':{'addRelatedTerms':True}})
+        names={'urn:li:glossaryTerm:kurumsal_sozluk.'+native.slug(r['Name']).lower():r['Name'] for r in rows}
+        for _ in rows:self.step('POST','/api/graphql',lambda:{'data':{'glossaryTerm':{'properties':{'name':names[self.received[-1][2]['variables']['u']]}}}})
+        self.run_op('datahub-glossary',server='https://datahub.example.com',glossary_name='Kurumsal Sözlük',sozluk_file=p['purview_sozluk.csv'])
+        isa=[r[2]['variables']['i'] for r in self.received if 'addRelatedTerms' in r[2]['query']]
+        self.assertIn({'urn':'urn:li:glossaryTerm:kurumsal_sozluk.aktif_musteri','termUrns':['urn:li:glossaryTerm:kurumsal_sozluk.musteri'],'relationshipType':'isA'},isa)
+
+    def test_montecarlo_rules_resolves_warehouse_and_creates_rules(self):
+        p=self.plan('montecarlo-rules');dw='00000000-0000-0000-0000-0000000000d1'
+        self.step('POST','/graphql',{'data':{'getUser':{'account':{'warehouses':[{'uuid':dw,'name':'snowflake-prod'},{'uuid':'x','name':'diger'}]}}}},request_headers={'x-mcd-id':'test-only-secret'})
+        self.step('POST','/graphql',{'data':{'getCustomRules':{'edges':[{'node':{'description':'Eski kural'}}]}}})
+        self.step('POST','/graphql',{'data':{'createOrUpdateCustomRule':{'customRule':{'uuid':'00000000-0000-0000-0000-0000000000e1'}}}})
+        self.step('POST','/graphql',{'data':{'createOrUpdateCustomRule':{'customRule':{'uuid':'00000000-0000-0000-0000-0000000000e2'}}}})
+        self.step('POST','/graphql',{'data':{'getCustomRules':{'edges':[{'node':{'description':d}} for d in ('Eski kural','Siparişte negatif tutar','Müşterisiz sipariş')]}}})
+        self.run_op('montecarlo-rules',warehouse_name='snowflake-prod',plan_file=p['mc_kurallar.json'],start_time='2026-11-01T00:00:00Z')
+        v=self.received[2][2]['variables']
+        self.assertEqual((v['dw'],v['c'][0]['threshold'],v['s']['intervalMinutes']),(dw,0.0,1440))
+
+    def test_montecarlo_rules_refuse_writing_sql(self):
+        p=self.plan('montecarlo-rules',edit=lambda n,c:c.replace('SELECT siparis_id, tutar FROM','DELETE FROM',1))
+        with self.assertRaisesRegex(native.NativeError,'SELECT'):self.run_op('montecarlo-rules',warehouse_name='snowflake-prod',plan_file=p['mc_kurallar.json'])
+        self.assertFalse(self.received)
+
+    def test_soda_scan_triggers_by_header_id_and_writes_checks(self):
+        self.step('POST','/api/v1/scans',b'',status=201,headers={'X-Soda-Scan-Id':'scan-9'})
+        self.step('GET','/api/v1/scans/scan-9',{'state':'executing'})
+        self.step('GET','/api/v1/scans/scan-9',{'state':'completedWithFailures','checks':[{'name':'row_count > 0','evaluationStatus':'pass'},{'name':'missing_count(email) = 0','evaluationStatus':'fail'}]})
+        with self.nap():self.run_op('soda-scan',server='https://cloud.soda.io',scan_definition='gunluk_tarama')
+        self.assertEqual(self.received[0][2],b'scanDefinition=gunluk_tarama')
+        self.assertEqual(json.loads((self.output/'soda-scan.json').read_text())['failed'],1)
+        self.assertEqual(len(self.csv_out('soda_kontrolleri.csv')),2)
+
+    def test_soda_scan_failed_state_is_not_success(self):
+        self.step('POST','/api/v1/scans',b'',status=201,headers={'X-Soda-Scan-Id':'scan-9'})
+        self.step('GET','/api/v1/scans/scan-9',{'state':'failed'})
+        with self.assertRaises(native.NativeError):self.run_op('soda-scan',server='https://cloud.soda.io',scan_definition='gunluk_tarama')
+        self.assertEqual(json.loads((self.output/'run-state.json').read_text())['scan_id'],'scan-9')
+
+    def ga4_lists(self,dims,mets,keys):
+        b='/v1beta/properties/123'
+        self.step('GET',b+'/customDimensions?pageSize=200',{'customDimensions':dims})
+        self.step('GET',b+'/customMetrics?pageSize=200',{'customMetrics':mets})
+        self.step('GET',b+'/keyEvents?pageSize=200',{'keyEvents':keys})
+
+    def test_ga4_admin_checks_quota_and_duplicates_then_creates_everything(self):
+        p=self.plan('ga4-admin');plan=self.sample('ga4-admin','ga4_plan.json');b='/v1beta/properties/123'
+        self.ga4_lists([{'parameterName':'eski','scope':'EVENT'}],[],[{'eventName':'first_visit'}])
+        self.step('GET','/v1alpha/properties/123/bigQueryLinks?pageSize=200',{'bigqueryLinks':[]})
+        for _ in plan['custom_dimensions']:self.step('POST',b+'/customDimensions',{})
+        self.step('POST',b+'/customMetrics',{})
+        for _ in plan['key_events']:self.step('POST',b+'/keyEvents',{})
+        self.step('POST','/v1alpha/properties/123/bigQueryLinks',{},payload=plan['bigquery_link'])
+        self.ga4_lists([{'parameterName':d['parameterName'],'scope':d['scope']} for d in plan['custom_dimensions']],[{'parameterName':'indirim_tutari'}],[{'eventName':'purchase'},{'eventName':'sign_up'}])
+        self.run_op('ga4-admin',property_id='123',plan_file=p['ga4_plan.json'])
+        self.assertFalse(self.queue)
+        self.assertEqual(len(json.loads((self.output/'ga4-admin.json').read_text())['created']),6)
+
+    def test_ga4_admin_user_scope_quota_stops_before_writing(self):
+        p=self.plan('ga4-admin')
+        self.ga4_lists([{'parameterName':'u'+str(i),'scope':'USER'} for i in range(25)],[],[])
+        with self.assertRaisesRegex(native.NativeError,'USER'):self.run_op('ga4-admin',property_id='123',plan_file=p['ga4_plan.json'])
+        self.assertFalse(any(r[0]=='POST' for r in self.received))
+
+    def test_pinecone_index_waits_until_ready_and_checks_dimension(self):
+        p=self.plan('pinecone-index')
+        self.step('GET','/indexes/dokuman-parcalari',status=404,request_headers={'Api-Key':'test-only-secret','X-Pinecone-API-Version':'2025-04'})
+        self.step('POST','/indexes',{'name':'dokuman-parcalari'},status=201)
+        self.step('GET','/indexes/dokuman-parcalari',{'status':{'ready':False,'state':'Initializing'}})
+        self.step('GET','/indexes/dokuman-parcalari',{'status':{'ready':True,'state':'Ready'},'dimension':1536,'metric':'cosine','host':'dokuman-x.svc.pinecone.io'})
+        with self.nap():self.run_op('pinecone-index',plan_file=p['pinecone_index.json'])
+        self.assertEqual(self.received[1][2]['spec'],{'serverless':{'cloud':'aws','region':'us-east-1'}})
+        self.assertEqual(json.loads((self.output/'pinecone-indexes.json').read_text())['hosts'],{'dokuman-parcalari':'dokuman-x.svc.pinecone.io'})
+
+    def test_qdrant_collection_creates_vectors_and_payload_indexes(self):
+        p=self.plan('qdrant-collection');c='/collections/dokuman_parcalari'
+        self.step('GET',c+'/exists',{'result':{'exists':False}},request_headers={'api-key':'test-only-secret'})
+        self.step('PUT',c,{'result':True},payload={'vectors':{'size':1536,'distance':'Cosine','on_disk':True}})
+        for f,s in sorted({'kaynak':'keyword','dil':'keyword','tarih':'datetime'}.items()):self.step('PUT',c+'/index?wait=true',{'result':{'status':'completed'}},payload={'field_name':f,'field_schema':s})
+        self.step('GET',c,{'result':{'status':'green','config':{'params':{'vectors':{'size':1536,'distance':'Cosine'}}},'payload_schema':{'kaynak':{},'dil':{},'tarih':{}}}})
+        self.run_op('qdrant-collection',server='https://q.cloud.qdrant.io:6333',plan_file=p['qdrant_collection.json'])
+        self.assertFalse(self.queue)
+
+    def test_qdrant_existing_collection_is_untouched(self):
+        p=self.plan('qdrant-collection')
+        self.step('GET','/collections/dokuman_parcalari/exists',{'result':{'exists':True}})
+        with self.assertRaisesRegex(native.NativeError,'zaten var'):self.run_op('qdrant-collection',server='https://q.cloud.qdrant.io:6333',plan_file=p['qdrant_collection.json'])
+        self.assertEqual(len(self.received),1)
+
+    def test_powerbi_scan_batches_workspaces_and_merges_results(self):
+        ids=['%08d-0000-0000-0000-000000000000'%i for i in range(150)];admin='/v1.0/myorg/admin/workspaces/'
+        flags='lineage=True&datasourceDetails=True&getArtifactUsers=True&datasetSchema=False&datasetExpressions=False'
+        self.listing('GET',admin+'modified?excludePersonalWorkspaces=true&excludeInActiveWorkspaces=true',[{'id':i} for i in ids])
+        for n,chunk in enumerate([ids[:100],ids[100:]]):
+            scan='%08d-1111-1111-1111-111111111111'%n
+            self.step('POST',admin+'getInfo?'+flags,{'id':scan,'status':'NotStarted'},status=202,payload={'workspaces':chunk})
+            self.step('GET',admin+'scanStatus/'+scan,{'status':'Succeeded'})
+            self.step('GET',admin+'scanResult/'+scan,{'workspaces':[{'id':chunk[0],'name':'Alan '+str(n),'state':'Active','reports':[{}],'datasets':[{},{}],'users':[{'groupUserAccessRight':'Admin'}]}],
+                                                      'datasourceInstances':[{'datasourceInstanceId':str(n)}]})
+        self.run_op('powerbi-scan')
+        merged=json.loads((self.output/'scan_result.json').read_text(encoding='utf-8'))
+        self.assertEqual((len(merged['workspaces']),len(merged['datasourceInstances'])),(2,2))
+        self.assertEqual(self.csv_out('calisma_alanlari.csv')[0]['model'],'2')
+
+    def test_snowflake_usage_runs_fixed_selects_and_writes_csvs(self):
+        cols=lambda *n:{'rowType':[{'name':x} for x in n]}
+        results=[self.sf_result('a',resultSetMetaData=cols('WAREHOUSE_NAME','KREDI'),data=[['ETL_WH','120.5'],['BI_WH','40']]),self.sf_result('b',resultSetMetaData=cols('WAREHOUSE_NAME','KREDI'),data=[['ESKI_WH','3']]),
+                 self.sf_result('c',resultSetMetaData=cols('KULLANICI','ROL'),data=[['AHMET','ACCOUNTADMIN']]),self.sf_result('d',resultSetMetaData=cols('KULLANICI'),data=[])]
+        for r in results:self.step('POST',self.SF_PATH,r)
+        with patch.object(native.uuid,'uuid4',return_value=native.uuid.UUID(self.SF_UUID)):
+            self.run_op('snowflake-usage',server='https://a.snowflakecomputing.com',warehouse='WH',days=14)
+        sent=[r[2]['statement'] for r in self.received]
+        self.assertTrue(all(s.startswith('SELECT') for s in sent));self.assertIn('DATEADD(day,-14,',sent[0])
+        self.assertEqual(self.csv_out('kullanilmayan_depolar.csv'),[{'warehouse_name':'ESKI_WH','kredi':'3'}])
+        self.assertEqual([r['satir'] for r in self.csv_out('ozet.csv')],['2','1','1','0'])
+
+    def test_databricks_cost_follows_result_chunks(self):
+        wh='0123456789abcdef'
+        self.step('POST','/api/2.0/sql/statements',{'statement_id':'s1','status':{'state':'PENDING'}})
+        self.step('GET','/api/2.0/sql/statements/s1',{'statement_id':'s1','status':{'state':'SUCCEEDED'},'manifest':{'schema':{'columns':[{'name':'urun'},{'name':'liste_tutari'}]}},
+                  'result':{'data_array':[['JOBS','10']],'next_chunk_internal_link':'/api/2.0/sql/statements/s1/result/chunks/1'}})
+        self.step('GET','/api/2.0/sql/statements/s1/result/chunks/1',{'data_array':[['SQL','4']]})
+        for n in (2,3):self.step('POST','/api/2.0/sql/statements',{'statement_id':'s'+str(n),'status':{'state':'SUCCEEDED'},'manifest':{'schema':{'columns':[{'name':'x'}]}},'result':{'data_array':[]}})
+        with self.nap():self.run_op('databricks-cost',workspace_url='https://w.cloud.databricks.com',warehouse_id=wh)
+        self.assertEqual(self.received[0][2]['warehouse_id'],wh);self.assertIn('system.billing.usage',self.received[0][2]['statement'])
+        self.assertEqual([r['urun'] for r in self.csv_out('urun_maliyeti.csv')],['JOBS','SQL'])
+
+    def test_databricks_cost_rejects_foreign_chunk_link(self):
+        self.step('POST','/api/2.0/sql/statements',{'statement_id':'s1','status':{'state':'SUCCEEDED'},'manifest':{'schema':{'columns':[]}},'result':{'next_chunk_internal_link':'/api/2.0/other'}})
+        with self.assertRaisesRegex(native.NativeError,'beklenmeyen'):self.run_op('databricks-cost',workspace_url='https://w.cloud.databricks.com',warehouse_id='0123456789abcdef')
+
+    def test_qlik_reload_history_pages_and_aggregates_per_app(self):
+        now=native.time.time();t=lambda h:native.utc(now-h*3600)
+        self.step('GET','/api/v1/reloads?limit=100',{'data':[{'appId':'a1','status':'FAILED','creationTime':t(5)},{'appId':'a1','status':'SUCCEEDED','creationTime':t(30),'startTime':t(30),'endTime':native.utc(now-30*3600+120)}],
+                  'links':{'next':{'href':'/api/v1/reloads?limit=100&next=2'}}})
+        self.step('GET','/api/v1/reloads?limit=100&next=2',{'data':[{'appId':'a2','status':'SUCCEEDED','creationTime':t(2),'startTime':t(2),'endTime':native.utc(now-2*3600+60)},{'appId':'a3','status':'FAILED','creationTime':t(24*60)}]})
+        self.step('GET','/api/v1/items?resourceType=app&limit=100',{'data':[{'resourceId':'a1','name':'Satış'},{'resourceId':'a2','name':'Stok'}]})
+        self.run_op('qlik-reload-history',tenant='https://t.eu.qlikcloud.com',days=30)
+        rows=self.csv_out('reload_gecmisi.csv')
+        self.assertEqual([(r['uygulama'],r['reload'],r['basarisiz'],r['son_durum']) for r in rows],[('Satış','2','1','FAILED'),('Stok','1','0','SUCCEEDED')])
+        self.assertEqual(rows[0]['ort_sure_sn'],'120')
+
+    def tableau_signin(self):
+        self.step('POST','/api/3.24/auth/signin',{'credentials':{'token':'tok','site':{'id':'site1'}}})
+
+    def test_tableau_usage_sums_views_per_workbook_and_signs_out(self):
+        self.tableau_signin();b='/api/3.24/sites/site1'
+        self.step('GET',b+'/views?includeUsageStatistics=true&pageSize=100&pageNumber=1',{'pagination':{'totalAvailable':'3'},'views':{'view':[
+            {'workbook':{'id':'w1'},'usage':{'totalViewCount':'10'}},{'workbook':{'id':'w1'},'usage':{'totalViewCount':'5'}},{'workbook':{'id':'w2'},'usage':{'totalViewCount':'0'}}]}},request_headers={'X-Tableau-Auth':'tok'})
+        self.step('GET',b+'/workbooks?pageSize=100&pageNumber=1',{'pagination':{'totalAvailable':'2'},'workbooks':{'workbook':[{'id':'w1','name':'Satış'},{'id':'w2','name':'Eski'}]}})
+        self.step('POST','/api/3.24/auth/signout',{})
+        self.run_op('tableau-usage',server='https://x.online.tableau.com',api_version='3.24')
+        rows=self.csv_out('calisma_kitabi_kullanimi.csv')
+        self.assertEqual([(r['calisma_kitabi'],r['toplam_izlenme'],r['kullanilmiyor']) for r in rows],[('Eski','0','evet'),('Satış','15','')])
+
+    def test_airflow_history_aggregates_runs_and_failed_tasks(self):
+        def path(p):return p+'&limit=100&offset=0'
+        with patch.object(native.time,'time',return_value=1800000000):
+            since=native.ident(native.utc(1800000000-30*86400))
+            self.step('GET',path('/api/v2/dags/~/dagRuns?run_after_gte='+since),{'total_entries':3,'dag_runs':[
+                {'dag_id':'gece','state':'success','run_after':'1','start_date':'2026-10-01T02:00:00Z','end_date':'2026-10-01T02:10:00Z'},
+                {'dag_id':'gece','state':'failed','run_after':'2'},{'dag_id':'rapor','state':'success','run_after':'1'}]})
+            self.step('GET',path('/api/v2/dags/~/dagRuns/~/taskInstances?state=failed&run_after_gte='+since),{'total_entries':2,'task_instances':[{'dag_id':'gece','task_id':'erp_yukle'},{'dag_id':'gece','task_id':'erp_yukle'}]})
+            self.run_op('airflow-history',server='https://af.example.com',api_version='3.2')
+        rows=self.csv_out('dag_ozeti.csv')
+        self.assertEqual([(r['dag_id'],r['basarisiz'],r['basari_yuzde'],r['ort_sure_sn'],r['son_durum']) for r in rows],[('gece','1','50.0','600','failed'),('rapor','0','100.0','','success')])
+        self.assertEqual(self.csv_out('basarisiz_gorevler.csv'),[{'dag_id':'gece','task_id':'erp_yukle','hata_sayisi':'2'}])
+
+    def test_adf_history_follows_continuation_token(self):
+        base='/subscriptions/s/resourceGroups/g/providers/Microsoft.DataFactory/factories/f/queryPipelineRuns?api-version=2018-06-01'
+        self.step('POST',base,{'value':[{'pipelineName':'PL_Ana','status':'Succeeded','durationInMs':60000,'runStart':'1'},{'pipelineName':'PL_Ana','status':'Failed','runId':'r2','runStart':'2'}],'continuationToken':'tok'})
+        self.step('POST',base,{'value':[{'pipelineName':'PL_Yan','status':'Succeeded','durationInMs':1000,'runStart':'1'}]})
+        self.run_op('adf-history',subscription_id='s',resource_group='g',factory_name='f',days=7)
+        self.assertEqual(self.received[1][2]['continuationToken'],'tok')
+        rows=self.csv_out('pipeline_ozeti.csv')
+        self.assertEqual([(r['pipeline'],r['basarisiz'],r['son_hata_run_id'],r['ort_sure_sn']) for r in rows],[('PL_Ana','1','r2','60'),('PL_Yan','0','','1')])
+
+    def test_powerbi_deploy_checks_stages_and_waits_for_success(self):
+        pl,op='11111111-1111-1111-1111-111111111111','22222222-2222-2222-2222-222222222222';b='/v1.0/myorg/pipelines/'+pl
+        self.step('GET',b+'/stages',{'value':[{'order':0,'workspaceId':'w0','workspaceName':'Dev'},{'order':1,'workspaceId':'w1','workspaceName':'Test'},{'order':2}]})
+        self.step('POST',b+'/deployAll',{'id':op},status=202)
+        self.step('GET',b+'/operations/'+op,{'status':'Executing'})
+        self.step('GET',b+'/operations/'+op,{'status':'Succeeded','executionPlan':{'steps':[{'status':'Succeeded'},{'status':'Succeeded'}]}})
+        with self.nap():self.run_op('powerbi-deploy',pipeline_id=pl,source_stage=0)
+        self.assertEqual(self.received[1][2]['options'],{'allowCreateArtifact':True,'allowOverwriteArtifact':True,'allowPurgeData':False,'allowTakeOver':False})
+        receipt=json.loads((self.output/'powerbi-deployment.json').read_text())
+        self.assertEqual((receipt['from'],receipt['to'],receipt['steps']),('Dev','Test',2))
+
+    def test_powerbi_deploy_unassigned_target_stage_never_deploys(self):
+        pl='11111111-1111-1111-1111-111111111111'
+        self.step('GET','/v1.0/myorg/pipelines/'+pl+'/stages',{'value':[{'order':0,'workspaceId':'w0'},{'order':1},{'order':2}]})
+        with self.assertRaisesRegex(native.NativeError,'atanmış'):self.run_op('powerbi-deploy',pipeline_id=pl,source_stage=0)
+        self.assertEqual(len(self.received),1)
+
+    def test_powerbi_refresh_schedule_saves_previous_and_reads_back(self):
+        ws,ds='11111111-1111-1111-1111-111111111111','33333333-3333-3333-3333-333333333333'
+        path='/v1.0/myorg/groups/'+ws+'/datasets/'+ds+'/refreshSchedule'
+        old={'days':['Sunday'],'times':['01:00'],'enabled':True,'localTimeZoneId':'UTC','notifyOption':'NoNotification'}
+        self.step('GET',path,old)
+        self.step('PATCH',path,b'',payload={'value':{'days':['Monday','Friday'],'times':['06:00','12:30'],'enabled':True,'localTimeZoneId':'Turkey Standard Time','notifyOption':'MailOnFailure'}})
+        self.step('GET',path,{'days':['Monday','Friday'],'times':['06:00','12:30'],'enabled':True,'localTimeZoneId':'Turkey Standard Time'})
+        self.run_op('powerbi-refresh-schedule',workspace_id=ws,dataset_id=ds,days=['Friday','Monday'],times=['12:30','06:00'],time_zone='Turkey Standard Time')
+        self.assertEqual(json.loads((self.output/'run-state.json').read_text())['previous_schedule'],old)
+
+    def test_powerbi_refresh_schedule_rejects_odd_minutes_without_network(self):
+        with self.assertRaisesRegex(native.NativeError,'SS:00'):
+            self.run_op('powerbi-refresh-schedule',workspace_id='11111111-1111-1111-1111-111111111111',dataset_id='33333333-3333-3333-3333-333333333333',days=['Monday'],times=['06:15'],time_zone='UTC')
+        self.assertFalse(self.received)
+
+    def rls_definition(self,members=()):
+        role="role 'Bolge Marmara'\n\tmodelPermission: read\n\n\ttablePermission Magaza = [Bolge] = \"Marmara\"\n"+''.join(f"\n\tmember '{m}' = user\n\t\tidentityProvider: AzureAD\n" for m in members)
+        enc=lambda t:base64.b64encode(t.encode()).decode()
+        return {'definition':{'parts':[{'path':'definition/model.tmdl','payload':enc('model Model\n'),'payloadType':'InlineBase64'},
+                                       {'path':'definition/roles/Bolge Marmara.tmdl','payload':enc(role),'payloadType':'InlineBase64'},
+                                       {'path':'definition/roles/Bolge Ege.tmdl','payload':enc('role \'Bolge Ege\'\n\tmodelPermission: read\n'),'payloadType':'InlineBase64'}]}}
+
+    def test_powerbi_rls_members_adds_only_missing_members(self):
+        p=self.plan('powerbi-rls-members');ws,sm='11111111-1111-1111-1111-111111111111','44444444-4444-4444-4444-444444444444'
+        base='/v1/workspaces/'+ws+'/semanticModels/'+sm
+        self.step('POST',base+'/getDefinition?format=TMDL',self.rls_definition(['AYSE.KAYA@kurum.com.tr']))
+        self.step('POST',base+'/updateDefinition',{})
+        def back():
+            return {'definition':{'parts':next(r[2] for r in self.received if r[1].endswith('updateDefinition'))['definition']['parts']}}
+        self.step('POST',base+'/getDefinition?format=TMDL',back)
+        self.run_op('powerbi-rls-members',workspace_id=ws,semantic_model_id=sm,members_file=p['rls_uyeleri.csv'])
+        parts={x['path']:base64.b64decode(x['payload']).decode() for x in self.received[1][2]['definition']['parts']}
+        marmara=parts['definition/roles/Bolge Marmara.tmdl']
+        self.assertIn("\tmember 'marmara-satis@kurum.com.tr' = group\n\t\tidentityProvider: AzureAD",marmara)
+        self.assertEqual(marmara.count('ayse.kaya'),0);self.assertIn('tablePermission Magaza',marmara)
+        self.assertIn("member 'can.demir@kurum.com.tr' = user",parts['definition/roles/Bolge Ege.tmdl'])
+        receipt=json.loads((self.output/'powerbi-rls.json').read_text())
+        self.assertEqual((len(receipt['added']),receipt['already_present']),(2,1))
+
+    def test_powerbi_rls_members_unknown_role_never_updates(self):
+        p=self.plan('powerbi-rls-members',edit=lambda n,c:c.replace('Bolge Ege','Bolge Karadeniz'));ws,sm='11111111-1111-1111-1111-111111111111','44444444-4444-4444-4444-444444444444'
+        self.step('POST','/v1/workspaces/'+ws+'/semanticModels/'+sm+'/getDefinition?format=TMDL',self.rls_definition())
+        with self.assertRaisesRegex(native.NativeError,'Bolge Karadeniz'):self.run_op('powerbi-rls-members',workspace_id=ws,semantic_model_id=sm,members_file=p['rls_uyeleri.csv'])
+        self.assertEqual(len(self.received),1)
+
+    def test_powerbi_workspace_access_adds_missing_and_reports_different_rights(self):
+        p=self.plan('powerbi-workspace-access');ws='11111111-1111-1111-1111-111111111111';path='/v1.0/myorg/groups/'+ws+'/users'
+        group='00000000-0000-0000-0000-0000000000a1'
+        self.step('GET',path,{'value':[{'emailAddress':'Ayse.Kaya@kurum.com.tr','groupUserAccessRight':'Viewer'}]})
+        self.step('POST',path,b'',payload={'groupUserAccessRight':'Viewer','principalType':'Group','identifier':group})
+        self.step('GET',path,{'value':[{'emailAddress':'ayse.kaya@kurum.com.tr','groupUserAccessRight':'Viewer'},{'identifier':group,'groupUserAccessRight':'Viewer'}]})
+        self.run_op('powerbi-workspace-access',workspace_id=ws,access_file=p['calisma_alani_erisimi.csv'])
+        receipt=json.loads((self.output/'powerbi-workspace-access.json').read_text())
+        self.assertEqual((receipt['added'],receipt['different_right_not_changed']),([group],['ayse.kaya@kurum.com.tr (Viewer)']))
+
+    def test_qlik_publish_new_app_and_requires_flag_to_republish(self):
+        cfg=dict(tenant='https://t.eu.qlikcloud.com',app_id='app1',space_id='sp1')
+        self.step('GET','/api/v1/spaces/sp1',{'id':'sp1','type':'managed'})
+        self.step('GET','/api/v1/apps/app1',{'attributes':{'id':'app1','name':'Satış'}})
+        self.step('GET','/api/v1/items?resourceType=app&spaceId=sp1&limit=100',{'data':[]})
+        self.step('POST','/api/v1/apps/app1/publish',{'attributes':{'id':'pub1'}},payload={'spaceId':'sp1','data':'source','attributes':{'name':'Satış'}})
+        self.step('GET','/api/v1/apps/pub1',{'attributes':{'id':'pub1','published':True,'originAppId':'app1','spaceId':'sp1'}})
+        self.run_op('qlik-publish',**cfg)
+        self.output=Path(self.temp.name)/'run2'
+        self.step('GET','/api/v1/spaces/sp1',{'id':'sp1','type':'managed'})
+        self.step('GET','/api/v1/apps/app1',{'attributes':{'id':'app1','name':'Satış'}})
+        self.step('GET','/api/v1/items?resourceType=app&spaceId=sp1&limit=100',{'data':[{'resourceId':'pub1','resourceAttributes':{'originAppId':'app1'}}]})
+        with self.assertRaisesRegex(native.NativeError,'republish'):self.run_op('qlik-publish',**cfg)
+        self.assertEqual(sum(1 for r in self.received if r[0] in ('POST','PUT')),1)
+
+    def test_qlik_reload_schedule_refuses_second_active_task(self):
+        cfg=dict(tenant='https://t.eu.qlikcloud.com',app_id='app1',timezone='Europe/Istanbul',start='2026-11-01T06:00:00',recurrence=['RRULE:FREQ=DAILY;BYHOUR=6;BYMINUTE=0;BYSECOND=0'])
+        self.step('GET','/api/v1/reload-tasks?appId=app1&limit=100',{'data':[{'id':'t0','state':'Disabled'}]})
+        self.step('POST','/api/v1/reload-tasks',{'id':'t1'})
+        self.step('GET','/api/v1/reload-tasks/t1',{'appId':'app1','recurrence':cfg['recurrence'],'state':'Enabled'})
+        self.run_op('qlik-reload-schedule',**cfg)
+        self.assertEqual(self.received[1][2]['type'],'scheduled_reload')
+        self.output=Path(self.temp.name)/'run2'
+        self.step('GET','/api/v1/reload-tasks?appId=app1&limit=100',{'data':[{'id':'t1','state':'Enabled'}]})
+        with self.assertRaisesRegex(native.NativeError,'zaten var'):self.run_op('qlik-reload-schedule',**cfg)
+
+    def test_qlik_space_access_resolves_people_and_adds_missing(self):
+        p=self.plan('qlik-space-access');path='/api/v1/spaces/sp1/assignments'
+        self.step('GET','/api/v1/spaces/sp1',{'id':'sp1','type':'managed'})
+        self.step('GET','/api/v1/users?filter='+native.ident('email eq "ayse.kaya@kurum.com.tr"'),{'data':[{'id':'u1'}]})
+        self.step('GET','/api/v1/groups?filter='+native.ident('name eq "Satis Analistleri"'),{'data':[{'id':'g1'}]})
+        self.step('GET',path+'?limit=100',{'data':[{'assigneeId':'u1','roles':['consumer']}]})
+        self.step('POST',path,{},payload={'type':'group','assigneeId':'g1','roles':['consumer','dataconsumer']})
+        self.step('GET',path+'?limit=100',{'data':[{'assigneeId':'u1','roles':['consumer']},{'assigneeId':'g1','roles':['dataconsumer','consumer']}]})
+        self.run_op('qlik-space-access',tenant='https://t.eu.qlikcloud.com',space_id='sp1',members_file=p['alan_uyeleri.csv'])
+        receipt=json.loads((self.output/'qlik-space-access.json').read_text())
+        self.assertEqual((receipt['added'],receipt['already_present']),(['Satis Analistleri'],['ayse.kaya@kurum.com.tr']))
+
+    def test_tableau_permissions_adds_missing_capabilities_reports_conflicts(self):
+        p=self.plan('tableau-permissions');b='/api/3.24/sites/site1'
+        self.tableau_signin()
+        self.step('GET',b+'/projects?filter='+native.ident('name:eq:Satış'),{'projects':{'project':[{'id':'p1','name':'Satış'}]}})
+        self.step('GET',b+'/groups?filter='+native.ident('name:eq:Satış Analistleri'),{'groups':{'group':[{'id':'g1','name':'Satış Analistleri'}]}})
+        grant=lambda caps:{'permissions':{'granteeCapabilities':[{'group':{'id':'g1'},'capabilities':{'capability':[{'name':c,'mode':m} for c,m in caps]}}]}}
+        self.step('GET',b+'/projects/p1/permissions',grant([('Read','Allow')]))
+        self.step('GET',b+'/projects/p1/default-permissions/workbooks',grant([('ExportData','Deny')]))
+        self.step('PUT',b+'/projects/p1/default-permissions/workbooks',{},payload=grant([('Read','Allow')]))
+        self.step('GET',b+'/projects/p1/default-permissions/workbooks',grant([('ExportData','Deny'),('Read','Allow')]))
+        self.step('GET',b+'/projects/p1/default-permissions/datasources',{'permissions':{}})
+        self.step('PUT',b+'/projects/p1/default-permissions/datasources',{},payload=grant([('Connect','Allow')]))
+        self.step('GET',b+'/projects/p1/default-permissions/datasources',grant([('Connect','Allow')]))
+        self.step('POST','/api/3.24/auth/signout',{})
+        self.run_op('tableau-permissions',server='https://x.online.tableau.com',api_version='3.24',permissions_file=p['tableau_yetkileri.csv'])
+        receipt=json.loads((self.output/'tableau-permissions.json').read_text(encoding='utf-8'))
+        self.assertEqual(receipt['conflicts_not_changed'],['Satış/workbooks/Satış Analistleri:ExportData (Deny)'])
+        self.assertEqual(len(receipt['added']),2)
+
+    def test_tableau_extract_schedule_skips_scheduled_workbooks(self):
+        p=self.plan('tableau-extract-schedule');b='/api/3.24/sites/site1'
+        self.tableau_signin()
+        self.step('GET',b+'/tasks/extractRefreshes',{'tasks':{'task':[{'extractRefresh':{'id':'old','workbook':{'id':'w2'}}}]}})
+        self.step('GET',b+'/workbooks?filter='+native.ident('name:eq:Satış Panosu'),{'workbooks':{'workbook':[{'id':'w1','project':{'name':'Satış'}},{'id':'wx','project':{'name':'Arşiv'}}]}})
+        self.step('POST',b+'/tasks/extractRefreshes',{'extractRefresh':{'id':'t1'}})
+        self.step('GET',b+'/tasks/extractRefreshes/t1',{'task':{'extractRefresh':{'workbook':{'id':'w1'}}}})
+        self.step('GET',b+'/workbooks?filter='+native.ident('name:eq:Stok Raporu'),{'workbooks':{'workbook':[{'id':'w2','project':{'name':'Operasyon'}}]}})
+        self.step('POST','/api/3.24/auth/signout',{})
+        self.run_op('tableau-extract-schedule',server='https://x.online.tableau.com',api_version='3.24',schedule_file=p['extract_zamanlamasi.csv'])
+        schedule=self.received[3][2]['schedule']
+        self.assertEqual(schedule['frequencyDetails']['start'],'06:00:00');self.assertEqual(schedule['frequencyDetails']['intervals']['interval'][0],{'hours':'24'})
+        receipt=json.loads((self.output/'tableau-extract-schedule.json').read_text(encoding='utf-8'))
+        self.assertEqual((receipt['created_tasks'],receipt['already_scheduled']),(['t1'],['Stok Raporu']))
+
+    def test_snowflake_grant_sync_grants_missing_and_reports_extra(self):
+        root=self.kurulum('snowflake-grant-sync')
+        import csv as _csv
+        matrix=list(_csv.DictReader(io.StringIO((Path(root)/'yetki_matrisi.csv').read_text(encoding='utf-8-sig'))))
+        level={'okuma':'R','yazma':'RW','sahip':'OWN'}
+        cols=[{'name':n} for n in ['privilege','granted_on','name']]
+        roles=sorted({r['kimlik'] for r in matrix})
+        expected={g:sorted(r['veritabani']+'_'+level[r['etkin']] for r in matrix if r['kimlik']==g and r['etkin'] in level) for g in roles}
+        first=roles[0]
+        for g in roles:
+            have=expected[g][1:] if g==first else expected[g]+(['PROD_RAW_RW'] if g==roles[1] else [])
+            self.step('POST',self.SF_PATH,self.sf_result('s',resultSetMetaData={'rowType':cols},data=[['USAGE','ROLE',x] for x in have]+[['USAGE','WAREHOUSE','WH']]))
+        self.step('POST',self.SF_PATH,self.sf_result('g'))
+        self.step('POST',self.SF_PATH,self.sf_result('v',resultSetMetaData={'rowType':cols},data=[['USAGE','ROLE',x] for x in expected[first]]))
+        with patch.object(native.uuid,'uuid4',return_value=native.uuid.UUID(self.SF_UUID)):
+            self.run_op('snowflake-grant-sync',server='https://a.snowflakecomputing.com',warehouse='WH',kurulum_klasoru=root)
+        grant=self.received[len(roles)][2]
+        self.assertEqual((grant['statement'],grant['role']),('GRANT ROLE '+expected[first][0]+' TO ROLE '+first,'SECURITYADMIN'))
+        self.assertFalse(any('REVOKE' in r[2]['statement'] for r in self.received))
+        receipt=json.loads((self.output/'snowflake-grant-sync.json').read_text())
+        self.assertEqual((receipt['granted'],receipt['extra_not_revoked']),(1,1))
+
+    def test_uc_grant_sync_patches_only_missing_privileges(self):
+        root=self.kurulum('uc-grant-sync');plan=json.loads((Path(root)/'uc_plan.json').read_text(encoding='utf-8'))
+        b='/api/2.1/unity-catalog/permissions/'
+        grouped={}
+        for g in plan['grants']:grouped.setdefault((g['securable_type'],g['full_name']),[]).append(g)
+        items=list(grouped.items());(k0,f0),gs0=items[0]
+        for i,((k,f),gs) in enumerate(items):
+            have=[{'principal':g['principal'],'privileges':g['privileges'][1:] if i==0 and j==0 else g['privileges']} for j,g in enumerate(gs)]
+            if i==1:have.append({'principal':'eski_grup','privileges':['SELECT']})
+            self.step('GET',b+k+'/'+f,{'privilege_assignments':have})
+        self.step('PATCH',b+k0+'/'+f0,{},payload={'changes':[{'principal':gs0[0]['principal'],'add':sorted(gs0[0]['privileges'][:1])}]})
+        self.step('GET',b+k0+'/'+f0,{'privilege_assignments':[{'principal':g['principal'],'privileges':g['privileges']} for g in gs0]})
+        self.run_op('uc-grant-sync',workspace_url='https://w.cloud.databricks.com',kurulum_klasoru=root)
+        self.assertFalse(self.queue)
+        rows=self.csv_out('yetki_farki.csv')
+        self.assertEqual(sorted(r['durum'] for r in rows),['eksikti → verildi','fazla (geri alınmadı)'])
+
+    def test_uc_grant_sync_apply_false_only_reports(self):
+        root=self.kurulum('uc-grant-sync');plan=json.loads((Path(root)/'uc_plan.json').read_text(encoding='utf-8'))
+        keys=[]
+        for g in plan['grants']:
+            if (g['securable_type'],g['full_name']) not in keys:keys.append((g['securable_type'],g['full_name']))
+        for k,f in keys:self.step('GET','/api/2.1/unity-catalog/permissions/'+k+'/'+f,{'privilege_assignments':[]})
+        self.run_op('uc-grant-sync',workspace_url='https://w.cloud.databricks.com',apply=False,kurulum_klasoru=root)
+        self.assertTrue(all(r[0]=='GET' for r in self.received))
+        self.assertTrue(all(r['durum']=='eksik' for r in self.csv_out('yetki_farki.csv')))
+
 if __name__=='__main__':unittest.main()

@@ -4,7 +4,7 @@ Veri işleri için iki tür paket: **kod blokları** (aynı girdiden hep aynı s
 
 ## Güncel durum
 
-17 Ekim 2026: 23 alan / 207 ürün bağlamı. **545 indirilebilir paket**: 47 platform API paketi (46 kod bloğu + BigQuery agent) ve 498 yerel paket (380 kod bloğu + 118 agent). Toplam **426 kod bloğu, 119 agent**; 23 alanın hepsinde en az bir indirilebilir paket var. Diğer 372 görev **planlanan entegrasyon**; indirme bağlantıları yok.
+17 Ekim 2026: 23 alan / 207 ürün bağlamı. **580 indirilebilir paket**: 82 platform API paketi (81 kod bloğu + BigQuery agent; iki Tableau işlemi Cloud ve Server altında ayrı listelenir) ve 498 yerel paket (380 kod bloğu + 118 agent). Toplam **461 kod bloğu, 119 agent**; 23 alanın hepsinde en az bir indirilebilir paket var. Diğer 372 görev **planlanan entegrasyon**; indirme bağlantıları yok.
 
 ### Yerel kod blokları (internet yok, Python standart kütüphanesi)
 
@@ -68,6 +68,8 @@ Her blok tek bir işi yapar; `library/blocks/<kategori>.py` içinde `islem.op(..
 
 **Sıfırdan kurulum blokları.** Yerel bloklar çevrimdışıdır; on platformda (Qlik Cloud, Fabric Lakehouse, Power BI Service, Metabase, Looker, Snowflake, Unity Catalog, BigQuery, ADF, Airflow) aynı çıktıyı API ile hesaba kuran platform paketleri de vardır: paketteki `kurulum/` klasörü bloğun örnek çıktısıdır, kendi çıktınızla değiştirilir; hedefte aynı adlı kaynak varsa hiçbir şey oluşturmadan durur ve sonunda platformdan geri okuyup karşılaştırır. Bakım ve denetim bloklarına ek olarak bir platformu boştan kuran işler: tablo klasöründen ilişkili veri modeli ve pano (Qlik, Power BI, Looker, Tableau, Superset, Metabase), düz dosyadan veritabanı, dbt projesi, Snowflake / Unity Catalog / BigQuery hesap kurulumu, ADF yükleme hattı, Airflow DAG’i ve ML projesi. Model blokları ilişkileri veride doğrular (üst tabloda anahtar tekil mi, alt tabloda eşleşmeyen değer var mı); ikinci yol açan ilişki Qlik’te alan adı ayrılarak, Power BI’da pasif ilişkiyle kesilir. Superset ve Metabase SQL’i, dbt modelleri ve normalize veritabanı SQLite’ta çalıştırılıp rakamlar Python hesabıyla karşılaştırılır; erişim kurulumlarında üretilen GRANT’lerin etkisi hesaplanıp istenen erişimle karşılaştırılır. Üretilen projeler hedef uygulamalarda açılarak test edilmedi.
 
+**API ile bakım ve canlı denetim.** Kurulum dışında üç grup platform paketi daha vardır: API’si olan ama kurulum paketi olmayan programlar (Confluent, dbt Cloud, Databricks job, Prefect, Dagster, Airbyte, Fivetran, Purview/OpenMetadata/DataHub sözlüğü, Monte Carlo, Soda Cloud, GA4, Pinecone, Qdrant); dışa aktarılmış dosya yerine platformu doğrudan okuyan canlı denetimler (Power BI Scanner, Snowflake Account Usage, Databricks System Tables, Qlik/Tableau/Airflow/ADF geçmişi); kurulumdan sonraki günlük işler (Power BI dağıtım, zamanlama, RLS ve erişim; Qlik yayımlama, reload zamanı ve alan erişimi; Tableau yetki ve extract zamanı; Snowflake ve Unity Catalog yetki eşitleme). Yazan paketler önce hedefi okur: var olan kaynağın üzerine yazmaz, farklı yetkiyi değiştirmez, hak geri almaz; zamanlamalar açıkça istenmedikçe kapalı oluşturulur.
+
 **Danışman işleri araştırması.** Hangi platformda danışmanların gerçekte ne sattığı ve sitede hangi işlerin eksik olduğu, kaynaklarıyla birlikte [docs/DANISMAN-ARASTIRMASI.md](docs/DANISMAN-ARASTIRMASI.md) dosyasında. Eksik bulunan işler paketler hâlinde ekleniyor.
 
 **e-Fatura üretimi.** efatura-uret bloğunun örnek çıktıları geliştirme sırasında OASIS UBL 2.1 XSD’sinden, GİB’in UBL-TR 1.2.1 XSD’sinden ve GİB’in e-Fatura/e-Arşiv Schematron iş kurallarından (Saxon ile XSLT 2) hatasız geçti; kuralların devrede olduğu bozuk bir fatura numarası ve vergi koduyla denendi. Tevkifatlı, iade ve istisna faturaları da aynı kurallardan hatasız geçti; bloğun reddettiği her durum (koda uymayan tevkifat oranı, SATIS faturasında istisna kodu veya tevkifat, ticari senaryoda iade, referanssız iade, gerekçesiz %0 KDV) XML’e elle işlendiğinde GİB Schematron’u da aynı hatayı verdi. Üretilen XML mevcut efatura-csv okuyucusundan geri geçirilip tutarlar karşılaştırılır. e-İrsaliye üreticisinin örnek çıktıları da GİB UBL-TR 1.2.1 XSD’sinden ve Schematron kurallarından hatasız geçti (GİB’in kendi eski irsaliye örneği yeni teslim adresi kuralına takılır). XML’ler imzasızdır; imza ve GİB’e gönderim test edilmedi. Excel pivot raporu Open XML SDK’dan geçti ve openpyxl ile okundu; Excel’de açılarak test edilmedi.
@@ -122,6 +124,26 @@ Pano kurucu (tablo klasöründen isteğe göre çok tablolu pano; seçim veri mo
 | BigQuery kurulumu | Servis hesapları → erişim listeli veri kümeleri → geri okuma | Veri kümeleri + servis hesapları |
 | ADF çözüm yayımı | Yer tutucu denetimi → hiçbiri yoksa önekli adlarla bağlı hizmet, veri kümesi, pipeline, tetikleyici | Durdurulmuş tetikleyiciyle çözüm |
 | Airflow DAG devreye alma | İçe aktarma hatası yok mu → DAG ve görev listesi dosyayla aynı mı → unpause | Çalışmaya hazır DAG |
+| Confluent Cloud kurulum | Topic ve şema konusu yok mu → topic’ler (bölüm, replikasyon, izinli ayarlar) → ayarları geri oku → uyumluluk modu + Avro şema kaydı | Topic’ler ve şemalar |
+| dbt Cloud job kurulumu | Ortam deployment mı, aynı adlı job yok mu → job’lar (yalnızca dbt komutları, zamanlama kapalı) → geri oku | Zamanlanmış job’lar |
+| Databricks job kurulumu | Bağımlılık döngüsü yok mu, aynı adlı job yok mu → çok görevli job (PAUSED) → görev listesini geri oku | Lakeflow job |
+| Prefect deployment kurulumu | Work pool var mı, deployment adı boş mu → flow + duraklatılmış deployment’lar → geri oku | Deployment’lar |
+| Dagster schedule devreye alma | Schedule kodda yüklü ve cron aynı mı → durdurulmuş olanları başlat | Çalışan schedule’lar |
+| Airbyte bağlantı kurulumu | Kaynak/hedef aynı çalışma alanında mı, akış ve senkron modu kaynakta var mı → pasif bağlantı → geri oku | Bağlantı |
+| Fivetran tablo seçimi | Şema yapılandırmasını oku → yalnızca farklı tabloları aç/kapat → sıklık → geri oku | Güncellenmiş bağlantı |
+| Purview / OpenMetadata / DataHub sözlük | Aynı adlı terim yok mu → üst terimler önce → hiyerarşi (isA / parent) → geri oku | Sözlük terimleri |
+| Monte Carlo kuralları | Ambarı adıyla bul, aynı kural yok mu → zamanlanmış özel SQL kuralları (yalnızca SELECT) → geri oku | Monitörler |
+| Soda Cloud taraması | Tarama tanımını tetikle → X-Soda-Scan-Id ile izle → kontrol sonuçları | `soda_kontrolleri.csv` |
+| GA4 yönetim | Mevcut tanımlar ve kota → özel boyut/metrik, temel olay, BigQuery bağlantısı → geri oku | GA4 mülk yapılandırması |
+| Pinecone / Qdrant | İndeks/koleksiyon yok mu → oluştur (+ payload indeksleri) → hazır ve aynı yapılandırmada mı | Vektör indeksi |
+| Power BI Scanner (canlı) | Çalışma alanlarını listele → 100’erli tarama → birleştir | `scan_result.json` (pbi-tarayici-envanteri girdisi) |
+| Snowflake / Databricks maliyet (canlı) | Account Usage / System Tables üzerinde sabit SELECT’ler | Kredi, boşta depo, yönetici rolü, pasif kullanıcı; ürün/job/gün maliyeti CSV’leri |
+| Qlik / Tableau / Airflow / ADF geçmişi (canlı) | Reload, görüntülenme, DAG run ve pipeline run geçmişini sayfalayarak oku | Uygulama/pipeline başına hata ve süre CSV’si |
+| Power BI dağıtım | Aşamalara çalışma alanı atanmış mı → deployAll → işlemi izle | Test/Üretim aşaması |
+| Power BI zamanlama, RLS, erişim | Önceki zamanlamayı kaydet → yeni zamanlama; TMDL rol dosyasına eksik üyeler; çalışma alanına eksik kimlikler → geri oku | Güncellenmiş model/alan |
+| Qlik yayımlama, reload zamanı, alan erişimi | Yönetilen alana yayımla (güncelleme yalnızca republish=true); etkin görev yoksa reload görevi; eksik alan rolleri | Yayımlanmış uygulama, görev, atamalar |
+| Tableau yetki ve extract zamanı | Proje/varsayılan yetkilerde yalnızca tanımsız yetenekler; görevi olmayan çalışma kitaplarına extract yenileme | Yetkiler, görevler |
+| Snowflake / Unity Catalog yetki eşitleme | Mevcut hakları plana göre oku → yalnızca eksikleri ver → fazlaları raporla (geri alma yok) | `yetki_farki.csv` |
 
 **Canlı vendor/tenant testi: 0. Uygulamada dosya açılışı testi: 0.** Testler yerel HTTP sözleşme sunucusunu kullanır; gerçek QVF/PBIX üretildiğini kanıtlamaz. Agent model yanıtı testte taklit edilir. Bu paketler henüz üretim onaylı değildir.
 
@@ -153,7 +175,7 @@ Platform paketi:
 
 Yeni/boş çıktı klasörü gerekir. Yazma ve LLM maliyeti olabilen işlemler README'de belirtilir. Şema ve proje bağlamı seçilen modele gönderilir; agent satır verisi çekmez. Kısmi çalışma kimlikleri `run-state.json`, dosya özeti `manifest.json` içindedir. Otomatik rollback veya üretimde otomatik model-kodu yürütme yoktur.
 
-Toplam **329 test** geçiyor (368 tek amaçlı blok, bir testin alt testleri olarak tek tek); tek amaçlı blokların her biri paketlenmiş kopyasıyla kendi örnek verisinde çalıştırılıp beklenen sonuçla karşılaştırılır. Yerel paket testleri (`tests/test_local.py`) paketlenmiş kopyayı örnek veriyle çalıştırır; agent’lar OpenAI/Anthropic/Ollama biçiminde konuşan sahte model sunucusuyla test edilir (maskeleme, onay, dry-run, düzeltme denemesi, HTTP hatası). İlk sekiz agent ayrıca yerel bir Ollama modeliyle (qwen3 14B) elle denendi; son yüz on agent yalnızca sahte model sunucusuyla test edildi. Test sayısı canlı tenant doğrulaması değildir.
+Toplam **378 test** geçiyor (368 tek amaçlı blok, bir testin alt testleri olarak tek tek); tek amaçlı blokların her biri paketlenmiş kopyasıyla kendi örnek verisinde çalıştırılıp beklenen sonuçla karşılaştırılır. Yerel paket testleri (`tests/test_local.py`) paketlenmiş kopyayı örnek veriyle çalıştırır; agent’lar OpenAI/Anthropic/Ollama biçiminde konuşan sahte model sunucusuyla test edilir (maskeleme, onay, dry-run, düzeltme denemesi, HTTP hatası). İlk sekiz agent ayrıca yerel bir Ollama modeliyle (qwen3 14B) elle denendi; son yüz on agent yalnızca sahte model sunucusuyla test edildi. Test sayısı canlı tenant doğrulaması değildir.
 
 ## Test katmanları
 
