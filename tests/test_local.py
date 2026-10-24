@@ -59,8 +59,8 @@ class LocalTestCase(unittest.TestCase):
 
 class PackageShape(LocalTestCase):
     def test_every_local_package_is_self_contained_and_has_no_network_code(self):
-        self.assertEqual(len([i for i in LOCAL if not i.get('op')]), 127)
-        self.assertEqual(sum(i['kind'] == 'agent' for i in LOCAL), 115)
+        self.assertEqual(len([i for i in LOCAL if not i.get('op')]), 130)
+        self.assertEqual(sum(i['kind'] == 'agent' for i in LOCAL), 118)
         self.assertEqual(len({i['id'] for i in LOCAL}), len(LOCAL))
         for item in LOCAL:
             names = local_package.files(item)
@@ -2724,6 +2724,189 @@ class Agents(LocalTestCase):
         done = p.run('--yes', env={'PROVIDER': 'openai'})
         self.assertEqual(done.returncode, 1)
         self.assertIn('MODEL', done.stderr)
+
+
+GOOD['pano-kurucu'] = {'baslik': 'Mağaza Satış Panosu', 'olculer': [{'sutun': 'tutar', 'toplama': 'toplam', 'ad': 'Ciro'}, {'sutun': 'adet', 'toplama': 'toplam'},
+                                                                   {'sutun': 'musteri_id', 'toplama': 'farkli_sayi', 'ad': 'Müşteri Sayısı'}],
+                       'kirilimlar': [{'tablo': 'Urun', 'sutun': 'kategori'}, {'tablo': 'Magaza', 'sutun': 'bolge'}],
+                       'detay': [{'tablo': 'Magaza', 'sutun': 'magaza_adi'}, {'tablo': 'Urun', 'sutun': 'kategori'}, {'tablo': 'Musteri', 'sutun': 'segment'}],
+                       'trend': True, 'araclar': ['qlik', 'powerbi', 'metabase'], 'gerekce': 'Ana gösterge ciro (tutar toplamı).', 'sorular': ['Ciro KDV dahil mi?']}
+GOOD['ambar-kurucu'] = {'ortamlar': ['dev', 'prod'], 'ekipler': [
+    {'ekip': 'veri_muhendisligi', 'katman': 'raw', 'erisim': 'sahip', 'depo_boyutu': 'MEDIUM', 'aylik_kredi': None},
+    {'ekip': 'veri_muhendisligi', 'katman': 'staging', 'erisim': 'sahip', 'depo_boyutu': 'MEDIUM', 'aylik_kredi': None},
+    {'ekip': 'veri_muhendisligi', 'katman': 'mart', 'erisim': 'yazma', 'depo_boyutu': 'MEDIUM', 'aylik_kredi': None},
+    {'ekip': 'analitik', 'katman': 'mart', 'erisim': 'okuma', 'depo_boyutu': 'SMALL', 'aylik_kredi': 150},
+    {'ekip': 'analitik', 'katman': 'sandbox', 'erisim': 'yazma', 'depo_boyutu': 'SMALL', 'aylik_kredi': 150},
+    {'ekip': 'finans', 'katman': 'mart', 'erisim': 'okuma', 'depo_boyutu': 'XSMALL', 'aylik_kredi': None}],
+    'prod_insan_yazma': False, 'gerekce': 'Prod yazmaları servis kullanıcılarıyla.', 'sorular': ['Veri mühendisliği ve finansın aylık kredi bütçesi nedir?']}
+GOOD['pipeline-kurucu'] = {'dag_id': 'gece_veri_hatti', 'schedule': '0 2 * * *', 'timezone': 'Europe/Istanbul', 'deadline': '05:00', 'gorevler': [
+    {'gorev': 'erp_dosyasi_bekle', 'tur': 'sensor', 'komut': '/veri/erp/{{ ds_nodash }}/bitti.flag', 'bagimli': [], 'havuz': 'sensor', 'deneme': 0, 'sure_dk': 40},
+    {'gorev': 'erp_yukle', 'tur': 'bash', 'komut': 'python /etl/erp_yukle.py --tarih {{ ds }}', 'bagimli': ['erp_dosyasi_bekle'], 'havuz': 'erp', 'deneme': 2, 'sure_dk': 25},
+    {'gorev': 'crm_yukle', 'tur': 'python', 'komut': 'etl.crm:yukle', 'bagimli': [], 'havuz': 'api', 'deneme': 3, 'sure_dk': 15},
+    {'gorev': 'staging', 'tur': 'sql', 'komut': 'sql/staging.sql', 'bagimli': ['erp_yukle', 'crm_yukle'], 'havuz': 'ambar', 'deneme': 1, 'sure_dk': 20},
+    {'gorev': 'dbt_mart', 'tur': 'dbt', 'komut': 'tag:mart', 'bagimli': ['staging'], 'havuz': 'ambar', 'deneme': 1, 'sure_dk': 35},
+    {'gorev': 'dbt_test', 'tur': 'dbt_test', 'komut': 'tag:mart', 'bagimli': ['dbt_mart'], 'havuz': 'ambar', 'deneme': 0, 'sure_dk': 10},
+    {'gorev': 'pbi_yenile', 'tur': 'bash', 'komut': 'python /etl/pbi_yenile.py', 'bagimli': ['dbt_test'], 'havuz': 'api', 'deneme': 2, 'sure_dk': 10}],
+    'gerekce': 'ERP ve CRM paralel; sonra staging, dbt ve rapor.', 'sorular': ['Power BI yenileme betiğinin yolu nedir?']}
+OUTPUTS.update({'pano-kurucu': 'pano-tasarimi.md', 'ambar-kurucu': 'ambar-plani.md', 'pipeline-kurucu': 'pipeline-plani.md'})
+
+
+class Kurulum(LocalTestCase):
+    """From-scratch builders: model inference, second paths, access plans, DAG checks."""
+
+    def model2(self, p):
+        """Snowflake model with a name mismatch (satis.musteri_no) and a second path satis → magaza / satis → musteri → magaza."""
+        d = p.dir / 'model2'
+        d.mkdir()
+        (d / 'satis.csv').write_text('satis_id,tarih,musteri_no,magaza_id,tutar\n1,2026-01-05,M1,S1,100.50\n2,2026-01-09,M2,S2,200.00\n3,2026-02-01,M1,S2,50.25\n', encoding='utf-8')
+        (d / 'musteri.csv').write_text('musteri_id,magaza_id,segment\nM1,S1,Bireysel\nM2,S2,Kurumsal\n', encoding='utf-8')
+        (d / 'magaza.csv').write_text('magaza_id,bolge\nS1,Ege\nS2,Marmara\n', encoding='utf-8')
+        return d
+
+    def test_second_path_is_passive_and_qlik_has_no_synthetic_keys(self):
+        p = self.package('qlik-cok-tablolu-uygulama')
+        d = self.model2(p)
+        self.ok(p.run('--input', str(d), '--relations', 'satis.musteri_no=musteri.musteri_id'))
+        s = p.json('ozet.json')
+        self.assertEqual((s['tablo'], s['iliski'], s['pasif_iliski'], s['sentetik_anahtar'], s['dongu']), (3, 2, 1, 0, 0))
+        script = p.out('qlik-uygulama/script.qvs').read_text(encoding='utf-8')
+        self.assertIn('as [Musteri Id]', script.split('[Satis]:')[1].split('[Musteri]:')[0])  # the renamed key joins on the parent key's name
+        self.assertIn('[Musteri Magaza Id]', script)  # the second path is cut by qualifying the field
+        p = self.package('pbi-yildiz-model-projesi')
+        d = self.model2(p)
+        self.ok(p.run('--input', str(d), '--relations', 'satis.musteri_no=musteri.musteri_id'))
+        rel = next(p.dir.glob('output/pbip/*.SemanticModel/definition/relationships.tmdl')).read_text(encoding='utf-8')
+        self.assertEqual(rel.count('isActive: false'), 1)
+        self.assertIn('fromColumn: Musteri.', rel.split('isActive: false')[0].rsplit('relationship', 1)[1])
+
+    def test_model_errors_are_readable(self):
+        p = self.package('lookml-cok-tablolu-proje')
+        d = p.dir / 'tek'
+        d.mkdir()
+        (d / 'a.csv').write_text('x,y\n1,2\n', encoding='utf-8')
+        done = p.run('--input', str(d))
+        self.assertEqual(done.returncode, 1)
+        self.assertIn('en az iki tablo', done.stderr)
+        (d / 'b.csv').write_text('z,w\n1,2\n', encoding='utf-8')
+        done = p.run('--input', str(d))
+        self.assertIn('ilişki bulunamadı', done.stderr)
+        self.assertNotIn('Traceback', done.stderr)
+
+    def test_sql_dashboards_and_dbt_star(self):
+        p = self.package('superset-pano-paketi')
+        self.ok(p.run())
+        with zipfile.ZipFile(p.out('superset-pano.zip')) as z:
+            names = z.namelist()
+            ds = z.read(next(n for n in names if '/datasets/' in n)).decode('utf-8')
+        self.assertIn('LEFT JOIN analytics.musteri t1 ON t1.musteri_id = f.musteri_id', ds)
+        self.assertEqual(sum('/charts/' in n for n in names), 10)
+        p = self.package('metabase-pano-kurulumu')
+        self.ok(p.run('--dialect', 'sqlserver', '--schema', 'dbo'))
+        cards = p.json('metabase/kartlar.json')['cards']
+        self.assertIn('DATEFROMPARTS(YEAR(tarih), MONTH(tarih), 1)', next(c['sql'] for c in cards if c['display'] == 'line'))
+        compile(p.out('metabase/metabase_kur.py').read_text(encoding='utf-8'), 'metabase_kur.py', 'exec')
+        p = self.package('dbt-yildiz-projesi')
+        self.ok(p.run())
+        failing = [r for r in p.csv('sonuc.csv') if r['sonuc'] != 'geçti']
+        self.assertEqual([(r['test'], r['sonuc'], r['hatali_satir']) for r in failing], [('relationships_fct_satis_musteri_id', 'uyarı', '2')])
+        self.assertIn('severity: warn', p.out('dbt-proje/models/schema.yml').read_text(encoding='utf-8'))
+
+    def test_normalization_and_access_plans(self):
+        p = self.package('veritabani-normalizasyon')
+        self.ok(p.run('--dialect', 'sqlserver', '--schema', 'satis'))
+        ddl = p.out('ddl.sql').read_text(encoding='utf-8')
+        self.assertIn('REFERENCES satis.musteri (musteri_no)', ddl)
+        self.assertIn('PRIMARY KEY (siparis_no, urun_kodu)', ddl)
+        self.assertIn("UPDATE satis.stg_siparis_duz SET musteri_sehir = 'İzmir' WHERE musteri_no = 'C14'", p.out('yukleme.sql').read_text(encoding='utf-8'))
+        p = self.package('snowflake-hesap-kurulumu')
+        self.ok(p.run())
+        sql = p.out('snowflake_kurulum.sql').read_text(encoding='utf-8')
+        self.assertIn('GRANT ROLE DEV_SANDBOX_RW TO ROLE DEV_ANALITIK;', sql)
+        self.assertNotIn('GRANT ROLE PROD_SANDBOX_RW TO ROLE PROD_ANALITIK;', sql)  # prod writes go to the service role
+        self.assertIn('GRANT ROLE PROD_SANDBOX_RW TO ROLE PROD_ANALITIK_SVC;', sql)
+        self.assertNotIn('PASSWORD', sql)
+        self.ok(p.run('--prod-human-write'))
+        self.assertEqual((p.json('ozet.json')['servis_kullanicisi'], p.json('ozet.json')['fark']), (0, 0))
+        p = self.package('unity-catalog-kurulumu')
+        self.ok(p.run())
+        self.assertIn('GRANT USE SCHEMA, SELECT ON SCHEMA prod.mart TO `finans`;', p.out('uc_kurulum.sql').read_text(encoding='utf-8'))
+
+    def test_dag_and_ml_builders(self):
+        p = self.package('airflow-dag-kurulumu')
+        self.ok(p.run('--deadline', '04:00'))
+        self.assertIn('son saati 04:00 kaçırıyor: tahmini bitiş 04:10, 10 dk geç', p.out('rapor.md').read_text(encoding='utf-8'))
+        compile(p.out('dags/gece_veri_hatti.py').read_text(encoding='utf-8'), 'dag.py', 'exec')
+        bad = p.dir / 'dongu.csv'
+        bad.write_text('gorev;tur;komut;bagimli\na;bash;echo a;b\nb;bash;echo b;a\n', encoding='utf-8')
+        done = p.run('--input', str(bad))
+        self.assertEqual(done.returncode, 1)
+        self.assertIn('döngü', done.stderr)
+        p = self.package('sklearn-proje-kurulumu')
+        self.ok(p.run())
+        cfg = p.json('ml-proje/config.json')
+        self.assertIn('iptal_tarihi', cfg['cikarilan'])
+        self.assertTrue(cfg['dengesiz'])
+        p = self.package('adf-metadata-pipeline')
+        self.ok(p.run())
+        pl = p.json('adf/pipeline/PL_Kontrol_Yukleme.json')
+        cases = pl['properties']['activities'][1]['typeProperties']['activities'][0]['typeProperties']['cases']
+        self.assertEqual([a['name'] for a in cases[1]['activities']], ['Yeni_Watermark', 'Artimli_Kopya', 'Watermark_Guncelle'])
+        self.assertIn("'tam'", p.out('kontrol_tablosu.sql').read_text(encoding='utf-8').split("'WebOturum'")[1].split('\n')[0])
+
+
+class KurulumAgents(LocalTestCase):
+    def setUp(self):
+        self.model = FakeModel()
+        self.addCleanup(self.model.close)
+
+    def run_agent(self, item_id, *args, answers=()):
+        p = self.package(item_id)
+        self.model.answers = list(answers)
+        return p, p.run(*args, env=self.model.env())
+
+    def test_pano_kurucu_builds_the_chosen_tools(self):
+        p, done = self.run_agent('pano-kurucu', '--yes', answers=[GOOD['pano-kurucu']])
+        self.ok(done)
+        for f in ('qlik-uygulama/script.qvs', 'metabase/kartlar.json', 'pano-onizleme.html'):
+            self.assertTrue(p.out(f).is_file(), f)
+        self.assertTrue(list(p.dir.glob('output/pbip/*.pbip')))
+        kpi = {k['ad']: k['deger'] for k in p.json('pano-tasarimi.json')['kpi']}
+        self.assertEqual((kpi['Ciro'], kpi['Müşteri Sayısı'], kpi['Satis Sayısı']), (2687430.0, len({r['musteri_id'] for r in tabular.read(p.dir / 'ornek' / 'magaza' / 'satis.csv')[1]}), 600))
+        sent = self.model.requests[0]['body']['messages'][-1]['content']
+        self.assertIn('yabancı anahtar → Musteri', sent)
+        self.assertNotIn('Kablosuz Kulaklık', sent)  # values never leave, only column profiles
+
+    def test_builder_agents_reject_bad_plans(self):
+        cases = [('pano-kurucu', {**GOOD['pano-kurucu'], 'olculer': [{'sutun': 'liste_fiyati', 'toplama': 'toplam'}]}, 'olgu tablosu Satis içinde yok'),
+                 ('pano-kurucu', {**GOOD['pano-kurucu'], 'kirilimlar': [{'tablo': 'Musteri', 'sutun': 'musteri_id'}]}, 'kişisel veri, anahtar'),
+                 ('ambar-kurucu', {**GOOD['ambar-kurucu'], 'ekipler': [{**GOOD['ambar-kurucu']['ekipler'][0], 'depo_boyutu': 'HUGE'}]}, 'depo_boyutu'),
+                 ('pipeline-kurucu', {**GOOD['pipeline-kurucu'], 'gorevler': GOOD['pipeline-kurucu']['gorevler'][:4] + [{**GOOD['pipeline-kurucu']['gorevler'][4], 'bagimli': ['dbt_test']}]
+                                      + GOOD['pipeline-kurucu']['gorevler'][5:]}, 'döngü'),
+                 ('pipeline-kurucu', {**GOOD['pipeline-kurucu'], 'gorevler': GOOD['pipeline-kurucu']['gorevler'] + [{'gorev': 'temizle', 'tur': 'bash', 'komut': 'rm -rf /veri/erp',
+                                                                                                                     'bagimli': ['pbi_yenile'], 'havuz': 'erp', 'deneme': 0, 'sure_dk': 5}]}, 'yıkıcı komut'),
+                 ('pipeline-kurucu', {**GOOD['pipeline-kurucu'], 'deadline': '03:30'}, 'son saatini kaçırır')]
+        for item_id, bad, message in cases:
+            with self.subTest(item_id, message=message):
+                self.model.requests.clear()
+                p, done = self.run_agent(item_id, '--yes', answers=[bad, bad])
+                self.assertEqual(done.returncode, 1)
+                self.assertIn(message, self.model.requests[1]['body']['messages'][-1]['content'])
+                self.assertFalse(p.out(OUTPUTS[item_id]).exists())
+
+    def test_ambar_kurucu_checks_the_plan_against_the_grants(self):
+        p, done = self.run_agent('ambar-kurucu', '--yes', answers=[GOOD['ambar-kurucu']])
+        self.ok(done)
+        s = p.json('ambar-plani.json')['ozet']
+        self.assertEqual((s['veritabani'], s['islevsel_rol'], s['servis_kullanicisi'], s['monitor'], s['fark']), (8, 6, 2, 2, 0))
+        self.assertIn('CREATE USER IF NOT EXISTS SVC_ANALITIK_PROD TYPE = SERVICE', p.out('snowflake_kurulum.sql').read_text(encoding='utf-8'))
+        self.assertEqual(len(p.csv('ekipler.csv')), 6)
+        p, done = self.run_agent('ambar-kurucu', '--yes', '--platform', 'bigquery', answers=[GOOD['ambar-kurucu']])
+        self.ok(done)
+        self.assertTrue(p.out('terraform/main.tf').is_file())
+        p, done = self.run_agent('pipeline-kurucu', '--yes', answers=[GOOD['pipeline-kurucu']])
+        self.ok(done)
+        self.assertEqual(p.json('pipeline-plani.json')['ozet']['bitis'], '04:20')
+        compile(p.out('dags/gece_veri_hatti.py').read_text(encoding='utf-8'), 'dag.py', 'exec')
 
 
 def write_xlsx(path, rows):

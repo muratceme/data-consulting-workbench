@@ -657,6 +657,25 @@ LOCAL = [
          description='Tablo özelliklerinden log tabanlı CDC, updated_at ile artımlı çekim ya da tam kopya seçer. updated_at’i olmayan ya da fiziksel silme yapılan tabloda sorgu tabanlı çekim, birincil anahtarsız tabloda log CDC, büyük tabloda tam kopya ve tam kopya bütçesini aşan plan reddedilir. Debezium bağlayıcı ayarı yazılır.',
          input='Tablo özeti (satır, günlük değişim, PK, updated_at, fiziksel silme)', output='cdc_plani.csv + debezium_baglayici.json + cdc-yontemi.md',
          command='python main.py --input kaynak_tablolar.csv --full-max-rows 500000 --server muhasebe-db'),
+    # From-scratch builders: the model plans, the kurulum blocks build and verify.
+    dict(id='pano-kurucu', kind='agent', domain='bi', product='Rapor gereksinimleri', title='Tablo klasöründen isteğe göre panoyu sıfırdan kuran agent (Qlik, Power BI, Looker, Tableau, Superset, Metabase)',
+         main='agents/pano_kurucu.py', modules=['common', 'tabular', 'islem', 'sema_farki', 'sqlgen', 'bigen', 'rapor', 'kurulum', 'llm'],
+         samples={**{f'magaza/{n}.csv': f'magaza/{n}.csv' for n in ('satis', 'musteri', 'urun', 'magaza')}, 'pano_istek.md': 'pano_istek.md'},
+         description='Olgu ve boyut tablolarından veri modelini (anahtarlar, veride doğrulanmış ilişkiler, tipler, farklı değer sayıları) yerelde çıkarır; model isteğe göre başlığı, ölçüleri (toplam, ortalama, farklı sayı), kırılımları, detay tablosunu, trendi ve araçları seçer. Ölçü olgu tablosunda ve sayısal olmalı, farklı sayı yalnızca yabancı anahtarda, kırılım ilişkiyle bağlı ve kişisel veri içermeyen az değerli bir alan olmalı; uymayan seçim reddedilir. Onaylanan tasarımla kurulum blokları seçilen araçların projelerini kodla üretir ve rakamları dosyalardan hesaplar.',
+         input='Tablo klasörü (CSV/XLSX) + pano isteği; satırlar ve örnek değerler gönderilmez', output='pano-tasarimi.md + seçilen araçların proje klasörleri + pano-onizleme.html',
+         command='python main.py --input C:\\Veri\\magaza --request istek.md --tools qlik,powerbi,metabase'),
+    dict(id='ambar-kurucu', kind='agent', domain='warehouse', product='Snowflake', title='Kurulum isteğini erişim planına çevirip Snowflake, Unity Catalog veya BigQuery’yi sıfırdan kuran agent',
+         main='agents/ambar_kurucu.py', modules=['common', 'tabular', 'islem', 'sema_farki', 'sqlgen', 'yildiz', 'bigen', 'rapor', 'kurulum', 'entegrasyon', 'platform_kurulum', 'llm'],
+         samples={'ambar_istek.md': 'ambar_istek.md'},
+         description='Ortamları, ekipleri, kimin hangi katmanı okuyup yazacağını ve bütçeyi anlatan metni model “ekip, katman, erişim, depo boyutu, aylık kredi” planına çevirir. Geçersiz ad, erişim düzeyi, depo boyu ve ekip başına çelişen bütçe reddedilir; plan kurulum bloğuyla Snowflake SQL’ine, Unity Catalog SQL’ine veya BigQuery Terraform’una dönüştürülür ve üretilen yetkilerin etkisi planla karşılaştırılır (fark varsa yanıt reddedilir).',
+         input='Kurulum isteği (serbest metin)', output='ambar-plani.md + ekipler.csv + platform kurulum dosyaları + yetki_matrisi.csv',
+         command='python main.py --request istek.md --platform unity'),
+    dict(id='pipeline-kurucu', kind='agent', domain='orchestration', product='Airflow', title='Veri hattı isteğini doğrulanmış Airflow DAG’ine çeviren agent',
+         main='agents/pipeline_kurucu.py', modules=['common', 'tabular', 'islem', 'sema_farki', 'sqlgen', 'yildiz', 'bigen', 'rapor', 'kurulum', 'entegrasyon', 'platform_kurulum', 'llm'],
+         samples={'pipeline_istek.md': 'pipeline_istek.md'},
+         description='Kaynakları, sırayı, saati ve son teslimi anlatan metni model görev listesine (tür, komut, bağımlılık, havuz, deneme, süre) ve cron zamanlamasına çevirir. Geçersiz cron, döngü, bilinmeyen bağımlılık, “modül:fonksiyon” olmayan python görevi, yıkıcı komut (rm -rf, DROP, TRUNCATE, curl | sh) ve son saati kaçıran kritik yol reddedilir. DAG dosyasını ve havuz ayarlarını Airflow DAG kurulum bloğu üretir.',
+         input='Veri hattı isteği (serbest metin)', output='pipeline-plani.md + gorevler.csv + dags/<dag_id>.py + pools.json',
+         command='python main.py --request istek.md --sql-conn snowflake_ambar --dbt-dir /opt/dbt/proje'),
 ]
 
 # Single-purpose blocks registered with islem.op in category modules (library/blocks/*.py).
@@ -664,7 +683,7 @@ import importlib, sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'library' / 'blocks'))
 import islem
-CATEGORY_MODULES = ['temizlik', 'dogrulama', 'finans', 'anaveri', 'analiz', 'musteri', 'sqlgen', 'bicim', 'bigen', 'zaman', 'planlama', 'orkestrasyon', 'entegrasyon', 'lakehouse', 'veritabani', 'maliyet', 'gecis', 'ml', 'rag', 'akis', 'yonetisim', 'gozlem', 'bi_ceviri', 'gizlilik', 'katalog', 'ambar', 'konum', 'donusum', 'rapor', 'bimodel', 'yildiz', 'ebelge', 'bi_saglik', 'kod_envanteri']
+CATEGORY_MODULES = ['temizlik', 'dogrulama', 'finans', 'anaveri', 'analiz', 'musteri', 'sqlgen', 'bicim', 'bigen', 'zaman', 'planlama', 'orkestrasyon', 'entegrasyon', 'lakehouse', 'veritabani', 'maliyet', 'gecis', 'ml', 'rag', 'akis', 'yonetisim', 'gozlem', 'bi_ceviri', 'gizlilik', 'katalog', 'ambar', 'konum', 'donusum', 'rapor', 'bimodel', 'yildiz', 'ebelge', 'bi_saglik', 'kod_envanteri', 'kurulum', 'platform_kurulum']
 for _name in CATEGORY_MODULES:
     importlib.import_module(_name)
 for _spec in islem.OPS.values():

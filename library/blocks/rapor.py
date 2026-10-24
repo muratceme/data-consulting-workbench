@@ -191,6 +191,13 @@ svg text{{fill:var(--muted);font-size:11px}}footer{{color:var(--muted);font-size
 
 
 # ---------- Qlik Sense ----------
+QLIK_HEADER = ["SET ThousandSep='.';", "SET DecimalSep=',';", "SET MoneyThousandSep='.';", "SET MoneyDecimalSep=',';",
+               "SET MoneyFormat='#.##0,00 ₺;-#.##0,00 ₺';", "SET TimeFormat='hh:mm:ss';", "SET DateFormat='DD.MM.YYYY';",
+               "SET TimestampFormat='DD.MM.YYYY hh:mm:ss[.fff]';", 'SET FirstWeekDay=0;', 'SET BrokenWeeks=0;', 'SET ReferenceDay=4;', 'SET FirstMonthOfYear=1;',
+               "SET CollationLocale='tr-TR';", f"SET MonthNames='{';'.join(AY)}';", f"SET LongMonthNames='{';'.join(UZUN_AY)}';",
+               "SET DayNames='Pzt;Sal;Çar;Per;Cum;Cmt;Paz';", "SET LongDayNames='Pazartesi;Salı;Çarşamba;Perşembe;Cuma;Cumartesi;Pazar';"]
+
+
 def qlik_files(columns, rows, args, ds):
     lib = args.lib or f'lib://DataFiles/{ds.source}'
     load = bigen.qlik(columns, rows, SimpleNamespace(input=args.input, table=ds.table, lib=lib)).files['yukleme.qvs']
@@ -201,12 +208,7 @@ def qlik_files(columns, rows, args, ds):
                 sheet = re.search(r'<sheet [^>]*name="([^"]+)"', z.read('xl/workbook.xml').decode('utf-8')).group(1)
         load = load.replace('(ooxml, embedded labels)', f'(ooxml, embedded labels, table is [{html.unescape(sheet)}])')
     q = lambda c: f'[{label(c)}]'
-    header = ["SET ThousandSep='.';", "SET DecimalSep=',';", "SET MoneyThousandSep='.';", "SET MoneyDecimalSep=',';",
-              "SET MoneyFormat='#.##0,00 ₺;-#.##0,00 ₺';", "SET TimeFormat='hh:mm:ss';", "SET DateFormat='DD.MM.YYYY';",
-              "SET TimestampFormat='DD.MM.YYYY hh:mm:ss[.fff]';", 'SET FirstWeekDay=0;', 'SET BrokenWeeks=0;', 'SET ReferenceDay=4;', 'SET FirstMonthOfYear=1;',
-              "SET CollationLocale='tr-TR';", f"SET MonthNames='{';'.join(AY)}';", f"SET LongMonthNames='{';'.join(UZUN_AY)}';",
-              "SET DayNames='Pzt;Sal;Çar;Per;Cum;Cmt;Paz';", "SET LongDayNames='Pazartesi;Salı;Çarşamba;Perşembe;Cuma;Cumartesi;Pazar';"]
-    script = '///$tab Ayarlar\n' + '\n'.join(header) + '\n\n///$tab Veri\n' + load
+    script = '///$tab Ayarlar\n' + '\n'.join(QLIK_HEADER) + '\n\n///$tab Veri\n' + load
     dims = [dict(id=f'boyut-{snake(d)}', field=label(d)) for d in ds.dims]
     if ds.date:
         f = q(ds.date)

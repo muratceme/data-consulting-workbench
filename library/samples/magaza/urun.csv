@@ -1,0 +1,11 @@
+urun_id,urun_adi,kategori,marka,liste_fiyati
+U01,Kablosuz Kulaklık,Elektronik,Sesli,1450
+U02,Akıllı Saat,Elektronik,Zaman,3200
+U03,Powerbank,Elektronik,Enerji,650
+U04,Tava Seti,Ev,Mutfakçı,1890
+U05,Nevresim,Ev,Uyku,990
+U06,Kahve Makinesi,Ev,Mutfakçı,4100
+U07,Mont,Giyim,Dağ,2750
+U08,Kazak,Giyim,Örgü,890
+U09,Spor Ayakkabı,Giyim,Koşu,2300
+U10,Tişört,Giyim,Örgü,350

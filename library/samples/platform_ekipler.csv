@@ -1,0 +1,9 @@
+ekip;katman;erisim;depo_boyutu;aylik_kredi
+veri_muhendisligi;raw;sahip;MEDIUM;400
+veri_muhendisligi;staging;sahip;MEDIUM;400
+veri_muhendisligi;mart;yazma;MEDIUM;400
+analitik;mart;okuma;SMALL;150
+analitik;sandbox;yazma;SMALL;150
+finans;mart;okuma;XSMALL;60
+veri_bilimi;staging;okuma;LARGE;300
+veri_bilimi;sandbox;sahip;LARGE;300

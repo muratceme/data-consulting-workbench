@@ -1,0 +1,9 @@
+kaynak_sema;tablo;yukleme;watermark_sutun;anahtar;grup
+dbo;Musteri;artimli;GuncellemeZamani;MusteriId;1
+dbo;Siparis;artimli;GuncellemeZamani;SiparisId;1
+dbo;SiparisKalem;artimli;GuncellemeZamani;SiparisKalemId;2
+dbo;Urun;tam;;UrunId;1
+dbo;Magaza;tam;;MagazaId;1
+fin;Fatura;artimli;FaturaTarihi;FaturaNo;2
+fin;DovizKuru;tam;;;2
+log;WebOturum;artimli;;OturumId;3

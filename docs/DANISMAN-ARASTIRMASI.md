@@ -67,6 +67,37 @@ Toplam 32 iş, dört paket hâlinde eklendi (86430ac, d9e93c0, 01dd3f5 ve son pa
 | Ambar | ClickHouse | system.parts ile parça ve bölümleme analizi | `clickhouse-parca-analizi` |
 | Zaman serisi | InfluxDB | Seri kardinalitesi analizi | `influxdb-kardinalite` |
 
+## İkinci tur: sıfırdan kurulum işleri
+
+İlk tur çoğunlukla var olan bir kurulumu denetleyen ve iyileştiren işleri ekledi. Danışmanlar aynı platformları müşteride sıfırdan da kurar: verilen tablolardan
+model ve pano, boş bir hesapta rol/depo/bütçe düzeni, ilk yükleme hattı, ilk DAG. Sitede tek dosyalık rapor şablonları zaten vardı (`qlik-rapor-sablonu`,
+`pbi-rapor-sablonu`, `tableau-rapor-sablonu`, `lookml-rapor-sablonu`, `dbt-proje-sablonu`, `excel-rapor-sablonu`, `pptx-rapor-sablonu`); eksik olan, birden çok
+tablodan ilişkili model kurmak ve BI dışındaki platformların ilk kurulumuydu. Bu turda 14 kod bloğu ve 3 agent eklendi. Bu turda yeni web araştırması yapılmadı;
+işler ilk turdaki kaynaklarda anlatılan kurulum hizmetlerine ve platformların kendi kurulum belgelerindeki adımlara göre seçildi.
+
+| Alan | Ürün | Sıfırdan kurulum işi | Eklenen paket |
+|---|---|---|---|
+| BI | Qlik Sense | Tablo klasöründen ilişkili veri modeli, ana öğeler ve sayfalarla uygulama (sentetik anahtar/döngü yok) | `qlik-cok-tablolu-uygulama` |
+| BI | Power BI Desktop | Yıldız model, çoktan bire ilişkiler, takvim, DAX ölçüleri ve iki sayfalık rapor (PBIP) | `pbi-yildiz-model-projesi` |
+| BI | Looker | Tablo başına view, many_to_one join’li explore, LookML panosu | `lookml-cok-tablolu-proje` |
+| BI | Tableau Desktop | Sol birleştirmeli veri kaynağı, KPI/trend/kırılım sayfaları ve pano | `tableau-cok-tablolu-calisma-kitabi` |
+| BI | Superset | Sanal veri kümesi, grafikler ve filtrelerle içe aktarma paketi | `superset-pano-paketi` |
+| BI | Metabase | SQL kartları ve API ile koleksiyon + pano kuran betik | `metabase-pano-kurulumu` |
+| BI | Rapor gereksinimleri | İsteğe göre çok tablolu pano tasarlayıp yukarıdaki projeleri kuran agent | `pano-kurucu` |
+| Veritabanı | PostgreSQL / SQL Server | Düz dışa aktarımdan 3NF tablolar, anahtarlar, DDL ve yükleme | `veritabani-normalizasyon` |
+| Dönüşüm | dbt Core | Çok tablolu kaynak → staging → dim/fct, ilişki testleri | `dbt-yildiz-projesi` |
+| Ambar | Snowflake | Veritabanları, erişim/işlevsel roller, depolar, resource monitor, servis kullanıcıları | `snowflake-hesap-kurulumu` |
+| Lakehouse | Unity Catalog | Kataloglar, şemalar, grup ve servis sorumlusu yetkileri | `unity-catalog-kurulumu` |
+| Ambar | BigQuery | Ortam projelerinde veri kümeleri, IAM ve servis hesapları (Terraform) | `bigquery-terraform-kurulumu` |
+| Ambar | Snowflake / UC / BigQuery | Serbest metindeki kurulum isteğini erişim planına çevirip kuran agent | `ambar-kurucu` |
+| Entegrasyon | Azure Data Factory | Kontrol tablosu, tam/artımlı kopya, watermark ile metadata güdümlü hat | `adf-metadata-pipeline` |
+| Orkestrasyon | Airflow | Görev listesinden DAG, havuzlar, kritik yol ve son saat kontrolü | `airflow-dag-kurulumu` |
+| Orkestrasyon | Airflow | Serbest metindeki veri hattını doğrulanmış DAG’e çeviren agent | `pipeline-kurucu` |
+| ML | scikit-learn | Sızıntı ayıklama, özellik seçimi, eğitim ve tahmin betikleriyle proje | `sklearn-proje-kurulumu` |
+
+Hepsi örnek verisiyle testte çalışır. Üretilen projeler (QVF, PBIP, LookML, TWB, Superset paketi, Metabase betiği, Snowflake/UC SQL’i, Terraform, ADF JSON’u,
+DAG, ML betikleri) hedef uygulamalarda açılarak veya çalıştırılarak denenmedi.
+
 ## Kaynaklar
 
 - Power BI sağlık kontrolü ilanları: [Protiviti](https://appsource.microsoft.com/en/marketplace/consulting-services/roberthalf_protiviti.powerbiperformance), [Sword](https://marketplace.microsoft.com/ja-jp/marketplace/consulting-services/swordgroup1676561891488.powerbi_healthcheck_3wk), [Coeo](https://coeo.com/wp-content/uploads/2024/09/Power-BI-Health-Check-.pdf), [endjin araç özeti](https://endjin.com/blog/performance-optimisation-tools-for-power-bi)

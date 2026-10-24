@@ -1,0 +1,8 @@
+gorev;tur;komut;bagimli;havuz;deneme;sure_dk
+erp_dosyasi_bekle;sensor;/veri/erp/{{ ds_nodash }}/bitti.flag;;sensor;0;30
+erp_yukle;bash;python /etl/erp_yukle.py --tarih {{ ds }};erp_dosyasi_bekle;erp;2;25
+crm_yukle;python;etl.crm:yukle;;api;3;15
+staging;sql;sql/staging.sql;erp_yukle,crm_yukle;ambar;1;20
+dbt_mart;dbt;tag:mart;staging;ambar;1;35
+kalite_kontrol;dbt_test;tag:mart;dbt_mart;ambar;0;10
+rapor_yenile;bash;python /etl/pbi_yenile.py;kalite_kontrol;api;2;10

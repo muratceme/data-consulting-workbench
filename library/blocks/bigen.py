@@ -100,6 +100,22 @@ def bq(columns, rows, args):
                   notes=['Türkçe ondalık (1.234,56) içeren CSV’ler bq load ile doğrudan NUMERIC okunamaz; önce sayi-bicimi bloğuyla düz biçime çevirin.'])
 
 
+def qlik_expr(c, rows):
+    """Typed Qlik LOAD expression for source column c (dates and numbers parsed in the file's own format)."""
+    kind, _ = infer_column([r[c] for r in rows])
+    src_name = f'[{c}]'
+    if kind in ('date', 'datetime'):
+        formats = {tabular.parse_date(r[c])[1] for r in rows if r[c].strip() and tabular.parse_date(r[c])}
+        qfmt = {'%Y-%m-%d': 'YYYY-MM-DD', '%d.%m.%Y': 'DD.MM.YYYY', '%d/%m/%Y': 'DD/MM/YYYY'}.get(next(iter(formats)) if len(formats) == 1 else '', 'YYYY-MM-DD')
+        return f"Date(Date#({src_name}, '{qfmt}'))" if len(formats) == 1 else f"Date(Alt(Date#({src_name}, 'YYYY-MM-DD'), Date#({src_name}, 'DD.MM.YYYY')))"
+    if kind == 'decimal':
+        style = tabular.number_style([r[c] for r in rows])
+        return f"Num#({src_name}, '', ',', '.')" if style == 'tr' else f"Num#({src_name}, '', '.', ',')"
+    if kind in ('int', 'bigint'):
+        return f'Num#({src_name})'
+    return f'Trim({src_name})'
+
+
 @op('qlik-load-script', title='CSV/Excel için Qlik LOAD script’i üret', domain='bi', product='Qlik Sense Enterprise', tag='Qlik', samples=SATIS,
     args=[arg('--table', default='Satislar'), arg('--lib', default='lib://Veri/satislar.csv')],
     description='Dosyanın ayırıcı ve kodlamasına uygun LOAD ifadesini yazar; tarihleri Date#(), Türkçe ondalıkları Num#() ile yorumlar, metinleri Trim() eder ve alanları okunur adlarla yeniden adlandırır. Veri yükleme düzenleyicisine yapıştırılır.',
@@ -112,21 +128,8 @@ def qlik(columns, rows, args):
     delim = max([';', ',', '\t', '|'], key=raw.count) if raw else None
     lines = []
     for c in columns:
-        kind, _ = infer_column([r[c] for r in rows])
-        src_name = f'[{c}]'
         label = ' '.join(w.capitalize() for w in snake(c).split('_'))
-        if kind in ('date', 'datetime'):
-            formats = {tabular.parse_date(r[c])[1] for r in rows if r[c].strip() and tabular.parse_date(r[c])}
-            qfmt = {'%Y-%m-%d': 'YYYY-MM-DD', '%d.%m.%Y': 'DD.MM.YYYY', '%d/%m/%Y': 'DD/MM/YYYY'}.get(next(iter(formats)) if len(formats) == 1 else '', 'YYYY-MM-DD')
-            expr = f"Date(Date#({src_name}, '{qfmt}'))" if len(formats) == 1 else f"Date(Alt(Date#({src_name}, 'YYYY-MM-DD'), Date#({src_name}, 'DD.MM.YYYY')))"
-        elif kind == 'decimal':
-            style = tabular.number_style([r[c] for r in rows])
-            expr = f"Num#({src_name}, '', ',', '.')" if style == 'tr' else f"Num#({src_name}, '', '.', ',')"
-        elif kind in ('int', 'bigint'):
-            expr = f'Num#({src_name})'
-        else:
-            expr = f'Trim({src_name})'
-        lines.append(f'    {expr} as [{label}]')
+        lines.append(f'    {qlik_expr(c, rows)} as [{label}]')
     fmt_clause = f"(txt, utf8, embedded labels, delimiter is '{delim if delim != chr(9) else chr(9)}', msq)" if delim else '(ooxml, embedded labels)'
     script = f"// {src.name} dosyasından üretildi\n[{args.table}]:\nLOAD\n" + ',\n'.join(lines) + f"\nFROM [{args.lib}]\n{fmt_clause};\n"
     return Result(f'{len(columns)} alanlı LOAD ifadesi üretildi', None, None, {'alan': len(columns)}, files={'yukleme.qvs': script},

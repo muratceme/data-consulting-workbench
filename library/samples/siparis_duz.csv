@@ -1,0 +1,77 @@
+siparis_no;siparis_tarihi;musteri_no;musteri_unvan;musteri_sehir;urun_kodu;urun_adi;kategori;adet;birim_fiyat
+SP-2601;03.07.2026;C11;Bora Yapı;Ankara;P104;İş Eldiveni;İSG;9;40,00
+SP-2602;05.07.2026;C12;Çınar Tekstil;Bursa;P100;Koli Bandı;Ambalaj;1;180,00
+SP-2603;07.07.2026;C13;Deniz Lojistik;İstanbul;P100;Koli Bandı;Ambalaj;10;22,90
+SP-2603;07.07.2026;C13;Deniz Lojistik;İstanbul;P105;Baret;İSG;3;950,00
+SP-2604;09.07.2026;C14;Ege Tarım;İzmir;P106;Etiket Rulosu;Ambalaj;12;40,00
+SP-2605;11.07.2026;C15;Fırat Enerji;Ankara;P104;İş Eldiveni;İSG;7;12,50
+SP-2605;11.07.2026;C15;Fırat Enerji;Ankara;P106;Etiket Rulosu;Ambalaj;18;180,00
+SP-2606;13.07.2026;C10;Ada Gıda;İzmir;P103;Forklift Kiralama;Lojistik;3;950,00
+SP-2606;13.07.2026;C10;Ada Gıda;İzmir;P105;Baret;İSG;4;12,50
+SP-2607;15.07.2026;C11;Bora Yapı;Ankara;P104;İş Eldiveni;İSG;4;180,00
+SP-2607;15.07.2026;C11;Bora Yapı;Ankara;P102;Palet;Lojistik;17;12,50
+SP-2607;15.07.2026;C11;Bora Yapı;Ankara;P101;Streç Film;Ambalaj;5;950,00
+SP-2608;17.07.2026;C12;Çınar Tekstil;Bursa;P103;Forklift Kiralama;Lojistik;16;22,90
+SP-2608;17.07.2026;C12;Çınar Tekstil;Bursa;P104;İş Eldiveni;İSG;18;40,00
+SP-2609;19.07.2026;C13;Deniz Lojistik;İstanbul;P103;Forklift Kiralama;Lojistik;10;22,90
+SP-2610;21.07.2026;C14;Ege Tarım;İzmir;P100;Koli Bandı;Ambalaj;18;22,90
+SP-2611;23.07.2026;C15;Fırat Enerji;Ankara;P106;Etiket Rulosu;Ambalaj;2;12,50
+SP-2611;23.07.2026;C15;Fırat Enerji;Ankara;P102;Palet;Lojistik;4;180,00
+SP-2611;23.07.2026;C15;Fırat Enerji;Ankara;P103;Forklift Kiralama;Lojistik;17;22,90
+SP-2612;25.07.2026;C10;Ada Gıda;İzmir;P105;Baret;İSG;4;22,90
+SP-2612;25.07.2026;C10;Ada Gıda;İzmir;P106;Etiket Rulosu;Ambalaj;1;40,00
+SP-2612;25.07.2026;C10;Ada Gıda;İzmir;P104;İş Eldiveni;İSG;9;12,50
+SP-2613;27.07.2026;C11;Bora Yapı;Ankara;P100;Koli Bandı;Ambalaj;3;40,00
+SP-2613;27.07.2026;C11;Bora Yapı;Ankara;P104;İş Eldiveni;İSG;5;22,90
+SP-2613;27.07.2026;C11;Bora Yapı;Ankara;P105;Baret;İSG;5;12,50
+SP-2614;29.07.2026;C12;Çınar Tekstil;Bursa;P104;İş Eldiveni;İSG;16;22,90
+SP-2615;31.07.2026;C13;Deniz Lojistik;İstanbul;P100;Koli Bandı;Ambalaj;15;180,00
+SP-2615;31.07.2026;C13;Deniz Lojistik;İstanbul;P105;Baret;İSG;8;180,00
+SP-2615;31.07.2026;C13;Deniz Lojistik;İstanbul;P101;Streç Film;Ambalaj;1;180,00
+SP-2616;02.08.2026;C14;Ege Tarım;İzmir;P105;Baret;İSG;5;180,00
+SP-2616;02.08.2026;C14;Ege Tarım;İzmir;P106;Etiket Rulosu;Ambalaj;15;75,00
+SP-2616;02.08.2026;C14;Ege Tarım;İzmir;P103;Forklift Kiralama;Lojistik;18;40,00
+SP-2617;04.08.2026;C15;Fırat Enerji;Ankara;P103;Forklift Kiralama;Lojistik;11;75,00
+SP-2617;04.08.2026;C15;Fırat Enerji;Ankara;P106;Etiket Rulosu;Ambalaj;1;12,50
+SP-2618;06.08.2026;C10;Ada Gıda;İzmir;P106;Etiket Rulosu;Ambalaj;11;180,00
+SP-2618;06.08.2026;C10;Ada Gıda;İzmir;P103;Forklift Kiralama;Lojistik;20;950,00
+SP-2618;06.08.2026;C10;Ada Gıda;İzmir;P100;Koli Bandı;Ambalaj;11;75,00
+SP-2619;08.08.2026;C11;Bora Yapı;Ankara;P100;Koli Bandı;Ambalaj;14;40,00
+SP-2619;08.08.2026;C11;Bora Yapı;Ankara;P101;Streç Film;Ambalaj;10;40,00
+SP-2620;10.08.2026;C12;Çınar Tekstil;Bursa;P100;Koli Bandı;Ambalaj;3;950,00
+SP-2621;12.08.2026;C13;Deniz Lojistik;İstanbul;P103;Forklift Kiralama;Lojistik;3;12,50
+SP-2621;12.08.2026;C13;Deniz Lojistik;İstanbul;P106;Etiket Rulosu;Ambalaj;7;180,00
+SP-2621;12.08.2026;C13;Deniz Lojistik;İstanbul;P104;İş Eldiveni;İSG;18;40,00
+SP-2622;14.08.2026;C14;Ege Tarım;İzmir;P105;Baret;İSG;4;180,00
+SP-2622;14.08.2026;C14;Ege Tarım;İzmir;P102;Palet;Lojistik;2;40,00
+SP-2623;16.08.2026;C15;Fırat Enerji;Ankara;P101;Streç Film;Ambalaj;11;75,00
+SP-2623;16.08.2026;C15;Fırat Enerji;Ankara;P100;Koli Bandı;Ambalaj;9;75,00
+SP-2623;16.08.2026;C15;Fırat Enerji;Ankara;P105;Baret;İSG;18;950,00
+SP-2624;18.08.2026;C10;Ada Gıda;İzmir;P103;Forklift Kiralama;Lojistik;17;180,00
+SP-2625;20.08.2026;C11;Bora Yapı;Ankara;P102;Palet;Lojistik;10;40,00
+SP-2625;20.08.2026;C11;Bora Yapı;Ankara;P101;Streç Film;Ambalaj;15;40,00
+SP-2625;20.08.2026;C11;Bora Yapı;Ankara;P100;Koli Bandı;Ambalaj;10;22,90
+SP-2626;22.08.2026;C12;Çınar Tekstil;Bursa;P100;Koli Bandı;Ambalaj;4;180,00
+SP-2626;22.08.2026;C12;Çınar Tekstil;Bursa;P104;İş Eldiveni;İSG;10;180,00
+SP-2626;22.08.2026;C12;Çınar Tekstil;Bursa;P101;Streç Film;Ambalaj;16;22,90
+SP-2627;24.08.2026;C13;Deniz Lojistik;İstanbul;P106;Etiket Rulosu;Ambalaj;8;75,00
+SP-2628;26.08.2026;C14;Ege Tarım;Izmir;P105;Baret;İSG;7;12,50
+SP-2629;28.08.2026;C15;Fırat Enerji;Ankara;P103;Forklift Kiralama;Lojistik;11;12,50
+SP-2629;28.08.2026;C15;Fırat Enerji;Ankara;P102;Palet;Lojistik;12;40,00
+SP-2630;30.08.2026;C10;Ada Gıda;İzmir;P100;Koli Bandı;Ambalaj;14;180,00
+SP-2631;01.09.2026;C11;Bora Yapı;Ankara;P102;Palet;Lojistik;13;950,00
+SP-2631;01.09.2026;C11;Bora Yapı;Ankara;P104;İş Eldiveni;İSG;7;22,90
+SP-2632;03.09.2026;C12;Çınar Tekstil;Bursa;P103;Forklift Kiralama;Lojistik;18;180,00
+SP-2633;05.09.2026;C13;Deniz Lojistik;İstanbul;P106;Etiket Rulosu;Ambalaj;9;950,00
+SP-2633;05.09.2026;C13;Deniz Lojistik;İstanbul;P100;Koli Bandı;Ambalaj;4;40,00
+SP-2634;07.09.2026;C14;Ege Tarım;İzmir;P100;Koli Bandı;Ambalaj;17;180,00
+SP-2634;07.09.2026;C14;Ege Tarım;İzmir;P101;Streç Film;Ambalaj;15;180,00
+SP-2635;09.09.2026;C15;Fırat Enerji;Ankara;P103;Forklift Kiralama;Lojistik;3;75,00
+SP-2635;09.09.2026;C15;Fırat Enerji;Ankara;P105;Baret;İSG;12;950,00
+SP-2636;11.09.2026;C10;Ada Gıda;İzmir;P100;Koli Bandı;Ambalaj;11;75,00
+SP-2637;13.09.2026;C11;Bora Yapı;Ankara;P102;Palet;Lojistik;8;22,90
+SP-2637;13.09.2026;C11;Bora Yapı;Ankara;P105;Baret;İSG;3;950,00
+SP-2638;15.09.2026;C12;Çınar Tekstil;Bursa;P104;İş Eldiveni;İSG;17;75,00
+SP-2638;15.09.2026;C12;Çınar Tekstil;Bursa;P105;Baret;İSG;1;12,50
+SP-2639;17.09.2026;C13;Deniz Lojistik;İstanbul;P103;Forklift Kiralama;Lojistik;18;180,00
+SP-2640;19.09.2026;C14;Ege Tarım;İzmir;P103;Forklift Kiralama;Lojistik;15;22,90
