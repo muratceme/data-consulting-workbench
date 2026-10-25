@@ -533,7 +533,7 @@ OPERATIONS += [
       effects='Tarama yalnızca metadata okur.' + READ_ONLY,
       sources=['https://learn.microsoft.com/en-us/rest/api/power-bi/admin/workspace-info-post-workspace-info','https://learn.microsoft.com/en-us/rest/api/power-bi/admin/workspace-info-get-scan-result',
                'https://learn.microsoft.com/en-us/rest/api/power-bi/admin/workspace-info-get-modified-workspaces']),
- dict(operation='snowflake-usage', product='Account Usage', domain='finops', title='Snowflake hesabını Account Usage’dan canlı denetle: depo kredisi, boşta depo, yönetici rolleri, pasif kullanıcılar', kind='code',
+ dict(operation='snowflake-usage', slot='code', product='Account Usage', domain='finops', title='Snowflake hesabını Account Usage’dan canlı denetle: depo kredisi, boşta depo, yönetici rolleri, pasif kullanıcılar', kind='code',
       output='depo_kredileri.csv, kullanilmayan_depolar.csv, yonetici_rolleri.csv, pasif_kullanicilar.csv + ozet.csv',
       description='SNOWFLAKE.ACCOUNT_USAGE görünümlerinden sabit SELECT sorgularıyla depo başına kredi ve boşta geçen hesaplama oranını, kredi harcayıp sorgu çalıştırmayan depoları, yönetici rollerine doğrudan atanmış kullanıcıları '
                   've 90 günden uzun süredir giriş yapmamış etkin kullanıcıları çıkarır.',
@@ -542,7 +542,7 @@ OPERATIONS += [
       effects='Sorgular depo kredisi harcar (küçük depo yeterli).' + READ_ONLY,
       sources=['https://docs.snowflake.com/en/sql-reference/account-usage/warehouse_metering_history','https://docs.snowflake.com/en/sql-reference/account-usage/grants_to_users',
                'https://docs.snowflake.com/en/sql-reference/account-usage/users','https://docs.snowflake.com/en/developer-guide/sql-api/submitting-requests']),
- dict(operation='databricks-cost', product='System Tables', domain='finops', title='Databricks maliyetini System Tables’tan canlı çıkar: ürün, job ve gün bazında', kind='code',
+ dict(operation='databricks-cost', slot='code', product='System Tables', domain='finops', title='Databricks maliyetini System Tables’tan canlı çıkar: ürün, job ve gün bazında', kind='code',
       output='urun_maliyeti.csv, job_maliyeti.csv, gunluk_maliyet.csv + ozet.csv',
       description='SQL Statement Execution API ile system.billing.usage ve list_prices tablolarını birleştiren sabit sorgular çalıştırır: çalışma alanı/ürün/SKU başına DBU ve liste fiyatı tutarı, en pahalı 50 job ve günlük trend. '
                   'Sonuç parçalarını izleyerek tamamını indirir.',
@@ -679,6 +679,9 @@ OPERATIONS += [
       sources=['https://docs.databricks.com/api/workspace/grants/get','https://docs.databricks.com/api/workspace/grants/update']),
 ]
 
+from product_catalog import PRODUCTS
+OPERATIONS += PRODUCTS
+
 TARGETS = {
  'bi':('Rapor/uygulama API + görsel model SDK','Platformun rapor/proje dosyası veya yayınlanmış rapor'),
  'erp':('Ürüne özgü OData/REST/SOAP veya on-prem SDK','ERP içindeki taslak belge, eşleme veya rapor tanımı'),
@@ -729,7 +732,9 @@ def catalog(domains):
                     tool['products'].append({'id':pid,'name':product,'tasks':tasks,'integration':{'status':'partial','interface_target':'Yerel dosya','output_target':'Rapor / kod taslağı','note':'Platform bağımsız yerel paketler.'}})
                     continue
                 # Preserve the full product/task intent, but never ship a placeholder as a runnable package.
+                filled={op.get('slot') for op in available}
                 for kind,task_title in [('code','Uygulamaya özgü veri hazırlama otomasyonu' if did=='files' else title),('agent',agent_title)]:
+                    if kind in filled:continue
                     tasks.append({'id':pid+'-planned-'+kind,'title':task_title,'kind':kind,'engine':'planned','description':f'{product} üzerinde uygulamaya özgü {"otomasyon" if kind=="code" else "karar ve tasarım"} akışı. Entegrasyon henüz uygulanmadı.','reason':'Sabit sözleşme ile çalışacak.' if kind=='code' else 'İş amacı, şema ve kısıtları değerlendirecek.','input':'Ürün sürümü, API/SDK erişimi ve kaynak/çıktı sözleşmesi belirlenecek.','execution':'Planlanan entegrasyon','output':output+' (tasarım hedefi)','status':'planned','interface_target':interface,'verification':{'contract':'not-tested','live':'not-tested','native_open':'not-tested'}})
                 tool['products'].append({'id':pid,'name':product,'tasks':tasks,'integration':{'status':'partial' if available or any(t.get('engine')=='local' for t in tasks) else 'planned','interface_target':interface,'output_target':output,'note':'API/SDK yolu ve format sürüme göre doğrulanacak. Python/SQL gibi yerel araçlarda web API yerine resmi SDK/sürücü gerekir.'}})
             domain['tools'].append(tool)

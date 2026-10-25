@@ -13,6 +13,7 @@ import json
 import math
 import os
 import re
+import sys
 import tempfile
 import time
 import unicodedata
@@ -2691,6 +2692,17 @@ HANDLERS = {'fabric-notebook-run':fabric_job,'fabric-notebook-monitor':fabric_jo
             'tableau-extract-schedule':tableau_extract_schedule,'snowflake-grant-sync':snowflake_grant_sync,'uc-grant-sync':uc_grant_sync}
 
 
+# Product packages (library/products) reuse this module's transport and helpers. When native.py runs as a script,
+# register it under its own name first so `import native` inside them returns this module, not a second copy.
+sys.modules.setdefault('native', sys.modules[__name__])
+try:
+    import products
+except ModuleNotFoundError as exc:
+    if exc.name != 'products':
+        raise
+else:
+    HANDLERS.update(products.HANDLERS)
+
 RESUME_OPERATIONS = {
     'fabric-notebook-run': ('fabric-notebook-monitor', ('workspace_id','notebook_id'), ('job_instance_id',)),
     'databricks-run': ('databricks-monitor', ('job_id',), ('run_id',)),
@@ -2744,6 +2756,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--config',default='config.json'); parser.add_argument('--output',default='output')
     parser.add_argument('--resume-from',help='Desteklenen işlemde önceki run-state.json ile yalnızca takip et')
+    parser.add_argument('--dry-run',action='store_true',help='Agent paketlerinde modeli çağırmadan gönderilecek isteği yaz')
+    parser.add_argument('--yes',action='store_true',help='Agent paketlerinde gönderim onayını sorma (zamanlanmış çalışma)')
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument('--plan',action='store_true'); mode.add_argument('--execute',action='store_true')
     args = parser.parse_args()
@@ -2762,6 +2776,7 @@ def main():
                 contract.update(operation=cfg['operation'],effects='Mevcut iş yalnızca GET ile takip edilir; dbt başarı artifactı indirilir. Yeni iş başlatılmaz.',requirements='Önceki config kaynak adresleri korunmalı; geçerli okuma erişimi ve yeni/boş output gerekir.')
             print(json.dumps({'operation':cfg['operation'],'network_calls':0,'contract':contract,'instructions':'README izinlerini ve config.json değerlerini inceleyin. .env erişim bilgilerini girin; ardından --execute.'},ensure_ascii=False))
         else:
+            cfg['_flags']={'dry_run':args.dry_run,'yes':args.yes}
             print(json.dumps(execute(cfg,args.output),ensure_ascii=False))
     except (NativeError,ValueError,KeyError,OSError,RuntimeError,TypeError,AttributeError) as exc:
         # Library/model exception text can contain URLs or secrets: only safe NativeError text is shown.

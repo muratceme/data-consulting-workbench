@@ -13,6 +13,25 @@ from local_catalog import LOCAL
 sys.path.insert(0,str(ROOT/'scripts'))
 import local_package
 
+def product_readme(task,path):
+ """README of a product package (library/products): read-only code block or evidence-bound agent."""
+ agent=task['kind']=='agent'
+ steps=['1. ZIP’i açın; `.env.example` dosyasını `.env` olarak kopyalayıp erişim değişkenlerini doldurun. Anahtarları config.json’a veya Git’e koymayın.']
+ if task.get('packages'):steps.append('2. Gerekli resmi sürücü/kütüphane: `pip install -r requirements.txt` (`--plan` bunlar olmadan da çalışır).')
+ steps.append(f'{len(steps)+1}. `config.json` içindeki YOUR_ alanlarını kendi ortamınıza göre doldurun; `python native.py --plan` ile kontrol edin (ağ çağrısı yok).')
+ if agent:
+  steps.append(f'{len(steps)+1}. `python native.py --execute --dry-run --output output/deneme-001`: platformdan kanıt okunur, model çağrılmaz; modele gidecek metin `gonderilecek-istek.json` dosyasındadır.')
+  steps.append(f'{len(steps)+1}. `python native.py --execute --output output/run-001` (onay sorulur; zamanlanmış çalışmada `--yes`). İş bağlamını `context.md` dosyasına yazın.')
+ else:
+  steps.append(f'{len(steps)+1}. `python native.py --execute --output output/run-001`. Her çalışma için yeni/boş çıktı klasörü kullanın.')
+ return '\n'.join([f"# {task['title']}",'',path,'',f"**{'AI agent' if agent else 'Kod bloğu'}** · datawork",'',task['description'],'',
+  '## Teslim',task['output']+' (`output/` klasörüne yazılır).','','## Bağlantı ve izinler',task['requirements'],'Python 3.10+. Anahtarlar yalnızca yerel .env/ortam değişkenlerinden okunur.','',
+  '## Çalıştırma',*steps,'','## Platform etkileri',task['effects'],
+  'HTTP GET geçici 429/502/503/504 hatalarında sınırlı tekrar yapar; sertifika denetimi açıktır; kimlik bilgisi farklı sunucuya iletilmez.','',
+  '## Test durumu','Yerel sözleşme testleri (yerel HTTP sunucusu / sahte sürücü' + (', sahte model yanıtları' if agent else '') + '): GEÇTİ.',
+  'Canlı müşteri hesabı: TEST EDİLMEDİ. Sonuçları bilinen bir rakamla karşılaştırarak doğrulayın.','','## Kaynaklar',*['- '+u for u in task['sources']],''])
+
+
 def build():
  dist=ROOT/'dist';dist.mkdir(exist_ok=True)
  # Remove site files left over from earlier builds (renamed or deleted pages, styles, scripts).
@@ -77,6 +96,11 @@ Yerel test fixture’ları gerçek QVF/PBIX/workbook üretildiği anlamına gelm
      env='\n'.join(key+'=' for key in task['secrets'])+'\n'
      if task['kind']=='agent':env=env.replace('PROVIDER=\n','PROVIDER=openai\n');env+='OPENAI_BASE_URL=https://api.openai.com/v1\nOLLAMA_URL=http://localhost:11434\n'
      files={'config.json':json.dumps(cfg,ensure_ascii=False,indent=2),'README.md':readme,'.env.example':env,'.gitignore':'.env\noutput/\n','native.py':(ROOT/'library/native.py').read_text(encoding='utf-8'),'agent.py':(ROOT/'library/agent.py').read_text(encoding='utf-8'),'LICENSE':(ROOT/'LICENSE').read_text(encoding='utf-8'),'run.bat':'@echo off\r\ncd /d "%~dp0"\r\npython native.py --plan\r\npause\r\n'}
+     if task.get('module'):
+      lib=ROOT/'library';files['README.md']=product_readme(task,f"{domain['name']} → {tool['name']} → {product['name']}")
+      for rel in ('products/__init__.py','products/core.py','products/'+task['module']+'.py','blocks/common.py'):files[rel.replace('blocks/','')]=(lib/rel).read_text(encoding='utf-8')
+      if task['kind']=='agent':files['llm.py']=(lib/'agents/llm.py').read_text(encoding='utf-8');files['.env.example']=local_package.ENV_EXAMPLE+''.join(k+'=\n' for k in task['secrets'] if '\n'+k+'=' not in local_package.ENV_EXAMPLE)
+      if task.get('packages'):files['requirements.txt']=''.join(x+'\n' for x in task['packages'])
      files.update(task.get('input_files',{}))
      files['contract.json']=json.dumps({key:task[key] for key in ('operation','kind','output','requirements','effects','secrets','sources','verification')},ensure_ascii=False,indent=2)
      if task['operation']=='bigquery-table':files['query.sql']='-- Replace with your reviewed source query. No example business data is fabricated.\nSELECT 1 AS connection_check;\n'
