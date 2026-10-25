@@ -436,7 +436,7 @@ def reconcile_task(cfg, out, source, target, *, source_label, target_label):
     write_csv(out, 'toplam_karsilastirma.csv', totals, ['alan', 'kaynak_toplam', 'hedef_toplam', 'fark'])
     journal(out, state='verified')
     return receipt(out, 'mutabakat.json', {'kaynak': source_label, 'hedef': target_label, **summary,
-                                           'mutabik': not diff and not any(t['fark'] for t in totals)})
+                                           'mutabik': not diff and not any(abs(t['fark']) > tolerance for t in totals)})
 
 
 def count_reconcile(rows, *, source='okunan', target='yazilan', allowed='atlanan'):
@@ -652,7 +652,10 @@ def inventory_task(out, models, *, source_label):
     inv, edges = [], []
     for m in models:
         refs = sql_refs(m.get('sql', ''))
-        reads = sorted({r for r, role in refs if role == 'okur'} | set(m.get('bagimliliklar') or []))
+        # A declared dependency and its compiled SQL name (shop.orders vs raw.shop.orders) are the same object: keep the declared one.
+        declared = list(m.get('bagimliliklar') or [])
+        seen = {d.split('.')[-1].lower() for d in declared}
+        reads = sorted(set(declared) | {r for r, role in refs if role == 'okur' and r.split('.')[-1].lower() not in seen})
         for r in reads:
             edges.append({'kaynak': r, 'hedef': m['model'], 'tur': 'model' if r.lower() in known or r.split('.')[-1].lower() in known else 'dış tablo'})
         flags_ = [x for x, ok in (('SELECT *', not re.search(r'select\s+\*', SQL_STRIP.sub(' ', m.get('sql', '')), re.I)),
@@ -731,7 +734,8 @@ def odata_rows(client, path, *, select=None, filter_=None, top=None, extra=None,
             raise NativeError('Satır sınırı aşıldı; filtreyi daraltın.')
         if not nxt:
             return rows
-        url = nxt
+        # Some services (SAP Business One Service Layer) return next links relative to the service root.
+        url = nxt if nxt.startswith(('/', 'http://', 'https://')) else path.split('?', 1)[0].rsplit('/', 1)[0] + '/' + nxt
     raise NativeError('OData sayfalama sınırı aşıldı.')
 
 

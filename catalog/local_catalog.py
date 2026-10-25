@@ -697,3 +697,9 @@ for item in LOCAL:
     item['effects'] = ('Yalnızca output klasörüne yazar. Seçtiğin model sağlayıcısına maskelenmiş özet gönderilir; Ollama ile hiçbir veri bilgisayardan çıkmaz.'
                        if item['kind'] == 'agent' else 'Yalnızca output klasörüne yazar; hiçbir sisteme bağlanmaz.')
     item['secrets'] = ['PROVIDER', 'MODEL', 'OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'OLLAMA_URL'] if item['kind'] == 'agent' else []
+
+# Local template builders that are the product-specific "automatic report" task of a desktop tool (no service API exists there).
+SLOTS = {'pbi-rapor-sablonu': 'code', 'tableau-rapor-sablonu': 'code'}
+for item in LOCAL:
+    if item['id'] in SLOTS:
+        item['slot'] = SLOTS[item['id']]

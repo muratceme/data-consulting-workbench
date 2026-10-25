@@ -70,7 +70,7 @@ class HTTP:
             raise NativeError('API farklı bir adrese yönlendirdi; kimlik bilgileri gönderilmedi.')
         return result
 
-    def request(self, method, path, payload=None, *, accept='application/json', with_status=False, raw=None, content_type=None, allow_status=()):
+    def request(self, method, path, payload=None, *, accept='application/json', with_status=False, raw=None, content_type=None, allow_status=(), limit=None):
         """raw/content_type send a non-JSON body (file bytes, form, multipart); allow_status returns those HTTP errors (e.g. 404) instead of raising."""
         url = self.url(path)
         body = raw if raw is not None else None if payload is None else json.dumps(payload).encode('utf-8')
@@ -82,7 +82,7 @@ class HTTP:
                 req = urllib.request.Request(url, data=body, headers=headers, method=method)
                 with self.opener.open(req, timeout=60) as response:
                     # Bounded reads; downloaded files can contain confidential business data.
-                    limit = 512 * 1024 * 1024 if accept == 'application/octet-stream' else 16 * 1024 * 1024
+                    limit = min(limit or 0, 512 * 1024 * 1024) or (512 * 1024 * 1024 if accept == 'application/octet-stream' else 16 * 1024 * 1024)
                     data = response.read(limit + 1)
                     if len(data) > limit:
                         raise NativeError('Yanıt boyut sınırını aştı; çıktı kaydedilmedi.')

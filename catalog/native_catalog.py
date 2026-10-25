@@ -567,7 +567,7 @@ OPERATIONS += [
       effects=READ_ONLY.strip(),
       sources=['https://help.tableau.com/current/api/rest_api/en-us/REST/rest_api_ref_workbooks_and_views.htm#query_views_for_site',
                'https://help.tableau.com/current/api/rest_api/en-us/REST/rest_api_ref_workbooks_and_views.htm#query_workbooks_for_site']),
- dict(operation='airflow-history', product='Airflow', domain='orchestration', title='Airflow çalışma geçmişini canlı çek: DAG başarı oranı ve en çok hata veren görevler', kind='code',
+ dict(operation='airflow-history', slot='code', product='Airflow', domain='orchestration', title='Airflow çalışma geçmişini canlı çek: DAG başarı oranı ve en çok hata veren görevler', kind='code',
       output='dag_ozeti.csv + basarisiz_gorevler.csv',
       description='Son N günün tüm DAG çalışmalarını ve başarısız görev örneklerini sayfalayarak okur; DAG başına çalışma, başarı oranı, ortalama süre ve son durumu, görev başına hata sayısını çıkarır.',
       config={'server':'https://YOUR_AIRFLOW','api_version':'3.2','days':30}, secrets=['AIRFLOW_ACCESS_TOKEN'],
@@ -732,7 +732,7 @@ def catalog(domains):
                     tool['products'].append({'id':pid,'name':product,'tasks':tasks,'integration':{'status':'partial','interface_target':'Yerel dosya','output_target':'Rapor / kod taslağı','note':'Platform bağımsız yerel paketler.'}})
                     continue
                 # Preserve the full product/task intent, but never ship a placeholder as a runnable package.
-                filled={op.get('slot') for op in available}
+                filled={op.get('slot') for op in available}|{item.get('slot') for item in LOCAL if item['domain']==did and item['product']==product}
                 for kind,task_title in [('code','Uygulamaya özgü veri hazırlama otomasyonu' if did=='files' else title),('agent',agent_title)]:
                     if kind in filled:continue
                     tasks.append({'id':pid+'-planned-'+kind,'title':task_title,'kind':kind,'engine':'planned','description':f'{product} üzerinde uygulamaya özgü {"otomasyon" if kind=="code" else "karar ve tasarım"} akışı. Entegrasyon henüz uygulanmadı.','reason':'Sabit sözleşme ile çalışacak.' if kind=='code' else 'İş amacı, şema ve kısıtları değerlendirecek.','input':'Ürün sürümü, API/SDK erişimi ve kaynak/çıktı sözleşmesi belirlenecek.','execution':'Planlanan entegrasyon','output':output+' (tasarım hedefi)','status':'planned','interface_target':interface,'verification':{'contract':'not-tested','live':'not-tested','native_open':'not-tested'}})
