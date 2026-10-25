@@ -63,7 +63,7 @@ class Packages(unittest.TestCase):
         self.assertIn('main.py',z.namelist());self.assertEqual(task['kind']=='agent','.env.example' in z.namelist());continue
        self.assertIn('native.py',z.namelist());self.assertIn('.env.example',z.namelist())
        self.assertNotIn('sample.csv',z.namelist())
-  self.assertEqual(len(ids),len(set(ids)));self.assertGreater(planned,0)
+  self.assertEqual(len(ids),len(set(ids)));self.assertEqual(planned,0)  # every planned per-product task is now a package
   self.assertEqual({p.name for p in (ROOT/'dist/packages').glob('*.zip')},downloads)
   self.assertEqual(len(json.loads((ROOT/'dist/integration-plan.json').read_text(encoding='utf-8'))),207)
  def test_every_native_package_plan_runs_without_credentials_or_network(self):

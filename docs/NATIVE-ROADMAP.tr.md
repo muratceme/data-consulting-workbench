@@ -60,6 +60,8 @@ Snowflake ilk kesiti: OAuth SQL API, benzersiz isimli kalıcı profil view’ı 
 - **Kalite/yönetişim/MDM/güvenlik:** metadata keşfi → kural tasarımı → vendor tanımı → sandbox doğrulaması.
 - **ML/GenAI/analitik/GIS/planlama/migrasyon/FinOps/dosya araçları:** matriste belirtilen SDK/API yolunun ürün/sürüm bazında doğrulanması; çıktı sözleşmesi, uygulama ve testler.
 
+**Ürün başına paketler (25 Ekim 2026):** 207 ürün bağlamının her birinin artık `library/products/` içinde bir kod bloğu ve bir agent’ı var (toplam 449 platform paketi); planlanan 372 görev indirilebilir oldu. Yalnızca yerel HTTP sunucusuna karşı sözleşme testleri var. Canlı doğrulamaya en çok ihtiyaç duyan endpoint’ler: Bigeye, Coalesce çalışma ayrıntıları, GoldenGate replicat istatistikleri, Talend Cloud çalışma sayaçları ve OneTrust, Board, Stibo STEP dışa aktarım dosyası akışları. Yukarıdaki derin maddeler (sıfırdan artifact üretimi, yazma akışları) hâlâ açık.
+
 207 ürün bağlamının tamamı [`INTEGRATION-MATRIX.tr.md`](INTEGRATION-MATRIX.tr.md) ve `dist/integration-plan.json` içinde yer alır. Ortak taşıma altyapısının bulunması bu ürünlerin entegrasyonlarının tamamlandığı anlamına gelmez.
 
 ## Mevcut sınırlar

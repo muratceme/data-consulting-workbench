@@ -90,8 +90,9 @@ class HTTP:
                     return (*result, response.status) if with_status else result
             except urllib.error.HTTPError as exc:
                 if exc.code in allow_status:
+                    kept = dict(exc.headers.items()) if exc.headers else {}
                     exc.close()
-                    return (b'', {}, exc.code) if with_status else (b'', {})
+                    return (b'', kept, exc.code) if with_status else (b'', kept)
                 if method == 'GET' and exc.code in (429, 502, 503, 504) and attempt < 2:
                     retry = exc.headers.get('Retry-After', '')
                     exc.close()

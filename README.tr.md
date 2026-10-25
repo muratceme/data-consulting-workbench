@@ -8,7 +8,7 @@ Veri işleri için iki tür paket: **kod blokları** (aynı girdiden hep aynı s
 
 ## Güncel durum
 
-24 Ekim 2026: 23 alan / 207 ürün bağlamı. **580 indirilebilir paket**: 82 platform API paketi (81 kod bloğu + BigQuery agent; iki Tableau işlemi Cloud ve Server altında ayrı listelenir) ve 498 yerel paket (380 kod bloğu + 118 agent). Toplam **461 kod bloğu, 119 agent**; 23 alanın hepsinde en az bir indirilebilir paket var. Diğer 372 görev **planlanan entegrasyon**; indirme bağlantıları yok.
+25 Ekim 2026: 23 alan / 207 ürün bağlamı. **947 indirilebilir paket**: 449 platform paketi (262 kod bloğu + 187 agent; her ürün bağlamının artık kendi kod bloğu ve agent’ı var) ve 498 yerel paket (380 kod bloğu + 118 agent). Toplam **642 kod bloğu, 305 agent**. Planlanan görev kalmadı; katalogdaki her görevin indirme bağlantısı var.
 
 ### Yerel kod blokları (internet yok, Python standart kütüphanesi)
 
@@ -149,9 +149,41 @@ Pano kurucu (tablo klasöründen isteğe göre çok tablolu pano; seçim veri mo
 | Tableau yetki ve extract zamanı | Proje/varsayılan yetkilerde yalnızca tanımsız yetenekler; görevi olmayan çalışma kitaplarına extract yenileme | Yetkiler, görevler |
 | Snowflake / Unity Catalog yetki eşitleme | Mevcut hakları plana göre oku → yalnızca eksikleri ver → fazlaları raporla (geri alma yok) | `yetki_farki.csv` |
 
+### Ürün başına paketler (her ürün bağlamı)
+
+Taksonomideki her ürünün kendi alanından bir kod bloğu ve bir agent’ı var (`library/products/<alan>.py`, katalog `catalog/product_catalog.py`). Kod bloğu ürünü kendi API’si, SQL arayüzü, resmi sürücüsü ya da kendi dosya biçimiyle okur ve deterministik bir motor çalıştırır; belirtilen durumlar dışında platforma yazmaz (yeni bir Google Sheets sekmesi, bir OpenRefine projesi, sonra kapatılan Jupyter çekirdeği ya da CAS oturumu). Agent yalnızca üründen okunan metadata ve istatistiği gönderir (ham satır asla; kişisel veri maskelenir, istek önce gösterilip onaylanır), modelin JSON yanıtını ayrıştırır ve kanıtta olmayan her tablo, kolon, alan, olay ya da nesneyi reddeder; teslim ettiği dosyalar (DDL, testler, Avro şemaları, M kodu, analiz betikleri, politika taslakları) doğrulanan yanıttan kodla üretilir ve hiçbiri çalıştırılmaz.
+
+| Alan | Kod bloğu | Agent | Ürünler |
+|---|---|---|---|
+| BI | Üreticinin kendi motoruyla rapor (PDF/PPTX/XLSX/CSV) | KPI ve pano tasarımı; ölçüler DAX/Qlik/Tableau/LookML/SQL | Qlik Cloud, Qlik Sense Enterprise (Engine API), QlikView (QMS), Power BI Service, Tableau Cloud/Server, Looker, Looker Studio (Linking API), SAP BusinessObjects, SAP Analytics Cloud, Oracle Analytics Cloud, MicroStrategy, Superset, Metabase; Power BI/Tableau Desktop agent’ları PBIP/TWB dosyası okur |
+| ERP | ERP çekimi ile hedef dosya mutabakatı | ERP alan metadata’sına göre dönüşüm ve eşleme planı | S/4HANA, ECC (Gateway), Business One, Logo Tiger/GO/Netsis (standart tablolarda salt okunur SQL), j-Platform, Fusion, E-Business Suite, D365 Finance, Business Central, Odoo, IFS, Workday (RaaS) |
+| Veri ambarı | Canlı şema anlık görüntüsü ve fark | Boyutsal model + lehçeye göre DDL taslağı | BigQuery, Snowflake, Fabric Warehouse, Synapse, Redshift, Autonomous DW, Teradata, ClickHouse |
+| Lakehouse | Katmanlar arası şema denetimi | Bronze/Silver/Gold mimarisi | Databricks, Unity Catalog, Fabric Lakehouse, OneLake (Delta log), Lake Formation (Glue), BigLake, Iceberg REST katalog, Hudi timeline, Delta Lake, Dremio |
+| Entegrasyon | Aracın kendi çalışma sayaçlarından okunan/yazılan satır | Kaynak-hedef eşleme ve ETL planı | ADF, SSIS, Fabric Data Factory, IDMC, PowerCenter, Talend Cloud, Qlik Replicate, Fivetran, Airbyte, Data Services, ODI, GoldenGate, Meltano |
+| Analitik mühendisliği | SQL model envanteri ve soy ağacı | dbt YAML / Dataform assertion / SQLMesh audit test stratejisi | dbt Core, dbt Cloud, Dataform, SQLMesh, Coalesce, Cube |
+| Orkestrasyon | Pipeline metrikleri (başarı oranı, p50/p95) | Loglardan hata kök neden analizi | Airflow (mevcut geçmiş paketi), Dagster, Prefect, Astro, Kestra, GitHub Actions, Jenkins |
+| Akış | Örneklenen mesajlarda olay kalitesi (offset commit yok) ya da motor metrikleri | Olay şemaları (Avro) ve konu ayarları | Kafka, Confluent Cloud, Event Hubs, Redpanda, Kinesis, Pub/Sub, Flink, Spark Structured Streaming, Dataflow |
+| Veritabanları | Şema anlık görüntüsü ve fark | İndeks ve sorgu incelemesi + değişiklik betiği taslağı | PostgreSQL, SQL Server, Azure SQL, Oracle, MySQL, MongoDB Atlas, Redis, Couchbase Capella, DynamoDB, Neo4j |
+| Veri kalitesi | Üründen kural sonuçları | Başarısız kontrollerin kök neden analizi | GX Core, Soda Core, Soda Cloud, Deequ, Informatica CDQ, Talend (Qlik Trust Score), Ataccama ONE |
+| Yönetişim | Katalog varlıklarından veri sözlüğü | Sahiplik ve yönetişim modeli (yalnızca mevcut sahipler) | Purview, Collibra, Alation, Dataplex, Atlan, OpenMetadata, DataHub |
+| MDM | Ana kayıtlarda tekrar adayları | Ölçülen etkiyle eşleştirme ve hayatta kalma stratejisi | SAP MDG, Informatica MDM SaaS, Semarchy xDM, Reltio, TIBCO EBX, Stibo STEP (STEPXML) |
+| Gizlilik | Platformun sınıflandırdığı kolonların yerel çekimde maskelenmesi | Erişim ve sınıflandırma tasarımı (Privacera için Ranger taslakları) | Purview Information Protection, OneTrust (dışa aktarım), BigID, Immuta, Privacera, Guardium |
+| Gözlemlenebilirlik | Hacim ve eksik değer raporu | Olay incelemesi ve aksiyon planı | Monte Carlo, Bigeye, Datadog DSM, Acceldata, Elementary |
+| Veri bilimi | Aracın kendi motoruyla keşifsel profil | Python/notebook/R/SAS/SPSS koduna dönüşen hipotez ve testler | pandas, SciPy, Jupyter (çekirdek), R, SAS Viya (CAS), SPSS (.sav), KNIME, Alteryx |
+| ML ve MLOps | Eğitim verisi profili | Değerlendirme metrikleri ve kayma stratejisi | scikit-learn, PyTorch, TensorFlow (TFDV), MLflow, Vertex AI, SageMaker, Azure ML, DataRobot |
+| GenAI ve vektörler | RAG tekrar eden parçalar (MinHash + vektör LSH) | RAG mimarisi ve değerlendirme şablonu | OpenAI vector stores, Claude Files API, LangChain, LangGraph, LlamaIndex, Pinecone, Qdrant, Weaviate, Milvus, pgvector |
+| Ürün analitiği | Günlük olay raporu | Huni ve ölçüm planı (GA4 runFunnelReport gövdesi) | GA4, Adobe Analytics, Amplitude, Mixpanel, Segment, Data Cloud, HubSpot |
+| Coğrafi ve IoT | Sensör ve konum denetimleri | Sorgu taslaklarıyla zaman serisi ve konum analizi planı | ArcGIS, QGIS (GeoPackage), PostGIS, TimescaleDB, InfluxDB, IoT Hub, IoT Core |
+| Planlama ve EPM | Bütçe-gerçekleşen sapması | Tahmin sürücüleri ve senaryolar | SAC Planning, Oracle EPM, Anaplan, Planning Analytics (TM1), Adaptive Planning, Board (dışa aktarım) |
+| Migrasyon | Migrasyon öncesi/sonrası sayımlar ve servis doğrulaması | Bağımlılık sırası denetlenen dalgalar ve kesinti planı | AWS DMS, Azure DMS, Google DMS, SAP Migration Cockpit, Oracle ZDM |
+| FinOps | Kullanım ve maliyet özeti | Tasarruf ve kapasite planı (tutarlar kodla hesaplanır) | BigQuery faturalama dışa aktarımı, Fabric kapasitesi (Cost Management), AWS CUR; Snowflake/Databricks denetim paketlerini korur, agent eklenir |
+| Dosyalar | Tek reçeteden uygulamaya özgü hazırlama | Self-servis hazırlama planı (reçete + yerel çıktı) | Excel, Power Query (M), Google Sheets, DuckDB, OpenRefine, Arrow/Parquet |
+
+Bazı ürünlerde bir adım için belgelenmiş API yoktur; paket bunu söyler ve belgelenmiş alternatifi kullanır: Looker Studio raporu Linking API URL’siyle oluşturulur, SAP Analytics Cloud hikâyeleri REST ile dışa aktarılamaz (modelin olgu verisi kullanılır), OneTrust, Board ve Stibo STEP sonuçları dışa aktarımlarından okunur, Fabric Capacity Metrics maliyeti Azure Cost Management’tan gelir.
+
 **Canlı vendor/tenant testi: 0. Uygulamada dosya açılışı testi: 0.** Testler yerel HTTP sözleşme sunucusunu kullanır; gerçek QVF/PBIX üretildiğini kanıtlamaz. Agent model yanıtı testte taklit edilir. Bu paketler henüz üretim onaylı değildir.
 
-SAP/Oracle keşif paketleri rapor otomasyonu olarak etiketlenmez. SAP satış teklifi taslağı ayrı bir yazma işlemidir; kesin belge oluşturmaz. Qlik şablon akışı (platform paketi) mevcut grafik ve load script'ini kullanır; sıfırdan rapor kurmak için yerel `qlik-rapor-sablonu` bloğu kullanılır. Logo entegrasyonu henüz uygulanmadı; doğrulanmamış endpoint üretilmez.
+SAP/Oracle keşif paketleri rapor otomasyonu olarak etiketlenmez. SAP satış teklifi taslağı ayrı bir yazma işlemidir; kesin belge oluşturmaz. Qlik şablon akışı (platform paketi) mevcut grafik ve load script'ini kullanır; sıfırdan rapor kurmak için yerel `qlik-rapor-sablonu` bloğu kullanılır. Logo Tiger/GO ve Netsis paketleri standart tablolarını yalnızca SQL ile okur; Logo yazma endpoint’i üretilmez.
 
 ## Yerelde çalıştırma
 
@@ -179,14 +211,14 @@ Platform paketi:
 
 Yeni/boş çıktı klasörü gerekir. Yazma ve LLM maliyeti olabilen işlemler README'de belirtilir. Şema ve proje bağlamı seçilen modele gönderilir; agent satır verisi çekmez. Kısmi çalışma kimlikleri `run-state.json`, dosya özeti `manifest.json` içindedir. Otomatik rollback veya üretimde otomatik model-kodu yürütme yoktur.
 
-Toplam **378 test** geçiyor (368 tek amaçlı blok, bir testin alt testleri olarak tek tek); tek amaçlı blokların her biri paketlenmiş kopyasıyla kendi örnek verisinde çalıştırılıp beklenen sonuçla karşılaştırılır. Yerel paket testleri (`tests/test_local.py`) paketlenmiş kopyayı örnek veriyle çalıştırır; agent’lar OpenAI/Anthropic/Ollama biçiminde konuşan sahte model sunucusuyla test edilir (maskeleme, onay, dry-run, düzeltme denemesi, HTTP hatası). İlk sekiz agent ayrıca yerel bir Ollama modeliyle (qwen3 14B) elle denendi; son yüz on agent yalnızca sahte model sunucusuyla test edildi. Test sayısı canlı tenant doğrulaması değildir.
+Toplam **586 test** geçiyor (ürün paketi sözleşme testleri `tests/test_products*.py` içinde) (368 tek amaçlı blok, bir testin alt testleri olarak tek tek); tek amaçlı blokların her biri paketlenmiş kopyasıyla kendi örnek verisinde çalıştırılıp beklenen sonuçla karşılaştırılır. Yerel paket testleri (`tests/test_local.py`) paketlenmiş kopyayı örnek veriyle çalıştırır; agent’lar OpenAI/Anthropic/Ollama biçiminde konuşan sahte model sunucusuyla test edilir (maskeleme, onay, dry-run, düzeltme denemesi, HTTP hatası). İlk sekiz agent ayrıca yerel bir Ollama modeliyle (qwen3 14B) elle denendi; son yüz on agent yalnızca sahte model sunucusuyla test edildi. Test sayısı canlı tenant doğrulaması değildir.
 
 ## Test katmanları
 
 - Eski yerel motorların regresyon testleri (bu motorlar artık ürün paketleri olarak dağıtılmaz).
 - Platformlara özgü gerçek localhost HTTP çağrıları: path, payload, auth headers, polling, hata ve çıktı türü.
 - Eksik erişim bilgisi, redirect/origin, GET retry/POST tekrar etmeme, bütçe sınırı, başarısız reload, mevcut çıktıyı koruma.
-- Her ZIP'te bütünlük/SHA-256; tüm paketlerin ağsız `--plan` çalışması; planlanan görevlerde indirme olmaması.
+- Her ZIP'te bütünlük/SHA-256; tüm paketlerin ağsız `--plan` çalışması; katalogda planlanan görev kalmaması.
 - Yerel kod blokları ve agent’ların paketlenmiş kopyayla uçtan uca testleri.
 
 Canlı uçtan uca test ayrı bir aşamadır: lisanslı sandbox, ilgili sürüm, geçerli erişim ve artifact'ı hedef uygulamada açıp inceleme gerekir. Bunlar yerel sözleşme testinin yerine konmaz.

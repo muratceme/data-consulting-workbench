@@ -4,6 +4,8 @@ Every product of a domain gets one code block (the domain's deterministic task, 
 API/SQL interface/driver) and one agent (the domain's design task, using only evidence read from the platform).
 An entry's `slot` tells the catalog which planned placeholder it fulfils."""
 
+import json
+
 READ_ONLY = ' Yalnızca okuma yapar; platformda hiçbir şey oluşturmaz, değiştirmez veya silmez.'
 AGENT_EFFECT = (' Modele yalnızca platformdan okunan metadata/istatistik gider (ham satır gönderilmez); kişisel veri izleri gönderimden önce maskelenir, '
                 'gönderilecek metin output/gonderilecek-istek.json dosyasına yazılır ve onay istenir (--dry-run modeli çağırmaz, --yes onayı atlar). '
@@ -127,10 +129,51 @@ DOMAIN = {
         agent=('{label} veri olayı incelemesi ve aksiyon planı', 'olay_plani.json + olay_plani.md',
                'Sorunlu metrik ve olayları {how} okur; model olay başına etki, olası neden, kanıt, aksiyonlar, sahip, öncelik ve kapanış kriteri ile runbook önerir. '
                'Referanslar kanıttaki nesne/olay adlarına karşı denetlenir; monitor ve olaylar platformda değiştirilmez.')),
+    'science': dict(
+        code=('{label} ile keşifsel veri profilleme', 'profil.csv (+ korelasyon.csv) + ozet.json',
+              'Veriyi {how} profiller: kolon tipi, dolu/boş sayısı ve oranı, farklı değer sayısı, min/max/ortalama/standart sapma ve araca göre çarpıklık, basıklık, normallik testi, '
+              'aykırı değer sayısı, etiketler. Yüksek boş oranlı kolonları özetler.'),
+        agent=('{label} için hipotez ve analiz yöntemi tasarımı', 'analiz_plani.json + analiz_plani.md + aracın dilinde analiz betiği',
+               'Profili {how} çıkarır; model hipotezleri, testi, hedef ve açıklayıcı kolonları, alfa ve etki büyüklüğünü önerir. Kolonlar profile, test seçimi kolon tipine ve grup sayısına '
+               'karşı denetlenir; geçen plan aracın kendi diline (Python/SciPy, Jupyter defteri, R, SAS, SPSS sözdizimi) kodla çevrilir. Betik otomatik çalıştırılmaz.')),
+    'ml': dict(
+        code=('{label} eğitim verisi profil raporu', 'egitim_verisi_profili.csv + ozet.json',
+              'Eğitim verisini {how} profiller: özellik tipi, eksik oranı, farklı değer, dağılım özetleri ve uyarılar (sabit, yüksek eksik, kimlik benzeri, olası sızıntı); '
+              'hedef verildiğinde sınıf dengesi veya hedef dağılımı.'),
+        agent=('{label} için model değerlendirme ve drift stratejisi', 'drift_stratejisi.json + drift_stratejisi.md (+ ürün izleme ayarı)',
+               'Eğitim verisi profilini ve varsa model metriklerini {how} okur; model değerlendirme metrikleri ve eşikleri, özellik bazında drift yöntemi/eşiği, dilimler ve yeniden '
+               'eğitim tetikleyicileri önerir. Özellikler kanıta, yöntemler izinli listeye karşı denetlenir; Vertex AI için izleme hedef ayarı kodla üretilir.')),
+    'product': dict(
+        code=('{label} olaylarından günlük etkinlik raporu', 'gunluk_olaylar.csv + olay_ozeti.csv + ozet.json',
+              'Son N günün olay sayılarını {how} okur; olay başına toplam, günlük ortalama, dönemin iki yarısı arasındaki değişim ve hiç olay gelmeyen gün sayısını (izleme kesintisi) hesaplar.'),
+        agent=('{label} için funnel ve ölçümleme planı', 'olcumleme_plani.json + izleme_plani.csv + olcumleme_plani.md (+ ürünün funnel sorgusu)',
+               'Olay hacimlerini ve olay/özellik kataloğunu {how} okur; model funnel adımlarını, dönüşüm penceresini, kırılımları, KPI’ları ve izlenmesi gereken eksik olayları önerir. '
+               'Adımlar kanıttaki olaylara, kırılımlar kataloğa karşı denetlenir; GA4 için runFunnelReport gövdesi, Amplitude için funnel sorguları kodla üretilir.')),
+    'planning': dict(
+        code=('{label} bütçesini gerçekleşenle mutabık et', 'butce_sapma.csv + ozet.json',
+              'Bütçe (plan sürümü) verisini {how} alır; gerçekleşeni aynı araçtaki gerçekleşen sürümünden veya actuals_file’dan okur. Seçilen boyutlarda (hesap, dönem, birim) toplar; '
+              'bütçe, gerçekleşen, fark, fark yüzdesi ve eşik üstü/eşleşmeyen kalemleri raporlar. Modele geri yazılmaz.'),
+        agent=('{label} için tahmin modeli ve senaryo tasarımı', 'senaryo_tasarimi.json + senaryo_varsayimlari.csv + senaryo_tasarimi.md',
+               'Plan verisinin boyut üyelerini, büyük kalemleri ve model yapısını {how} okur; model sürücüleri, kalem bazında tahmin yöntemini ve senaryo varsayımlarını önerir. '
+               'Boyut, kalem ve sürücü adları kanıta karşı denetlenir; senaryolar araca yüklenmez.')),
+    'migration': dict(
+        code=('{label} geçişinde öncesi/sonrası satır mutabakatı', 'gecis_mutabakati.csv + ozet.json',
+              'Tablo başına aktarım sayaçlarını {how} okur; verilirse bağımsız kaynak/hedef sayımlarıyla karşılaştırır ve eşit, farkı hatalı satırlarla açıklanan ve açıklanamayan FARK '
+              'durumlarını, hizmetin kendi doğrulama sonuçlarıyla birlikte raporlar.'),
+        agent=('{label} için migrasyon dalgası ve cutover planı', 'gecis_plani.json + dalgalar.csv + gecis_plani.md',
+               'Tablo envanterini, satır sayılarını ve (kaynak SQL ile erişilebiliyorsa) yabancı anahtar bağımlılıklarını {how} çıkarır; model dalgaları, kapsam dışı tabloları, cutover '
+               'adımlarını ve geri dönüş yollarını önerir. Her tablonun tam bir kez yer aldığı ve bağımlı tabloların ebeveynlerinden önce taşınmadığı kodla denetlenir.')),
+    'files': dict(
+        code=('{label} ile uygulamaya özgü veri hazırlama otomasyonu', 'hazırlanmış veri + adim_gunlugu.csv + hazirlama.json',
+              'recete.json’daki adımları (yeniden adlandır, kırp, büyük/küçük harf, tip dönüşümü, boş doldur, filtre, tekilleştir, kolon sil, böl, birleştir) {how} uygular. '
+              'Adım başına satır sayısı ve dönüşmeyen değer günlüğe yazılır; kaynak dosya değiştirilmez.'),
+        agent=('{label} için self-service veri hazırlama planı', 'recete.json + hazirlama_plani.md + onizleme_ilk200.csv (+ ürün dosyası)',
+               'Kolon profilini ve metin bulgularını (boşluk, harf varyantı, tarih biçimleri, virgüllü ondalık, tekrar satır) {how} çıkarır; model sorunları ve izinli adımlardan oluşan '
+               'bir reçete önerir. Reçete adım adım kolonlara karşı denetlenir, ilk 200 satırda yerelde denenir ve ürünün biçimine (Power Query M, DuckDB SQL, OpenRefine işlem geçmişi) kodla çevrilir.')),
 }
 
 
-def pair(domain, product, key, *, label, how, config, secrets, requirements, sources, agent_config=None, packages=(), code_effects='', agent_effects='', only=('code', 'agent'), outputs=None, agent_how=None, files=None):
+def pair(domain, product, key, *, label, how, config, secrets, requirements, sources, agent_config=None, packages=(), code_effects='', agent_effects='', only=('code', 'agent'), outputs=None, agent_how=None, files=None, tool=None):
     """Two catalog entries (code + agent) for one product of a domain."""
     spec = DOMAIN[domain]
     entries = []
@@ -143,7 +186,7 @@ def pair(domain, product, key, *, label, how, config, secrets, requirements, sou
                             title=title.format(label=label), output=output, description=description.format(label=label, how=agent_how if slot == 'agent' and agent_how else how),
                             config=cfg, secrets=list(secrets), requirements=requirements + (AGENT_REQ if slot == 'agent' else ''),
                             effects=(code_effects + READ_ONLY) if slot == 'code' else (agent_effects + AGENT_EFFECT), sources=list(sources),
-                            **({'input_files': dict(files)} if files else {})))
+                            **({'input_files': dict(files)} if files else {}), **({'tool': tool} if tool else {})))
     return entries
 
 
@@ -155,7 +198,10 @@ OPS = {'warehouse': {'code': 'schema-diff', 'agent': 'dimensional-model'}, 'data
        'orchestration': {'code': 'pipeline-metrics', 'agent': 'root-cause'}, 'stream': {'code': 'event-quality', 'agent': 'event-architecture'},
        'quality': {'code': 'rule-check', 'agent': 'quality-root-cause'}, 'governance': {'code': 'data-dictionary', 'agent': 'ownership-model'},
        'mdm': {'code': 'duplicates', 'agent': 'golden-record'}, 'privacy': {'code': 'mask-fields', 'agent': 'access-design'},
-       'observability': {'code': 'volume-report', 'agent': 'incident-plan'}}
+       'observability': {'code': 'volume-report', 'agent': 'incident-plan'}, 'science': {'code': 'eda-profile', 'agent': 'hypothesis-design'},
+       'ml': {'code': 'training-profile', 'agent': 'drift-strategy'}, 'product': {'code': 'event-report', 'agent': 'funnel-plan'},
+       'planning': {'code': 'budget-variance', 'agent': 'scenario-design'}, 'migration': {'code': 'migration-reconcile', 'agent': 'cutover-plan'},
+       'files': {'code': 'data-prep', 'agent': 'prep-plan'}}
 
 GCP_SCOPE = 'Google OAuth erişim belirteci (GOOGLE_ACCESS_TOKEN; ör. `gcloud auth print-access-token`), BigQuery Job User + Metadata Viewer rolleri.'
 MSSQL_DRIVER = 'Microsoft ODBC Driver 18 for SQL Server ve pyodbc. Parola odbc dizesine yazılmaz: Entra ID için Authentication=ActiveDirectoryInteractive/ActiveDirectoryServicePrincipal kullanın veya DB_PASSWORD verin.'
@@ -909,3 +955,196 @@ PRODUCTS += pair('observability', 'Elementary', 'elementary', label='Elementary'
                          'elementary_schema': 'ANALYTICS.ELEMENTARY', 'days': 14, **OBS}, secrets=['SNOWFLAKE_ACCESS_TOKEN'],
                  requirements='Elementary dbt paketinin yazdığı şemada SELECT (destination: snowflake/bigquery/databricks/redshift/postgres; bağlantı alanları ilgili ambarınki).',
                  sources=['https://docs.elementary-data.com/data-tests/anomaly-detection-tests/volume-anomalies', 'https://docs.elementary-data.com/guides/modules-overview/dbt-package'])
+
+# ---------- Data science & statistics ----------
+LOCAL_RUN = 'Veri bilgisayarınızda işlenir; ağ bağlantısı gerekmez (agent paketinde yalnızca model sağlayıcısına profil gider).'
+PRODUCTS += pair('science', 'pandas', 'pandas', label='pandas', how='pandas ile (CSV/XLSX/Parquet; describe, eksik oran, çarpıklık/basıklık, IQR aykırı değer, korelasyon)',
+                 config={'input_file': 'veri.csv'}, secrets=[], packages=['pandas>=2.0', 'openpyxl>=3.1', 'pyarrow>=14'], requirements=LOCAL_RUN,
+                 sources=['https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.describe.html', 'https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.corr.html'])
+PRODUCTS += pair('science', 'SciPy', 'scipy', label='SciPy', how='scipy.stats ile (çarpıklık, basıklık, normaltest/shapiro p değeri, IQR aykırı değer)',
+                 config={'input_file': 'veri.csv'}, secrets=[], packages=['scipy>=1.11'], requirements=LOCAL_RUN,
+                 sources=['https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.normaltest.html', 'https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.shapiro.html'])
+PRODUCTS += pair('science', 'Jupyter', 'jupyter', label='Jupyter', how='Jupyter Server’da geçici bir kernel başlatıp sabit pandas profil kodunu sunucudaki veri yolunda çalıştırarak (kernel sonra kapatılır)',
+                 config={'server': 'https://YOUR_JUPYTER', 'kernel': 'python3', 'data_path': '/home/jovyan/data/veri.csv'}, secrets=['JUPYTER_TOKEN'],
+                 requirements='Jupyter Server/JupyterHub kullanıcı belirteci ve kernel’de pandas kurulu olmalı. Çalıştırılan kod pakette sabittir; model çıktısı çalıştırılmaz.',
+                 sources=['https://jupyter-server.readthedocs.io/en/latest/developers/rest-api.html', 'https://jupyter-client.readthedocs.io/en/latest/messaging.html'],
+                 code_effects='Sunucuda geçici bir kernel açılır ve iş bitince kapatılır; veri dosyası yalnızca okunur.')
+PRODUCTS += pair('science', 'R / Posit', 'r-posit', label='R / Posit', how='pakete gömülü sabit bir R betiğini Rscript ile çalıştırarak (sınıf, eksik, farklı, min/max/ortalama/sd)',
+                 config={'input_file': 'veri.csv', 'rscript': 'Rscript', 'timeout_seconds': 600}, secrets=[], requirements='R 4.x kurulu ve Rscript yolda (veya rscript alanında tam yol). ' + LOCAL_RUN,
+                 sources=['https://cran.r-project.org/manuals.html', 'https://docs.posit.co/'])
+PRODUCTS += pair('science', 'Viya', 'sas-viya', label='SAS Viya', how='CAS REST oturumunda simple.summary ve simple.distinct eylemleriyle (oturum sonra kapatılır)',
+                 config={'server': 'https://YOUR_VIYA', 'cas_path': '/cas-shared-default-http/cas', 'caslib': 'CASUSER', 'table': 'YOUR_TABLE'}, secrets=['SAS_ACCESS_TOKEN'],
+                 requirements='SAS Logon’dan alınmış OAuth belirteci ve tablonun yüklü olduğu caslib’de okuma yetkisi.',
+                 sources=['https://go.documentation.sas.com/doc/en/pgmsascdc/default/casanpg/cas-simple-summary.htm', 'https://developer.sas.com/rest-apis'])
+PRODUCTS += pair('science', 'SPSS', 'spss', label='IBM SPSS Statistics', how='.sav dosyasını pyreadstat ile okuyarak (değişken etiketleri, değer etiketleri, ölçek düzeyi ve kolon profili)',
+                 config={'input_file': 'anket.sav'}, secrets=[], packages=['pyreadstat>=1.2', 'pandas>=2.0'], requirements=LOCAL_RUN,
+                 sources=['https://ofajardo.github.io/pyreadstat_documentation/_build/html/index.html'])
+PRODUCTS += pair('science', 'Analytics Platform', 'knime', label='KNIME Analytics Platform', how='profil iş akışınızı KNIME batch uygulamasıyla (input_path/output_path akış değişkenleriyle) çalıştırarak',
+                 config={'input_file': 'veri.csv', 'workflow_file': 'profil.knwf', 'knime_executable': 'knime', 'timeout_seconds': 1800}, secrets=[],
+                 requirements='KNIME Analytics Platform kurulu; iş akışı input_path değişkeninden okuyup output_path’e profil tablosu (CSV) yazmalı. ' + LOCAL_RUN,
+                 sources=['https://docs.knime.com/latest/analytics_platform_batch_processing/index.html', 'https://forum.knime.com/t/batch-processing-faq/'])
+PRODUCTS += pair('science', 'Designer', 'alteryx', label='Alteryx Designer', how='profil iş akışınızı AlteryxEngineCmd ile çalıştırıp yazdığı çıktı tablosunu okuyarak',
+                 config={'workflow_file': 'profil.yxmd', 'output_file': 'cikti/profil.csv', 'engine_executable': 'AlteryxEngineCmd.exe', 'timeout_seconds': 1800}, secrets=[],
+                 requirements='Alteryx Designer (komut satırı çalıştırma lisansıyla) kurulu; iş akışı output_file yoluna CSV yazmalı. ' + LOCAL_RUN,
+                 sources=['https://help.alteryx.com/current/en/designer/workflows/run-workflows-from-the-command-line.html'])
+
+# ---------- Machine learning & MLOps ----------
+PRODUCTS += pair('ml', 'scikit-learn', 'sklearn', label='scikit-learn', how='scikit-learn ile (özellik profili + hedefle karşılıklı bilgi: mutual_info_classif/regression)',
+                 config={'input_file': 'egitim.csv', 'target': 'YOUR_TARGET'}, agent_config={'metrics_file': ''}, secrets=[], packages=['scikit-learn>=1.3'],
+                 requirements=LOCAL_RUN + ' Agent için model metriklerini metrics_file (JSON) ile verebilirsiniz.',
+                 sources=['https://scikit-learn.org/stable/modules/generated/sklearn.feature_selection.mutual_info_classif.html'])
+PRODUCTS += pair('ml', 'PyTorch', 'pytorch', label='PyTorch', how='torchvision ImageFolder sınıf düzenine göre (sınıf başına görüntü sayısı, dengesizlik, boş/görüntü dışı dosyalar, boyut)',
+                 config={'image_root': 'veri/train'}, agent_config={'metrics_file': ''}, secrets=[], packages=['torchvision>=0.16'], requirements=LOCAL_RUN,
+                 sources=['https://pytorch.org/vision/stable/generated/torchvision.datasets.ImageFolder.html'])
+PRODUCTS += pair('ml', 'TensorFlow', 'tensorflow', label='TensorFlow', how='TensorFlow Data Validation ile (generate_statistics + infer_schema; CSV veya TFRecord)',
+                 config={'input_file': 'egitim.csv', 'target': ''}, agent_config={'metrics_file': ''}, secrets=[], packages=['tensorflow-data-validation>=1.14'], requirements=LOCAL_RUN,
+                 sources=['https://www.tensorflow.org/tfx/data_validation/get_started', 'https://www.tensorflow.org/tfx/data_validation/api_docs/python/tfdv/generate_statistics_from_csv'])
+PRODUCTS += pair('ml', 'MLflow', 'mlflow', label='MLflow', how='Tracking API runs/search ile çalışmalara kayıtlı veri kümesi girdilerinden (şema, profil, bağlam) ve çalışma metriklerinden',
+                 config={'tracking_uri': 'https://YOUR_MLFLOW', 'experiment_ids': ['1'], 'max_runs': 20}, secrets=['MLFLOW_TRACKING_USERNAME', 'MLFLOW_TRACKING_PASSWORD'],
+                 requirements='Deneylerde okuma yetkisi (temel kimlik doğrulama veya .env’de MLFLOW_TRACKING_TOKEN). Veri kümeleri mlflow.log_input ile kaydedilmiş olmalı.',
+                 sources=['https://mlflow.org/docs/latest/rest-api.html#search-runs', 'https://mlflow.org/docs/latest/ml/dataset/'])
+PRODUCTS += pair('ml', 'Vertex AI', 'vertex-ai', label='Vertex AI', how='veri kümesi metadata’sındaki BigQuery kaynağı üzerinde tek bir profil sorgusuyla (COUNTIF NULL, APPROX_COUNT_DISTINCT, MIN/MAX/AVG/STDDEV)',
+                 config={'project_id': 'YOUR_PROJECT_ID', 'location': 'us-central1', 'dataset_id': 'YOUR_DATASET_ID', 'bigquery_location': 'US', 'billing_project': '',
+                         'maximum_bytes_billed': 10737418240}, secrets=['GOOGLE_ACCESS_TOKEN'],
+                 requirements='Vertex AI User ve kaynak tabloda BigQuery Data Viewer + Job User. Profil sorgusu tabloyu bir kez tarar; maximum_bytes_billed üst sınırdır.',
+                 sources=['https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.datasets/get', 'https://cloud.google.com/vertex-ai/docs/model-monitoring/overview'])
+PRODUCTS += pair('ml', 'SageMaker', 'sagemaker', label='SageMaker', how='Model Monitor temel istatistik dosyasından (statistics.json; Deequ biçimi) S3 üzerinden',
+                 config={'region': 'eu-central-1', 'statistics_s3_uri': 's3://YOUR_BUCKET/monitoring/baseline/statistics.json'}, secrets=['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY'],
+                 requirements='Temel dosyada s3:GetObject. Temel istatistikler suggest_baseline ile önceden üretilmiş olmalı; paket işleme işi başlatmaz.',
+                 sources=['https://docs.aws.amazon.com/sagemaker/latest/dg/model-monitor-create-baseline.html', 'https://docs.aws.amazon.com/sagemaker/latest/dg/model-monitor-byoc-statistics.html'])
+PRODUCTS += pair('ml', 'Azure Machine Learning', 'azure-ml', label='Azure Machine Learning', how='veri varlığı sürümünün dosyasını (datastore veya blob URI) indirip profilleyerek',
+                 config={'subscription_id': 'YOUR_SUBSCRIPTION_ID', 'resource_group': 'YOUR_RG', 'workspace': 'YOUR_WORKSPACE', 'data_name': 'YOUR_DATA_ASSET', 'data_version': '1', 'target': ''},
+                 secrets=['AZURE_ACCESS_TOKEN', 'STORAGE_ACCESS_TOKEN'],
+                 requirements='Çalışma alanında AzureML Data Scientist (management.azure.com belirteci) ve depolamada Storage Blob Data Reader (storage.azure.com belirteci). Tek dosyalı CSV/JSON varlıklar desteklenir.',
+                 sources=['https://learn.microsoft.com/en-us/rest/api/azureml/data-versions/get', 'https://learn.microsoft.com/en-us/rest/api/storageservices/get-blob'])
+PRODUCTS += pair('ml', 'DataRobot', 'datarobot', label='DataRobot', how='veri kümesinin platform EDA sonuçlarından (allFeaturesDetails; düşük bilgi ve hedef sızıntısı işaretleri)',
+                 config={'endpoint': 'https://app.datarobot.com', 'dataset_id': 'YOUR_DATASET_ID'}, agent_config={'project_id': ''}, secrets=['DATAROBOT_API_TOKEN'],
+                 requirements='DataRobot API anahtarı ve veri kümesine erişim. Agent, project_id verilirse liderlik tablosundaki model doğrulama metriklerini de okur.',
+                 sources=['https://docs.datarobot.com/en/docs/api/reference/public-api/datasets.html', 'https://docs.datarobot.com/en/docs/api/reference/public-api/models.html'])
+
+# ---------- Product & marketing analytics ----------
+PRODUCTS += pair('product', 'GA4', 'ga4', label='Google Analytics 4', how='Data API runReport ile (tarih × olay adı; eventCount, totalUsers) ve agent için mülk metadata’sından',
+                 config={'property_id': '123456789', 'days': 30, 'events': []}, secrets=['GOOGLE_ACCESS_TOKEN'],
+                 requirements='analytics.readonly kapsamlı belirteç ve mülkte Viewer rolü. Data API kotaları geçerlidir.',
+                 sources=['https://developers.google.com/analytics/devguides/reporting/data/v1/rest/v1beta/properties/runReport',
+                          'https://developers.google.com/analytics/devguides/reporting/data/v1/rest/v1alpha/properties/runFunnelReport'])
+PRODUCTS += pair('product', 'Analytics', 'adobe-analytics', label='Adobe Analytics', how='2.0 Reports API ile günlük (variables/daterangeday) seçilen metrikler ve agent için metrik/boyut listesinden',
+                 config={'global_company_id': 'YOUR_COMPANY_ID', 'report_suite_id': 'YOUR_RSID', 'metrics': ['metrics/occurrences', 'metrics/visitors'], 'days': 30},
+                 secrets=['ADOBE_ACCESS_TOKEN', 'ADOBE_CLIENT_ID'], requirements='Adobe Developer Console OAuth sunucudan sunucuya kimlik ve rapor paketinde Analytics erişimi.',
+                 sources=['https://developer.adobe.com/analytics-apis/docs/2.0/guides/endpoints/reports/', 'https://developer.adobe.com/analytics-apis/docs/2.0/guides/endpoints/metrics/'])
+PRODUCTS += pair('product', 'Amplitude', 'amplitude', label='Amplitude', how='Dashboard REST API events/list ve events/segmentation (günlük toplamlar) ile',
+                 config={'region': 'us', 'events': [], 'top_events': 15, 'days': 30}, secrets=['AMPLITUDE_API_KEY', 'AMPLITUDE_SECRET_KEY'],
+                 requirements='Proje API anahtarı ve gizli anahtar (temel kimlik doğrulama); EU veri merkezinde region: eu. Dashboard API hız sınırları geçerlidir.',
+                 sources=['https://amplitude.com/docs/apis/analytics/dashboard-rest', 'https://amplitude.com/docs/apis/analytics/dashboard-rest#event-segmentation'])
+PRODUCTS += pair('product', 'Mixpanel', 'mixpanel', label='Mixpanel', how='Query API (events/top, events, events/names) ile günlük olay sayıları',
+                 config={'project_id': 'YOUR_PROJECT_ID', 'region': 'us', 'events': [], 'days': 30}, secrets=['MIXPANEL_SERVICE_ACCOUNT', 'MIXPANEL_SERVICE_SECRET'],
+                 requirements='Projede analist rolü olan servis hesabı; EU veri yerleşiminde region: eu.',
+                 sources=['https://developer.mixpanel.com/reference/query-api', 'https://developer.mixpanel.com/reference/list-saved-funnels'])
+PRODUCTS += pair('product', 'Segment', 'segment', label='Segment', how='Public API olay hacmi uç noktasından (günlük, olay adına göre) ve agent için izleme planı kurallarından',
+                 config={'api_url': 'https://api.segmentapis.com', 'source_ids': [], 'days': 30}, secrets=['SEGMENT_TOKEN'],
+                 requirements='Çalışma alanı Public API belirteci (Workspace Member/okuma). EU çalışma alanında api_url https://eu1.api.segmentapis.com.',
+                 sources=['https://docs.segmentapis.com/tag/Events', 'https://docs.segmentapis.com/tag/Tracking-Plans'])
+PRODUCTS += pair('product', 'Data Cloud', 'data-cloud', label='Salesforce Data Cloud', how='Query API V2 ile seçilen etkileşim DMO’sundan (gün × olay adı sayımı) ve metadata API’den',
+                 config={'tenant_url': 'https://YOUR_TENANT.c360a.salesforce.com', 'dmo': 'ssot__WebsiteEngagement__dlm', 'event_field': 'ssot__EngagementChannelActionId__c',
+                         'time_field': 'ssot__EngagementDateTm__c', 'days': 30}, secrets=['DATACLOUD_ACCESS_TOKEN'],
+                 requirements='Data Cloud belirteci (Salesforce erişim belirtecinin cdp_query_api kapsamıyla değiştirilmiş hâli). DMO ve alan adlarını kendi veri modelinize göre yazın.',
+                 sources=['https://developer.salesforce.com/docs/data/data-cloud-query-guide/references/data-cloud-query-api-reference/query-v2.html',
+                          'https://developer.salesforce.com/docs/atlas.en-us.c360a_api.meta/c360a_api/c360a_api_metadata_api.htm'])
+PRODUCTS += pair('product', 'CRM', 'hubspot', label='HubSpot', how='Events API v3 (özel davranışsal olay örnekleri, sayfalı) ve olay tanımlarından',
+                 config={'object_type': 'contact', 'events': ['pe12345_YOUR_EVENT'], 'days': 30}, secrets=['HUBSPOT_TOKEN'],
+                 requirements='Özel davranışsal olay tanımlarını ve örneklerini okuyabilen özel uygulama belirteci; özel olaylar Marketing Hub Enterprise gerektirir. Olay tiplerini (pe… adları) events alanına yazın.',
+                 sources=['https://developers.hubspot.com/docs/api/events/event-analytics', 'https://developers.hubspot.com/docs/api/analytics/events'])
+
+# ---------- Enterprise planning & EPM ----------
+VAR = {'keys': ['Account', 'Period'], 'measure': 'deger', 'actual_measure': 'tutar', 'actuals_file': 'gerceklesen.csv', 'tolerance_pct': 5.0}
+EPM_GRID = json.dumps({'suppressMissingBlocks': True, 'pov': {'dimensions': ['Scenario', 'Version', 'Entity', 'Years'], 'members': [['Plan'], ['Working'], ['YOUR_ENTITY'], ['FY26']]},
+                       'columns': [{'dimensions': ['Period'], 'members': [['ILvl0Descendants(YearTotal)']]}],
+                       'rows': [{'dimensions': ['Account'], 'members': [['ILvl0Descendants(YOUR_ACCOUNT_PARENT)']]}]}, indent=2) + '\n'
+PRODUCTS += pair('planning', 'Analytics Cloud Planning', 'sac-planning', label='SAP Analytics Cloud Planning', how='Data Export API ile modelin olgu verisinden (Version filtresiyle)',
+                 config={'tenant_url': 'https://YOUR_TENANT.YOUR_DC.sapanalytics.cloud', 'provider_id': 'YOUR_MODEL_ID', 'dimensions': ['Account', 'Date'], 'measure': 'SignedData',
+                         'version_field': 'Version', 'budget_version': 'public.Budget', 'actual_version': 'public.Actual', **{**VAR, 'keys': ['Account', 'Date'], 'measure': 'SignedData',
+                                                                                                                             'actual_measure': 'SignedData'}},
+                 secrets=['SAC_ACCESS_TOKEN'], requirements='Data Export API kapsamlı OAuth istemcisi ve planlama modelinde okuma. actual_version boşsa gerçekleşen actuals_file’dan okunur.',
+                 sources=['https://help.sap.com/docs/SAP_ANALYTICS_CLOUD', 'https://blogs.sap.com/2023/01/03/announcement-new-series-exploring-the-sap-analytics-cloud-data-export-api/'])
+PRODUCTS += pair('planning', 'Cloud EPM', 'oracle-epm', label='Oracle Cloud EPM (Planning)', how='Planning REST exportdataslice ile ızgara tanımınızdaki bölgeden (pov/columns/rows)',
+                 config={'server': 'https://YOUR_POD.epm.YOUR_REGION.ocs.oraclecloud.com', 'application': 'YOUR_APP', 'plan_type': 'OEP_FS', 'grid_file': 'izgara.json', 'actual_grid_file': '',
+                         **{**VAR, 'keys': ['Account', 'Period']}}, secrets=['EPM_USER', 'EPM_PASSWORD'],
+                 requirements='EPM_USER kimlik alanı adıyla (ör. kimlik_alani.kullanici@firma.com); yalnızca okuma yetkiniz olan hücreler döner. Izgarayı uygulamanızın boyutlarına göre düzenleyin.',
+                 sources=['https://docs.oracle.com/en/cloud/saas/epm-cloud/prest/export_dataslices.html'], files={'izgara.json': EPM_GRID})
+PRODUCTS += pair('planning', 'Anaplan', 'anaplan', label='Anaplan', how='Bulk API ile kayıtlı bir dışa aktarma eylemini çalıştırıp dosya parçalarını indirerek',
+                 config={'workspace_id': 'YOUR_32_HEX_WORKSPACE_ID', 'model_id': 'YOUR_32_HEX_MODEL_ID', 'export_id': '116000000000', 'actual_export_id': '', 'locale': 'en_US',
+                         **{**VAR, 'measure': 'Value'}}, secrets=['ANAPLAN_USER', 'ANAPLAN_PASSWORD'],
+                 requirements='Modelde dışa aktarma eylemini çalıştırabilen kullanıcı (temel kimlik doğrulamayla belirteç alınır). Dışa aktarma CSV başlıkları keys/measure ile aynı olmalı.',
+                 sources=['https://anaplanbulkapi20.docs.apiary.io/', 'https://help.anaplan.com/authentication-api'], code_effects='Dışa aktarma eylemi modelde salt-okunur bir görev olarak çalışır.')
+PRODUCTS += pair('planning', 'Planning Analytics', 'planning-analytics', label='IBM Planning Analytics', how='TM1 REST ExecuteMDX ile MDX dosyanızdaki bölgeden (eksenler ve hücreler)',
+                 config={'server': 'https://YOUR_TM1:8010', 'cube': 'YOUR_CUBE', 'mdx_file': 'butce.mdx', 'actual_mdx_file': '', **VAR}, secrets=['TM1_USER', 'TM1_PASSWORD'],
+                 requirements='TM1 kullanıcı adı/parola (CAM için kullanıcıyı ad alanıyla birlikte) veya .env’de TM1_ACCESS_TOKEN (Planning Analytics as a Service). MDX tek bir SELECT olmalı.',
+                 sources=['https://www.ibm.com/docs/en/planning-analytics', 'https://github.com/cubewise-code/tm1py'],
+                 files={'butce.mdx': 'SELECT {[Period].[Period].Members} ON COLUMNS, {[Account].[Account].Members} ON ROWS FROM [YOUR_CUBE] WHERE ([Version].[Version].[Budget])\n'})
+PRODUCTS += pair('planning', 'Adaptive Planning', 'adaptive-planning', label='Workday Adaptive Planning', how='XML API exportData çağrısıyla (sürüm, hesap ve zaman filtreleri; CSV çıktı)',
+                 config={'api_url': 'https://api.adaptiveplanning.com', 'api_version': 'v41', 'instance_code': '', 'budget_version': 'Budget FY26', 'actual_version': 'Actuals',
+                         'accounts': ['YOUR_ACCOUNT_CODE'], 'time_span': {'start': '01/2026', 'end': '12/2026'}, **{**VAR, 'keys': ['Account Code', 'Level Name'], 'measure': 'Value', 'actual_measure': 'Value'}},
+                 secrets=['ADAPTIVE_USER', 'ADAPTIVE_PASSWORD'], requirements='API erişimi olan Adaptive Planning kullanıcısı; CSV kolon adları (keys/measure) dışa aktarım biçimine göre ayarlanmalı.',
+                 sources=['https://doc.workday.com/adaptive-planning/en-us/integration/managing-data-integration/api-documentation/metadata-and-data-create-update-and-read-methods/mdn1623709213322.html'])
+PRODUCTS += pair('planning', 'Board', 'board', label='Board', how='Board prosedürüyle dışa aktarılmış bütçe CSV dosyasından (Board’un veri okuyan bir REST uç noktası belgelenmemiştir)',
+                 config={'budget_file': 'board_butce.csv', 'actual_file': '', **VAR}, secrets=[],
+                 requirements='Bütçe küpünün Board prosedürüyle (Export Dataset/Data View) CSV’ye aktarılması. Ağ bağlantısı gerekmez.',
+                 sources=['https://community.board.com/discussion/17141/rest-api-integration-into-a-cube-in-board-directly'])
+
+# ---------- Data migration ----------
+COUNTS = {'source_counts_file': '', 'target_counts_file': ''}
+DB_PAIR = {'source': {'kind': 'postgres', 'host': 'YOUR_SOURCE_HOST', 'port': 5432, 'database': 'YOUR_DB', 'user': 'YOUR_READ_USER'},
+           'target': {'kind': 'postgres', 'host': 'YOUR_TARGET_HOST', 'port': 5432, 'database': 'YOUR_DB', 'user': 'YOUR_READ_USER'}, 'tables': ['public.YOUR_TABLE']}
+PRODUCTS += pair('migration', 'Database Migration Service', 'aws-dms', label='AWS DMS', tool='AWS', how='DescribeTableStatistics ile (FullLoadRows, ekleme/güncelleme/silme, doğrulama durumu ve hatalı kayıtlar; SigV4)',
+                 config={'region': 'eu-central-1', 'replication_task_arn': 'arn:aws:dms:eu-central-1:123456789012:task:YOUR_TASK', **COUNTS}, secrets=['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY'],
+                 requirements='dms:DescribeTableStatistics izni. Görevde DMS veri doğrulaması açıksa doğrulama durumu da raporlanır; bağımsız sayımlar için source/target_counts_file (tablo,satir).',
+                 sources=['https://docs.aws.amazon.com/dms/latest/APIReference/API_DescribeTableStatistics.html', 'https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Validating.html'])
+PRODUCTS += pair('migration', 'Azure Database Migration', 'azure-dms', label='Azure DMS', how='SQL geçiş kaynağının MigrationStatusDetails ayrıntısından (tablo başına okunan/kopyalanan satır)',
+                 config={'target_resource_id': '/subscriptions/YOUR_SUB/resourceGroups/YOUR_RG/providers/Microsoft.Sql/servers/YOUR_SERVER', 'target_database': 'YOUR_DB',
+                         'api_version': '2023-07-15-preview', **COUNTS}, secrets=['AZURE_ACCESS_TOKEN'],
+                 requirements='Hedef SQL sunucusunda/Managed Instance’ta okuma rolü (management.azure.com belirteci). Tablo ayrıntısı çevrimdışı Azure SQL Database geçişlerinde döner.',
+                 sources=['https://learn.microsoft.com/en-us/rest/api/datamigration/database-migrations-sql-db/get', 'https://learn.microsoft.com/en-us/azure/dms/dms-overview'])
+PRODUCTS += pair('migration', 'Database Migration Service', 'google-dms', label='Google DMS', tool='Google', how='geçiş işinin durumu (migrationJobs.get) ve kaynak/hedef veritabanlarında tablo başına COUNT(*) ile',
+                 config={'migration_job': 'projects/YOUR_PROJECT/locations/YOUR_REGION/migrationJobs/YOUR_JOB', **DB_PAIR}, secrets=['GOOGLE_ACCESS_TOKEN', 'SOURCE_DB_PASSWORD', 'TARGET_DB_PASSWORD'],
+                 packages=['psycopg[binary]>=3.1'], requirements='datamigration.migrationJobs.get izni ve iki veritabanında okuma kullanıcısı (MySQL için kind: mysql ve PyMySQL).',
+                 sources=['https://cloud.google.com/database-migration/docs/reference/rest/v1/projects.locations.migrationJobs/get'])
+PRODUCTS += pair('migration', 'Migration Cockpit', 'migration-cockpit', label='SAP Migration Cockpit', how='Migration Cockpit şablonundaki (XML elektronik tablo) sayfa başına kayıt sayısı ile S/4HANA OData $count karşılaştırmasıyla',
+                 config={'template_file': 'Source_data_for_Business_partner.xml', 'header_rows': 8, 'server': 'https://YOUR_S4_HOST',
+                         'sheet_entities': {'General Data': {'service': '/sap/opu/odata/sap/API_BUSINESS_PARTNER', 'entity_set': 'A_BusinessPartner', 'filter': ''}}},
+                 secrets=['SAP_USER', 'SAP_PASSWORD'], requirements='Şablonun yerel kopyası ve hedef API’de okuma yetkisi (OAuth için SAP_ACCESS_TOKEN). Sayfa başlık satırı sayısını şablonunuza göre ayarlayın.',
+                 sources=['https://help.sap.com/docs/SAP_S4HANA_CLOUD', 'https://api.sap.com/api/API_BUSINESS_PARTNER/overview'])
+PRODUCTS += pair('migration', 'Zero Downtime Migration', 'oracle-zdm', label='Oracle ZDM', how='zdmcli query job çıktısındaki faz durumları ve kaynak/hedef Oracle veritabanlarında COUNT(*) ile',
+                 config={'job_id': '1', 'zdmcli': 'zdmcli', 'source': {'kind': 'oracle', 'user': 'YOUR_READ_USER', 'dsn': 'SOURCE_HOST:1521/SRC'},
+                         'target': {'kind': 'oracle', 'user': 'YOUR_READ_USER', 'dsn': 'TARGET_HOST:1521/TGT'}, 'tables': ['HR.EMPLOYEES']},
+                 secrets=['SOURCE_DB_PASSWORD', 'TARGET_DB_PASSWORD'], packages=['oracledb>=2'],
+                 requirements='Paket ZDM hizmet ana bilgisayarında (zdmcli erişimi) çalıştırılmalı; iki veritabanında okuma kullanıcısı.',
+                 sources=['https://docs.oracle.com/en/database/oracle/zero-downtime-migration/21.4/zdmug/zdm-cli-reference.html'])
+
+# ---------- Files & self-service data ----------
+RECIPE = json.dumps([{'islem': 'kirp', 'kolonlar': ['musteri']}, {'islem': 'buyuk_kucuk', 'kolon': 'musteri', 'bicim': 'title'},
+                     {'islem': 'tip', 'kolon': 'tutar', 'tip': 'decimal'}, {'islem': 'tip', 'kolon': 'tarih', 'tip': 'date', 'bicim': '%d.%m.%Y'},
+                     {'islem': 'tekillestir', 'kolonlar': ['siparis_no']}], ensure_ascii=False, indent=2) + '\n'
+PREP = {'input_file': 'veri.csv', 'recipe_file': 'recete.json'}
+PRODUCTS += pair('files', 'Excel', 'excel', label='Excel', how='openpyxl ile çalışma kitabını okuyup sonucu tipli hücreler ve Excel Tablosu (ListObject) içeren yeni bir .xlsx olarak yazarak',
+                 config={**PREP, 'input_file': 'veri.xlsx', 'sheet': '', 'header_row': 1}, secrets=[], packages=['openpyxl>=3.1'], requirements=LOCAL_RUN,
+                 sources=['https://openpyxl.readthedocs.io/en/stable/worksheet_tables.html'], files={'recete.json': RECIPE})
+PRODUCTS += pair('files', 'Power Query', 'power-query', label='Power Query', how='aynı adımları Power Query M sorgusuna (Table.TransformColumnTypes "tr-TR", Table.Distinct vb.) çevirip yerel önizlemeyle birlikte',
+                 config={**PREP, 'delimiter': ','}, secrets=[], requirements='M sorgusunu Excel/Power BI’da Boş Sorgu > Gelişmiş Düzenleyici’ye yapıştırın; dosya yolu sorguda yazılıdır. ' + LOCAL_RUN,
+                 sources=['https://learn.microsoft.com/en-us/powerquery-m/table-transformcolumntypes', 'https://learn.microsoft.com/en-us/powerquery-m/table-distinct'],
+                 files={'recete.json': RECIPE})
+PRODUCTS += pair('files', 'Sheets', 'sheets', label='Google Sheets', how='Sheets API ile aralığı okuyup sonucu yeni bir sekmeye yazarak (mevcut sekmelerin üzerine yazmaz, geri okuyarak doğrular)',
+                 config={'spreadsheet_id': 'YOUR_SPREADSHEET_ID', 'range': 'Sayfa1!A:Z', 'output_sheet': '', 'recipe_file': 'recete.json'}, secrets=['GOOGLE_ACCESS_TOKEN'],
+                 requirements='spreadsheets kapsamlı belirteç ve tabloda düzenleme yetkisi (yalnızca yeni sekme eklenir).',
+                 sources=['https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets.values/get', 'https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets/batchUpdate'],
+                 files={'recete.json': RECIPE}, code_effects='Tabloya yeni bir sekme eklenir; mevcut sekmeler değiştirilmez.')
+PRODUCTS += pair('files', 'DuckDB', 'duckdb', label='DuckDB', how='reçeteyi DuckDB SQL’ine (CTE zinciri, TRY_CAST, QUALIFY) çevirip DuckDB ile çalıştırarak ve sonucu Parquet/CSV’ye COPY ederek',
+                 config={**PREP, 'output_format': 'parquet'}, secrets=[], packages=['duckdb>=1.3'], requirements=LOCAL_RUN,
+                 sources=['https://duckdb.org/docs/data/csv/overview', 'https://duckdb.org/docs/sql/statements/copy'], files={'recete.json': RECIPE})
+PRODUCTS += pair('files', 'OpenRefine', 'openrefine', label='OpenRefine', how='yerel OpenRefine sunucusunda proje oluşturup reçeteyi işlem geçmişi (core/text-transform, column-rename…) olarak uygulayıp satırları dışa aktararak',
+                 config={**PREP, 'server': 'http://127.0.0.1:3333'}, secrets=[],
+                 requirements='Bu bilgisayarda çalışan OpenRefine 3.6+ (CSRF belirteci otomatik alınır). Filtre ve tekilleştirme facet gerektirdiğinden OpenRefine reçetesinde desteklenmez.',
+                 sources=['https://openrefine.org/docs/technical-reference/openrefine-api', 'https://openrefine.org/docs/manual/grelfunctions'], files={'recete.json': RECIPE},
+                 code_effects='OpenRefine’da yeni bir proje oluşturulur ve orada kalır.')
+PRODUCTS += pair('files', 'Arrow / Parquet', 'arrow-parquet', label='Apache Arrow / Parquet', how='sonucu açık Arrow şemasıyla (reçetedeki tiplerden) sıkıştırılmış Parquet olarak yazıp metadata’yı geri okuyarak',
+                 config={**PREP, 'compression': 'zstd'}, secrets=[], packages=['pyarrow>=14'], requirements=LOCAL_RUN,
+                 sources=['https://arrow.apache.org/docs/python/parquet.html', 'https://arrow.apache.org/docs/python/generated/pyarrow.parquet.write_table.html'], files={'recete.json': RECIPE})

@@ -62,6 +62,8 @@ Snowflake first slice: OAuth SQL API, a persistent profiling view with a unique 
 - **Quality/governance/MDM/security:** metadata discovery → rule design → vendor definition → sandbox validation.
 - **ML/GenAI/analytics/GIS/planning/migration/FinOps/file tools:** validating the SDK/API path named in the matrix per product/version; output contract, implementation and tests.
 
+**Per-product packages (25 October 2026):** every one of the 207 product contexts now has a code block and an agent in `library/products/` (449 platform packages in total); the 372 tasks that were planned are now downloadable. They are contract-tested against a local HTTP server only. Endpoints that most need live validation: Bigeye, Coalesce run details, GoldenGate replicat statistics, Talend Cloud run counters, and the export-file flows for OneTrust, Board and Stibo STEP. The deeper items above (building artifacts from scratch, write flows) are still open.
+
 All 207 product contexts are in [`INTEGRATION-MATRIX.md`](INTEGRATION-MATRIX.md) and `dist/integration-plan.json`. Having a shared transport layer does not mean these products' integrations are complete.
 
 ## Current limits

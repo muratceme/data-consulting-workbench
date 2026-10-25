@@ -717,7 +717,7 @@ def catalog(domains):
             tool={'id':f'{did}-{ti}','name':vendor,'products':[]}
             for pi,product in enumerate(products):
                 pid=f'{did}-{ti}-{pi}'
-                available=[op for op in OPERATIONS if op['domain']==did and product in (op['product'] if isinstance(op['product'],list) else [op['product']])]
+                available=[op for op in OPERATIONS if op['domain']==did and product in (op['product'] if isinstance(op['product'],list) else [op['product']]) and op.get('tool',vendor)==vendor]
                 tasks=[]
                 for op in available:
                     tasks.append({**op,'id':pid+'-'+op['operation'],'engine':'native','execution':'Platform API + LLM' if op['kind']=='agent' else 'Platform API','status':'contract-tested','input':op['requirements'],'reason':'Şema ve iş amacı yorumlanır; sonuç platform API’sinde doğrulanır.' if op['kind']=='agent' else 'İşlem sırası ve girdi/çıktı sözleşmesi sabittir; LLM gerekmez.','verification':{'contract':'tested','live':'not-tested','native_open':'not-tested'}})

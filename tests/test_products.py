@@ -308,7 +308,7 @@ class Catalog(unittest.TestCase):
         seen = set()
         for e in PRODUCTS:
             self.assertIn(e['operation'], HANDLERS)
-            key = (e['domain'], e['product'], e['slot'])
+            key = (e['domain'], e.get('tool'), e['product'], e['slot'])  # AWS and Google both ship a 'Database Migration Service'
             self.assertNotIn(key, seen); seen.add(key)
             self.assertTrue(e['sources'] and all(s.startswith('https://') for s in e['sources']))
 
