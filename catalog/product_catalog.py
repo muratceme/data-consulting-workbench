@@ -93,6 +93,40 @@ DOMAIN = {
         agent=('{label} için olay şeması ve akış mimarisi', 'akis_mimarisi.json + akis_mimarisi.md + <Olay>.avsc + konu_ayarlari.json',
                '{how} Model olay şemalarını, anahtar ve uyumluluk kuralını, konu ayarlarını ve akış adımlarını önerir; alanlar örneklem profiline, konular kanıta karşı denetlenir. '
                'Avro şemaları ve konu ayarları doğrulanan JSON’dan kodla üretilir; hiçbir konu veya şema oluşturulmaz.')),
+    'quality': dict(
+        code=('{label} kalite kurallarını çalıştır ve sonuçlarını raporla', 'kontrol_sonuclari.csv + ozet.json',
+              'Kalite kontrollerinin sonuçlarını {how} alır; her kontrol için nesne, kolon, sonuç (geçti/kaldı/uyarı/hata), ölçülen değer, eşik ve ayrıntıyı tek tabloda toplar. '
+              'Kural, kontrol veya profil tanımı oluşturulmaz ya da değiştirilmez.'),
+        agent=('{label} kalite sorunu kök neden analizi', 'kok_neden.json + kok_neden.csv + kok_neden.md',
+               'Başarısız/uyarı veren kontrolleri ve ek kanıtı (eğilim, eksen puanları, sayaçlar) {how} okur; model kök neden kategorisi, kanıt, düzeltme, sahip ve kural önerileri üretir. '
+               'Kontrol adları kanıta karşı denetlenir; kuralların kendisi değiştirilmez.')),
+    'governance': dict(
+        code=('{label} kataloğundan veri sözlüğü oluştur', 'veri_sozlugu.csv + veri_sozlugu.md + eksikler.csv + sozluk.json',
+              'Tablo ve kolon varlıklarını; açıklama, sahip, etiket/sınıflandırma ve sözlük terimleriyle {how} okur. Tablo başına Markdown sözlük ve açıklaması ya da sahibi eksik varlık listesi üretir.'),
+        agent=('{label} için veri sahipliği ve yönetişim modeli', 'yonetisim_modeli.json + sahiplik_atamalari.csv + yonetisim_modeli.md',
+               'Varlıkları, mevcut sahipleri, etiketleri ve terimleri {how} okur; model iş alanlarını, varlık başına sahip/steward rolünü, sınıflandırmayı ve politikaları önerir. '
+               'Varlıklar kataloğa, önerilen kişiler yalnızca katalogdaki mevcut sahiplere karşı denetlenir; katalogda hiçbir şey değiştirilmez.')),
+    'mdm': dict(
+        code=('{label} ana verisinde mükerrer kayıtları bul', 'birebir_mukerrer.csv + benzer_adaylar.csv + kaynak_bilgisi.json + mukerrer.json',
+              'Ana veri kayıtlarını {how} okur; seçilen eşleşme alanlarında (Türkçe karakter, büyük/küçük harf ve noktalama normalize edilerek) birebir tekrar gruplarını ve '
+              'benzerlik eşiğini geçen aday çiftleri bulur. Platformda birleştirme yapılmaz; adaylar insan onayı içindir.'),
+        agent=('{label} için golden record ve eşleştirme stratejisi', 'eslestirme_stratejisi.json + eslestirme_stratejisi.md',
+               'Kayıtların alan profilini ve alan bazlı tekrar denemelerini {how} çıkarır; model eşleşme kuralları, eşikler, otomatik/inceleme aksiyonları ve hayatta kalma kuralları önerir. '
+               'Alanlar kanıta karşı denetlenir, benzerlikle otomatik birleştirme 0,95 altı eşikte reddedilir ve her kuralın etkisi aynı kayıtlar üzerinde kodla ölçülür.')),
+    'privacy': dict(
+        code=('{label} sınıflandırmasına göre alanları maskele', 'maskelenmis.csv + maskelenen_kolonlar.csv + siniflandirma_kaynagi.json + maskeleme.json',
+              'Hassas olarak sınıflandırılmış kolonları {how} alır ve yerel dışa aktarım dosyasında bu kolonları (ve extra_fields ile seçtiklerinizi) tuzlu HMAC-SHA256, kısmi, '
+              'gizleme veya boşaltma yöntemiyle maskeler. Kaynak dosya değiştirilmez; platformda politika oluşturulmaz.'),
+        agent=('{label} için erişim ve veri sınıflandırma tasarımı', 'erisim_tasarimi.json + kolon_siniflari.csv + erisim_tasarimi.md',
+               'Kolon sınıflandırmalarını {how} okur; model sınıf şemasını, kolon atamalarını, rol bazlı erişim/maskeleme kurallarını ve saklama sürelerini önerir. '
+               'Kolonlar kanıta, sınıf ve maske türleri izinli listelere karşı denetlenir; Privacera için kapalı (isEnabled: false) Ranger maskeleme politikası taslakları kodla üretilir.')),
+    'observability': dict(
+        code=('{label} verisinden hacim ve eksik değer raporu', 'hacim_ve_eksik_deger.csv + ozet.json',
+              'Hacim, satır sayısı ve null/eksik değer metriklerini ya da olaylarını {how} okur; her seride son değeri önceki noktaların medyanıyla karşılaştırır (sapma, boş yükleme), '
+              'eşik üstü null oranlarını ve veri gelmeyen aralıkları işaretler.'),
+        agent=('{label} veri olayı incelemesi ve aksiyon planı', 'olay_plani.json + olay_plani.md',
+               'Sorunlu metrik ve olayları {how} okur; model olay başına etki, olası neden, kanıt, aksiyonlar, sahip, öncelik ve kapanış kriteri ile runbook önerir. '
+               'Referanslar kanıttaki nesne/olay adlarına karşı denetlenir; monitor ve olaylar platformda değiştirilmez.')),
 }
 
 
@@ -118,7 +152,10 @@ OPS = {'warehouse': {'code': 'schema-diff', 'agent': 'dimensional-model'}, 'data
        'spatial': {'code': 'sensor-check', 'agent': 'analysis-plan'}, 'ai': {'code': 'rag-duplicates', 'agent': 'rag-design'},
        'bi': {'code': 'report-export', 'agent': 'kpi-design'}, 'erp': {'code': 'reconcile', 'agent': 'mapping-plan'},
        'integration': {'code': 'row-reconcile', 'agent': 'etl-plan'}, 'transform': {'code': 'model-inventory', 'agent': 'test-strategy'},
-       'orchestration': {'code': 'pipeline-metrics', 'agent': 'root-cause'}, 'stream': {'code': 'event-quality', 'agent': 'event-architecture'}}
+       'orchestration': {'code': 'pipeline-metrics', 'agent': 'root-cause'}, 'stream': {'code': 'event-quality', 'agent': 'event-architecture'},
+       'quality': {'code': 'rule-check', 'agent': 'quality-root-cause'}, 'governance': {'code': 'data-dictionary', 'agent': 'ownership-model'},
+       'mdm': {'code': 'duplicates', 'agent': 'golden-record'}, 'privacy': {'code': 'mask-fields', 'agent': 'access-design'},
+       'observability': {'code': 'volume-report', 'agent': 'incident-plan'}}
 
 GCP_SCOPE = 'Google OAuth erişim belirteci (GOOGLE_ACCESS_TOKEN; ör. `gcloud auth print-access-token`), BigQuery Job User + Metadata Viewer rolleri.'
 MSSQL_DRIVER = 'Microsoft ODBC Driver 18 for SQL Server ve pyodbc. Parola odbc dizesine yazılmaz: Entra ID için Authentication=ActiveDirectoryInteractive/ActiveDirectoryServicePrincipal kullanın veya DB_PASSWORD verin.'
@@ -724,3 +761,151 @@ PRODUCTS += pair('stream', 'Dataflow', 'dataflow', label='Dataflow', how='İşin
                  agent_how='işin adım listesinden ve metriklerinden', config={'project_id': 'YOUR_PROJECT_ID', 'location': 'europe-west1', 'job_id': 'YOUR_JOB_ID'}, secrets=['GOOGLE_ACCESS_TOKEN'],
                  requirements='dataflow.jobs.get ve dataflow.metrics.get izinleri (Dataflow Viewer).',
                  sources=['https://cloud.google.com/dataflow/docs/reference/rest/v1b3/projects.locations.jobs/getMetrics', 'https://cloud.google.com/dataflow/docs/reference/rest/v1b3/projects.locations.jobs/get'])
+
+# ---------- Data quality ----------
+PRODUCTS += pair('quality', 'GX', 'gx', label='Great Expectations (GX Core)', how='GX projenizdeki checkpoint’i GX Core kütüphanesiyle çalıştırarak (veya validation_dir’deki doğrulama sonucu JSON’larından)',
+                 config={'project_dir': 'gx_proje', 'checkpoint': 'YOUR_CHECKPOINT', 'validation_dir': ''}, secrets=[], packages=['great_expectations>=1.0'],
+                 requirements='GX Core 1.x dosya tabanlı bağlam (gx/ klasörü) ve veri kaynağı bağlantısı; checkpoint’in tanımladığı eylemler (ör. Data Docs) de çalışır. validation_dir verilirse kütüphane gerekmez.',
+                 sources=['https://docs.greatexpectations.io/docs/core/trigger_actions_based_on_results/run_a_checkpoint', 'https://docs.greatexpectations.io/docs/reference/api/checkpoint/CheckpointResult_class'],
+                 code_effects='Checkpoint veri kaynağında sorgu çalıştırır ve yapılandırılmışsa sonuç eylemlerini tetikler.')
+PRODUCTS += pair('quality', 'Soda Core', 'soda-core', label='Soda Core', how='SodaCL check dosyalarınızla Soda Core Scan API’sini yerelde çalıştırarak',
+                 config={'data_source': 'YOUR_DATA_SOURCE', 'configuration_file': 'configuration.yml', 'checks_files': ['checks.yml']}, secrets=[], packages=['soda-core>=3.3'],
+                 requirements='Kullandığınız veri kaynağının Soda paketi (ör. soda-core-postgres, soda-core-snowflake) ve configuration.yml içinde bağlantı (parolalar ortam değişkeninden).',
+                 sources=['https://docs.soda.io/soda-library/programmatic.html', 'https://docs.soda.io/soda-cl/soda-cl-overview.html'],
+                 code_effects='Kontroller veri kaynağında sorgu çalıştırır.')
+PRODUCTS += pair('quality', 'Soda Cloud', 'soda-cloud', label='Soda Cloud', how='Soda Cloud API v1 checks listesinden (son değerlendirme sonucu ve veri kümeleri)',
+                 config={'server': 'https://cloud.soda.io', 'dataset_id': ''}, secrets=['SODA_API_KEY_ID', 'SODA_API_KEY_SECRET'],
+                 requirements='Soda Cloud API anahtarı; yalnızca görebildiğiniz veri kümelerinin kontrolleri listelenir (dakikada 60 istek). Yanıt alan adları sürüme göre değişebilir.',
+                 sources=['https://docs.soda.io/soda-cloud-api-v1/checks'])
+PRODUCTS += pair('quality', 'Deequ', 'deequ', label='Deequ', how='Deequ FileSystemMetricsRepository JSON’undaki son çalışmanın metriklerini kurallarınızla karşılaştırarak (geçmiş eğilimiyle)',
+                 config={'metrics_repository_file': 'metrics.json', 'rules': [{'metrik': 'Completeness', 'kolon': 'email', 'min': 0.99}, {'metrik': 'Size', 'kolon': '*', 'min': 1}]},
+                 secrets=[], requirements='Deequ/PyDeequ ile FileSystemMetricsRepository’ye yazılmış metrikler (yerel kopya). Spark gerekmez.',
+                 sources=['https://github.com/awslabs/deequ/blob/master/src/main/scala/com/amazon/deequ/examples/metrics_repository_example.md', 'https://github.com/awslabs/python-deequ'])
+PRODUCTS += pair('quality', 'Cloud Data Quality', 'informatica-cdq', label='Informatica Cloud Data Quality', how='Cloud Data Profiling profilinin metric-store dışa aktarımından (IDMC v3 oturumu) ve kolon/metrik kurallarınızdan',
+                 config={'login_url': 'https://dm-us.informaticacloud.com', 'profiling_url': 'https://usw3-dqprofile.dm-us.informaticacloud.com', 'profile_id': 'YOUR_PROFILE_ID',
+                         'rules': [{'metrik': 'Null %', 'kolon': 'EMAIL', 'max': 1}]}, secrets=['IDMC_USER', 'IDMC_PASSWORD'],
+                 requirements='Data Profiling hizmetine erişimi olan IDMC kullanıcısı ve bölgenize uygun profiling_url. Dışa aktarım kolon adları sürüme göre değişebilir; eşleşmeyen kural “hata” olarak raporlanır.',
+                 sources=['https://docs.informatica.com/data-governance-and-quality-cloud/cloud-data-profiling/current-version/data-profiling/data-profiling/data-profiling-rest-api.html'])
+PRODUCTS += pair('quality', 'Talend Data Quality', 'talend-dq', label='Talend Data Quality (Qlik Trust Score)', how='Qlik Talend Cloud Trust Scores API’sinden (genel puan ve eksen/metrik kırılımı)',
+                 config={'tenant': 'https://YOUR_TENANT.eu.qlikcloud.com', 'dataset_ids': ['YOUR_DATASET_ID'], 'min_score': 80}, secrets=['QLIK_ACCESS_TOKEN'],
+                 requirements='dataset:read ve dataquality:read izinli belirteç; puanı hesaplanmamış veri kümeleri “hata” olarak raporlanır.',
+                 sources=['https://qlik.dev/apis/rest/data-governance/trust-scores/'])
+PRODUCTS += pair('quality', 'ONE', 'ataccama', label='Ataccama ONE', how='ONE GraphQL API’sinde izleme projesinin son işleme ait kontrol sonuç sayımlarından (dqCheckResultOverTime)',
+                 config={'server': 'https://YOUR_ONE_INSTANCE', 'monitoring_project_gid': 'YOUR_PROJECT_GID', 'catalog_item_gid': 'YOUR_ITEM_GID', 'check_gids': ['YOUR_CHECK_GID'],
+                         'max_invalid_ratio': 0.0}, secrets=['ATACCAMA_TOKEN'],
+                 requirements='ONE için OIDC erişim belirteci ve izleme projesini görme yetkisi. Sonuç adlarında invalid/failed geçen sayımlar geçersiz kabul edilir.',
+                 sources=['https://docs.ataccama.com/', 'https://community.ataccama.com/data-quality-governance-94/query-the-monitoring-report-results-at-item-level-1490'])
+
+# ---------- Governance & data catalog ----------
+PRODUCTS += pair('governance', 'Purview', 'purview', label='Microsoft Purview', how='Data Map arama sorgusu ve Atlas varlık uç noktasından (kolonlar, sahip kişiler, sınıflandırmalar, terimler)',
+                 config={'account': 'YOUR_PURVIEW_ACCOUNT', 'entity_type': 'azure_sql_table', 'keywords': '*', 'collection_id': '', 'max_assets': 200}, secrets=['PURVIEW_ACCESS_TOKEN'],
+                 requirements='https://purview.azure.net kapsamlı belirteç ve koleksiyonda Data Reader rolü. Sahipler Entra nesne kimliği olarak gelir.',
+                 sources=['https://learn.microsoft.com/en-us/rest/api/purview/datamapdataplane/discovery/query', 'https://learn.microsoft.com/en-us/rest/api/purview/datamapdataplane/entity/get'])
+PRODUCTS += pair('governance', 'Data Intelligence Cloud', 'collibra', label='Collibra', how='REST 2.0 varlık, öznitelik (Description), sorumluluk ve “Column is part of Table” ilişkilerinden',
+                 config={'server': 'https://YOUR_INSTANCE.collibra.com', 'community_id': '', 'domain_id': 'YOUR_DOMAIN_ID', 'max_assets': 200}, secrets=['COLLIBRA_USER', 'COLLIBRA_PASSWORD'],
+                 requirements='Alanı görebilen kullanıcı. Standart işletim modeli varlık/ilişki tipi kimlikleri varsayılandır; özelleştirilmiş modelde table_type, column_type, column_of_table, description alanlarını verin.',
+                 sources=['https://developer.collibra.com/rest/rest-core-api/', 'https://productresources.collibra.com/docs/collibra/latest/Content/Assets/co_asset-types.htm'])
+PRODUCTS += pair('governance', 'Data Catalog', 'alation', label='Alation', how='Integration API v2 tablo ve kolon uç noktalarından (açıklamalar)',
+                 config={'server': 'https://YOUR_INSTANCE.alationcloud.com', 'datasource_id': '', 'schema_id': 'YOUR_SCHEMA_ID', 'max_assets': 200}, secrets=['ALATION_TOKEN'],
+                 requirements='API erişim belirteci (Refresh token ile alınmış, TOKEN başlığı) ve kaynakta görüntüleme yetkisi. Sahiplik/steward alanları özel alan olduğundan bu pakette okunmaz.',
+                 sources=['https://developer.alation.com/dev/reference/gettables', 'https://developer.alation.com/dev/reference/getcolumns'])
+PRODUCTS += pair('governance', 'Dataplex', 'dataplex', label='Dataplex Universal Catalog', how='searchEntries ve entries.get (view=ALL; schema, overview ve contacts aspect’leri) ile',
+                 config={'project_id': 'YOUR_PROJECT_ID', 'query': 'type=table projectid=YOUR_PROJECT_ID', 'max_assets': 200}, secrets=['GOOGLE_ACCESS_TOKEN'],
+                 requirements='dataplex.entries.get/search izinleri (Dataplex Catalog Viewer) ve kaynak sistemde (ör. BigQuery) metadata görme yetkisi.',
+                 sources=['https://cloud.google.com/dataplex/docs/reference/rest/v1/projects.locations/searchEntries', 'https://cloud.google.com/dataplex/docs/reference/rest/v1/projects.locations.entryGroups.entries/get'])
+PRODUCTS += pair('governance', 'Atlan', 'atlan', label='Atlan', how='indexsearch (Elastic DSL) ile Table ve Column varlıklarından (açıklama, sahip kullanıcı/grup, terimler, sınıflandırmalar)',
+                 config={'server': 'https://YOUR_TENANT.atlan.com', 'qualified_name_prefix': 'default/snowflake/1700000000/DB/SCHEMA', 'max_assets': 200}, secrets=['ATLAN_API_TOKEN'],
+                 requirements='Varlıkları okuyabilen persona/purpose’a bağlı API belirteci.',
+                 sources=['https://developer.atlan.com/search/advanced/', 'https://developer.atlan.com/getting-started/'])
+PRODUCTS += pair('governance', 'OpenMetadata', 'openmetadata', label='OpenMetadata', how='/api/v1/tables uç noktasından (columns, owners, tags, domains alanlarıyla, imleçli)',
+                 config={'server': 'https://YOUR_OPENMETADATA', 'database_fqn': 'service.database', 'schema_fqn': '', 'max_assets': 200}, secrets=['OPENMETADATA_TOKEN'],
+                 requirements='Bot veya kişisel erişim belirteci; tablolarda ViewAll yetkisi.',
+                 sources=['https://docs.open-metadata.org/latest/main-concepts/metadata-standard/apis', 'https://docs.open-metadata.org/swagger.html'])
+PRODUCTS += pair('governance', 'DataHub', 'datahub', label='DataHub', how='GraphQL searchAcrossEntities ile DATASET varlıklarından (şema alanları, düzenlenmiş açıklamalar, sahipler, terimler, etiketler)',
+                 config={'server': 'https://YOUR_DATAHUB', 'platform': 'snowflake', 'query': '*', 'max_assets': 200}, secrets=['DATAHUB_TOKEN'],
+                 requirements='Kişisel erişim belirteci (GMS /api/graphql) ve varlık okuma yetkisi.',
+                 sources=['https://docs.datahub.com/docs/api/graphql/overview', 'https://docs.datahub.com/docs/graphql/queries#searchacrossentities'])
+
+# ---------- Master data management ----------
+DUP = {'similarity_threshold': 0.92, 'max_records': 20000}
+PRODUCTS += pair('mdm', 'Master Data Governance', 'sap-mdg', label='SAP Master Data Governance', how='S/4HANA iş ortağı OData servisinden (MDG ile yönetilen ana veri; $select/$filter, sayfalı)',
+                 config={'server': 'https://YOUR_S4_HOST', 'sap_client': '100', 'service': '/sap/opu/odata/sap/API_BUSINESS_PARTNER', 'entity_set': 'A_BusinessPartner',
+                         'fields': ['BusinessPartner', 'BusinessPartnerFullName', 'SearchTerm1'], 'filter': "BusinessPartnerCategory eq '2'", 'match_fields': ['BusinessPartnerFullName'],
+                         'id_field': 'BusinessPartner', **DUP}, secrets=['SAP_USER', 'SAP_PASSWORD'],
+                 requirements='İletişim kullanıcısı veya OAuth (SAP_ACCESS_TOKEN) ile iş ortağı API’sinde okuma. MDG değişiklik talepleri oluşturulmaz.',
+                 sources=['https://api.sap.com/api/API_BUSINESS_PARTNER/overview', 'https://help.sap.com/docs/SAP_MASTER_DATA_GOVERNANCE'])
+PRODUCTS += pair('mdm', 'MDM SaaS', 'informatica-mdm', label='Informatica MDM SaaS', how='Business 360 Search API’sinden (IDMC v3 oturumu, IDS-SESSION-ID, sayfalı)',
+                 config={'login_url': 'https://dm-us.informaticacloud.com', 'mdm_url': 'https://use4-mdm.dm-us.informaticacloud.com', 'entity_type': 'c360.organization', 'search': '*',
+                         'model_version': '', 'match_fields': ['c360organization.name'], 'id_field': 'businessId', **DUP}, secrets=['IDMC_USER', 'IDMC_PASSWORD'],
+                 requirements='Business 360 varlığında okuma yetkili IDMC kullanıcısı; mdm_url login yanıtındaki baseApiUrl’dir. Arama sayfa başına en fazla 10.000 kayıt döndürür.',
+                 sources=['https://onlinehelp.informatica.com/IICS/dev/b360/en/wz-b360-rest-api/Search_API.html'])
+PRODUCTS += pair('mdm', 'xDM', 'semarchy', label='Semarchy xDM', how='REST query API’sinin Golden Data (GD) görünümünden (API-Key)',
+                 config={'server': 'https://YOUR_SEMARCHY', 'data_location': 'CustomerHub', 'entity': 'Customer', 'view': 'GD', 'match_fields': ['CustomerName'], 'id_field': 'CustomerID', **DUP},
+                 secrets=['SEMARCHY_API_KEY'], requirements='Semarchy Configuration’da oluşturulmuş API anahtarı ve modelde Integration API erişimi.',
+                 sources=['https://semarchy.com/doc/semarchy-xdm/xdm/5.3/Integrate/consume-data-with-rest.html', 'https://www.semarchy.com/tutorials-content/query-data-via-rest/'])
+PRODUCTS += pair('mdm', 'Reltio', 'reltio', label='Reltio', how='entities API’sinden (tip filtresiyle, sayfalı) ve agent için varlık tipinin eşleşme/hayatta kalma yapılandırmasından',
+                 config={'environment': 'eu-360', 'tenant': 'YOUR_TENANT', 'entity_type': 'Organization', 'match_fields': ['Name'], 'id_field': 'uri', **DUP}, secrets=['RELTIO_ACCESS_TOKEN'],
+                 requirements='auth.reltio.com’dan alınmış OAuth erişim belirteci ve kiracıda okuma rolü.',
+                 sources=['https://docs.reltio.com/en/developer-resources/entities-api', 'https://docs.reltio.com/en/explore/get-going-with-match-and-merge'])
+PRODUCTS += pair('mdm', 'EBX', 'tibco-ebx', label='TIBCO EBX', how='yerleşik REST veri hizmetlerinin tablo seçiminden (sayfalı)',
+                 config={'server': 'https://YOUR_EBX', 'dataspace': 'Reference', 'dataset': 'YOUR_DATASET', 'table_path': '/root/Customers', 'match_fields': ['name'], 'id_field': 'id', **DUP},
+                 secrets=['EBX_USER', 'EBX_PASSWORD'], requirements='ebx-dataservices uygulaması dağıtılmış olmalı; kullanıcının veri alanında okuma yetkisi. Dataspace adı B önekiyle (branch) çağrılır.',
+                 sources=['https://docs.tibco.com/pub/ebx/6.2.1/doc/html/en/data_services/restapi_introduction.html'])
+PRODUCTS += pair('mdm', 'STEP', 'stibo-step', label='Stibo Systems STEP', how='STEPXML dışa aktarımındaki nesnelerden (ID, ad, öznitelik değerleri)',
+                 config={'stepxml_file': 'step_export.xml', 'object_kind': 'Product', 'match_fields': ['Name'], 'id_field': 'ID', **DUP}, secrets=[],
+                 requirements='STEP dışa aktarma profiliyle alınmış STEPXML dosyası (yerel). STEP REST API v2 başvurusu kuruluma özel olduğundan bu paket dosya üzerinden çalışır.',
+                 sources=['https://doc.stibosystems.com/'])
+
+# ---------- Privacy & data security ----------
+MASK = {'input_file': 'veri.csv', 'mask_method': 'hash', 'extra_fields': [], 'table_filter': ''}
+MASK_REQ = ' hash yöntemi için .env içinde en az 16 karakterlik MASK_SALT gerekir (aynı tuz aynı değeri aynı özete çevirir; tuzu gizli tutun).'
+PRODUCTS += pair('privacy', 'Purview Information Protection', 'purview-ip', label='Microsoft Purview Information Protection', how='Purview Data Map varlığının kolon sınıflandırmalarından ve duyarlılık etiketlerinden',
+                 config={'account': 'YOUR_PURVIEW_ACCOUNT', 'entity_type': 'azure_sql_table', 'qualified_name': 'mssql://YOUR_SERVER/YOUR_DB/dbo/YOUR_TABLE', **MASK},
+                 secrets=['PURVIEW_ACCESS_TOKEN', 'MASK_SALT'], requirements='Koleksiyonda Data Reader rolü.' + MASK_REQ,
+                 sources=['https://learn.microsoft.com/en-us/rest/api/purview/datamapdataplane/entity/get-by-unique-attribute', 'https://learn.microsoft.com/en-us/purview/concept-classification'])
+PRODUCTS += pair('privacy', 'Data Discovery', 'onetrust', label='OneTrust Data Discovery', how='OneTrust Data Discovery tarama sonuçlarının dışa aktarım dosyasından (kolon ve sınıflandırma başlıkları ayarlanabilir)',
+                 config={'results_file': 'onetrust_sonuclari.csv', 'column_header': 'Column Name', 'classification_header': 'Classification', 'table_header': 'Table Name', **MASK},
+                 secrets=['MASK_SALT'], requirements='Data Discovery sonuçlarının CSV/JSON dışa aktarımı. OneTrust’un herkese açık bir Data Discovery REST başvurusu bulunmadığından paket dosya üzerinden çalışır.' + MASK_REQ,
+                 sources=['https://www.onetrust.com/products/data-discovery/'])
+PRODUCTS += pair('privacy', 'BigID', 'bigid', label='BigID', how='BigID veri kataloğunun nesne kolon ayrıntılarından (sınıflandırıcı öznitelikleri)',
+                 config={'server': 'https://YOUR_BIGID', 'object_name': 'YOUR_DATASOURCE.YOUR_SCHEMA.YOUR_TABLE', **MASK}, secrets=['BIGID_TOKEN', 'MASK_SALT'],
+                 requirements='BigID oturum/sistem belirteci (Authorization başlığı) ve katalog okuma yetkisi. Yanıt alan adları sürüme göre değişebilir.' + MASK_REQ,
+                 sources=['https://developer.bigid.com/api/bigid-api-metadata-export-tutorial/'])
+PRODUCTS += pair('privacy', 'Immuta', 'immuta', label='Immuta', how='veri kaynağının veri sözlüğündeki kolon etiketlerinden (/dictionary)',
+                 config={'server': 'https://YOUR_TENANT.immuta.com', 'data_source_name': 'YOUR_DATA_SOURCE', **MASK}, secrets=['IMMUTA_API_KEY', 'MASK_SALT'],
+                 requirements='Immuta API anahtarı ve veri kaynağını görme yetkisi.' + MASK_REQ,
+                 sources=['https://documentation.immuta.com/policy-as-code/v1-api/connect-data/data-dictionary/'])
+PRODUCTS += pair('privacy', 'Privacera', 'privacera', label='Privacera', how='Privacera’nın Apache Ranger etiket deposundan (tags/resources, tags/tags, tagresourcemaps)',
+                 config={'ranger_url': 'https://YOUR_PRIVACERA_RANGER', 'tag_service': 'privacera_tag', 'resource_service': 'privacera_hive', **MASK}, secrets=['RANGER_USER', 'RANGER_PASSWORD', 'MASK_SALT'],
+                 requirements='Ranger Admin’de etiket servisini okuyabilen kullanıcı (Privacera Discovery etiketleri buraya yazar).' + MASK_REQ,
+                 sources=['https://ranger.apache.org/apidocs/resource_TagREST.html', 'https://docs.privacera.com/'])
+PRODUCTS += pair('privacy', 'Guardium', 'guardium', label='IBM Guardium', how='Guardium REST API online_report ile sınıflandırıcı sonuç raporundan (rapor adı ve alan başlıkları ayarlanabilir)',
+                 config={'server': 'https://YOUR_GUARDIUM:8443', 'report_name': 'Classifier Results', 'report_parameters': {}, 'column_field': 'Column Name',
+                         'classification_field': 'Rule Description', 'table_field': 'Table Name', 'fetch_size': 5000, **MASK}, secrets=['GUARDIUM_TOKEN', 'MASK_SALT'],
+                 requirements='Guardium’da kayıtlı OAuth istemcisiyle alınmış belirteç ve rapora erişim. Sınıflandırıcı sonuçlarını içeren raporun adını ve alan başlıklarını kendi kurulumunuza göre yazın.' + MASK_REQ,
+                 sources=['https://www.ibm.com/docs/en/SSMPHH_12.x/com.ibm.guardium.doc/reports/work_with_api_calls.html', 'https://github.com/IBM/guardium-data-protection-apis'])
+
+# ---------- Data observability ----------
+OBS = {'volume_tolerance': 0.3, 'max_null_rate': 0.05}
+PRODUCTS += pair('observability', 'Monte Carlo', 'montecarlo', label='Monte Carlo', how='GraphQL getEvents sorgusundan (hacim, alan sağlığı ve tazelik olayları; tablo ve durum)',
+                 config={'days': 7, 'event_type_pattern': '(?i)volume|size|row|null|field|freshness|unchanged', **OBS}, secrets=['MCD_ID', 'MCD_TOKEN'],
+                 requirements='Monte Carlo API anahtarı (x-mcd-id/x-mcd-token) ve olayları görebilen rol. Olay tipi adları hesabınıza göre değişebilir; event_type_pattern ile süzün.',
+                 sources=['https://docs.getmontecarlo.com/docs/using-the-api', 'https://pypi.org/project/pycarlo/'])
+PRODUCTS += pair('observability', 'Bigeye', 'bigeye', label='Bigeye', how='tabloların metrik bilgisi uç noktasından (metrik tipi, kolon, son çalışma değeri ve durumu)',
+                 config={'server': 'https://app.bigeye.com', 'table_ids': [], **OBS}, secrets=['BIGEYE_API_KEY'],
+                 requirements='Bigeye kişisel API anahtarı (Authorization: apikey …) ve tablolarda görüntüleme yetkisi. Yanıt alan adları sürüme göre değişebilir.',
+                 sources=['https://docs.bigeye.com/', 'https://pypi.org/project/bigeye-cli/'])
+PRODUCTS += pair('observability', 'Data Streams Monitoring', 'datadog-dsm', label='Datadog Data Streams Monitoring', how='Metrics Query API’sinden (data_streams.kafka.lag_messages/lag_seconds ve payload_size sayımı; konu ve tüketici grubu bazında)',
+                 config={'site': 'datadoghq.eu', 'env': 'prod', 'hours': 24, 'max_lag_seconds': 300, **OBS}, secrets=['DD_API_KEY', 'DD_APP_KEY'],
+                 requirements='timeseries_query kapsamlı uygulama anahtarı ve API anahtarı; servislerde Data Streams Monitoring etkin olmalı.',
+                 sources=['https://docs.datadoghq.com/data_streams/metrics_and_tags/', 'https://docs.datadoghq.com/api/latest/metrics/#query-timeseries-points'])
+PRODUCTS += pair('observability', 'Acceldata', 'acceldata', label='Acceldata', how='ADOC Catalog API’sinin varlık başına son politika yürütmelerinden (rulesWithLatestExecution)',
+                 config={'server': 'https://YOUR_TENANT.acceldata.app', 'asset_uids': ['YOUR_DATASOURCE.YOUR_DB.YOUR_SCHEMA.YOUR_TABLE'], **OBS},
+                 secrets=['ACCELDATA_ACCESS_KEY', 'ACCELDATA_SECRET_KEY'],
+                 requirements='ADOC’ta oluşturulmuş API erişim/gizli anahtarı ve varlıklarda görüntüleme yetkisi.',
+                 sources=['https://docs.acceldata.io/products/adoc/api/catalog', 'https://docs.acceldata.io/api'])
+PRODUCTS += pair('observability', 'Elementary', 'elementary', label='Elementary', how='ambardaki Elementary şemasının data_monitoring_metrics (row_count, null_count, null_percent) ve elementary_test_results tablolarından',
+                 config={'destination': 'snowflake', 'server': 'https://YOUR_ACCOUNT.snowflakecomputing.com', 'warehouse': 'COMPUTE_WH', 'role': 'YOUR_READ_ROLE', 'timeout_seconds': 120,
+                         'elementary_schema': 'ANALYTICS.ELEMENTARY', 'days': 14, **OBS}, secrets=['SNOWFLAKE_ACCESS_TOKEN'],
+                 requirements='Elementary dbt paketinin yazdığı şemada SELECT (destination: snowflake/bigquery/databricks/redshift/postgres; bağlantı alanları ilgili ambarınki).',
+                 sources=['https://docs.elementary-data.com/data-tests/anomaly-detection-tests/volume-anomalies', 'https://docs.elementary-data.com/guides/modules-overview/dbt-package'])

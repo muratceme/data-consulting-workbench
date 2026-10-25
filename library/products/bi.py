@@ -22,7 +22,7 @@ from pathlib import Path
 from urllib.parse import quote, urlencode, urlsplit
 
 import native
-from products.core import (NativeError, agent_task, bearer, driver, ident, journal, name, names, need_list, need_text, odata_metadata, opt_int,
+from products.core import (NativeError, WebSocket, agent_task, bearer, driver, ident, journal, name, names, need_list, need_text, odata_metadata, opt_int,
                            plan_json, receipt, required, rows_md, secret, summarize, write_artifact, write_csv, NAME)
 
 
@@ -82,74 +82,6 @@ def qlik_cloud_export(cfg, out, factory):
 
 
 # ---------- Qlik Sense Enterprise (Engine API over WebSocket) ----------
-class WebSocket:
-    """Minimal RFC 6455 client (text frames, client masking, ping/pong) for the Qlik Engine JSON-RPC API."""
-    def __init__(self, url, headers, timeout=60):
-        parts = urlsplit(url)
-        if parts.scheme != 'wss':
-            raise NativeError('Engine adresi wss:// olmalı.')
-        raw = socket.create_connection((parts.hostname, parts.port or 443), timeout=timeout)
-        self.sock = ssl.create_default_context().wrap_socket(raw, server_hostname=parts.hostname)
-        key = base64.b64encode(os.urandom(16)).decode()
-        path = parts.path + ('?' + parts.query if parts.query else '')
-        lines = [f'GET {path} HTTP/1.1', f'Host: {parts.hostname}', 'Upgrade: websocket', 'Connection: Upgrade',
-                 f'Sec-WebSocket-Key: {key}', 'Sec-WebSocket-Version: 13'] + [f'{k}: {v}' for k, v in headers.items()]
-        self.sock.sendall(('\r\n'.join(lines) + '\r\n\r\n').encode())
-        response = b''
-        while b'\r\n\r\n' not in response:
-            chunk = self.sock.recv(4096)
-            if not chunk:
-                raise NativeError('Engine WebSocket el sıkışması tamamlanmadı.')
-            response += chunk
-        head, self.buffer = response.split(b'\r\n\r\n', 1)
-        accept = base64.b64encode(hashlib.sha1((key + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11').encode()).digest()).decode()
-        if not head.startswith(b'HTTP/1.1 101') or accept.encode() not in head:
-            raise NativeError('Engine WebSocket bağlantısını reddetti (yetki/virtual proxy).')
-
-    def _read(self, n):
-        while len(self.buffer) < n:
-            chunk = self.sock.recv(65536)
-            if not chunk:
-                raise NativeError('Engine bağlantısı kapandı.')
-            self.buffer += chunk
-        data, self.buffer = self.buffer[:n], self.buffer[n:]
-        return data
-
-    def send(self, text, opcode=1):
-        payload = text.encode() if isinstance(text, str) else text
-        mask = os.urandom(4)
-        n = len(payload)
-        head = bytes([0x80 | opcode]) + (bytes([0x80 | n]) if n < 126 else bytes([0x80 | 126]) + struct.pack('>H', n) if n < 65536 else bytes([0x80 | 127]) + struct.pack('>Q', n))
-        self.sock.sendall(head + mask + bytes(b ^ mask[i % 4] for i, b in enumerate(payload)))
-
-    def recv(self):
-        message = b''
-        while True:
-            b1, b2 = self._read(2)
-            opcode, length = b1 & 0x0F, b2 & 0x7F
-            if length == 126:
-                length = struct.unpack('>H', self._read(2))[0]
-            elif length == 127:
-                length = struct.unpack('>Q', self._read(8))[0]
-            if length > 64 * 1024 * 1024:
-                raise NativeError('Engine yanıtı boyut sınırını aştı.')
-            data = self._read(length)
-            if opcode == 9:
-                self.send(data, 10)
-                continue
-            if opcode == 8:
-                raise NativeError('Engine bağlantıyı kapattı.')
-            message += data
-            if b1 & 0x80:
-                return message.decode('utf-8')
-
-    def close(self):
-        try:
-            self.sock.close()
-        except OSError:
-            pass
-
-
 def ws_connect(url, headers):
     return WebSocket(url, headers)
 
