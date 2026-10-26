@@ -149,12 +149,9 @@ em { font-style: italic; }
 .btn-soft[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); box-shadow: none; }
 
 .list-status { margin-top: 16px; font-size: 13.5px; color: var(--muted); }
-.planned-hint { padding: 28px; border-radius: var(--r-lg); background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); }
-.planned-hint h3 { font: 400 28px/1.15 var(--serif); margin-bottom: 8px; }
-.planned-hint p { color: var(--muted); max-width: 60ch; }
-.planned-hint ul { display: grid; margin: 18px 0 20px; }
-.planned-hint li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 16px; padding: 10px 0; border-top: 1px solid var(--line); }
-.planned-hint li span { color: var(--muted); font-size: 14px; }
+.hint { padding: 28px; border-radius: var(--r-lg); background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); }
+.hint h3 { font: 400 28px/1.15 var(--serif); margin-bottom: 8px; }
+.hint p { color: var(--muted); max-width: 60ch; }
 .text-btn { font-weight: 500; color: var(--accent); }
 .text-btn:hover { text-decoration: underline; text-underline-offset: 4px; }
 
@@ -182,7 +179,6 @@ em { font-style: italic; }
 .cov-name { font: 400 22px/1.2 var(--serif); color: var(--ink); }
 .status { justify-self: start; padding: 4px 11px; border-radius: 999px; font-size: 12.5px; font-weight: 500; white-space: nowrap; }
 .status.ready { background: var(--ok-soft); color: var(--ok); }
-.status.planned { background: var(--surface-2); color: var(--muted); }
 .cov.open { background: color-mix(in srgb, var(--surface-2) 45%, transparent); }
 .cov.open .plus::after { transform: translate(-50%, -50%) rotate(0deg); }
 .cov-detail { display: grid; gap: 22px; padding: 0 28px 28px; }
@@ -294,7 +290,7 @@ em { font-style: italic; }
 @media (min-width: 701px) { .row-foot { display: contents; } }
 
 /* ---------- Aurora type and surfaces ---------- */
-:is(.brand, .hero h1, .stats dd, .section-head h2, .planned-hint h3, .steps h3, .cov-name, .faq-q, .cta-inner h2) { font-weight: 600; }
+:is(.brand, .hero h1, .stats dd, .section-head h2, .hint h3, .steps h3, .cov-name, .faq-q, .cta-inner h2) { font-weight: 600; }
 :is(.hero h1, .section-head h2, .cta-inner h2) em { font-style: normal; }
 body { background:
   radial-gradient(60vw 50vh at 85% -10%, rgba(124,196,255,.18), transparent 70%),
@@ -313,7 +309,7 @@ body { background:
 .btn-icon { background: rgba(7,11,24,.08); }
 .section-head h2 { letter-spacing: -.045em; }
 .section-head h2 em { color: var(--accent); }
-.list, .coverage-list, .planned-hint { background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); }
+.list, .coverage-list, .hint { background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); }
 .cov-name { font-weight: 500; font-size: 18px; letter-spacing: -.02em; }
 .search { background: var(--surface); }
 .tag { background: var(--accent-soft); color: var(--accent); }

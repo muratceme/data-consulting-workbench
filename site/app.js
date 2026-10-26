@@ -1,4 +1,4 @@
-// datawork — catalog of code blocks and AI agents. Ready packages are the list; planned work lives on the coverage map.
+// datawork — catalog of code blocks and AI agents. The list holds every package; the coverage map groups them by domain and product.
 document.documentElement.classList.add('js');
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
@@ -162,28 +162,20 @@ function renderBands(animate = false) {
     try { await navigator.clipboard.writeText(commandsOf(ready.find(t => t.id === b.dataset.copy))); toast('Komutlar kopyalandı'); }
     catch { toast('Kopyalanamadı. Komutu seçip kopyalayabilirsin.'); }
   });
-  renderPlannedHint(list);
+  renderHint(list);
   syncHash();
 }
 
-// When the search finds nothing ready, say honestly where it sits on the roadmap.
-function renderPlannedHint(list) {
-  const q = norm(query.trim()), hint = $('#plannedHint');
-  if (!q && platform !== SAVED) { hint.hidden = true; return; }
-  if (platform === SAVED && !list.length) {
-    hint.hidden = false;
+// Empty states for a search with no match and for an empty saved list.
+function renderHint(list) {
+  const q = query.trim(), hint = $('#hint');
+  if (list.length || (!q && platform !== SAVED)) { hint.hidden = true; return; }
+  hint.hidden = false;
+  if (platform === SAVED && !q) {
     hint.innerHTML = '<h3>Henüz kaydettiğin paket yok.</h3><p>Bir paketi açıp “Kaydet”e bastığında burada listelenir. Kayıtlar yalnızca bu tarayıcıda tutulur.</p>';
     return;
   }
-  if (list.length) { hint.hidden = true; return; }
-  const products = [];
-  domains.forEach(d => d.tools.forEach(tool => tool.products.forEach(p => {
-    if (q.split(/\s+/).every(w => norm([d.name, tool.name, p.name].join(' ')).includes(w))) products.push({d, tool, p});
-  })));
-  hint.hidden = false;
-  hint.innerHTML = `<h3>“${esc(query.trim())}” için hazır paket yok.</h3>` + (products.length
-    ? `<p>Kapsam haritasında ${products.length} planlı ürünle eşleşiyor. Bunlar için API yolu ve çıktı biçimi doğrulanmadan paket yayımlanmaz.</p><ul>${products.slice(0, 8).map(({d, tool, p}) => `<li><strong>${esc(p.name)}</strong><span>${esc(tool.name)} · ${esc(d.name)} · planlı</span></li>`).join('')}</ul>`
-    : '<p>Ne hazır paketlerde ne de kapsam haritasında eşleşen bir şey var. Platform adıyla ya da teslim biçimiyle (QVF, PBIX, refresh) aramayı dene.</p>')
+  hint.innerHTML = `<h3>“${esc(q)}” için paket bulunamadı.</h3><p>Platform adıyla ya da teslim biçimiyle (QVF, PBIX, refresh) aramayı dene.</p>`
     + '<button type="button" class="text-btn" id="clearSearch">Aramayı temizle</button>';
   $('#clearSearch').onclick = () => { query = ''; $('#search').value = ''; renderBands(true); $('#search').focus(); };
 }
@@ -203,10 +195,10 @@ function renderCoverage() {
         <span class="cov-name">${esc(d.name)}</span>
         <span class="cov-fact">${d.tools.length}</span>
         <span class="cov-fact">${products}</span>
-        <span class="status ${count ? 'ready' : 'planned'}">${count ? `${count} hazır paket` : 'Planlı'}</span>
+        <span class="status ready">${count} hazır paket</span>
         ${plus}
       </button>
-      ${open ? `<div class="cov-detail" id="c-${d.id}"><p>${esc(d.description)}. ${count ? `Bu alanda ${count} hazır paket var; diğer ürünler geliştirme planında.` : 'Bu alanda henüz hazır paket yok. Ürünler geliştirme planında; doğrulanmadan indirme verilmez.'}</p><ul class="cov-tools">${toolList}</ul>${count ? `<div><button type="button" class="btn btn-primary btn-small" data-show-domain="${d.id}">${count} hazır paketi göster</button></div>` : ''}</div>` : ''}
+      ${open ? `<div class="cov-detail" id="c-${d.id}"><p>${esc(d.description)}. Bu alanda ${count} hazır paket var; her ürünün bir kod bloğu ve bir agent’ı bulunur.</p><ul class="cov-tools">${toolList}</ul><div><button type="button" class="btn btn-primary btn-small" data-show-domain="${d.id}">${count} hazır paketi göster</button></div></div>` : ''}
     </div>`;
   }).join('');
   $$('[data-domain]').forEach(b => b.onclick = () => {
@@ -251,10 +243,10 @@ Done. PASS=20 WARN=0 ERROR=0 SKIP=0 TOTAL=21`],
   ['İş yarıda kesilirse ne olur?', 'Çalışma kimlikleri run-state.json dosyasına yazılır. Job ve refresh paketleri --resume-from ile aynı işi yeni iş başlatmadan takip eder. Yazma çağrıları otomatik tekrarlanmaz.',
     'PowerShell · Databricks job', `> python native.py --execute --resume-from output/run-001/run-state.json --output output/continued-001
 # config ile eşleşen job_id ve run_id okunur; yeni iş başlatılmaz`],
-  ['Haritadaki planlı ürünler ne zaman gelir?', 'API yolu, ürün sürümü, yetkiler ve çıktı biçimi doğrulandığında. Doğrulanmamış bir uç nokta için paket üretilmez; bu yüzden planlı ürünlerde indirme bağlantısı yok.',
-    'integration-plan.json', `"status": "partial",
-"note": "API/SDK yolu ve format sürüme göre doğrulanacak."`],
-  ['Neye ihtiyacım var?', 'Python 3.10 veya üzeri; ek kütüphane kurulmaz. Platform paketleri için platform erişimi, agent’lar için bir model (bilgisayarında Ollama ya da OpenAI/Anthropic anahtarı) gerekir. Ayrıntılar her paketin README dosyasında.',
+  ['Paketler gerçek hesaplarda denendi mi?', 'Hayır. Platform paketleri ve agent’lar yerel bir HTTP sözleşme sunucusuna karşı test edilir; agent yanıtları testte sahte modelden gelir. Kendi hesabında önce --plan ve --dry-run ile ne olacağını gör; ilk gerçek çalıştırmayı test ortamında yap.',
+    'PowerShell · önce dene', `> python native.py --plan
+# network_calls: 0 · çıktı klasörü oluşturulmaz`],
+  ['Neye ihtiyacım var?', 'Python 3.10 veya üzeri. Yerel bloklar ek kütüphane istemez; resmi sürücü kullanan platform paketleri requirements.txt ile gelir. Platform paketleri için platform erişimi, agent’lar için bir model (bilgisayarında Ollama ya da OpenAI/Anthropic anahtarı) gerekir. Ayrıntılar her paketin README dosyasında.',
     'run.bat', `@echo off
 cd /d "%~dp0"
 python native.py --plan
@@ -312,8 +304,7 @@ try {
     agents: ready.filter(t => t.kind === 'agent').length,
     platforms: new Set(ready.map(t => t.platform)).size,
     domains: domains.length,
-    products: domains.reduce((n, d) => n + d.tools.reduce((m, t) => m + t.products.length, 0), 0),
-    readyDomains: new Set(ready.map(t => t.domain.id)).size
+    products: domains.reduce((n, d) => n + d.tools.reduce((m, t) => m + t.products.length, 0), 0)
   };
   $$('[data-count]').forEach(el => { if (el.dataset.count in counts) el.textContent = counts[el.dataset.count].toLocaleString('tr'); });
 
@@ -332,7 +323,7 @@ try {
 } catch (error) {
   $('#listStatus').textContent = 'Katalog yüklenemedi.';
   $('#bands').innerHTML = '';
-  $('#plannedHint').hidden = false;
-  $('#plannedHint').innerHTML = '<div><h3>Paket listesi açılmadı.</h3><p>catalog.json okunamadı. Yerelde çalıştırıyorsan önce <code>npm run build</code>, sonra <code>npm start</code> komutunu çalıştırıp sayfayı yenile.</p></div>';
+  $('#hint').hidden = false;
+  $('#hint').innerHTML = '<div><h3>Paket listesi açılmadı.</h3><p>catalog.json okunamadı. Yerelde çalıştırıyorsan önce <code>npm run build</code>, sonra <code>npm start</code> komutunu çalıştırıp sayfayı yenile.</p></div>';
   $('#coverage').innerHTML = '';
 }
